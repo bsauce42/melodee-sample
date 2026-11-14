@@ -43,6 +43,7 @@
 #include "melodee/model/note_edits.h"
 #include "melodee/model/chords.h"
 #include "melodee/model/project_file.h"
+#include "melodee/model/keygroup_track.h"
 #include "melodee/model/generators.h"
 #include "melodee/model/smf.h"
 #include "melodee/model/lane_value.h"
@@ -8217,6 +8218,125 @@ void instrument_zones_r3() {
     }
 }
 
+void keygroup_tracks() {
+    // A KEYGROUP track's sampler is keyed: MIDI note k plays its instrument at key k (+ the pad's pitch, its tune).
+    {
+        ZoneRig r;
+        r.part(zone_tone(220, 0.5f, 44100)); r.part(zone_tone(880, 0.5f, 44100));
+        auto& low = r.zone(0); low.low_key = 0; low.high_key = 65; low.root = 60;
+        auto& high = r.zone(1); high.low_key = 66; high.high_key = 127; high.root = 72;
+        r.build();
+        r.engine->set_keyed(true);
+        r.engine->note_on(60, 127);
+        CHECK(std::fabs(zone_hz(r.run(8000), 800, 8000) - 220) < 8);
+        r.engine->silence();
+        r.engine->note_on(65, 127);
+        CHECK(std::fabs(zone_hz(r.run(8000), 800, 8000) - 220 * std::pow(2.0, 5 / 12.0)) < 8);
+        r.engine->silence();
+        r.engine->note_on(72, 127); // the other zone, at its own pitch
+        CHECK(std::fabs(zone_hz(r.run(8000), 800, 8000) - 880) < 12);
+    }
+    { // the pad's pitch is the track's tune: note 60 sounds key 72
+        ZoneRig r;
+        r.part(zone_tone(220, 0.5f, 44100)); r.part(zone_tone(880, 0.5f, 44100));
+        auto& low = r.zone(0); low.low_key = 0; low.high_key = 65; low.root = 60;
+        auto& high = r.zone(1); high.low_key = 66; high.high_key = 127; high.root = 72;
+        r.pad.pitch = 12;
+        r.build();
+        r.engine->set_keyed(true);
+        r.engine->note_on(60, 127);
+        CHECK(std::fabs(zone_hz(r.run(8000), 800, 8000) - 880) < 12);
+    }
+    { // a note let go under the sustain pedal ends when the pedal comes up, not before (its key turned once)
+        ZoneRig r;
+        r.part(zone_tone(440, 0.5f, 88200));
+        r.zone(0).root = 60;
+        r.pad.release = 0;
+        r.build(PadPlay::Gate);
+        r.engine->set_keyed(true);
+        r.engine->control(64, 127);
+        r.engine->note_on(64, 127);
+        r.run(2000);
+        r.engine->note_off(64);
+        CHECK(peak_of(r.run(4000), 2000) > 0.1f); // held by the pedal
+        r.engine->control(64, 0);
+        r.run(8000);
+        CHECK(peak_of(r.run(2000), 0) < 0.01f);
+    }
+    // A keygroup track keeps its kind, its instrument on pad 1 and its MIDI notes through a file.
+    {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        std::strcpy(project->samples[4].path, "/card/Keys/Piano.sfz");
+        auto& tr = project->tracks[2];
+        tr.engine = EngineKind::Keygroup; tr.set_name("PIANO");
+        tr.pads[0].sample = 4; tr.pads[0].pitch = -3;
+        Event e; e.tick = 24; e.key = 67; e.velocity = 90;
+        bank->at[2][0].add(e);
+        auto bytes = save_project(*project, *bank);
+        auto back = std::make_unique<Project>();
+        auto back_bank = std::make_unique<PatternBank>();
+        CHECK(load_project(bytes, *back, *back_bank).empty());
+        const auto& t2 = back->tracks[2];
+        CHECK(t2.engine == EngineKind::Keygroup && std::string(t2.name) == "PIANO" && t2.pads[0].sample == 4 && t2.pads[0].pitch == -3);
+        CHECK(back_bank->at[2][0].events.size() == 1 && back_bank->at[2][0].events[0].key == 67);
+    }
+    // Instrument pads on kits become keygroup tracks: a kit of more moves the pad, its notes (60 + their semitones),
+    // its mute and its clips to the first empty track; a kit of nothing else turns into the keygroup itself.
+    {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        std::strcpy(project->samples[0].path, "/card/Kick.wav");
+        std::strcpy(project->samples[1].path, "/card/Keys/Piano.sfz");
+        std::strcpy(project->samples[2].path, "/card/Projects/Song.xpj#1.3"); // an MPC pad of layers
+        auto& kit = project->tracks[0];
+        load_sound(kit, EngineKind::Sampler, 0); kit.set_name("BEAT");
+        kit.mix.level = 90;
+        kit.pads[0].sample = 0;
+        kit.pads[3].sample = 1; kit.pads[3].pitch = 2;
+        kit.set_pad_muted(3, true);
+        auto note = [](uint32_t tick, unsigned pad, int pitch) { Event e; e.tick = tick; e.key = uint8_t(sampler_first_note + pad); e.pitch = int8_t(pitch); return e; };
+        bank->at[0][0].add(note(0, 0, 0)); bank->at[0][0].add(note(96, 3, 5)); bank->at[0][0].add(note(192, 3, -2));
+        bank->at[0][1].add(note(0, 3, 0));
+        Clip clip; clip.track = 0; clip.pattern = 0; clip.bar = 0; clip.bars = 4;
+        project->song.place(clip);
+        auto& lone = project->tracks[1];
+        load_sound(lone, EngineKind::Sampler, 0); lone.set_name("PAD");
+        lone.pads[5].sample = 2;
+        bank->at[1][2].add(note(48, 5, 0));
+        auto moved = migrate_instrument_pads(*project, *bank);
+        CHECK(moved.moved == 2 && moved.left == 0);
+        // the kit keeps its kick and its note; the piano went to track 3 (the first empty)
+        CHECK(project->tracks[0].engine == EngineKind::Sampler && !project->tracks[0].pads[3].used() && !project->tracks[0].pad_muted(3));
+        CHECK(bank->at[0][0].events.size() == 1 && bank->at[0][0].events[0].key == sampler_first_note && bank->at[0][1].events.empty());
+        const auto& piano = project->tracks[2];
+        CHECK(piano.engine == EngineKind::Keygroup && std::string(piano.name) == "BEAT" && piano.pads[0].sample == 1 && piano.pads[0].pitch == 2);
+        CHECK(piano.pad_muted(0) && piano.mix.level == 90);
+        const auto& keys = bank->at[2][0].events;
+        CHECK(keys.size() == 2 && keys[0].tick == 96 && keys[0].key == 65 && keys[0].pitch == 0 && keys[1].key == 58);
+        CHECK(bank->at[2][1].events.size() == 1 && bank->at[2][1].events[0].key == 60);
+        bool clip_moved = false;
+        for (unsigned c = 0; c < project->song.count; ++c) clip_moved |= project->song.clips[c].track == 2 && project->song.clips[c].bars == 4;
+        CHECK(clip_moved);
+        // the lone pad's kit is now its keygroup, in its place and name, its note at 60
+        const auto& pad = project->tracks[1];
+        CHECK(pad.engine == EngineKind::Keygroup && std::string(pad.name) == "PAD" && pad.pads[0].sample == 2 && !pad.pads[5].used());
+        CHECK(bank->at[1][2].events.size() == 1 && bank->at[1][2].events[0].key == 60);
+        CHECK(migrate_instrument_pads(*project, *bank).moved == 0); // once is all
+    }
+    { // every track in use: the pad stays on its kit
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        std::strcpy(project->samples[0].path, "/card/Kick.wav");
+        std::strcpy(project->samples[1].path, "/card/Keys/Piano.sfz");
+        for (auto& t : project->tracks) load_sound(t, EngineKind::Sampler, 0);
+        project->tracks[0].pads[0].sample = 0;
+        project->tracks[0].pads[1].sample = 1;
+        auto moved = migrate_instrument_pads(*project, *bank);
+        CHECK(moved.moved == 0 && moved.left == 1 && project->tracks[0].pads[1].used());
+    }
+}
+
 void sampler_zones() {
     // A zone voice's short loop (SamplerEngine::zone_run_plain()) sounds exactly as play_zone()'s full one: looped and
     // one-shot zones, a loop until released, a filtered zone, chords, bends gliding and keys let go.
@@ -14443,6 +14563,7 @@ int main() {
     parked_load();
     sample_rates_p2();
     sampler_zones();
+    keygroup_tracks();
     instrument_zones_r3();
     live_pad_values();
     note_pitches();
