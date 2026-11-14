@@ -146,6 +146,24 @@ class Mpc3Export(unittest.TestCase):
         self.assertEqual([(e["time"], e["note"]["note"]) for e in clips["Piano"]], [(960, 65)])
         self.assertEqual([(e["time"], e["note"]["note"]) for e in clips["Drum 001"]], [(0, 36)])
 
+    def test_keygroup_track(self):
+        # A KEYGROUP track: an MPC keygroup track of its instrument, its notes their MIDI notes (36 and 37 here).
+        with tempfile.TemporaryDirectory() as folder:
+            keys = Path(folder) / "Piano"
+            keys.mkdir()
+            (keys / "low.wav").write_bytes(wav(44100))
+            (keys / "Piano.sfz").write_text("<region> sample=low.wav lokey=0 hikey=127 pitch_keycenter=48\n")
+            report, out = self.export(folder, "K:0=FOLDER/Piano/Piano.sfz")
+            self.assertIn("exported tracks=0 keygroups=1", report)
+            _, data = read(out / "Beat.xpj")
+        track = data["tracks"][0]
+        self.assertEqual((track["name"], track["program"]["type"]), ("Drum 001", 1))
+        group = track["program"]["drum"]["instruments"][0]
+        self.assertEqual((group["lowNote"], group["highNote"], group["layersv"][0]["rootNote"]), (0, 127, 49))
+        second = next(s["value"] for s in data["sequences"] if s["key"] == 1)
+        events = next(c["value"] for c in second["trackClipMaps"][0] if c["key"] == "Drum 001")["eventList"]["events"]
+        self.assertEqual([(e["time"], e["note"]["note"]) for e in events], [(0, 36), (960, 37)])
+
     def test_pitched_wav_pad(self):
         # A WAV pad its notes play 7 semitones up (16 Levels, Keys): one keygroup over every key, its own pitch at 60.
         with tempfile.TemporaryDirectory() as folder:

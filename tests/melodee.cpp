@@ -8288,7 +8288,10 @@ void keygroup_tracks() {
         auto bank = std::make_unique<PatternBank>();
         std::strcpy(project->samples[0].path, "/card/Kick.wav");
         std::strcpy(project->samples[1].path, "/card/Keys/Piano.sfz");
-        std::strcpy(project->samples[2].path, "/card/Projects/Song.xpj#1.3"); // an MPC pad of layers
+        std::strcpy(project->samples[1].name, "PIANO");
+        std::strcpy(project->samples[2].path, "/card/Keys/Strings.exs");
+        std::strcpy(project->samples[3].path, "/card/Projects/Song.xpj#1.3"); // an MPC drum pad of layers: a kit's
+        project->tracks[0].pads[9].sample = 3;
         auto& kit = project->tracks[0];
         load_sound(kit, EngineKind::Sampler, 0); kit.set_name("BEAT");
         kit.mix.level = 90;
@@ -8308,9 +8311,10 @@ void keygroup_tracks() {
         CHECK(moved.moved == 2 && moved.left == 0);
         // the kit keeps its kick and its note; the piano went to track 3 (the first empty)
         CHECK(project->tracks[0].engine == EngineKind::Sampler && !project->tracks[0].pads[3].used() && !project->tracks[0].pad_muted(3));
+        CHECK(project->tracks[0].pads[9].sample == 3); // the MPC drum pad stays
         CHECK(bank->at[0][0].events.size() == 1 && bank->at[0][0].events[0].key == sampler_first_note && bank->at[0][1].events.empty());
         const auto& piano = project->tracks[2];
-        CHECK(piano.engine == EngineKind::Keygroup && std::string(piano.name) == "BEAT" && piano.pads[0].sample == 1 && piano.pads[0].pitch == 2);
+        CHECK(piano.engine == EngineKind::Keygroup && std::string(piano.name) == "PIANO" && piano.pads[0].sample == 1 && piano.pads[0].pitch == 2);
         CHECK(piano.pad_muted(0) && piano.mix.level == 90);
         const auto& keys = bank->at[2][0].events;
         CHECK(keys.size() == 2 && keys[0].tick == 96 && keys[0].key == 65 && keys[0].pitch == 0 && keys[1].key == 58);
@@ -8323,6 +8327,20 @@ void keygroup_tracks() {
         CHECK(pad.engine == EngineKind::Keygroup && std::string(pad.name) == "PAD" && pad.pads[0].sample == 2 && !pad.pads[5].used());
         CHECK(bank->at[1][2].events.size() == 1 && bank->at[1][2].events[0].key == 60);
         CHECK(migrate_instrument_pads(*project, *bank).moved == 0); // once is all
+    }
+    { // a file saved since keygroup tracks keeps an instrument on a kit pad where it was put (KGVR: no migration)
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        std::strcpy(project->samples[1].path, "/card/Keys/Piano.sfz");
+        load_sound(project->tracks[0], EngineKind::Sampler, 0);
+        project->tracks[0].pads[0].sample = 1;
+        Event e; e.key = uint8_t(sampler_first_note); e.pitch = 7;
+        bank->at[0][0].add(e);
+        auto bytes = save_project(*project, *bank);
+        auto back = std::make_unique<Project>();
+        auto back_bank = std::make_unique<PatternBank>();
+        CHECK(load_project(bytes, *back, *back_bank).empty());
+        CHECK(back->tracks[0].engine == EngineKind::Sampler && back->tracks[0].pads[0].sample == 1 && !back->tracks[1].used());
     }
     { // every track in use: the pad stays on its kit
         auto project = std::make_unique<Project>();

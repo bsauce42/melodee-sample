@@ -11,13 +11,14 @@
 // (Tracks, Pad Bank held, Song's lanes) or Push on Tracks, the track goes straight
 // there and, once made, back to the page it was picked on (B1 BACK goes back
 // empty): a kit or a MIDI track at once, a plug-in once one is picked from the
-// card, a kit from Samples once its first sample loads. B1 CANCEL at the top of
-// Samples leaves that kit empty again.
+// card, a kit from Samples once its first sample loads, a keygroup once its
+// instrument (or WAV) loads from Samples. B1 CANCEL at the top of Samples
+// leaves that kit or keygroup empty again.
 namespace melodee {
 
 class Context;
 
-enum class NewChoice : uint8_t { Plugin, Kit, Samples, Record, MidiOut, MidiUsb, MidiAllUsb, Count };
+enum class NewChoice : uint8_t { Plugin, Kit, Samples, Keygroup, Record, MidiOut, MidiUsb, MidiAllUsb, Count };
 constexpr unsigned new_choice_count = unsigned(NewChoice::Count);
 
 // Where the carousel is drawn at `now`: the card picked, or on the way there (an ease-out over carousel_ms

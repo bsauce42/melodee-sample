@@ -370,7 +370,7 @@ void Shell::press(Button b, bool pressed) {
             break;
         }
         if (!ui.shift) {
-            bool kit = context_.track().engine == EngineKind::Sampler;
+            bool kit = context_.track().sampled(); // a kit's or a keygroup's sounds are files
             context_.open(kit ? PageId::Samples : PageId::Sounds);
             if (kit && library_) library_->rescan();
         }

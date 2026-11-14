@@ -523,6 +523,7 @@ void wave_picture(Paint& p, const Snapshot& s, const StagePage& page) {
     float wx = px + 13, ww = pw - 26, wy = top + 20, wh = zone::picture_h - 40;
     char label[4];
     pad_label(t.last_pad, label);
+    if (t.engine == EngineKind::Keygroup) label[0] = 0; // one sound: no pad to name
     if (pad.used() && s.sample.instrument) { instrument_picture(p, s, page.kind); return; }
     if (page.kind == StageKind::Layers && pad.used()) { layers_picture(p, s); return; }
     if (!pad.used() || !s.sample.frames) {
@@ -796,6 +797,7 @@ void new_track_picture(Paint& p, const Snapshot& s) {
     cards[size_t(NewChoice::Plugin)] = {Icon::Plug, "SYNTH", "Plugin", "VST CLAP LV2"};
     cards[size_t(NewChoice::Kit)] = {Icon::Pads, "KIT", "Empty", "NO SAMPLES"};
     cards[size_t(NewChoice::Samples)] = {Icon::Folder, "KIT", "Card", "SAMPLES"};
+    cards[size_t(NewChoice::Keygroup)] = {Icon::Keyboard, "KEYGROUP", "Card", "INSTRUMENT"};
     cards[size_t(NewChoice::Record)] = {Icon::Mic, "KIT", "Input", "RECORD"};
     cards[size_t(NewChoice::MidiOut)] = {Icon::Din, "MIDI", "Out jack", channel};
     cards[size_t(NewChoice::MidiUsb)] = {Icon::Din, "MIDI", "USB-C", channel};
@@ -980,6 +982,7 @@ HeaderItem kit_pill(const Snapshot& s) {
     char label[4];
     pad_label(t.last_pad, label);
     auto name = pad_name(s, t.last_pad % sampler_pads, false);
+    if (t.engine == EngineKind::Keygroup) return pill(name.isNotEmpty() ? name_case(name) : juce::String("EMPTY"), colour_of(s)); // one sound: no pad to name
     return pill(juce::String(label) + (name.isNotEmpty() ? dot + name_case(name) : dot + "EMPTY"), colour_of(s));
 }
 

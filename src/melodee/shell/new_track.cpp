@@ -90,6 +90,12 @@ void make_new_track(Context& c, NewChoice choice) {
         c.track().set_name("KIT");
         stage_go(ui, 0, 0); // TRIM
     };
+    auto keygroup = [&] { // one sound across the keys: its instrument (or WAV) from Samples
+        c.load_sound(t, EngineKind::Keygroup, 0);
+        c.track().set_name("KEYS");
+        c.track().last_pad = 0;
+        stage_go(ui, 0, 0); // TRIM (ZONES once an instrument is on it)
+    };
     auto midi = [&](unsigned port) {
         c.load_sound(t, EngineKind::Midi, 0);
         c.set_param(t, midi_track::Port, int(port));
@@ -99,6 +105,7 @@ void make_new_track(Context& c, NewChoice choice) {
     switch (choice) {
     case NewChoice::Kit: kit(); break;
     case NewChoice::Samples: kit(); break;
+    case NewChoice::Keygroup: keygroup(); break;
     case NewChoice::Record: kit(); break;
     case NewChoice::MidiOut: midi(0); break;
     case NewChoice::MidiUsb: midi(1); break;
@@ -108,7 +115,7 @@ void make_new_track(Context& c, NewChoice choice) {
     edit.track_after = std::make_unique<TrackState>(track_state(c, t));
     c.edits.push(std::move(edit));
     c.dirty = true;
-    if (choice == NewChoice::Samples) { // Sample Select: the first sample loaded goes back (new_track_landed)
+    if (choice == NewChoice::Samples || choice == NewChoice::Keygroup) { // Sample Select: the first sample loaded goes back (new_track_landed)
         c.open(PageId::Samples);
         ui.new_kit = int8_t(t); // CANCEL there leaves it empty
         if (c.library) c.library->rescan();
@@ -129,7 +136,7 @@ void samples_cancel(Context& c) {
     auto& ui = c.ui;
     unsigned t = ui.track % track_count;
     const auto& tr = c.project.tracks[t];
-    bool bare = tr.engine == EngineKind::Sampler && std::none_of(tr.pads.begin(), tr.pads.end(), [](const auto& p) { return p.used(); });
+    bool bare = tr.sampled() && std::none_of(tr.pads.begin(), tr.pads.end(), [](const auto& p) { return p.used(); });
     const Edit* last = c.edits.latest();
     if (ui.new_kit == int8_t(t) && bare && last && last->track == t && !std::strcmp(last->what.c_str(), "New track"))
         c.undo(); // the kit made for its first sample: empty again

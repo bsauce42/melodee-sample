@@ -27,7 +27,7 @@ inline bool stage_opens_edit(const Track& t, unsigned key) {
 // A kit whose last pad holds a multisampled instrument (an .sfz, a keygroup, an .sf2 preset, an MPC drum program's
 // pad "<file>#<pad>"): its zones are its layers, picked by key and velocity, so its Stage has no LAYERS (TRIM is ZONES).
 inline bool stage_instrument(const Project& p, const Track& t) {
-    if (t.engine != EngineKind::Sampler) return false;
+    if (!t.sampled()) return false;
     const auto& pad = t.pads[t.last_pad % sampler_pads];
     return pad.used() && p.samples[pad.sample % sample_slots].instrument();
 }

@@ -9,7 +9,7 @@ using Kind = Binding::Kind;
 namespace {
 UndoScope pad_scope(const UiState& ui, const Project& project) {
     const auto& t = project.tracks[ui.track % track_count];
-    if (t.engine != EngineKind::Sampler) return {};
+    if (!t.sampled()) return {};
     return {UndoScope::Kind::Pad, uint8_t(ui.track % track_count), uint16_t(t.last_pad % sampler_pads)};
 }
 UndoScope of(UndoScope::Kind kind, const UiState& ui, unsigned index = 0) { return {kind, uint8_t(ui.track % track_count), uint16_t(index)}; }

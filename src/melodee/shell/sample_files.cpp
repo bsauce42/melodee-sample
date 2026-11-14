@@ -177,10 +177,12 @@ void Context::load_layer(const std::string& path, const std::string& name) {
 
 void Context::load_file(const std::string& path, const std::string& name, bool next_empty) {
     auto& t = track();
-    if (t.engine != EngineKind::Sampler) return;
+    if (!t.sampled()) return;
+    const bool keyed = t.engine == EngineKind::Keygroup; // one sound, pad 1: no layers of its own, no next pad
     if (library) { stop_preview(); library->preview(""); } // the pad plays the file now, not its preview too
+    if (keyed && ui.layer_load > 0) { ui.layer_load = -1; notice("Keygroup: one sound"); return; }
     if (ui.layer_load > 0 && !next_empty) { load_layer(path, name); return; }
-    int kit = next_empty ? next_empty_pad(t.last_pad) : int(t.last_pad % sampler_pads);
+    int kit = keyed ? 0 : next_empty ? next_empty_pad(t.last_pad) : int(t.last_pad % sampler_pads);
     if (kit < 0) { notice("No empty pad"); return; }
     int slot = sample_slot(path, name);
     if (slot < 0) { notice("Samples full (64)"); return; }
@@ -206,12 +208,14 @@ void Context::load_file(const std::string& path, const std::string& name, bool n
         sound.layer_play = fresh.layer_play;
         landing_pads.push_back({ui.track, uint8_t(kit), uint16_t(slot)});
     }
-    edit.what = pad_text("Load", unsigned(kit));
+    if (keyed && !keep) { sound.mono = false; sound.play = PadPlay::Gate; } // a keygroup's WAV across the keys: held, chords
+    edit.what = keyed ? "Load " + name : pad_text("Load", unsigned(kit));
     restore_pad(ui.track, unsigned(kit), edit.pad_after);
     t.last_pad = uint8_t(kit);
     edits.push(std::move(edit));
     dirty = true;
-    notice(keep ? pad_text("Loaded", unsigned(kit)) + ", settings kept" : pad_text("Loaded", unsigned(kit)));
+    const std::string loaded = keyed ? "Loaded " + name : pad_text("Loaded", unsigned(kit));
+    notice(keep ? loaded + ", settings kept" : loaded);
     new_track_landed(*this); // a track SAMPLES made: back to the page it was picked on
 }
 

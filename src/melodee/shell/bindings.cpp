@@ -151,7 +151,7 @@ MotionParam motion_param(const Track& track, int lane, const Project* project) {
     }
     if (int which = pad_param_of(unsigned(param)); which >= 0) { // a kit pad's own value
         auto p = PadParam(which);
-        if (track.engine != EngineKind::Sampler) return {};
+        if (!track.sampled()) return {};
         return {&pad_infos[which], pad_param_value(track.pads[lane_pad(lane) % sampler_pads], p)};
     }
     if (unsigned(param) < motion_fx_base) {
@@ -264,7 +264,7 @@ int binding_lane(const Track& track, const Binding& b) {
     if (b.kind == Kind::Param) return motion_lane(unsigned(b.id));
     if (b.kind == Kind::ModWheel) return motion_lane(motion_wheel);
     if (b.kind == Kind::PitchBend) return motion_lane(motion_bend);
-    if (track.engine != EngineKind::Sampler) return -1;
+    if (!track.sampled()) return -1;
     for (unsigned p = 0; p < pad_param_count; ++p) // a kit pad's own value: its lane on the last pad hit
         if (pad_kind(PadParam(p)) == b.kind && (b.kind != Kind::PadSend || p == unsigned(PadParam::SendA) + unsigned(b.id) % bus_count)
             && (b.kind != Kind::PadCloud || cloud_id(PadParam(p)) == b.id))
@@ -366,7 +366,7 @@ std::array<Binding, 3> pad_page_bindings(const Project& project, const Track& tr
         return {handle_card(Kind::PadStart, 0, h.start, 0, last, view), handle_card(Kind::PadEnd, 0, h.end, h.start + 1, h.frames, view),
                 handle_card(Kind::PadLoopPoint, 0, std::min(h.loop, last), h.start, std::max(h.start + 1, last), view)};
     }
-    if (track.engine != EngineKind::Sampler) return {};
+    if (!track.sampled()) return {};
     switch (page) { // Melodee's kit-wide pages, with or without a pad
     case PageId::FilterPage: return {param(track, sampler::Filter), param(track, sampler::Resonance), param(track, sampler::FilterType)};
     case PageId::FollowPage: return {param(track, sampler::Follow), param(track, sampler::FollowHow), param(track, sampler::PitchHow)};

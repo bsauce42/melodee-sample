@@ -6,6 +6,7 @@
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/mpc_project.h"
 #include "melodee/shell/mpc3_export.h"
+#include "melodee/shell/new_track.h"
 #include "melodee/model/project_file.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/sample_library.h"
@@ -682,6 +683,20 @@ void on_stage(Snapshot& s, unsigned track, StageKind kind) {
     on_stage(s, track, f.at.group, f.at.sub);
     if (t.engine == EngineKind::Plugin) plugin_panel(s, t.plugin, t.plugin == 0 ? "Melodee Poly" : "Plug-in", "VST3", true, PluginStatus::Ready);
 }
+// Track 4 as a KEYGROUP track on Stage's `kind`: the .exs choir (or the break as one WAV across the keys) on its one
+// sound, pad 1.
+void keygroup_scene(Snapshot& s, StageKind kind, bool wav = false) {
+    auto& t = s.project.tracks[3];
+    t.engine = EngineKind::Keygroup;
+    t.pads[0] = t.pads[8];
+    for (unsigned n = 1; n < sampler_pads; ++n) t.pads[n] = PadSound {};
+    t.last_pad = 0;
+    t.set_name(wav ? "BREAK" : "CHOIR");
+    if (wav) s.sample = break_sample();
+    else choir_pad(s, 0);
+    on_stage(s, 3, kind);
+    s.playing = true;
+}
 // Stage B1 on track 1 (Melodee Poly, plug-in entry 0): its presets, `programs` of them (0: its face instead).
 void stage_plugin(Snapshot& s, StageKind kind, bool presets) {
     on_stage(s, 0, kind); s.playing = true;
@@ -822,11 +837,12 @@ const Preview previews[] {
     {"stagemidicc", [](Shell&, Snapshot& s) { stage_midi(s, 0, 2); }},
     {"stagemidiccshift", [](Shell&, Snapshot& s) { stage_midi(s, 0, 2); s.ui.shift = true; }},
     {"stagemidiarp", [](Shell&, Snapshot& s) { stage_midi(s, 1, 0); }},
-    {"stageemptysynth", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = 0; }},
-    {"stageemptykit", [](Shell&, Snapshot& s) { on_stage(s, 12, 1, 0); s.ui.new_pick = 2; s.ui.new_for = 12; }}, // picked from Tracks: B1 BACK
-    {"stageemptymidi", [](Shell&, Snapshot& s) { on_stage(s, 12, 2, 0); s.ui.new_pick = 5; }},
+    {"stageemptysynth", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewChoice::Plugin); }},
+    {"stageemptykit", [](Shell&, Snapshot& s) { on_stage(s, 12, 1, 0); s.ui.new_pick = uint8_t(NewChoice::Samples); s.ui.new_for = 12; }}, // picked from Tracks: B1 BACK
+    {"stageemptymidi", [](Shell&, Snapshot& s) { on_stage(s, 12, 2, 0); s.ui.new_pick = uint8_t(NewChoice::MidiUsb); }},
+    {"stageemptykeygroup", [](Shell&, Snapshot& s) { on_stage(s, 12, 1, 0); s.ui.new_pick = uint8_t(NewChoice::Keygroup); }}, // a keygroup: its instrument from Samples
     {"stageemptyslide", [](Shell&, Snapshot& s) { // the wheel just moved: Card on its way to the middle
-         on_stage(s, 12, 1, 0); s.ui.new_pick = 2; s.ui.new_pick_from = 1; s.now = 1000; s.ui.new_pick_at = 960;
+         on_stage(s, 12, 1, 0); s.ui.new_pick = uint8_t(NewChoice::Samples); s.ui.new_pick_from = 1; s.now = 1000; s.ui.new_pick_at = 960;
      }},
     {"tracks", [](Shell&, Snapshot& s) { // Pad Bank tapped twice; each track's share of a block (roadmap P2), one heavy
         s.ui.page = PageId::Tracks; s.ui.track = 2; s.playing = true;
@@ -1324,6 +1340,19 @@ const Preview previews[] {
          auto& pad = s.project.tracks[3].pads[8]; pad.start = 18000; pad.end = 150000;
          s.ui.turning = 0; s.ui.turned_at = s.now;
      }},
+    // Keygroup tracks: Stage on the one sound, B1 ZONES (or TRIM on a WAV), TUNE, AMP ENV, FILTER, FILT ENV; B2 PLAY,
+    // ARP, CHORD; B3 the track's MIX, SENDS, FX.
+    {"kgzones", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Trim); }},
+    {"kgtrim", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Trim, true); }},
+    {"kgtune", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Tune); }},
+    {"kgampenv", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::AmpEnv); }},
+    {"kgfilter", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Filter); }},
+    {"kgfiltenv", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::FiltEnv); }},
+    {"kgplay", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Play, true); }},
+    {"kgarp", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Arp); }},
+    {"kgmix", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Mix); }},
+    {"kgsends", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Sends); }},
+    {"kgfx", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Fx); }},
     {"triminstrument", [](Shell&, Snapshot& s) { // ZONES (TRIM's place) on a pad holding an .exs: a tile a zone over its keys, the one in hand named
          on_stage(s, 3, 0, 0); s.playing = true; choir_pad(s, 8);
          s.ui.turning = 0; s.ui.turned_at = s.now;
@@ -2541,7 +2570,8 @@ static int mpc_import(const char* path) {
 // pad P of track T (from 0), "T.P^N" plays that pad's notes N semitones up, "T.P^A,B,C" each next note at the next,
 // "T@P=PATH" makes track T a plug-in track with PATH as its print of pattern P (the prints all in one folder),
 // "T.P~W" warps that pad at W (1 Seq, 50..200 %), "S:T.P@B+N" puts a song clip of pattern P on track T's lane at bar B
-// (from 0) for N bars, "L:T.P=TICKS" sets pattern P of track T that long (96 a quarter).
+// (from 0) for N bars, "L:T.P=TICKS" sets pattern P of track T that long (96 a quarter), "K:T=PATH" makes track T a
+// keygroup of PATH (its notes kept, as MIDI notes).
 static int mpc3_export(const char* path, const char* folder, const char* name, int changes, char** change) {
     std::ifstream file(path, std::ios::binary);
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)), {});
@@ -2562,6 +2592,19 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
         unsigned t = 0, n = 0;
         int used = 0;
         unsigned bar = 0, bars = 0;
+        if (std::sscanf(change[c], "K:%u=%n", &t, &used) == 1 && used && t < track_count) {
+            unsigned slot = 0;
+            while (slot < sample_slots && project->samples[slot].used()) ++slot;
+            if (slot == sample_slots) { std::printf("error=no free slot\n"); return 1; }
+            std::snprintf(project->samples[slot].path, sizeof(SampleRef::path), "%s", change[c] + used);
+            std::snprintf(project->samples[slot].name, sizeof(SampleRef::name), "%s", std::filesystem::path(change[c] + used).stem().string().c_str());
+            auto& track = project->tracks[t];
+            track.engine = EngineKind::Keygroup;
+            track.pads = {};
+            track.pads[0].sample = uint16_t(slot);
+            track.last_pad = 0;
+            continue;
+        }
         unsigned ticks = 0;
         if (std::sscanf(change[c], "L:%u.%u=%u", &t, &n, &ticks) == 3 && t < track_count && n < pattern_count && ticks) {
             patterns->at[t][n].length = ticks;

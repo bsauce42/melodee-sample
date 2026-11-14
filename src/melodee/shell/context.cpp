@@ -939,7 +939,7 @@ void Context::name_marker(unsigned bar) {
 
 void Context::save_sound() {
     auto& t = track();
-    if (t.engine == EngineKind::None || t.engine == EngineKind::Sampler || !store) return;
+    if (t.engine == EngineKind::None || t.sampled() || !store) return; // a kit's or keygroup's sounds are files
     open_name(NameTarget::Sound, t.name, name_length - 1, true);
 }
 
@@ -1008,7 +1008,7 @@ void Context::finish_name() {
     }
     case NameTarget::Sound: {
         auto& t = track();
-        if (!store || t.engine == EngineKind::None || t.engine == EngineKind::Sampler) break;
+        if (!store || t.engine == EngineKind::None || t.sampled()) break;
         t.set_name(text.c_str());
         store->save_sound(text, melodee::save_sound(sound_of(t, text.c_str())));
         break;
@@ -1028,7 +1028,7 @@ void Context::finish_name() {
 
 void Context::toggle_favourite() {
     auto& t = track();
-    if (t.engine == EngineKind::Sampler || t.engine == EngineKind::None) return;
+    if (t.sampled() || t.engine == EngineKind::None) return;
     unsigned sound = t.preset;
     if (ui.page == PageId::Sounds) {
         std::array<uint16_t, max_listed> list {};
@@ -1139,7 +1139,7 @@ void Context::flush_motion() {
 
 // A kit pad's own value turned while recording: a lane of that pad (the last hit).
 void Context::record_pad_motion(PadParam which, int value) {
-    if (track().engine != EngineKind::Sampler) return;
+    if (!track().sampled()) return;
     record_motion(motion_lane(motion_pad_param(which), track().last_pad % sampler_pads), value);
 }
 

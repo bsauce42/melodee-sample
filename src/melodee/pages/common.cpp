@@ -87,6 +87,7 @@ ui::Icon engine_icon(EngineKind kind) {
     case EngineKind::Sampler: return ui::Icon::Pads;
     case EngineKind::Midi: return ui::Icon::Din;
     case EngineKind::Plugin: return ui::Icon::Plug;
+    case EngineKind::Keygroup: return ui::Icon::Keyboard;
     default: return ui::Icon::None;
     }
 }
