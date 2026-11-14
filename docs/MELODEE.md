@@ -1192,8 +1192,8 @@ the file holds, to the bit.
   a file a pass, into `Samples/Expansions/<its title>` (from its
   `Expansion.xml`), then opens that folder; a file already there at its size
   is kept, so installing again only finishes what was left. B3 PREVIEW on a
-  program plays its own preview, `[Previews]/<program file>.mp3`, when the
-  expansion has one (JUCE's MP3 decoder); else a keygroup plays the zone
+  program plays its own preview, `[Previews]/<program file>.mp3` or `.wav`,
+  when the expansion has one; else a keygroup plays the zone
   nearest middle C and a kit stays quiet.
 - **Banks** (kit tracks only): one bank of a kit's sixteen pads as a file.
   **Save Bank** is Shift + Sample Select on Samples: the Name sheet (the kit's
