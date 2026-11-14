@@ -2532,7 +2532,7 @@ static int mpc_import(const char* path) {
 // pad P of track T (from 0), "T.P^N" plays that pad's notes N semitones up, "T.P^A,B,C" each next note at the next,
 // "T@P=PATH" makes track T a plug-in track with PATH as its print of pattern P (the prints all in one folder),
 // "T.P~W" warps that pad at W (1 Seq, 50..200 %), "S:T.P@B+N" puts a song clip of pattern P on track T's lane at bar B
-// (from 0) for N bars.
+// (from 0) for N bars, "L:T.P=TICKS" sets pattern P of track T that long (96 a quarter).
 static int mpc3_export(const char* path, const char* folder, const char* name, int changes, char** change) {
     std::ifstream file(path, std::ios::binary);
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)), {});
@@ -2553,6 +2553,11 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
         unsigned t = 0, n = 0;
         int used = 0;
         unsigned bar = 0, bars = 0;
+        unsigned ticks = 0;
+        if (std::sscanf(change[c], "L:%u.%u=%u", &t, &n, &ticks) == 3 && t < track_count && n < pattern_count && ticks) {
+            patterns->at[t][n].length = ticks;
+            continue;
+        }
         if (std::sscanf(change[c], "S:%u.%u@%u+%u", &t, &n, &bar, &bars) == 4) {
             Clip clip;
             clip.track = uint8_t(t);

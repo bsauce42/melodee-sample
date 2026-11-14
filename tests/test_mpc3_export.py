@@ -223,6 +223,25 @@ class Mpc3Export(unittest.TestCase):
         self.assertEqual(audio[0][0], 2 * 2880)
         self.assertEqual(sum(length for _, length in audio), 2 * 2880)
 
+    def test_tracks_follow_the_sequence(self):
+        # A one-bar pattern in a two-bar sequence plays twice, written out; every track as long as the sequence
+        # (MPC 3's drum tracks were two bars of their own and looped them).
+        with tempfile.TemporaryDirectory() as folder:
+            # Drum 001's pattern 1 cut to 384 ticks (its notes at 0 and 96 stay); the plug-in track's pattern 1 is 768
+            prints = Path(folder) / "Song Prints"
+            prints.mkdir()
+            float_wav(prints / "T02 A2.wav", 44100, 2, 100)
+            _, out = self.export(folder, "L:0.1=384", f"1@1={prints}/T02 A2.wav", "L:1.1=768")
+            _, data = read(out / "Beat.xpj")
+        second = next(s["value"] for s in data["sequences"] if s["key"] == 1)
+        self.assertEqual(second["lengthPulses"], 7680)
+        clip = next(c["value"] for c in second["trackClipMaps"][0] if c["key"] == "Drum 001")
+        self.assertEqual([(e["time"], e["note"]["note"]) for e in clip["eventList"]["events"]], [(0, 36), (960, 37), (3840, 36), (4800, 37)])
+        self.assertEqual(clip["endPulses"], 7680)
+        for track in data["tracks"]:
+            if track["program"]["type"] in (0, 1, 6):
+                self.assertEqual((track["length"], track["lengthFollowsSequenceLength"]), (0, True))
+
     def test_warped_pad(self):
         with tempfile.TemporaryDirectory() as folder:
             _, out = self.export(folder, "0.0~1")
