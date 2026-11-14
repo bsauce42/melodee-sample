@@ -483,11 +483,11 @@ void layers_picture(Paint& p, const Snapshot& s) {
             p.fill(x1 - 1, ly - 7, 2, 14, in_hand ? knob_shade(s.ui.track, 2) : colour::mid);
         } else { // a dot a sounding layer: Cycle lights this one's turn, Random every one at half
             const float dx = 12, dw = dx * float(used - 1), x0 = lane_x + lane_w / 2 - dw / 2;
+            const bool cycle = pad.layer_play == LayerPlay::Cycle || pad.layer_play == LayerPlay::CycleHold;
             for (unsigned k = 0; k < used; ++k) {
                 bool mine = k == turn[n];
-                auto ink = pad.layer_play == LayerPlay::Cycle ? (mine ? (in_hand ? c : colour::sec) : colour::dim)
-                                                              : (in_hand ? c : colour::sec).withAlpha(0.5f);
-                p.circle(x0 + dx * k, ly, mine || pad.layer_play == LayerPlay::Random ? 3.5f : 2.5f, ink);
+                auto ink = cycle ? (mine ? (in_hand ? c : colour::sec) : colour::dim) : (in_hand ? c : colour::sec).withAlpha(0.5f);
+                p.circle(x0 + dx * k, ly, mine || !cycle ? 3.5f : 2.5f, ink);
             }
         }
     }

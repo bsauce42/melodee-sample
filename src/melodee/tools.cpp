@@ -770,6 +770,7 @@ const Preview previews[] {
     {"stagefxempty", [](Shell&, Snapshot& s) { on_stage(s, 0, StageKind::Fx); s.playing = true; }},
     {"stagekitlayers", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 1); s.sample = break_sample(); s.playing = true; layered_pad(s, LayerPlay::Velocity); }},
     {"stagekitlayersshift", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 1); s.sample = break_sample(); layered_pad(s, LayerPlay::Random); s.ui.shift = true; }},
+    {"stagekitlayershold", [](Shell&, Snapshot& s) { on_stage(s, 3, 0, 1); s.sample = break_sample(); layered_pad(s, LayerPlay::RandomHold); s.ui.shift = true; }}, // Note Repeat keeps one layer a hold
     {"stagekitmix", [](Shell&, Snapshot& s) { on_stage(s, 3, StageKind::PadMix); s.sample = break_sample(); s.playing = true; s.project.tracks[3].pads[8].pan = 12; }},
     {"stagekitsends", [](Shell&, Snapshot& s) { // a kit's SENDS: the last pad's own, 30 % into bus A
          on_stage(s, 3, StageKind::Sends); s.sample = break_sample(); s.playing = true;

@@ -44,7 +44,9 @@ has no **LAYERS** page (see [Sampled instruments](#sampled-instruments)).
 - **K1**: the layer. **K2** / **K3**: the lowest and highest velocity that
   plays it.
 - **SHIFT** + **K1**: how a hit picks layers: **Velocity** (every layer in
-  range plays), **Cycle** (the next layer each hit) or **Random**.
+  range plays), **Cycle** (the next layer each hit), **Random**, **Cycle hold**
+  or **Random hold**. The hold choices pick like Cycle and Random, but while **NOTE REPEAT** repeats the pad, every repeat plays the
+  layer the first one picked until you let go.
 - **SHIFT** + **K2** / **K3**: the layer's tune and level.
 - **SHIFT** + **B1** (**LOAD**): load a sample onto the layer. **SHIFT** +
   **B2** (**CLEAR**): remove the layer.

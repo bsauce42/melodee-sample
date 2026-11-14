@@ -11388,6 +11388,37 @@ void pad_layers_p3() {
             if (slots.size() == 1) ++seen[slots[0] - 4u];
         }
         CHECK(seen[0] > 5 && seen[1] > 5 && seen[2] > 5);
+        // Random hold: by hand as Random; held under Note Repeat, every hit the layer the first picked, until let go.
+        PadSound held = pad;
+        held.layer_play = LayerPlay::RandomHold;
+        e.set_pad(2, held);
+        std::array<unsigned, 3> loose {};
+        for (unsigned n = 0; n < 60; ++n) { auto slots = hit(e, 64); if (slots.size() == 1) ++loose[slots[0] - 4u]; }
+        CHECK(loose[0] > 5 && loose[1] > 5 && loose[2] > 5);
+        std::array<unsigned, 3> kept_first {};
+        for (unsigned hold = 0; hold < 30; ++hold) {
+            e.hold_layer(2, true);
+            auto first = hit(e, 64);
+            CHECK(first.size() == 1);
+            for (unsigned n = 0; n < 8; ++n) CHECK(hit(e, 64) == first); // the hold keeps it
+            e.hold_layer(2, false);
+            if (first.size() == 1) ++kept_first[first[0] - 4u];
+        }
+        CHECK(kept_first[0] > 2 && kept_first[1] > 2 && kept_first[2] > 2); // each hold picks again
+        PadSound cycled = pad; // Cycle hold: each hold the next layer, kept while held
+        cycled.layer_play = LayerPlay::CycleHold;
+        cycled.layers[0] = PadLayer {};
+        cycled.layers[1].low = cycled.layers[1].high = 127;
+        e.set_pad(2, cycled);
+        e.hold_layer(2, true);
+        auto one = hit(e, 10);
+        CHECK(hit(e, 10) == one && hit(e, 10) == one);
+        e.hold_layer(2, false);
+        e.hold_layer(2, true);
+        auto two = hit(e, 10);
+        CHECK(two != one && hit(e, 10) == two);
+        e.hold_layer(2, false);
+        CHECK(std::string(layer_play_name(LayerPlay::CycleHold)) == "CYCLE HOLD" && int(LayerPlay::RandomHold) == 4); // saved: appended
     }
     {   // A layer's offsets go over the pad's; its region and loop point are its own.
         PadSound one = pad;
