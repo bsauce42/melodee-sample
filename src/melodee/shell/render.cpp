@@ -102,6 +102,7 @@ void Context::resample_pad(unsigned kit) {
 void Context::mixdown(const std::string& name) {
     if (!library) return;
     if (ui.export_kind == 4) { export_midi(*this, name); return; } // roadmap P4: a MIDI file, written at once
+    if (ui.export_kind == 5) { export_mpc3(name); return; }        // an MPC 3 project, on a thread of its own
     if (ui.rendering) { notice("Rendering already"); return; }
     if (!project.song.length()) { notice("Mixdown: the song is empty"); return; }
     if (library->card().empty()) { notice("Mixdown: no card"); return; }

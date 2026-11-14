@@ -490,6 +490,7 @@ public:
     void resample_pad(unsigned kit);                      // the pad: the pattern rendered onto it
     void resample_song(unsigned kit);                     // roadmap P3: Resample on Song, the song rendered onto the pad
     void mixdown(const std::string& name);                // Song's export, Audio mixdown, after the Name sheet
+    void export_mpc3(const std::string& name);            // Song's export, MPC 3 project (shell/song_export.cpp)
     void render_tick(uint32_t at);                        // a render ended: transport back as it was
     bool render_started = false;
     uint32_t render_since = 0;

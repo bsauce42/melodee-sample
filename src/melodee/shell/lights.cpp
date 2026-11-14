@@ -198,6 +198,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
             } else if (!loaded->note.empty()) context_.notice(loaded->note);
             if (context_.kit_from == loaded->path) context_.kit_from.clear();
         }
+        if (auto note = store_->take_note()) context_.notice(*note); // an MPC 3 export's outcome
         if (leave_after_save >= 0 && int(store_->saves()) >= leave_after_save && !(library_ && library_->loops_busy())) { // loop files too
             if (!off_after_save) leave.store(true);
             else if (!ui_.exit_saved) { ui_.exit_saved = true; off_saved_at = now; } // the sheet says it is saved, then off

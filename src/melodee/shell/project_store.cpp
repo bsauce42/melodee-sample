@@ -7,6 +7,7 @@
 #include "melodee/model/project_file.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/mpc_project.h"
+#include "melodee/shell/mpc3_export.h"
 #include "runtime/app.h"
 #include <algorithm>
 #include <cstdlib>
@@ -77,6 +78,9 @@ std::string card_folder_of(const std::string& card, const std::string& root, con
 
 ProjectStore::ProjectStore() = default;
 ProjectStore::~ProjectStore() {
+    if (exporter.joinable()) exporter.join();
+    std::string* n;
+    while (notes.pop(n)) delete n;
     Request* r;
     while (requests.pop(r)) delete r;
     LoadedProject* l;
@@ -89,6 +93,48 @@ void ProjectStore::save(const std::string& path, std::vector<uint8_t> bytes, con
     push(new Request {Request::Kind::Save, path, std::move(bytes), from});
 }
 void ProjectStore::load(const std::string& path) { push(new Request {Request::Kind::Load, path, {}}); }
+void ProjectStore::export_mpc3(const std::string& path, std::vector<uint8_t> bytes, const std::string& name) {
+    push(new Request {Request::Kind::ExportMpc3, name, std::move(bytes), path});
+}
+std::unique_ptr<std::string> ProjectStore::take_note() {
+    std::string* n = nullptr;
+    return std::unique_ptr<std::string>(notes.pop(n) ? n : nullptr);
+}
+
+// The export on a thread of its own, the request's bytes moved to it: read back as the project, written beside the
+// projects as Melodee/MPC 3/<name>.xpj and its data folder. One at a time.
+void ProjectStore::start_export(Request& r) {
+    auto note = [this](std::string text) { auto* n = new std::string(std::move(text)); if (!notes.push(n)) delete n; };
+    if (export_busy.load(std::memory_order_acquire)) { note("MPC 3: an export runs"); return; }
+    if (root.empty()) { note("MPC 3: no card"); return; }
+    if (exporter.joinable()) exporter.join();
+    std::string clean;
+    for (char ch : r.path) clean += std::string("/\\:\"*?<>|").find(ch) != std::string::npos ? '-' : ch;
+    if (clean.empty()) clean = "Project";
+    const fs::path folder = fs::path(root).parent_path() / "MPC 3";
+    std::error_code error;
+    std::string name = clean;
+    for (unsigned n = 2; n < 1000 && fs::exists(folder / (name + ".xpj"), error); ++n) name = clean + " " + std::to_string(n);
+    export_busy.store(true, std::memory_order_release);
+    exporter = std::thread([this, bytes = std::move(r.bytes), from = r.from, folder, name, note] {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        auto prints = std::make_unique<PrintTable>();
+        std::string why = load_project(bytes, *project, *bank, nullptr, nullptr, prints.get());
+        Mpc3Export report;
+        if (why.empty()) why = export_mpc3_project(*project, *bank, folder.string(), name, report, prints.get(), prints_folder(from));
+        if (!why.empty()) note("MPC 3: " + why);
+        else {
+            std::string text = "MPC 3/" + name;
+            const unsigned left = report.skipped_tracks + (report.missing ? 1 : 0);
+            if (report.skipped_tracks) text += ", " + std::to_string(report.skipped_tracks) + (report.skipped_tracks == 1 ? " track left out" : " tracks left out");
+            if (report.missing) text += ", " + std::to_string(report.missing) + " files missing";
+            if (!left && report.skipped_pads) text += ", " + std::to_string(report.skipped_pads) + " sounds left out";
+            note(text);
+        }
+        export_busy.store(false, std::memory_order_release);
+    });
+}
 void ProjectStore::duplicate(const std::string& path) { push(new Request {Request::Kind::Duplicate, path, {}}); }
 void ProjectStore::remove(const std::string& path) { push(new Request {Request::Kind::Remove, path, {}}); }
 void ProjectStore::new_folder() { push(new Request {Request::Kind::NewFolder, {}, {}}); }
@@ -323,6 +369,9 @@ void ProjectStore::run(Request& r) {
         saved.fetch_add(1, std::memory_order_release);
         break;
     }
+    case Request::Kind::ExportMpc3:
+        start_export(r);
+        return;
     case Request::Kind::Load: {
         auto* l = new LoadedProject {r.path, {}, read_file(r.path), false, {}};
         if (l->bytes.empty()) l->error = "Could not read";

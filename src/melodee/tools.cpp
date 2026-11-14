@@ -1528,6 +1528,15 @@ const Preview previews[] {
     {"songmidifile", [](Shell&, Snapshot& s) { // roadmap P4: Export with the wheel on MIDI FILE, no song: the patterns
          s.ui.page = PageId::Song; s.ui.track = 2; s.ui.song_cursor = 0; s.ui.song_export = true; s.ui.export_kind = 4;
      }},
+    {"songmpc3", [](Shell&, Snapshot& s) { // Export with the wheel on MPC 3: a project for MPC One and up
+         s.ui.page = PageId::Song; s.ui.track = 2; s.ui.song_cursor = 0; s.ui.song_export = true; s.ui.export_kind = 5;
+         Clip clip; clip.track = 2; clip.pattern = 0; clip.bar = 0; clip.bars = 16;
+         s.project.song.place(clip);
+     }},
+    {"mpc3name", [](Shell&, Snapshot& s) { // Export on MPC 3, B2: the project's name
+         s.ui.page = PageId::Song; s.ui.track = 2; s.ui.export_kind = 5;
+         s.ui.name.start(NameTarget::Mixdown, "Project 1", 31, false);
+     }},
     {"mixdownname", [](Shell&, Snapshot& s) { // Export, B2: the mixdown's name
          s.ui.page = PageId::Song; s.ui.track = 2;
          s.ui.name.start(NameTarget::Mixdown, "Project 1", 31, false);

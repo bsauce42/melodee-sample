@@ -43,7 +43,8 @@ Press **B1** (**EXPORT**):
 
 - **B2** exports. Turn the encoder first to choose what: a **MIXDOWN**
   (32-bit float, 24-bit or 16-bit WAV), **STEMS** (one WAV per track and
-  bus, plus the mix), or a **MIDI FILE**. The key shows the choice.
+  bus, plus the mix), a **MIDI FILE**, or an **MPC 3** project. The key
+  shows the choice.
 - **B3** (**PATTERN**) writes the song into new patterns, end to end.
 - **B1** (**CANCEL**) goes back to the song.
 
@@ -52,6 +53,23 @@ Press **B1** (**EXPORT**):
 Exports go to `Melodee/Mixdowns`, `Melodee/Stems/<name>/` and
 `Melodee/MIDI` on the card. A `.mid` file in the browser loads its notes
 onto the selected track's pattern.
+
+### MPC 3 project
+
+**MPC 3** writes `Melodee/MPC 3/<name>.xpj` and its `<name>_[ProjectData]`
+folder with the samples. MPC One, Live, Key, X and the MPC 3 software open it.
+
+- Each kit track becomes a drum track. Its pads keep their samples, layers,
+  trim, loop, tune, level, pan, mute group, envelope, filter and warp.
+- A pad playing an instrument (SFZ, MPC keygroup program, EXS, DecentSampler),
+  and a sample pad its patterns play at other pitches, becomes a keygroup
+  track of its own. Its notes go with it.
+- A plug-in track becomes an audio track of its prints. Print or freeze it
+  first; one with no prints is left out.
+- Each pattern number becomes a sequence. The song becomes one sequence,
+  **Song**, in the first free number, and MPC 3 opens on it.
+- MIDI tracks, effects, sends, the song's tempo changes and samples that are
+  not WAV files are left out. The message after the export says what was.
 
 ---
 

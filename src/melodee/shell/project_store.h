@@ -8,6 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 struct Hardware;
@@ -69,6 +70,12 @@ public:
     void rename(const std::string& path, const std::string& name); // a project, in its folder
     void save_sound(const std::string& name, std::vector<uint8_t> bytes); // Melodee/Sounds/<name>.mlds
     void move(const std::string& path, const std::string& folder); // a project into a folder ("" the top), its name kept (" 2" on a clash)
+    // The project (`bytes` as save_project() makes them, its file `path` for its prints, "" unsaved) as an MPC 3
+    // project, Melodee/MPC 3/<name>.xpj on the card (" 2" on a clash; shell/mpc3_export.h), on a thread of its own:
+    // copying its samples can take a while. What came of it comes back through take_note().
+    void export_mpc3(const std::string& path, std::vector<uint8_t> bytes, const std::string& name);
+    std::unique_ptr<std::string> take_note(); // MIDI thread: an export's outcome, if one is waiting
+    bool exporting() const { return export_busy.load(std::memory_order_acquire); }
     // A project path in the folder in view for a typed name: the name itself,
     // or with " 2", " 3"... when a project has it already.
     std::string named_path(const std::string& name) const;
@@ -107,10 +114,10 @@ public:
 
 private:
     struct Request {
-        enum class Kind : uint8_t { List, Save, Load, Duplicate, Remove, NewFolder, OpenAtStart, Opened, Settings, Rename, SaveSound, Move } kind;
+        enum class Kind : uint8_t { List, Save, Load, Duplicate, Remove, NewFolder, OpenAtStart, Opened, Settings, Rename, SaveSound, Move, ExportMpc3 } kind;
         std::string path;
         std::vector<uint8_t> bytes;
-        std::string from = {}; // Save: the project's file before (Save As), whose prints come along
+        std::string from = {}; // Save: the project's file before (Save As), whose prints come along; ExportMpc3: its file
     };
     void push(Request* request);
     void run(Request& request);
@@ -119,6 +126,10 @@ private:
 
     MidiQueue<32, Request*> requests;           // MIDI thread produces
     MidiQueue<4, LoadedProject*> loaded;        // service thread produces
+    MidiQueue<4, std::string*> notes;           // the export thread produces
+    std::thread exporter;                       // service thread starts and joins it
+    std::atomic<bool> export_busy {false};
+    void start_export(Request& request);        // service thread
     std::string root, folder, start, settings;  // service thread
     std::string last;                           // service thread: the project last opened or saved
     void remember(const std::string& path);     // service thread: `last`, written to the card when it changes

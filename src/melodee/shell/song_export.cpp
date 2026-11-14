@@ -9,8 +9,14 @@
 // (each clip its pattern repeated from the clip's start, muted clips left
 // out) for the song's length, at most 128 bars. One undo. Motion and the
 // song's punches stay in the song (a pattern holds neither).
+//
+// MPC 3 project (the wheel's last): the project as MPC 3 opens it (MPC One,
+// Live, Key, X, the MPC 3 app), Melodee/MPC 3/<name>.xpj on the card
+// (shell/mpc3_export.h): the kits, their patterns, the song, the prints.
 #include "melodee/model/song_flatten.h"
 #include "melodee/shell/context.h"
+#include "melodee/plugin/plugin_rack.h"
+#include "melodee/shell/project_store.h"
 #include <algorithm>
 
 namespace melodee {
@@ -18,10 +24,19 @@ namespace melodee {
 void Context::song_export_soft(int key) {
     ui.song_export = false;
     if (key == 1) { // roadmap P4: the wheel picked what (a MIDI file needs no song: the patterns playing then)
-        if (!project.song.length() && ui.export_kind != 4) { notice("Mixdown: the song is empty"); return; }
+        if (!project.song.length() && ui.export_kind < 4) { notice("Mixdown: the song is empty"); return; }
         open_name(NameTarget::Mixdown, project.name[0] ? project.name : "Song", sizeof(project.name) - 1, false);
     }
     if (key == 2) song_to_pattern();
+}
+
+void Context::export_mpc3(const std::string& name) {
+    if (!store) return;
+    if (store->exporting()) { notice("MPC 3: an export runs"); return; }
+    PluginStates states;
+    if (plugins) states = plugins->states();
+    store->export_mpc3(project_path, melodee::save_project(project, patterns, &states, &prints), name);
+    notice("MPC 3: exporting");
 }
 
 void Context::song_to_pattern() {

@@ -33,7 +33,11 @@ void draw_name_sheet(Paint& p, const Snapshot& s) {
     case NameTarget::Sound: what = "SAVE SOUND " + juce::String::fromUTF8("\xc2\xb7 ") + engine_info(s.track().engine).name; break;
     case NameTarget::Sample: what = "SAVE SAMPLE"; break;
     case NameTarget::Bank: what = "SAVE BANK " + juce::String::fromUTF8("\xc2\xb7 ") + juce::String::charToString(juce::juce_wchar('A' + s.track().bank % sampler_banks)); break;
-    case NameTarget::Mixdown: what = "AUDIO MIXDOWN"; break;
+    case NameTarget::Mixdown: { // what Song's Export makes (the wheel's choice)
+        static const char* const made[] {"AUDIO MIXDOWN", "AUDIO MIXDOWN", "AUDIO MIXDOWN", "STEMS", "MIDI FILE", "MPC 3 PROJECT"};
+        what = made[s.ui.export_kind % 6];
+        break;
+    }
     case NameTarget::Scene: what = "SCENE " + juce::String(s.ui.scene % pattern_count + 1); break; // roadmap P5
     case NameTarget::None: break;
     }
