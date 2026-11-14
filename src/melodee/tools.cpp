@@ -1353,6 +1353,9 @@ const Preview previews[] {
     {"kgmix", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Mix); }},
     {"kgsends", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Sends); }},
     {"kgfx", [](Shell&, Snapshot& s) { keygroup_scene(s, StageKind::Fx); }},
+    {"kgnamed", [](Shell&, Snapshot& s) { // a keygroup named KEYS: its sound's name in the pill, as it differs
+         keygroup_scene(s, StageKind::Trim); s.project.tracks[3].set_name("KEYS");
+     }},
     {"triminstrument", [](Shell&, Snapshot& s) { // ZONES (TRIM's place) on a pad holding an .exs: a tile a zone over its keys, the one in hand named
          on_stage(s, 3, 0, 0); s.playing = true; choir_pad(s, 8);
          s.ui.turning = 0; s.ui.turned_at = s.now;

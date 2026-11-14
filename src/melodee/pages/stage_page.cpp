@@ -976,6 +976,14 @@ HeaderItem follow_pill(const Snapshot& s) {
     return pill(on ? Icon::Rec : Icon::Ring, "FOLLOW", on ? colour_of(s) : colour::mid);
 }
 
+// A keygroup named after its sound already says it in its tag: no pill to say it again.
+bool kit_pill_shown(const Snapshot& s) {
+    const auto& t = s.track();
+    if (t.engine != EngineKind::Keygroup) return true;
+    auto name = pad_name(s, t.last_pad % sampler_pads, false);
+    return name.isNotEmpty() && !name.equalsIgnoreCase(juce::String(t.name).trim());
+}
+
 // The kit header pill, Stage's and the sample pages' alike: the pad and its sample.
 HeaderItem kit_pill(const Snapshot& s) {
     const auto& t = s.track();
@@ -993,7 +1001,7 @@ void draw(Paint& p, const Snapshot& s) {
     Header h = header_of(s);
     bool kit_sends = page.kind == StageKind::Sends && t.engine == EngineKind::Sampler; // the last pad's own sends
     if (stage_kit_page(page.kind) != PageId::Count || page.kind == StageKind::Colour || kit_sends) {
-        h.left.push_back(kit_pill(s));
+        if (kit_pill_shown(s)) h.left.push_back(kit_pill(s));
         if (page.kind == StageKind::Cloud) h.left.push_back(cloud_pill(s));
         if (page.kind == StageKind::Follow) h.left.push_back(follow_pill(s));
         if (page.kind == StageKind::Layers) h.left.push_back(layers_pill(s));
@@ -1150,7 +1158,7 @@ void nudge(Context& c, int way) {
 // whichever way it was reached. `row`: the second row of cards on pages that have one, as two dots on the bottom row.
 void kit_page(Paint& p, const Snapshot& s, StageKind kind, int row) {
     Header h = header_of(s);
-    h.left.push_back(kit_pill(s));
+    if (kit_pill_shown(s)) h.left.push_back(kit_pill(s));
     if (kind == StageKind::Cloud) h.left.push_back(cloud_pill(s));
     if (kind == StageKind::Follow) h.left.push_back(follow_pill(s));
     if (kind == StageKind::Layers) h.left.push_back(layers_pill(s));

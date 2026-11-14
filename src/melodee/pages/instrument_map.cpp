@@ -255,7 +255,10 @@ void map_picture(Paint& p, const Snapshot& s, float y1, int lit, bool zones_page
         auto rs = caps_text(colour::sec);
         float rw = 0;
         for (const auto& part : parts) rw += (part.glyph != Icon::None ? 14 : 0) + p.width(part.text, rs) + 9;
-        juce::String name = s.zone_file.empty() ? "Zone " + juce::String(lit + 1) : juce::String(s.zone_file);
+        // The zone's file by its own name: no folders, no extension (its note and velocity are what tell it apart).
+        juce::String file = juce::String(s.zone_file).replaceCharacter('\\', '/').fromLastOccurrenceOf("/", false, false);
+        if (file.containsChar('.')) file = file.upToLastOccurrenceOf(".", false, false);
+        juce::String name = s.zone_file.empty() ? "Zone " + juce::String(lit + 1) : file;
         auto ns = p.fit(name, plain(colour::text, type::body, Weight::Medium), std::max(40.0f, pw - rw - 6), type::floor);
         float nw = std::min(p.width(name, ns), pw - rw - 6);
         p.text(name, px, y, nw + 1, 14, ns);
