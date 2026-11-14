@@ -14,11 +14,10 @@
 namespace melodee {
 
 using MeterSteps = std::array<float, surface_meter_segments>;
-// dBFS at which each LED lights, bottom to top. The mix: set by Kerem playing a synth (median -22, loudest
-// -9 dBFS) and the 909 kit (median -12 to -16, loudest -6): the synth in the greens with its loud notes yellow,
-// the kit green and yellow with its loudest hits flashing red, whatever Main Volume is at. The input: red near
-// full scale, where the converter clips.
-constexpr MeterSteps meter_mix_db {-36, -27, -18, -11, -7};
+// dBFS at which each LED lights, bottom to top. The mix: a synth's median (-22) in the greens, loud notes and
+// kit hits (-7 and up) yellow, red only past -1 dBFS, where the master starts rounding peaks off
+// (dsp::master_clip), whatever Main Volume is at. The input: red near full scale, where the converter clips.
+constexpr MeterSteps meter_mix_db {-36, -27, -18, -7, -1};
 constexpr MeterSteps meter_input_db {-42, -30, -18, -9, -2};
 
 // The strip's LEDs for `level` (linear, 1 = full scale): a bar up to it.

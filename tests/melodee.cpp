@@ -3312,14 +3312,20 @@ void meter_lights() {
     CHECK(fell < -29 && fell > -31 && fell_out < -29 && fell_out > -31);
 
     // A bar up to the level, nothing held. The input's steps (-42, -30, -18, -9, -2 dBFS); the mix's: a synth's
-    // median (-22) two greens, its loudest (-9) yellow, the 909's loudest (-6) red.
+    // median (-22) two greens, -7 and up yellow, red only past -1 dBFS.
     auto at = [](float db) { return std::pow(10.0f, db / 20); };
     const auto& in = meter_input_db;
     CHECK(meter_lit(0, in) == 0 && meter_lit(at(-45), in) == 0);
     CHECK(meter_lit(at(-35), in) == 0b00001 && meter_lit(at(-15), in) == 0b00111 && meter_lit(at(-5), in) == 0b01111);
     CHECK(meter_lit(at(0), in) == surface_meter_all && meter_lit(at(6), in) == surface_meter_all);
-    CHECK(meter_lit(at(-22), meter_mix_db) == 0b00011 && meter_lit(at(-9), meter_mix_db) == 0b01111);
-    CHECK(meter_lit(at(-6), meter_mix_db) == surface_meter_all);
+    CHECK(meter_lit(at(-22), meter_mix_db) == 0b00011 && meter_lit(at(-9), meter_mix_db) == 0b00111);
+    CHECK(meter_lit(at(-6), meter_mix_db) == 0b01111 && meter_lit(at(-2), meter_mix_db) == 0b01111);
+    CHECK(meter_lit(at(-0.5f), meter_mix_db) == surface_meter_all);
+
+    // The master's limit: straight to -1 dBFS (a full-scale sample at -1.5 untouched), then round to full scale.
+    CHECK(dsp::master_clip(0.5f) == 0.5f && dsp::master_clip(-0.85f) == -0.85f);
+    CHECK(dsp::master_clip(1.0f) > 0.95f && dsp::master_clip(1.0f) < 1.0f && dsp::master_clip(4.0f) <= 1.0f);
+    CHECK(dsp::master_clip(-1.0f) == -dsp::master_clip(1.0f));
 }
 
 // Light show (Sample + Mute, shell/light_show.h): each style keeps time with the beat and stays still between

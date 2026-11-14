@@ -188,9 +188,9 @@ Stop. The bank lights show the kit's bank; the fader light shows its value
 show the mix, left and right, before main volume; on Record and Input
 Config, and while a take waits or runs, the input source instead (as on
 the MPC), so Main Volume never starves them. For the mix the five LEDs
-light at −36, −27, −18, −11 and −7 dBFS, matched to Melodee's headroom (a
-synth in the greens with loud notes yellow, a drum kit green and yellow with
-its loudest hits flashing red); for the input at −42, −30, −18, −9 and −2
+light at −36, −27, −18, −7 and −1 dBFS (a synth in the greens, loud notes
+and drum hits yellow, red only past −1 dBFS, where the master starts to
+round peaks off before full scale; below that the master is clean); for the input at −42, −30, −18, −9 and −2
 dBFS, red where the converter clips. They fall 30 dB a second; no LED is held.
 `melodee_meter_db=` in `status` gives the levels shown.
 `shell/button_jobs.cpp`, `shell/lights.cpp`, `shell/meter_lights.h`.
