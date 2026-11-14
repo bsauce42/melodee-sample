@@ -64,8 +64,9 @@ folder with the samples. MPC One, Live, Key, X and the MPC 3 software open it.
 - A pad playing an instrument (SFZ, MPC keygroup program, EXS, DecentSampler),
   and a sample pad its patterns play at other pitches, becomes a keygroup
   track of its own. Its notes go with it.
-- A plug-in track becomes an audio track of its prints. Print or freeze it
-  first; one with no prints is left out.
+- A plug-in track becomes an audio track of its prints. The export prints
+  each pattern with notes first, skipping prints that are up to date. The
+  project needs a file for its prints: save it first.
 - Each pattern number becomes a sequence. The song becomes one sequence,
   **Song**, in the first free number, and MPC 3 opens on it.
 - MIDI tracks, effects, sends, the song's tempo changes and samples that are

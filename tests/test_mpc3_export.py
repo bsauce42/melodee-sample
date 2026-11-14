@@ -95,6 +95,17 @@ class Mpc3Export(unittest.TestCase):
             self.assertEqual(data["masterTempoEnabled"], False)
             self.assertEqual(len(data["clipPlayerData"]["trackClipTransportMap"]), len(clips))
 
+    def test_missing_sample_left_out(self):
+        # A pad whose file is not there is left out, not named: MPC 3 stops on a project naming a sample it cannot find.
+        with tempfile.TemporaryDirectory() as folder:
+            report, out = self.export(folder, pads=[instrument("Kick.wav", 10, 90), instrument("Gone.wav", 0, 50)])
+            self.assertIn("pads=1", report)
+            self.assertIn("missing=1", report)
+            _, data = read(out / "Beat.xpj")
+        named = json.dumps(data)
+        self.assertNotIn("Gone", named)
+        self.assertEqual(data["tracks"][0]["program"]["drum"]["instruments"][1]["layersv"][0]["sampleFile"], "")
+
     def test_read_back(self):
         # What the export wrote reads back as what went in (shell/mpc_project.cpp reads MPC 3's projects too).
         with tempfile.TemporaryDirectory() as folder:

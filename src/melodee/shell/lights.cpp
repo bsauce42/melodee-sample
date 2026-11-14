@@ -210,6 +210,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     context_.song_tick();
     context_.plugins_tick(now); // the rack follows the project; the plug-in in view's cards
     context_.print_tick();      // prints made (freeze plan F2a) into the project's records
+    context_.mpc3_tick();       // an MPC 3 export's plug-in tracks printed, then the export
     context_.stage_tick(now); // Stage's PRESET: the sound turned to, once the turning stops
     context_.live_erase_tick(); // Erase + pad while playing: the notes the playhead passed
     context_.chain_tick();    // pattern chains: the next queued in the last bar of the one playing (seq-sheet2 B)

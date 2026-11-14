@@ -491,6 +491,14 @@ public:
     void resample_song(unsigned kit);                     // roadmap P3: Resample on Song, the song rendered onto the pad
     void mixdown(const std::string& name);                // Song's export, Audio mixdown, after the Name sheet
     void export_mpc3(const std::string& name);            // Song's export, MPC 3 project (shell/song_export.cpp)
+    // The MPC 3 export waits for its plug-in tracks' prints: `mpc3_pending` a bit a track still to print (one job a
+    // track, as the print engine takes them), `mpc3_printing` the track whose job runs (-1 none), then mpc3_tick()
+    // hands the project, its prints in, to the export once the last result is in.
+    std::string mpc3_name;
+    uint32_t mpc3_pending = 0;
+    int mpc3_printing = -1;
+    bool mpc3_waiting = false;
+    void mpc3_tick();
     void render_tick(uint32_t at);                        // a render ended: transport back as it was
     bool render_started = false;
     uint32_t render_since = 0;
