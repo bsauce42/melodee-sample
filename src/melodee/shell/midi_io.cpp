@@ -224,11 +224,11 @@ void MidiIo::receive(Context& c, const MidiPortInfo& port, const MidiPacket& pac
     }
     if (echo && (m.isPitchWheel() || (m.isController() && m.getControllerNumber() != 1) || ((m.isAftertouch() || m.isChannelPressure()) && !c.ui.settings.pressure)))
         echo_raw(c, packet.bytes.data(), packet.size, echo, packet.timestamp_ns); // what the engine does not play: on each MIDI track's port and channel
-    if (m.isPitchWheel()) { // a keyboard's pitch wheel, whole, on the PLUGIN tracks and kits it plays (a MIDI track's went out above as its BEND)
+    if (m.isPitchWheel()) { // a keyboard's pitch wheel, whole, on the PLUGIN tracks, kits and keygroups it plays (a MIDI track's went out above as its BEND)
         int value = m.getPitchWheelValue() - 8192; // -8192..8191
         for (unsigned t = 0; t < track_count; ++t) {
             auto& tr = c.project.tracks[t];
-            if (!((tracks >> t) & 1) || (tr.engine != EngineKind::Plugin && tr.engine != EngineKind::Sampler)) continue;
+            if (!((tracks >> t) & 1) || (tr.engine != EngineKind::Plugin && !tr.sampled())) continue;
             tr.bend = int8_t(std::clamp(value / 128, -64, 63)); // as the fader's card and the PITCH BEND lane show it
             c.fader_bent = uint16_t(c.fader_bent & ~(1u << t)); // the wheel springs back by itself: the fader's return gives way
             c.send({Type::Bend, uint8_t(t), 0, 0, int16_t(value)});
@@ -262,7 +262,7 @@ void MidiIo::receive(Context& c, const MidiPortInfo& port, const MidiPacket& pac
                 if (t == c.ui.track % track_count) c.record_motion(int(motion_wheel), value);
             } else if (m.isAllNotesOff() || m.isAllSoundOff()) {
                 for (int k = 0; k < 128; ++k) if (c.midi_held[t].test(size_t(k))) c.midi_key(t, k, 0, false);
-            } else if (tr.engine == EngineKind::Plugin || tr.engine == EngineKind::Sampler) { // the sustain pedal and the rest, as they came
+            } else if (tr.engine == EngineKind::Plugin || tr.sampled()) { // the sustain pedal and the rest, as they came
                 c.send({Type::Control, uint8_t(t), 0, uint16_t(number), int16_t(value)}); // (a MIDI track's went out above)
             }
         }

@@ -99,7 +99,7 @@ void fader_rest(Context& c) {
         c.fader_bent = uint16_t(c.fader_bent & ~(1u << t));
         auto& track = c.project.tracks[t];
         bool here = t == c.ui.track % track_count; // Seq Record keeps the return on the selected track's lane
-        if (track.engine == EngineKind::Plugin && track.bend) {
+        if ((track.engine == EngineKind::Plugin || track.engine == EngineKind::Keygroup) && track.bend) {
             track.bend = 0;
             c.send({Command::Type::Bend, uint8_t(t), 0, 0, 0});
             if (here) c.record_motion(int(motion_bend), 0);

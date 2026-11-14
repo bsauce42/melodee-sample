@@ -8342,6 +8342,24 @@ void keygroup_tracks() {
         CHECK(load_project(bytes, *back, *back_bank).empty());
         CHECK(back->tracks[0].engine == EngineKind::Sampler && back->tracks[0].pads[0].sample == 1 && !back->tracks[1].used());
     }
+    { // a keygroup's fader: its sound's volume first, pitch bend too; Motion's bend lane; a MIDI file's notes its keys
+        CHECK(fader_default(EngineKind::Keygroup) == FaderTarget::PadVolume && fader_takes(EngineKind::Keygroup, FaderTarget::PitchBend)
+              && fader_takes(EngineKind::Keygroup, FaderTarget::KitVolume) && !fader_takes(EngineKind::Plugin, FaderTarget::PadVolume));
+        Track keys;
+        keys.engine = EngineKind::Keygroup;
+        keys.bend = 20;
+        keys.pads[0].sample = 1; keys.pads[0].level = 90;
+        CHECK(fader_target_binding(keys, FaderTarget::PadVolume).kind == Binding::Kind::PadLevel && fader_target_binding(keys, FaderTarget::PadVolume).value == 90);
+        CHECK(motion_param(keys, motion_lane(motion_bend)).value == 20 && lane_binding(keys, 0, motion_lane(motion_bend)).kind == Binding::Kind::PitchBend);
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        project->tracks[1] = keys;
+        project->tracks[1].set_name("KEYS");
+        Event e; e.key = 64; e.velocity = 100;
+        bank->at[1][0].add(e);
+        auto tracks = smf_tracks(*project, *bank);
+        CHECK(tracks.size() == 1 && tracks[0].channel != 10 && tracks[0].notes.size() == 1 && tracks[0].notes[0].key == 64);
+    }
     { // every track in use: the pad stays on its kit
         auto project = std::make_unique<Project>();
         auto bank = std::make_unique<PatternBank>();

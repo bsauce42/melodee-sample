@@ -24,8 +24,8 @@ Binding fader_target_binding(const Track& track, FaderTarget target) {
         unsigned bus = unsigned(target) - unsigned(FaderTarget::SendA);
         return {Kind::Send, int(bus), 0, 100, track.mix.sends[bus]};
     }
-    case FaderTarget::PitchBend: // a plug-in's bend; a MIDI track's own BEND (its lane, sent as pitch bend)
-        if (track.engine == EngineKind::Plugin) return {Kind::PitchBend, 0, -64, 63, track.bend};
+    case FaderTarget::PitchBend: // a plug-in's or keygroup's bend; a MIDI track's own BEND (its lane, sent as pitch bend)
+        if (track.engine == EngineKind::Plugin || track.engine == EngineKind::Keygroup) return {Kind::PitchBend, 0, -64, 63, track.bend};
         if (track.engine == EngineKind::Midi) {
             const auto& p = engine_info(track.engine).params[midi_track::Bend];
             return {Kind::Param, midi_track::Bend, p.min, p.max, track.params[midi_track::Bend]};
@@ -33,7 +33,7 @@ Binding fader_target_binding(const Track& track, FaderTarget target) {
         return {};
     default: break;
     }
-    if (track.engine != EngineKind::Sampler) return {};
+    if (!track.sampled()) return {}; // a kit's, or a keygroup's (its sound its last pad)
     if (target == FaderTarget::KitVolume) {
         const auto& p = engine_info(track.engine).params[sampler::Level];
         return {Kind::Param, sampler::Level, p.min, p.max, track.params[sampler::Level]};
@@ -89,7 +89,7 @@ Binding fader_learned_binding(const Track& track, unsigned t) {
         if (param < motion_fx_base && l.engine != uint8_t(track.engine)) return {}; // another engine's parameter
         if (pad_param_of(param) < 0) return lane_binding(track, t, int(l.lane));
         unsigned pad = track.last_pad % sampler_pads;
-        if (track.engine != EngineKind::Sampler || !track.pads[pad].used()) return {};
+        if (!track.sampled() || !track.pads[pad].used()) return {};
         return lane_binding(track, t, motion_lane(param, pad));
     }
     case FaderLearn::None: break;
@@ -127,7 +127,7 @@ FaderJob fader_job(const Project& project, const UiState& ui) {
     job.source = FaderJob::Source::Target;
     if (track.fader_learned.learned()) { // fader C: the pot it learned, while that is still one of the track's values
         auto learned = fader_learned_binding(track, ui.track % track_count);
-        bool pad = fader_learned_pad(track.fader_learned) && track.engine == EngineKind::Sampler; // an empty last pad: nothing to drive
+        bool pad = fader_learned_pad(track.fader_learned) && track.sampled(); // an empty last pad: nothing to drive
         if (learned.bound() || pad) { job.binding = learned; job.learned = true; job.pad = pad; }
     }
     if (!job.learned) {
