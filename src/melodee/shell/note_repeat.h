@@ -4,10 +4,9 @@
 #include "melodee/shell/ui_state.h"
 
 // Note Repeat, as on the MPC (MELODEE_PARITY.md, phase 1c): it stays on the
-// page. A tap latches it, a hold lasts while held; its arp's settings are
-// Stage's ARP page (B3). While it is on, B1-B3 pick its rate, 1/8, 1/16, 1/32, and with Shift
-// held their triplets; the repeats swing with the project. It is the track's
-// arp (a kit repeats the pad held). MIDI thread.
+// page. A tap latches it, a hold lasts while held. While it is on, B1-B3 pick its rate, 1/8, 1/16, 1/32, and with Shift held
+// their triplets; the repeats swing with the project. Every pad held repeats,
+// together (engine/note_repeat.h); the arp is apart (Stage's ARP). MIDI thread.
 namespace melodee {
 
 class Context;
@@ -19,8 +18,8 @@ void repeat_button(Context& c, bool pressed);
 // pads are the loop grid, which repeats nothing).
 // On Stage only while Note Repeat is held: latched, B1-B3 stay Stage's (its ARP page has the rate on K2).
 inline bool repeat_keys(const Project& project, const UiState& ui) {
-    if (ui.page == PageId::Stage) return project.tracks[ui.track % track_count].arp && ui.repeat_held;
-    return project.tracks[ui.track % track_count].arp && ui.page != PageId::Song && ui.page != PageId::Looper;
+    if (ui.page == PageId::Stage) return project.tracks[ui.track % track_count].repeat && ui.repeat_held;
+    return project.tracks[ui.track % track_count].repeat && ui.page != PageId::Song && ui.page != PageId::Looper;
 }
 // The arp rate (engine/arp.h) B1-B3 pick: 1/8, 1/16, 1/32; with Shift, 1/8T, 1/16T, 1/32T. The lit key again
 // steps on (roadmap P1): B1 to 1/4, B3 to 1/64 (and their triplets), and back; B2 stays.

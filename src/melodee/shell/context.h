@@ -548,7 +548,9 @@ public:
     void keep_played(unsigned track, int key, int velocity, bool down);
     void capture_tick();
     void set_arp(bool on) { set_arp(ui.track, on); }
-    void set_arp(unsigned track, bool on); // that track's arp (Note Repeat let go after the track changed)
+    void set_arp(unsigned track, bool on); // that track's arp (Stage ARP, Shift + K2)
+    void set_repeat(bool on) { set_repeat(ui.track, on); }
+    void set_repeat(unsigned track, bool on); // that track's Note Repeat (let go after the track changed)
     // The Looper (shell/looper_jobs.cpp): refusals already said, and whether a loop records (the metronome's Rec).
     std::array<unsigned, loop_tracks> loop_errors {};
     bool loop_click = false;

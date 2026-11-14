@@ -506,7 +506,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                          B::Stop, B::Play, B::WheelPush}) {
             bool shift_job = button_has_shift_job(project, ui, button, kit, keys);
             bool lit = button == B::Shift || (button == B::TapTempo && ui.settings.click) || (button == B::Erase && ui.copying != UiState::Copying::Off)
-                    || (button == B::NoteRepeat && track.arp) || (button == B::Mute && ui.mute_mode())
+                    || (button == B::NoteRepeat && track.repeat) || (button == B::Mute && ui.mute_mode())
                     || (track.engine == EngineKind::Sampler && button == B::Loop && track.pads[track.last_pad % sampler_pads].reverse)            // reverse on
                     || (track.engine == EngineKind::Sampler && button == B::Chop && track.pads[track.last_pad % sampler_pads].play == PadPlay::Gate); // Note On
             set(button, !shift_job ? L::Off : lit ? L::Bright : L::Dim);
@@ -519,7 +519,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     on(B::Seq, ui.page == PageId::StepEdit || ui.page == PageId::Patterns || ui.page == PageId::Scenes || ui.page == PageId::Roll || ui.page == PageId::Motion); // its hub
     on(B::SampleSelect, ui.page == PageId::Sounds || ui.page == PageId::Samples);
     on(B::Chop, ui.page == PageId::Chop);
-    on(B::NoteRepeat, track.arp && ui.page != PageId::Song); // on Song it repeats the clip
+    on(B::NoteRepeat, track.repeat && ui.page != PageId::Song); // on Song it repeats the clip
     {
         auto state = host.recorder().state();
         bool blink = (now / 250) % 2;

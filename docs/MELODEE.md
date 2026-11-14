@@ -132,7 +132,7 @@ cards.
 | Pad Bank | Next bank of the kit, A–H round. Held: the pads are the tracks, a pad picks one (the screen stays the page's; Pad FX + Knob FX shows the tracks); −/+ or the wheel jump banks; B2 MOVE moves a track to another pad (one there trades places with it), B3 COPY (or Shift + Erase) copies one, B1 steps back; Erase + pad clears that track, asked first (sound, kit, patterns; its mix strip stays; one undo). One job a tap, on release: no double tap. On Roll with a synth or MIDI track: the pads an octave up | Previous bank; on Roll the octave down |
 | Fader | The pot turned last on the track (PIN keeps it) or a target the Fader page's wheel picks, or the page's own job (Fader below); its light follows the value | |
 | Erase | Held + pad, pot, step or fader: clear it (below). A tap on its own erases the page's selection (below); on Song, the clip under the cursor | Copy of what the page holds (below). With Pad Bank held, Erase + pad clears a track |
-| Note Repeat | A tap latches, a hold lasts (its arp is Stage's ARP, B2). On Song, repeats the clip to the next marker | |
+| Note Repeat | A tap latches, a hold lasts. Every pad held repeats together on each step; the arp is separate (Stage's ARP, Shift + K2). On Song, repeats the clip to the next marker | |
 | Chop | Chop on the last pad's region; again back to Stage's TRIM. On Song, splits the clip at the cursor | Note On (the last pad plays while held), or One shot |
 | Mute | Mute mode: a tap latches, a hold lasts | Unmute everything |
 | Loop | On release, the last kit pad's loop on or off, lit while it loops (on Song, the clip's bars as the song loop). Held: the pads are the loop grid on any page while it is down (lit at once; half a second or a grid pad makes it a hold, and its release does nothing). With 16 Levels, pressed together in either order: the Looper from any page, and neither does its own job. No double tap | Reverse the last pad; held half a second: the Looper on or off (off asks first while a loop holds audio) |
@@ -312,8 +312,8 @@ beat; the meters show the mix.
     bus with its first effect and a bar of what it receives, the bus in view
     on a chip in K1's shade with its line in K2's. ARP: mode (Up,
     Down, Up-down, Random, Order), rate 1/4 .. 1/32T, octaves, Shift + K1
-    gate, Shift + K3 hold; the header says whether it is on (Note Repeat
-    turns it on); its picture is a keyboard along the foot with the keys
+    gate, Shift + K2 on or off, Shift + K3 hold; the header says whether it
+    is on (Note Repeat is separate and does not turn it on); its picture is a keyboard along the foot with the keys
     held filled and the notes to come hanging over their keys, the next one
     white, joined in the order they play. CHORD: one pad a chord from the
     scale, K1 type (Triad, Dia 7, Sus2, Sus4, Power, Dia 9), K2 voicing

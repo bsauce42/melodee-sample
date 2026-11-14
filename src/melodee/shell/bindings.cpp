@@ -513,7 +513,7 @@ std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui,
                 Binding {Kind::BusReturn, int16_t(bus), 0, 100, project.buses[bus].level}};
     }
     case SK::Arp:
-        if (shift_row) return {Binding {Kind::ArpGate, 0, 5, 100, track.arp_gate}, Binding {}, Binding {Kind::ArpHold, 0, 0, 1, track.arp_latch}};
+        if (shift_row) return {Binding {Kind::ArpGate, 0, 5, 100, track.arp_gate}, Binding {Kind::ArpOn, 0, 0, 1, track.arp}, Binding {Kind::ArpHold, 0, 0, 1, track.arp_latch}};
         return {Binding {Kind::ArpMode, 0, 0, 4, track.arp_mode}, Binding {Kind::ArpRate, 0, 0, int(arp_rates) - 1, track.arp_rate},
                 Binding {Kind::ArpOctaves, 0, 1, 4, track.arp_octaves}};
     case SK::Chord:

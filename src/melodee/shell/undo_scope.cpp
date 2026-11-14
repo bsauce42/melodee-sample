@@ -105,7 +105,7 @@ UndoScope freeze_scope(const Project& project, const UiState& ui, const Binding&
     case Kind::PatternBars: case Kind::PatternLength: case Kind::Division: case Kind::Swing: case Kind::TcShift: case Kind::TcSwing:
         return pattern_scope(project, ui);
     case Kind::TrackSpeed: case Kind::StageSound: case Kind::PluginParam: case Kind::ArpMode: case Kind::ArpRate: case Kind::ArpOctaves:
-    case Kind::ArpGate: case Kind::ArpHold: case Kind::ChordType: case Kind::ChordVoicing: case Kind::ChordInvert: case Kind::ChordOn:
+    case Kind::ArpGate: case Kind::ArpHold: case Kind::ArpOn: case Kind::ChordType: case Kind::ChordVoicing: case Kind::ChordInvert: case Kind::ChordOn:
         return of(UndoScope::Kind::Sound, ui); // the plug-in's values, the arp and chords play into the print
     default: return binding_scope(project, ui, b);
     }

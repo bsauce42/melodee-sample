@@ -53,7 +53,7 @@ void Context::send(const Command& command) {
     }
     // A note played by hand or by MIDI in plays at the frame it came in, a block late, not at the next block's start.
     switch (command.type) {
-    case Type::NoteOn: case Type::NoteOff: case Type::PadNote: case Type::ArpKey: case Type::Pressure: case Type::Control: case Type::Audition:
+    case Type::NoteOn: case Type::NoteOff: case Type::PadNote: case Type::ArpKey: case Type::RepeatKey: case Type::Pressure: case Type::Control: case Type::Audition:
         host.send_at(command, hit_ns);
         break;
     default: host.send(command);
@@ -288,11 +288,16 @@ void Context::follow_zone(unsigned kit, int semitones, int velocity) {
     if (zone >= 0) ui.zone = uint16_t(zone);
 }
 
-// One key of a pad press, to the arp when it is on, else straight to the
-// engine; every press also goes into the ring Capture reads (roadmap P5).
+// One key of a pad press: to Note Repeat when it is on, else to the arp when
+// that is on, else straight to the engine; every press also goes into the ring
+// Capture reads (roadmap P5).
 void Context::key(int k, int velocity, bool down, int cutoff) {
     auto& t = track();
-    if (t.arp) {
+    if (t.repeat) {
+        Command c {Type::RepeatKey, ui.track, 0, uint16_t(k), int16_t(down ? velocity : 0)};
+        c.position = uint32_t(cutoff + 1); // a 16 Levels Filter pad's cutoff, kept on its repeats
+        send(c);
+    } else if (t.arp) {
         Command c {Type::ArpKey, ui.track, 0, uint16_t(k), int16_t(down ? velocity : 0)};
         c.position = uint32_t(cutoff + 1); // a 16 Levels Filter pad's cutoff, kept on its repeats
         if (down || !t.arp_latch) send(c);
@@ -300,7 +305,7 @@ void Context::key(int k, int velocity, bool down, int cutoff) {
         note(ui.track, k, down ? velocity : 0);
     }
     if (!down) record_release(k);
-    if (down && !t.arp) record(k, velocity); // with the arp on the press is not heard: its notes are written as they play (take_arp_notes)
+    if (down && !t.repeat && !t.arp) record(k, velocity); // repeated or arpeggiated, the press is not heard: its notes are written as they play (take_arp_notes)
     keep_played(ui.track, k, velocity, down); // roadmap P5: always, for Capture
 }
 
@@ -315,7 +320,7 @@ void Context::release_pad(unsigned pad) {
     auto& t = track();
     for (auto& k : keys)
         if (k >= 0) {
-            if (t.arp && t.arp_latch && t.engine != EngineKind::Sampler) send({Type::Pressure, ui.track, 0, uint16_t(k), 0});
+            if (!t.repeat && t.arp && t.arp_latch && t.engine != EngineKind::Sampler) send({Type::Pressure, ui.track, 0, uint16_t(k), 0});
             key(k, 0, false); k = -1;
         }
     ui.track = selected;
@@ -327,7 +332,7 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
     if (!down) return;
     pad_track[pad] = ui.track;
     auto& t = track();
-    if (t.arp && t.arp_latch && !held_pads()) { // a fresh latch: the old keys go
+    if (!t.repeat && t.arp && t.arp_latch && !held_pads()) { // a fresh latch: the old keys go
         send({Type::Arp, ui.track, 0, 0, 0}); send({Type::Arp, ui.track, 0, 0, 1});
     }
     if (t.engine == EngineKind::Sampler) { // the pads are the kit's, in the bank in view
@@ -337,7 +342,7 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
             if (level.none) return; // Zones: a pad past the instrument's last key
             pad_keys[pad][0] = pad_note(int(sampler_first_note + t.levels_pad), level.semitones); // what it plays, so Seq Record keeps it
             int v = level.velocity ? level.velocity : velocity;
-            if (t.arp) { // Note Repeat: the level repeats, its release lets go of it (a Note On pad too)
+            if (t.repeat || t.arp) { // Note Repeat or the arp: the level repeats, its release lets go of it (a Note On pad too)
                 key(pad_keys[pad][0], v, true, level.cutoff);
                 follow_zone(t.levels_pad, level.semitones, v);
                 return;
@@ -845,6 +850,7 @@ void Context::apply(const Binding& b, int value) {
         t.arp_latch = value != 0;
         if (!t.arp_latch) { send({Type::Arp, ui.track, 0, 0, 0}); if (t.arp) send({Type::Arp, ui.track, 0, 0, 1}); }
         break;
+    case Kind::ArpOn: set_arp(value != 0); break; // Shift + K2 on Stage's ARP
     case Kind::ChordOn: t.chord = value != 0; break; // Shift + K1 on Stage's CHORD
     case Kind::LevelsType: { // K1 on 16 Levels: Scale, Tune, Velocity (and Filter on a kit, Zones on an instrument's pad)
         std::array<LevelsKind, 5> types {};
@@ -1714,9 +1720,22 @@ void Context::set_arp(unsigned track, bool on) {
         send({Type::Arp, n, 0, 1, t.arp_mode}); send({Type::Arp, n, 0, 2, t.arp_rate});
         send({Type::Arp, n, 0, 3, int16_t(t.engine == EngineKind::Sampler ? 1 : t.arp_octaves)}); // a kit repeats its pad
         send({Type::Arp, n, 0, 4, t.arp_gate});
-        send({Type::Arp, n, 0, 5, int16_t(ui.settings.repeats_by_pressure())}); // Settings > PADS: Repeat velocity
     }
     send({Type::Arp, n, 0, 0, int16_t(on)});
+}
+
+void Context::set_repeat(unsigned track, bool on) {
+    uint8_t n = uint8_t(track % track_count);
+    auto& t = project.tracks[n];
+    t.repeat = on;
+    // Notes the pads hold on that track stop; Note Repeat starts with what is pressed next.
+    for (unsigned p = 0; p < pad_keys.size(); ++p)
+        if (pad_track[p] == n) for (auto& k : pad_keys[p]) if (k >= 0) { note(n, k, 0); k = -1; }
+    if (on) {
+        send({Type::Repeat, n, 0, 2, t.repeat_rate});
+        send({Type::Repeat, n, 0, 5, int16_t(ui.settings.repeats_by_pressure())}); // Settings > PADS: Repeat velocity
+    }
+    send({Type::Repeat, n, 0, 0, int16_t(on)});
 }
 
 void Context::set_click(unsigned mode) {
@@ -1728,7 +1747,7 @@ void Context::set_click(unsigned mode) {
 // The audio thread only hears on or off: Rec is on while Seq Record is.
 // Note Repeat's velocity on every track: the pad's strike, or its pressure (Settings > PADS: Repeat velocity).
 void Context::send_repeat_velocity() {
-    for (unsigned t = 0; t < track_count; ++t) send({Type::Arp, uint8_t(t), 0, 5, int16_t(ui.settings.repeats_by_pressure())});
+    for (unsigned t = 0; t < track_count; ++t) send({Type::Repeat, uint8_t(t), 0, 5, int16_t(ui.settings.repeats_by_pressure())});
 }
 
 void Context::send_click() {

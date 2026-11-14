@@ -1246,11 +1246,11 @@ const Preview previews[] {
          s.ui.ask = UiState::Ask::ClearTrack; s.ui.ask_target = 0;
      }},
     {"repeat", [](Shell&, Snapshot& s) { // Note Repeat on, on Keys: 1/8, 1/16, 1/32 on B1-B3
-         s.ui.page = PageId::Keys; s.playing = true; s.project.tracks[0].arp = true; s.project.tracks[0].arp_rate = 4;
+         s.ui.page = PageId::Keys; s.playing = true; s.project.tracks[0].repeat = true; s.project.tracks[0].repeat_rate = 4;
          s.ui.held_pads = 1u << 4;
      }},
     {"repeattriplets", [](Shell&, Snapshot& s) { // and with Shift held: the triplets
-         s.ui.page = PageId::Keys; s.playing = true; s.project.tracks[0].arp = true; s.project.tracks[0].arp_rate = 5;
+         s.ui.page = PageId::Keys; s.playing = true; s.project.tracks[0].repeat = true; s.project.tracks[0].repeat_rate = 5;
          s.ui.shift = true; s.ui.shift_used = true;
      }},
     {"undo", [](Shell&, Snapshot& s) { // Shift + Minus: what came back
@@ -2205,7 +2205,7 @@ const Preview previews[] {
      }},
     {"repeatrates", [](Shell&, Snapshot& s) { // Note Repeat on the kit's Pads at 1/64: B3 pressed again (dots under B1 and B3)
          s.ui.page = PageId::Pads; s.ui.track = 3; s.playing = true;
-         s.project.tracks[3].arp = true; s.project.tracks[3].arp_rate = 8;
+         s.project.tracks[3].repeat = true; s.project.tracks[3].repeat_rate = 8;
      }},
     {"stepslane", [](Shell& shell, Snapshot& s) { // Shift + K1 on the kit's Steps: the hat's lane loops over six steps of the bar's sixteen
          step_edit_kit(shell, s);

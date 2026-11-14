@@ -86,7 +86,7 @@ void draw_overlays(Paint& p, const Snapshot& s) {
 void draw_repeat_keys(Paint& p, const Snapshot& s) {
     bool shift = s.ui.shift;
     int active = -1;
-    unsigned now = s.track().arp_rate;
+    unsigned now = s.track().repeat_rate;
     SoftKeys keys {{}, -1, colour_of(s)};
     for (int k = 0; k < 3; ++k) {
         unsigned rate = repeat_shown(now, k, shift);

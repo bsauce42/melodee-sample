@@ -43,8 +43,9 @@ bus return. The picture shows the four buses and each bus's first effect.
 ![SENDS](../images/screens/stagesends.png)
 
 **ARP**: **K1** mode (Up, Down, Up-down, Random, Order), **K2** rate (1/4 to
-1/32T), **K3** octaves. **SHIFT** + **K1** gate, **SHIFT** + **K3** hold.
-**NOTE REPEAT** turns the arpeggiator on.
+1/32T), **K3** octaves. **SHIFT** + **K1** gate, **SHIFT** + **K2** turns the
+arpeggiator on or off, **SHIFT** + **K3** hold. The arpeggiator is separate from
+**NOTE REPEAT**: Note Repeat plays every pad held together on each step.
 
 ![ARP](../images/screens/stagearp.png)
 

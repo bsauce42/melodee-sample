@@ -2145,7 +2145,7 @@ void parity_1c() {
     UiState ui;
     ui.page = PageId::Keys;
     CHECK(!repeat_keys(*project, ui));
-    project->tracks[0].arp = true;
+    project->tracks[0].repeat = true;
     CHECK(repeat_keys(*project, ui));
     ui.page = PageId::Stage; // latched, Stage keeps its buttons; held, they are the rates
     CHECK(!repeat_keys(*project, ui));
@@ -2164,15 +2164,46 @@ void parity_1c() {
         host.load(*p, *bank);
         auto tone = tone_sample();
         CHECK(host.offer_sample(0, &tone));
-        host.send({Command::Type::Arp, 0, 0, 0, 1});
-        host.send({Command::Type::Arp, 0, 0, 2, 2});
+        host.send({Command::Type::Repeat, 0, 0, 0, 1});
+        host.send({Command::Type::Repeat, 0, 0, 2, 2});
         std::vector<int32_t> out(256);
         for (unsigned n = 0; n < 37; ++n) host.render(out.data(), 128, 1);
-        host.send({Command::Type::ArpKey, 0, 0, uint16_t(sampler_first_note), 100});
+        host.send({Command::Type::RepeatKey, 0, 0, uint16_t(sampler_first_note), 100});
         host.render(out.data(), 128, 1);
         float peak = 0;
         for (auto s : out) peak = std::max(peak, std::fabs(s / 2147483648.0f));
         CHECK(peak > 0.01f);
+    }
+    { // Two pads held under Note Repeat sound together on each step, not one after the other (the arp's way)
+        auto steps = [](bool both) {
+            auto p = std::make_unique<Project>();
+            auto bank = std::make_unique<PatternBank>();
+            tone_kit(*p, 0);
+            p->tracks[0].pads[1] = p->tracks[0].pads[0];
+            EngineHost host;
+            host.load(*p, *bank);
+            auto tone = tone_sample();
+            host.offer_sample(0, &tone);
+            host.send({Command::Type::Repeat, 0, 0, 0, 1});
+            std::vector<int32_t> out(256);
+            for (unsigned n = 0; n < 37; ++n) host.render(out.data(), 128, 1);
+            host.send({Command::Type::RepeatKey, 0, 0, uint16_t(sampler_first_note), 100});
+            if (both) host.send({Command::Type::RepeatKey, 0, 0, uint16_t(sampler_first_note + 1), 100});
+            std::vector<float> peaks; // each block's
+            for (unsigned n = 0; n < 200; ++n) {
+                host.render(out.data(), 128, 1);
+                float peak = 0;
+                for (auto s : out) peak = std::max(peak, std::fabs(s / 2147483648.0f));
+                peaks.push_back(peak);
+            }
+            return peaks;
+        };
+        auto one = steps(false), two = steps(true);
+        CHECK(one[0] > 0.01f && two[0] > 1.6f * one[0]); // both on the first step
+        float one_max = *std::max_element(one.begin() + 80, one.end()), two_max = *std::max_element(two.begin() + 80, two.end());
+        CHECK(two_max > 1.6f * one_max);                 // and on the later ones
+        Project kit;
+        CHECK(!kit.tracks[0].repeat && !kit.tracks[0].arp && NoteRepeat().gate == 60 && !NoteRepeat().pressure_velocity);
     }
     { // 16 Levels: a pad's key with its semitones and Filter cutoff repeats as it is; its release names it without the cutoff
         Arp levels; levels.top = int(sampler_last_key);
@@ -8005,7 +8036,7 @@ static void song_buttons() {
     ui.shift = true; // Shift + Loop stays Reverse, of the last pad
     CHECK(press_scope(*project, ui, B::Loop, false).kind != UndoScope::Kind::Song);
     ui.shift = false;
-    project->tracks[2].arp = true;
+    project->tracks[2].repeat = true;
     CHECK(!repeat_keys(*project, ui));
     ui.page = PageId::Patterns;
     CHECK(repeat_keys(*project, ui));
@@ -8600,7 +8631,9 @@ void note_pitches() {
     CHECK(levels_key(kit, 128, false) == -1);
     kit.arp = true;
     CHECK(levels_key(kit, 60, false) == -1);
-    kit.arp = false; kit.pads[18].sample = no_sample;
+    kit.arp = false; kit.repeat = true;
+    CHECK(levels_key(kit, 60, false) == -1); // Note Repeat too
+    kit.repeat = false; kit.pads[18].sample = no_sample;
     CHECK(levels_key(kit, 60, false) == -1); // an empty pad: the kit's pads
 }
 
@@ -10279,7 +10312,7 @@ void looper_chord_and_sheet() {
     project->looper.on = false; lp.loop_sheet = true;
     CHECK(!page_bindings(*project, lp, pattern)[0].bound());
     // Note Repeat latched leaves the Looper's keys alone (its pads repeat nothing there).
-    project->tracks[0].arp = true; lp.track = 0;
+    project->tracks[0].repeat = true; lp.track = 0;
     CHECK(!repeat_keys(*project, lp));
     lp.page = PageId::Keys;
     CHECK(repeat_keys(*project, lp));
@@ -10997,6 +11030,39 @@ void kit_lanes() {
 
 // Note Repeat (roadmap P1): 1/4 and 1/64, the pad's pressure as the repeats' velocity, and its notes kept by Seq Record.
 void note_repeat_p1() {
+    { // Each repeat on its own frame, held or swung, not on the start of the audio block it falls in
+        using namespace midi_track;
+        for (unsigned swung : {50u, 66u}) {
+            auto project = std::make_unique<Project>();
+            auto bank = std::make_unique<PatternBank>();
+            load_sound(project->tracks[0], EngineKind::Midi, 0);
+            project->tracks[0].params[Port] = UsbC; project->tracks[0].params[Channel] = 1;
+            project->tempo = 1234; project->swing = uint8_t(swung);
+            EngineHost host;
+            host.load(*project, *bank);
+            host.set_audio_format(44100, 128);
+            host.send({Command::Type::Repeat, 0, 0, 2, 6}); // 1/32
+            host.send({Command::Type::Repeat, 0, 0, 0, 1});
+            std::vector<int32_t> out(256);
+            for (unsigned b = 0; b < 37; ++b) host.render(out.data(), 128, 1);
+            host.send({Command::Type::RepeatKey, 0, 0, 60, 100});
+            std::vector<uint64_t> at;
+            for (unsigned b = 0; b < 4000; ++b) {
+                host.render(out.data(), 128, 1);
+                MidiOutEvent e;
+                while (host.take_midi(e)) if (e.kind == MidiOutEvent::Kind::NoteOn) at.push_back(e.frame);
+            }
+            const double step = 44100.0 * 60.0 / 123.4 / 8.0; // a 1/32 in frames
+            const double late = swung > 50 ? step * (swung - 50) / 50.0 : 0;
+            CHECK(at.size() > 100);
+            double worst = 0;
+            for (size_t n = 1; n < at.size(); ++n) {
+                double want = double(at[0]) + double(n) * step + (n % 2 ? late : 0); // every second step swung late
+                worst = std::max(worst, std::fabs(double(at[n]) - want));
+            }
+            CHECK(worst <= 1.5); // within a frame and a half (whole-frame rounding), across 4000 blocks: no drift, no block steps
+        }
+    }
     // B1 and B3 again step to 1/4 and 1/64 (with Shift their triplets) and back; B2 stays.
     CHECK(std::string(arp_rate_name(repeat_next(repeat_rate(0, false), 0, false))) == "1/4" && repeat_next(0, 0, false) == repeat_rate(0, false));
     CHECK(std::string(arp_rate_name(repeat_next(6, 2, false))) == "1/64" && std::string(arp_rate_name(repeat_next(7, 2, true))) == "1/64T");
@@ -11011,11 +11077,12 @@ void note_repeat_p1() {
     EngineHost host;
     host.load(*project, *bank);
     host.set_audio_format(44100, 384);
-    host.send({Command::Type::Arp, 0, 0, 2, 4}); // 1/16
-    host.send({Command::Type::Arp, 0, 0, 0, 1});
+    host.send({Command::Type::Repeat, 0, 0, 2, 4}); // 1/16
+    host.send({Command::Type::Repeat, 0, 0, 5, 1}); // Settings > PADS: Repeat velocity on Pressure
+    host.send({Command::Type::Repeat, 0, 0, 0, 1});
     host.send({Command::Type::SongRecord, 0, 0, 0, 1});
     host.send({Command::Type::Play});
-    host.send({Command::Type::ArpKey, 0, 0, 60, 100});
+    host.send({Command::Type::RepeatKey, 0, 0, 60, 100});
     std::vector<int32_t> out(256);
     std::vector<MidiOutEvent> ons;
     auto play = [&](unsigned blocks) {
@@ -11028,7 +11095,7 @@ void note_repeat_p1() {
     play(100);                                                // two sixteenths, as struck
     host.send({Command::Type::Pressure, 0, 0, 60, 64});       // pressed half way
     play(100);
-    host.send({Command::Type::Arp, 0, 0, 5, 0});              // Full Level: the pressure is no velocity
+    host.send({Command::Type::Repeat, 0, 0, 5, 0});           // Full Level: the pressure is no velocity
     play(100);
     CHECK(ons.size() == 7 && ons[0].b == 100 && ons[1].b == 100); // a sixteenth is 5512.5 frames: two in each phase, three in the last
     bool half = false, full_again = false;

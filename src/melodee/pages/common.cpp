@@ -607,6 +607,7 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::SoundList: { static const char* lists[] {"All", "Starred", "Recent"}; c.label = "LIST"; c.value = lists[b.value % 3]; break; }
     case Kind::ArpGate: c.label = "GATE"; c.value = juce::String(b.value); c.unit = "%"; break;
     case Kind::ArpHold: c.label = "HOLD"; c.value = b.value ? "On" : "Off"; break;
+    case Kind::ArpOn: c.label = "ARP"; c.value = b.value ? "On" : "Off"; break;
     case Kind::ChordOn: c.label = "CHORD"; c.value = b.value ? "On" : "Off"; break;
     case Kind::LevelsType: {
         std::array<LevelsKind, 5> types {};
