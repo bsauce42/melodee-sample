@@ -123,7 +123,7 @@ The pads show what a press does on the page:
 - A blink means the pad waits for the next bar.
 
 Change the pad lights to white or off, and how fast a pad fades after its
-sound stops, in [Settings](settings.md) (**LIGHTS**).
+sound stops, in [Settings](settings.md) (**PADS**).
 
 ## Light show
 

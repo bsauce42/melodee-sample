@@ -184,6 +184,16 @@ cursor. They work on Step Edit too:
 - **LOOP** plays only the bars in view over and over, until you press
   **LOOP** again or leave the editor.
 
+**Follow**: with **Follow** set in [Settings](settings.md) (**SEQ**),
+Step Edit and Roll move with the playhead while the pattern plays:
+
+- **Off**: the view stays where you left it.
+- **Page**: when the playhead leaves the bar in view, the next bar comes into
+  view. The caret keeps its place in the bar, so you can edit between page turns.
+- **Step**: the caret goes to each step as it plays.
+
+While you hold a step or a note, or a sheet is open, the view stays still.
+
 **Step Edit**
 
 Press **SHIFT** + **SEQ** to open **Step Edit**, the step editor. It shows the

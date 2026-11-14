@@ -1706,7 +1706,8 @@ const Preview previews[] {
      }},
     {"settings", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.playing = true; s.ui.settings_door = 4; }}, // the doors, AUDIO in hand
     {"settingspads", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 0; s.ui.settings_cursor = Settings::PadResponse; }},
-    {"settingslights", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::PadFade; }},
+    {"settingslights", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 0; s.ui.settings_cursor = Settings::PadFade; }},
+    {"settingsseq", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::SeqFollow; s.ui.settings.seq_follow = 1; }},
     {"settingsscreen", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::Palette; }},
     {"settingsaudio", [](Shell&, Snapshot& s) { // AUDIO's rows, 48 kHz with a dropout
         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 4; s.ui.settings_cursor = Settings::AudioBuffer; s.ui.settings_editing = true;

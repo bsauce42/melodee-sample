@@ -60,6 +60,40 @@ bool select_key(Context& c, int key) {
     return false;
 }
 
+void seq_follow(Context& c) {
+    auto& ui = c.ui;
+    unsigned mode = ui.settings.seq_follow % 3;
+    bool roll = ui.page == PageId::Roll;
+    int position = c.host.position_of(ui.track);
+    if (!mode || !(roll || ui.page == PageId::StepEdit) || !c.host.playing() || position < 0) { ui.follow_step = -1; return; }
+    const auto& pattern = c.pattern();
+    unsigned steps = pattern.steps();
+    int lane = steps_lane(c.track());
+    uint32_t loop = std::max<uint32_t>(lane >= 0 ? pattern.lane_length(unsigned(lane)) : pattern.length, 1);
+    uint64_t elapsed = uint64_t(c.host.pass_of(ui.track)) * std::max<uint32_t>(pattern.length, 1) + uint32_t(position);
+    unsigned at = unsigned(elapsed % loop / pattern.q()); // the step that plays, on a kit lane of its own length too
+    if (at >= steps) return;
+    int mark = int(mode == 2 ? at : at / bar_steps);
+    if (mark == ui.follow_step) return;
+    ui.follow_step = int16_t(mark);
+    if (ui.held_step >= 0 || ui.held_note >= 0 || ui.sheet_open) return; // in the middle of an edit: it stays
+    unsigned caret = cursor_step(pattern, ui), to = at;
+    if (mode == 1 && roll) { // the playing bar in view, the cursor where it sat in the view
+        unsigned first = roll_first(pattern, ui);
+        if (at >= first && at < first + roll_columns) return;
+        int offset = std::clamp(int(caret) - int(first), int(roll_margin), int(roll_columns - 1 - roll_margin));
+        ui.roll_view = int16_t(at / bar_steps * bar_steps);
+        to = std::min(roll_first(pattern, ui) + unsigned(offset), steps - 1);
+    } else if (mode == 1) { // the same step of the playing bar
+        if (caret / bar_steps == at / bar_steps) return;
+        to = std::min(at / bar_steps * bar_steps + caret % bar_steps, steps - 1);
+    }
+    ui.step_cursor = int16_t(std::min(to, 0x7fffu));
+    ui.steps_bar = uint8_t(std::min(to / bar_steps, 255u));
+    ui.step_event = 0;
+    if (roll) { roll_follow(pattern, ui); roll_select(pattern, ui, roll_lane(c.track())); }
+}
+
 void step_move(Context& c, int way) {
     const auto& pattern = c.pattern();
     int step = std::clamp<int>(int(cursor_step(pattern, c.ui)) + way, 0, int(pattern.steps()) - 1);

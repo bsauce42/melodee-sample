@@ -7,21 +7,25 @@ press **B3**, **OPEN**) to open it. **B1** goes back.
 
 On a page, turn the encoder to a row and push to open it. Turn the encoder
 to change it and push again to keep it. **−** / **+** change the row under
-the cursor at once. The header shows the sample rate and buffer the audio
+the cursor at once. A page with more rows than the screen holds scrolls: a
+bar at the right edge shows where you are, with an arrow at the top or
+bottom while more rows are that way. The header shows the sample rate and buffer the audio
 runs at, and in amber the audio dropouts since Melodee started.
 
 ![Settings](../images/screens/settings.png)
 
 | Page | Settings |
 | --- | --- |
-| **PADS** | Pad response (soft, medium, hard, full level), pad pressure, what Double Seq copies, Recall length and grid, Repeat velocity (Strike: every repeat as hard as the pad was struck; Pressure: as hard as the pad is held) |
-| **LIGHTS** | Pad lights (track colours, white, off), **Pad fade** (how fast a pad's light fades after its sound stops: 60, 100, 150 or 250 ms), **Tap Tempo light** (flashes on the beat while playing, on or off) |
+| **PADS** | Pad response (soft, medium, hard, full level), pad pressure, Repeat velocity (Strike: every repeat as hard as the pad was struck; Pressure: as hard as the pad is held), pad lights (track colours, white, off), **Pad fade** (how fast a pad's light fades after its sound stops: 60, 100, 150 or 250 ms), **Tap Tempo light** (flashes on the beat while playing, on or off) |
+| **SEQ** | **Follow** (Step Edit and Roll while the pattern plays: Off, Page or Step; see [Sequencing](sequencing.md)), what Double Seq copies, Capture length and grid |
 | **KNOBS** | Knob, Knob FX and fader takeover: Pickup, Scaled or Instant |
 | **SCREEN** | Palette, **Brightness** (20 to 100 %), place bar at the top or bottom, Screen mirror (on or off) and its resolution: the screen as a USB camera for a computer |
 | **AUDIO** | Sample rate (44.1, 48 or 96 kHz) and audio buffer (256 to 1024 frames). A longer buffer gives fewer crackles on a busy project. A shorter one responds sooner. |
 | **SAMPLING** | Audio Recall settings, when a Free take ends on its own, and the level that counts as silence (**Silence below**) |
 | **MIDI** | MIDI Config (see [MIDI and sync](midi-and-sync.md)) |
 | **ABOUT** | How the MPC is doing: processor load, audio dropouts, card space, plug-in load. **B3** shows the version and what Melodee is built on. |
+
+![SEQ](../images/screens/settingsseq.png)
 
 ![AUDIO](../images/screens/settingsaudio.png)
 

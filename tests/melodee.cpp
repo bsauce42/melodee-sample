@@ -1848,6 +1848,13 @@ void settings() {
     { Settings back; back.read(c.text()); CHECK(back.capture_bars == 1 && back.capture_quantise == 0); }
     { Settings odd; odd.read("capture_bars=5\ncapture_quantize=9\n"); CHECK(odd.capture_bars == 4 && odd.capture_quantise == 2); }
     { Settings none; none.read("capture_bars=0\n"); CHECK(none.capture_bars == 0); }
+    // SEQ > Follow: Off, Page, Step, stopping at the ends; kept in the text.
+    CHECK(c.seq_follow == 0 && c.value_text(Settings::SeqFollow) == "Off" && std::string(Settings::row_name(Settings::SeqFollow)) == "Follow");
+    c.step(Settings::SeqFollow, -1); CHECK(c.seq_follow == 0);
+    c.step(Settings::SeqFollow, 1); CHECK(c.value_text(Settings::SeqFollow) == "Page");
+    c.step(Settings::SeqFollow, 1); c.step(Settings::SeqFollow, 1); CHECK(c.seq_follow == 2 && c.value_text(Settings::SeqFollow) == "Step");
+    { Settings back; back.read(c.text()); CHECK(back.seq_follow == 2); }
+    { Settings odd; odd.read("seq_follow=7\n"); CHECK(odd.seq_follow == 2); }
     CHECK(std::string(Settings::row_name(Settings::CaptureQuantize)) == "Capture quantize" && Settings::CaptureQuantize + 1 == Settings::Screen);
     // Favourites: starred sounds by engine, kept in the text; the Sounds page's FAVOURITES lists them.
     static_assert(Settings::engines == unsigned(EngineKind::Count), "a favourites row per engine");

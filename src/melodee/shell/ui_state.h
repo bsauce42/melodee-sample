@@ -133,6 +133,8 @@ struct UiState {
     uint8_t recent_count = 0;
     uint8_t steps_bar = 0;
     int16_t step_cursor = 0, held_step = -1;
+    // Settings > SEQ > Follow (shell/step_edit.cpp seq_follow): the bar (Page) or step (Step) the caret last went to; -1 none.
+    int16_t follow_step = -1;
     uint8_t step_event = 0;                   // Step Edit: which of the cursor step's events (shell/step_edit.h)
     // Step Edit (round 2, step-edit2 C, step entry): what a pad writes at the caret (step_cursor): its length in
     // steps of Q, its velocity (0: as played) and chance; the pads held for this step, and whether they wrote.

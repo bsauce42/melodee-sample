@@ -38,6 +38,9 @@ bool key_is_pad(const Track& track, int key);
 // The event of `key` in the step under the cursor becomes the selection; false when there is none.
 bool select_key(Context& c, int key);
 
+// Settings > SEQ > Follow, each UI tick: while the pattern plays on Step Edit or Roll, the caret to the bar (Page)
+// or the step (Step) that plays, once each time that changes; not while a step, a note or a sheet is held open.
+void seq_follow(Context& c);
 // The wheel: to the next or previous step of Q (the first event selected).
 void step_move(Context& c, int way);
 // Minus / Plus: through the step's events.

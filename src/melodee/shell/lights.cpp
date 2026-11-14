@@ -214,6 +214,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     context_.chain_tick();    // pattern chains: the next queued in the last bar of the one playing (seq-sheet2 B)
     context_.follow_tick();   // roadmap P5: chains told to the audio thread, follow actions that came followed
     context_.capture_tick();  // roadmap P5: the transport's runs, for what Capture keeps
+    seq_follow(context_);     // Settings > SEQ > Follow: Step Edit and Roll with the playhead
     // Sounds of one's own, when the card's list changes.
     if (store_ && store_->generation() != sounds_seen) {
         sounds_seen = store_->generation();
