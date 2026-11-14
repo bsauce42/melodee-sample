@@ -11120,6 +11120,26 @@ void note_repeat_p1() {
         CHECK(kept[n].track == 0 && kept[n].pattern == 0 && kept[n].key == 60 && kept[n].tick == n * sixteenth_ticks % 384);
         CHECK(kept[n].velocity == ons[n].b && kept[n].length == sixteenth_ticks * 60 / 100);
     }
+    // After a count-in, Seq Record writes the repeats from the take's first tick: the bar counted in is not part of
+    // the pattern (a 2-bar pattern's first bar held its first-bar repeats, not its second).
+    {
+        bank->at[0][0].length = 2 * 4 * ticks_per_quarter;
+        auto heap = std::make_unique<EngineHost>(); // large: off the stack
+        auto& counted = *heap;
+        counted.load(*project, *bank);
+        counted.set_audio_format(44100, 384);
+        counted.send({Command::Type::Repeat, 0, 0, 2, 4}); // 1/16
+        counted.send({Command::Type::Repeat, 0, 0, 0, 1});
+        counted.send({Command::Type::SongRecord, 0, 0, 0, 1});
+        counted.send({Command::Type::Play, 1});             // a bar's count-in first
+        counted.send({Command::Type::RepeatKey, 0, 0, 60, 100}); // held through the count-in
+        do counted.render(out.data(), 128, 1); while (counted.count_in());
+        for (unsigned b = 0; b < 300; ++b) counted.render(out.data(), 128, 1); // about two beats of the take
+        std::vector<EngineHost::ArpWritten> written;
+        while (counted.take_arp_written(w)) written.push_back(w);
+        CHECK(written.size() >= 6);
+        for (size_t n = 0; n < written.size(); ++n) CHECK(written[n].tick == n * sixteenth_ticks);
+    }
 }
 
 // A pattern's feel (roadmap P1): strength toward Q, swing, humanize and a groove from another pattern, heard live.
