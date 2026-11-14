@@ -3,11 +3,20 @@
 import gzip
 import json
 from pathlib import Path
+import struct
 import subprocess
 import tempfile
 import unittest
 
 from test_mpc_project import BINARY, instrument, note, project, wav, write
+
+
+def float_wav(path, rate, channels, frames):
+    """A print as Melodee writes one: 32-bit float, each channel's sample its number."""
+    data = b"".join(struct.pack("<f", float(c + 1)) for _ in range(frames) for c in range(channels))
+    fmt = struct.pack("<HHIIHH", 3, channels, rate, rate * channels * 4, channels * 4, 32)
+    body = b"WAVE" + b"fmt " + struct.pack("<I", len(fmt)) + fmt + b"data" + struct.pack("<I", len(data)) + data
+    Path(path).write_bytes(b"RIFF" + struct.pack("<I", len(body)) + body)
 
 
 def read(path):
@@ -37,7 +46,7 @@ class Mpc3Export(unittest.TestCase):
     def test_document(self):
         with tempfile.TemporaryDirectory() as folder:
             report, out = self.export(folder)
-            self.assertIn("exported tracks=1 keygroups=0 sequences=2 pads=2 notes=3 samples=2 skipped_tracks=0 skipped_pads=0 missing=0", report)
+            self.assertIn("exported tracks=1 keygroups=0 audio=0 regions=0 sequences=2 pads=2 notes=3 samples=2 skipped_tracks=0 skipped_pads=0 missing=0", report)
             header, data = read(out / "Beat.xpj")
             self.assertEqual(header[0], "ACVS")
             self.assertTrue(header[1].startswith("3."), header)
@@ -110,7 +119,7 @@ class Mpc3Export(unittest.TestCase):
             (keys / "Piano.sfz").write_text("<region> sample=low.wav lokey=0 hikey=59 pitch_keycenter=48\n"
                                             "<region> sample=high.wav lokey=60 hikey=127 pitch_keycenter=72 tune=10 volume=-6\n")
             report, out = self.export(folder, "0.1=FOLDER/Piano/Piano.sfz", "0.1^5")
-            self.assertIn("exported tracks=1 keygroups=1 sequences=2 pads=1 notes=3 samples=3", report)
+            self.assertIn("exported tracks=1 keygroups=1 audio=0 regions=0 sequences=2 pads=1 notes=3 samples=3", report)
             _, data = read(out / "Beat.xpj")
         tracks = {t["name"]: t for t in data["tracks"]}
         piano = tracks["Piano"]["program"]
@@ -152,6 +161,55 @@ class Mpc3Export(unittest.TestCase):
             _, data = read(out / "Beat.xpj")
         layers = [l for l in data["tracks"][0]["program"]["drum"]["instruments"][0]["layersv"] if l["sampleFile"]]
         self.assertEqual(sorted(l["sampleFile"] for l in layers), ["Kick.wav", "Snare.wav"])
+
+    def test_prints_as_audio_track(self):
+        # A plug-in track's prints: an Audio track, each printed pattern a region from its sequence's start; a print
+        # with pad sends' channels made stereo.
+        with tempfile.TemporaryDirectory() as folder:
+            prints = Path(folder) / "Song Prints"
+            prints.mkdir()
+            float_wav(prints / "T02 A1.wav", 48000, 2, 1000)
+            float_wav(prints / "T02 A2.wav", 48000, 4, 500)
+            report, out = self.export(folder, f"1@0={prints}/T02 A1.wav", f"1@1={prints}/T02 A2.wav")
+            self.assertIn("exported tracks=1 keygroups=0 audio=1 regions=2", report)
+            _, data = read(out / "Beat.xpj")
+            stereo = (out / "Beat_[ProjectData]" / "Synth A2.wav").read_bytes()
+        tracks = {t["name"]: t for t in data["tracks"]}
+        self.assertEqual(tracks["Synth"]["program"]["type"], 6)
+        self.assertEqual(sorted(s["path"] for s in tracks["Synth"]["program"]["samples"]), ["Synth A1.wav", "Synth A2.wav"])
+        channels, rate = struct.unpack("<HI", stereo[22:28])
+        self.assertEqual((channels, rate), (2, 48000))
+        self.assertEqual(struct.unpack("<ff", stereo[44:52]), (1.0, 2.0))
+        self.assertEqual(len(stereo), 44 + 500 * 8)
+        for key, file, frames in ((0, "Synth A1.wav", 1000), (1, "Synth A2.wav", 500)):
+            sequence = next(s["value"] for s in data["sequences"] if s["key"] == key)
+            events = next(c["value"] for c in sequence["trackClipMaps"][0] if c["key"] == "Synth")["eventList"]["events"]
+            self.assertEqual([(e["type"], e["time"], e["audio"]["sample"]["path"], e["audio"]["sliceEnd"]) for e in events][0], (4, 0, file, frames))
+
+    def test_print_loops_in_a_longer_sequence(self):
+        # A one-bar print in a two-bar sequence (the kit's pattern is longer): the clip spans the sequence, the print
+        # once each bar, as Melodee loops it.
+        with tempfile.TemporaryDirectory() as folder:
+            prints = Path(folder) / "Song Prints"
+            prints.mkdir()
+            float_wav(prints / "T02 A1.wav", 44100, 2, 100)
+            _, out = self.export(folder, f"1@0={prints}/T02 A1.wav")
+            _, data = read(out / "Beat.xpj")
+        sequence = next(s["value"] for s in data["sequences"] if s["key"] == 0)
+        clip = next(c["value"] for c in sequence["trackClipMaps"][0] if c["key"] == "Synth")
+        self.assertEqual(clip["endPulses"], sequence["lengthPulses"])
+        times = [(e["time"], e["audio"]["length"]) for e in clip["eventList"]["events"]]
+        self.assertEqual(times[0], (0, 3840))
+        self.assertEqual(sum(length for _, length in times), sequence["lengthPulses"])
+
+    def test_warped_pad(self):
+        with tempfile.TemporaryDirectory() as folder:
+            _, out = self.export(folder, "0.0~1")
+            _, data = read(out / "Beat.xpj")
+            back = self.run_tool("--mpc-import", out / "Beat.xpj").stdout
+        pad = data["tracks"][0]["program"]["drum"]["instruments"][0]
+        self.assertEqual((pad["warpEnable"], pad["bpmLock"], pad["tempo"]), (True, True, 72.5))
+        self.assertIn("pad A01 file=Kick start=10 end=90 level=100 pan=0 pitch=0 play=1 mono=1 group=2 filter=Off cutoff=100 warp=1", back)
 
     def test_nothing_to_export(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -2529,23 +2529,60 @@ static int mpc_import(const char* path) {
 
 // A Melodee project (.mldp) or an MPC Sample project (.xpj, read as Melodee reads one) written as an MPC 3 project
 // into FOLDER, for the build's checks. Each change after them is made first: "T.P=PATH" puts a file or an instrument on
-// pad P of track T (from 0), "T.P^N" plays that pad's notes N semitones up, "T.P^A,B,C" each next note at the next.
+// pad P of track T (from 0), "T.P^N" plays that pad's notes N semitones up, "T.P^A,B,C" each next note at the next,
+// "T@P=PATH" makes track T a plug-in track with PATH as its print of pattern P (the prints all in one folder),
+// "T.P~W" warps that pad at W (1 Seq, 50..200 %).
 static int mpc3_export(const char* path, const char* folder, const char* name, int changes, char** change) {
     std::ifstream file(path, std::ios::binary);
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)), {});
     auto project = std::make_unique<Project>();
     auto patterns = std::make_unique<PatternBank>();
+    auto prints = std::make_unique<PrintTable>();
+    std::string prints_dir;
     std::string error;
     if (is_mpc_project(path)) {
         MpcImport imported;
         error = import_mpc_project(bytes, path, *project, *patterns, imported);
     } else {
-        error = load_project(bytes, *project, *patterns);
+        error = load_project(bytes, *project, *patterns, nullptr, nullptr, prints.get());
+        prints_dir = prints_folder(path);
     }
     if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
     for (int c = 0; c < changes; ++c) {
         unsigned t = 0, n = 0;
         int used = 0;
+        if (std::sscanf(change[c], "%u@%u=%n", &t, &n, &used) == 2 && used && t < track_count && n < pattern_count) {
+            const std::filesystem::path file(change[c] + used);
+            auto& track = project->tracks[t];
+            if (track.engine != EngineKind::Plugin) { track = Track {}; track.engine = EngineKind::Plugin; track.set_name("Synth"); }
+            PrintRecord record;
+            record.track = uint8_t(t);
+            record.pattern = uint8_t(n);
+            record.file = file.filename().string();
+            std::ifstream wav(file, std::ios::binary);
+            char chunk[12];
+            unsigned align = 0;
+            wav.read(chunk, 12); // RIFF, size, WAVE; then its chunks
+            while (wav.read(chunk, 8)) {
+                const uint32_t size = juce::ByteOrder::littleEndianInt(chunk + 4);
+                if (!std::memcmp(chunk, "fmt ", 4)) {
+                    char format[16];
+                    wav.read(format, 16);
+                    record.rate = juce::ByteOrder::littleEndianInt(format + 4);
+                    align = juce::ByteOrder::littleEndianShort(format + 12);
+                    wav.seekg(std::streamoff(size - 16 + (size & 1)), std::ios::cur);
+                } else if (!std::memcmp(chunk, "data", 4)) {
+                    record.frames = align ? size / align : 0;
+                    break;
+                } else {
+                    wav.seekg(std::streamoff(size + (size & 1)), std::ios::cur);
+                }
+            }
+            record.pass = uint32_t(std::llround(record.frames * 44100.0 / std::max(record.rate, 1u)));
+            prints->put(record);
+            prints_dir = file.parent_path().string();
+            continue;
+        }
         if (std::sscanf(change[c], "%u.%u%n", &t, &n, &used) != 2 || t >= track_count || n >= sampler_pads) { std::printf("error=change %s\n", change[c]); return 1; }
         const char* rest = change[c] + used;
         auto& track = project->tracks[t];
@@ -2566,15 +2603,18 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
             for (auto& pattern : patterns->at[t])
                 for (auto& e : pattern.events)
                     if (e.key == sampler_first_note + n && !steps.empty()) e.pitch = int8_t(steps[next++ % steps.size()]);
+        } else if (*rest == '~') {
+            track.pads[n].warp = uint8_t(std::atoi(rest + 1));
+            track.pads[n].own_tempo = project->tempo;
         } else { std::printf("error=change %s\n", change[c]); return 1; }
     }
     Mpc3Export report;
     auto began = std::chrono::steady_clock::now();
-    error = export_mpc3_project(*project, *patterns, folder, name, report);
+    error = export_mpc3_project(*project, *patterns, folder, name, report, prints.get(), prints_dir);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - began).count();
     if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
-    std::printf("exported tracks=%u keygroups=%u sequences=%u pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
-                report.tracks, report.keygroups, report.sequences, report.pads, report.notes, report.samples, report.skipped_tracks, report.skipped_pads,
+    std::printf("exported tracks=%u keygroups=%u audio=%u regions=%u sequences=%u pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
+                report.tracks, report.keygroups, report.audio, report.regions, report.sequences, report.pads, report.notes, report.samples, report.skipped_tracks, report.skipped_pads,
                 report.missing, (long long)ms);
     return 0;
 }
