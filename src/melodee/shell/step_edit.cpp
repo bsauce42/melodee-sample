@@ -60,12 +60,18 @@ bool select_key(Context& c, int key) {
     return false;
 }
 
+bool seq_following(const Context& c) {
+    const auto& ui = c.ui;
+    return ui.settings.seq_follow % 3 && (ui.page == PageId::Roll || ui.page == PageId::StepEdit) && c.host.playing() &&
+           c.host.position_of(ui.track) >= 0;
+}
+
 void seq_follow(Context& c) {
     auto& ui = c.ui;
     unsigned mode = ui.settings.seq_follow % 3;
     bool roll = ui.page == PageId::Roll;
     int position = c.host.position_of(ui.track);
-    if (!mode || !(roll || ui.page == PageId::StepEdit) || !c.host.playing() || position < 0) { ui.follow_step = -1; return; }
+    if (!seq_following(c)) { ui.follow_step = -1; return; }
     const auto& pattern = c.pattern();
     unsigned steps = pattern.steps();
     int lane = steps_lane(c.track());

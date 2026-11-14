@@ -238,6 +238,7 @@ void wheel(Context& c, int delta) {
         return;
     }
     if (roll_selection_wheel(c, delta)) return; // Shift: marks notes; marked, the wheel moves them (Shift: their pitch)
+    if (seq_following(c)) return;               // Settings > SEQ > Follow has the cursor while it plays
     roll_step(c.pattern(), c.ui, delta, roll_lane(c.track()));
 }
 

@@ -359,6 +359,7 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
 
 void wheel(Context& c, int delta) {
     if (c.ui.step_pads && held_wheel(c, delta)) return;
+    if (seq_following(c)) return; // Settings > SEQ > Follow has the caret while it plays
     entry_move(c, delta);
 }
 

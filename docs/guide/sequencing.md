@@ -189,10 +189,11 @@ Step Edit and Roll move with the playhead while the pattern plays:
 
 - **Off**: the view stays where you left it.
 - **Page**: when the playhead leaves the bar in view, the next bar comes into
-  view. The caret keeps its place in the bar, so you can edit between page turns.
+  view. The caret keeps its place in the bar.
 - **Step**: the caret goes to each step as it plays.
 
-While you hold a step or a note, or a sheet is open, the view stays still.
+While it follows, the encoder does not move the caret. Stop to move it. While
+you hold a step or a note, or a sheet is open, the view stays still.
 
 **Step Edit**
 

@@ -41,6 +41,8 @@ bool select_key(Context& c, int key);
 // Settings > SEQ > Follow, each UI tick: while the pattern plays on Step Edit or Roll, the caret to the bar (Page)
 // or the step (Step) that plays, once each time that changes; not while a step, a note or a sheet is held open.
 void seq_follow(Context& c);
+// Whether Follow has the caret now (Step Edit or Roll, playing): the wheel leaves it alone.
+bool seq_following(const Context& c);
 // The wheel: to the next or previous step of Q (the first event selected).
 void step_move(Context& c, int way);
 // Minus / Plus: through the step's events.
