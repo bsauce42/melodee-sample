@@ -42,7 +42,7 @@ public:
     void service(Hardware& hardware) override;                          // service thread
     void jack(const JackEvent& event, Hardware& hardware) override;     // service thread
     std::string command(const std::string& action, const std::string& argument, Hardware&) override;
-    std::string command_names() const override { return "melodee-press, melodee-midi, melodee-update, melodee-print, melodee-freeze, melodee-unfreeze"; }
+    std::string command_names() const override { return "melodee-press, melodee-midi, melodee-update, melodee-print, melodee-freeze, melodee-unfreeze, melodee-autosample"; }
     std::string status() const override;
     bool claims_wheel_push() const override { return true; }
     bool finished() const override { return shell.leaving() || power_off_failed.load(); }

@@ -1026,6 +1026,22 @@ deep and thawing tracks, the last thaw in ms, the plug-ins with `asleep`
 for unloaded ones), `melodee-unfreeze TRACK` (a deep-frozen track thaws
 first).
 
+**Auto sample.** The print host also samples a plug-in track's
+instrument into an MPC keygroup program (`shell/auto_sample.h`): one
+root every few semitones (MIDI 36–96, every 3, by default), each in up
+to four velocity layers, the key held for a set time (2 s) and let go,
+its release kept until it falls below -70 dB (8 s at most). The sound is
+taken before the track's chain. Each note is a 24-bit WAV at the
+device's rate, `<name>-C4-V127.wav`, and the program
+`Samples/Keygroups/<name>/<name>.xpm` (the MPC 2 XML that MPC 2 and 3,
+Force and MPC Beats open). Keygroups split halfway between roots; the
+program's release is the plug-in's own, measured. A key where the
+plug-in is silent is left out. The program then goes on the first empty
+track as a KEYGROUP track with the plug-in track's patterns, mix and
+chain (its plug-in effects left out). Remote:
+`melodee-autosample TRACK [LOW-HIGH] [step N] [layers 1-4] [hold S]
+[tail S]`; `melodee-print status` reports it.
+
 ### Sampler
 
 A kit has 128 pads in eight banks (A–H), each a region of one of the

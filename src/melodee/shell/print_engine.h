@@ -2,7 +2,9 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
 #include "melodee/model/print.h"
+#include "melodee/shell/auto_sample.h"
 #include "melodee/model/project.h"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <condition_variable>
@@ -45,6 +47,11 @@ struct PrintJob {
     bool freeze = false;
     bool deep = false;                   // freeze plan F2d: its pack plays as a deep freeze (FreezePack::deep)
     uint32_t serial = 0;                 // the freeze it is for (the shell drops one a later freeze replaced)
+    // The auto sampler: the track's instrument played a note at a time into `sample_folder` as `sample_name`.xpm
+    // and its WAVs, not its patterns printed.
+    bool autosample = false;
+    AutoSampleSettings sampling;
+    std::string sample_folder, sample_name;
 };
 
 // Freeze plan F2c: a print's first pass in small, for Stage: the loudest of each column, 0..255 full scale.
@@ -77,6 +84,7 @@ struct PrintProgress {
     bool busy = false;
     uint8_t track = 0;
     bool freeze = false;
+    bool autosample = false;   // the auto sampler's notes (`pattern`: the key, `count`: the samples)
     uint32_t serial = 0;       // the freeze it is for
     int16_t pattern = -1;      // the pattern printing now, -1 none
     float fraction = 0;        // of it, rendered
@@ -101,6 +109,8 @@ public:
     bool busy() const { return running.load(std::memory_order_acquire); }
     // MIDI thread: each pattern's result, in order.
     bool take(PrintResult& out);
+    // MIDI thread: an auto sampler job's program, made or not.
+    bool take_sampled(AutoSampleResult& out);
     // Freeze plan F2b. The pager the audio thread reads prints with (set before any freeze). MIDI thread: a freeze's
     // prints ready; a pack the audio thread has finished with, freed on the print thread once the pager has let go of
     // its streams (and its files' mappings with it).
@@ -116,6 +126,7 @@ public:
 private:
     void run();
     PrintResult print_one(const PrintJob& job, unsigned pattern, const std::array<const SampleData*, sample_slots>& samples);
+    AutoSampleResult sample_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples);
     FreezeReady freeze_pack(const PrintJob& job, const PrintTable& known);
     void empty_trash(); // print thread: the packs discarded, freed
     SampleLibrary* library;
@@ -126,6 +137,7 @@ private:
     std::condition_variable wake;
     std::unique_ptr<PrintJob> waiting; // under lock
     std::deque<PrintResult> results;   // under lock
+    std::deque<AutoSampleResult> sampled; // under lock
     std::deque<std::string> lines;     // under lock: the latest results
     std::string doing;                 // under lock
     PrintProgress shown;               // under lock

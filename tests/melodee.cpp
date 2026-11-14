@@ -28,6 +28,8 @@
 #include "melodee/engine/take_recorder.h"
 #include "melodee/shell/chop.h"
 #include "melodee/shell/light_show.h"
+#include "melodee/shell/xpm_write.h"
+#include "melodee/shell/auto_sample.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/print_player.h"
 #include "melodee/engine/print_render.h"
@@ -7104,6 +7106,39 @@ void sfz_reader() {
 }
 
 // An MPC keygroup program's keygroups and layers as the SFZ reader's zones.
+// The auto sampler's .xpm (shell/xpm_write.h): keys, roots, velocities and release as the MPC keeps them.
+void xpm_writer() {
+    XpmProgram program;
+    program.name = "Pad & <Lead>";
+    program.release = 0.4;
+    XpmKeygroup low;
+    low.low = 0; low.high = 37;
+    low.layers = {{"Pad-C2-V63", 36, 1, 63, 48000}, {"Pad-C2-V127", 36, 64, 127, 50000}};
+    XpmKeygroup high;
+    high.low = 38; high.high = 127;
+    high.layers = {{"Pad-Eb2-V127", 39, 1, 127, 44100}};
+    program.keygroups = {low, high};
+    const std::string text = xpm_text(program);
+    CHECK(text.find("<ProgramName>Pad &amp; &lt;Lead&gt;</ProgramName>") != std::string::npos);
+    auto has = [&](const char* part) { return text.find(part) != std::string::npos; };
+    CHECK(has("<Program type=\"Keygroup\">") && has("<KeygroupNumKeygroups>2</KeygroupNumKeygroups>"));
+    CHECK(has("<LowNote>0</LowNote>") && has("<HighNote>37</HighNote>") && has("<LowNote>38</LowNote>") && has("<HighNote>127</HighNote>"));
+    CHECK(has("<RootNote>37</RootNote>") && has("<RootNote>40</RootNote>")); // one past the MIDI note
+    CHECK(has("<SampleName>Pad-C2-V63</SampleName>") && has("<VelEnd>63</VelEnd>") && has("<VelStart>64</VelStart>"));
+    CHECK(has("<SliceEnd>50000</SliceEnd>") && has("<TriggerMode>2</TriggerMode>"));
+    char release[64];
+    std::snprintf(release, sizeof(release), "<VolumeRelease>%.6f</VolumeRelease>", xpm_envelope_value(0.4));
+    CHECK(has(release));
+    CHECK(std::fabs(keygroup_seconds(xpm_envelope_value(2.5)) - 2.5) < 1e-6 && xpm_envelope_value(0) == 0);
+    // the sampler's roots and velocities
+    AutoSampleSettings set;
+    CHECK(set.roots().size() == 21 && set.roots().front() == 36 && set.roots().back() == 96);
+    set.layers = 3;
+    CHECK(set.velocity(0) == 42 && set.velocity(1) == 84 && set.velocity(2) == 127);
+    set.layers = 1;
+    CHECK(set.velocity(0) == 127);
+}
+
 void keygroup_reader() {
     CHECK(std::fabs(keygroup_decibels(1.0)) < 1e-9 && std::fabs(keygroup_decibels(0.5) + 6.0206) < 1e-3);
     CHECK(mpc_level(0.707946) == 100 && mpc_level(1.0) == 127 && mpc_level(0) == 0 && mpc_pan(0.5) == 0 && mpc_pan(0.37) == -13);
@@ -14592,6 +14627,7 @@ int main() {
     song_buttons();
     sfz_reader();
     keygroup_reader();
+    xpm_writer();
     exs_reader();
     kit_levels_octave();
     drum_program_pads();

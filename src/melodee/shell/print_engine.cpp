@@ -9,6 +9,7 @@
 #include "melodee/engine/sample_data.h"
 #include "melodee/plugin/plugin_rack.h"
 #include "melodee/shell/sample_library.h"
+#include "melodee/shell/xpm_write.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -97,6 +98,80 @@ unsigned delay_blocks_for(const Track& t) {
     return std::min(n, DelayPool::blocks);
 }
 
+// A print host (EngineHost::Lean) holding `project` (a print_project()), its samples offered and its plug-ins open
+// in a rack of its own, staged apart from the live rack's, at `states`. `error` says why not.
+struct PrintHost {
+    std::unique_ptr<EngineHost> host;
+    std::unique_ptr<PluginRack> rack;
+    bool streams = false; // an instrument streamed from the card: its pager runs
+    std::set<long> threads_before, threads_idle; // freeze plan F2d: the print's plug-ins' threads at SCHED_IDLE
+    std::string error;
+    PrintHost() = default;
+    PrintHost(PrintHost&&) = default;
+    ~PrintHost() {
+        if (streams && host) host->streams().stop();
+        rack.reset(); // its plug-ins freed before the host
+        host.reset();
+    }
+};
+
+PrintHost open_print_host(const Project& project, const PatternBank& bank, const Track& track,
+                          const std::array<const SampleData*, sample_slots>& samples,
+                          const std::array<std::vector<uint8_t>, max_plugins>& states, const std::string& card_top,
+                          const std::atomic<bool>& cancelled) {
+    PrintHost h;
+    h.host = std::make_unique<EngineHost>(EngineHost::Lean {delay_blocks_for(track)});
+    auto& host = h.host;
+    host->load(project, bank);
+    host->set_audio_format(dsp::sample_rate(), EngineHost::block);
+    Command reload {Command::Type::Reload};
+    reload.pack = new ProjectPack(project, bank);
+    host->send(reload);
+    // An instrument streamed from the card: its pager runs, and the print goes no faster than real time, as the
+    // live pager's reads would (a print faster than that would outrun the card's reads; freeze plan F2b).
+    for (unsigned n = 0; n < sample_slots; ++n) h.streams |= project.samples[n].used() && samples[n] && samples[n]->multi;
+    if (h.streams) host->streams().start();
+    std::vector<int32_t> out(EngineHost::block * 2);
+    auto idle = [&] { // a silent block: offers taken, packs handed back
+        host->render(out.data(), EngineHost::block, 1.0f);
+        const ProjectPack* done = nullptr;
+        while (host->take_done_pack(done)) delete done;
+    };
+    for (unsigned n = 0; n < sample_slots; ++n) { // the slots it plays; the offers' queue taken a block at a time
+        if (!project.samples[n].used() || !samples[n]) continue;
+        while (!host->offer_sample(n, samples[n])) idle();
+    }
+    idle();
+    bool plugins = false;
+    for (const auto& ref : project.plugins) plugins |= ref.used();
+    if (plugins) { // its own rack: the plug-ins opened again, staged apart from the live rack's
+        start_plugin_messages(); // a thread of the live rack's, not one of the print's
+        h.threads_before = task_ids();
+        h.rack = std::make_unique<PluginRack>(*host, "print-");
+        h.rack->set_card(card_top);
+        h.rack->set_states(states);
+        h.rack->sync(project);
+        auto w0 = Clock::now();
+        while (h.error.empty()) {
+            idle();
+            bool ready = true;
+            for (unsigned entry = 0; entry < max_plugins; ++entry) {
+                if (!project.plugins[entry].used()) continue;
+                auto st = h.rack->status(entry);
+                if (st == PluginStatus::Failed || st == PluginStatus::Crashed) h.error = "plug-in did not open: " + h.rack->summary();
+                ready &= st == PluginStatus::Ready;
+            }
+            if (ready) break;
+            if (cancelled.load()) h.error = "stopped";
+            else if (since(w0) > plugin_wait_seconds) h.error = "plug-in did not open in time";
+            else std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        idle(); // the plug-in offered is in place
+        idle_new_threads(h.threads_before, h.threads_idle);
+    }
+    return h;
+}
+
 std::string line_of(const PrintResult& r) {
     char text[320];
     if (!r.error.empty())
@@ -167,6 +242,14 @@ bool PrintEngine::start(PrintJob job) {
 
 void PrintEngine::cancel() { cancelled.store(true); }
 
+bool PrintEngine::take_sampled(AutoSampleResult& out) {
+    std::lock_guard<std::mutex> held(lock);
+    if (sampled.empty()) return false;
+    out = std::move(sampled.front());
+    sampled.pop_front();
+    return true;
+}
+
 bool PrintEngine::take(PrintResult& out) {
     std::lock_guard<std::mutex> held(lock);
     if (results.empty()) return false;
@@ -217,6 +300,21 @@ void PrintEngine::run() {
             shown.count = uint16_t(job->patterns.size());
         }
         auto samples = library ? library->hold_samples() : std::array<const SampleData*, sample_slots> {};
+        if (job->autosample) { // the auto sampler: notes, not patterns
+            AutoSampleResult made = sample_track(*job, samples);
+            if (library) library->release_samples();
+            std::lock_guard<std::mutex> held(lock);
+            lines.push_back("autosample track=" + std::to_string(job->track + 1) + " " +
+                            (made.error.empty() ? "made=" + made.program + " samples=" + std::to_string(made.samples)
+                                                : "error=" + made.error) +
+                            " seconds=" + std::to_string(int(std::lround(made.seconds))));
+            while (lines.size() > kept_lines) lines.pop_front();
+            sampled.push_back(std::move(made));
+            doing.clear();
+            shown.busy = false; shown.pattern = -1;
+            running.store(false, std::memory_order_release);
+            continue;
+        }
         for (uint8_t pattern : job->patterns) {
             if (cancelled.load()) { failed = true; break; }
             empty_trash();
@@ -372,57 +470,13 @@ PrintResult PrintEngine::print_one(const PrintJob& job, unsigned pattern, const 
     }
 
     long rss0 = rss_kb();
-    auto host = std::make_unique<EngineHost>(EngineHost::Lean {delay_blocks_for(track)});
-    host->load(*project, *bank);
-    host->set_audio_format(rate, EngineHost::block);
-    Command reload {Command::Type::Reload};
-    reload.pack = new ProjectPack(*project, *bank);
-    host->send(reload);
-    // An instrument streamed from the card: its pager runs, and the print goes no faster than real time, as the
-    // live pager's reads would (a print faster than that would outrun the card's reads; freeze plan F2b).
-    bool streams = false;
-    for (unsigned n = 0; n < sample_slots; ++n) streams |= project->samples[n].used() && samples[n] && samples[n]->multi;
-    if (streams) host->streams().start();
-    std::vector<int32_t> out(EngineHost::block * 2);
-    auto idle = [&] { // a silent block: offers taken, packs handed back
-        host->render(out.data(), EngineHost::block, 1.0f);
-        const ProjectPack* done = nullptr;
-        while (host->take_done_pack(done)) delete done;
-    };
-    for (unsigned n = 0; n < sample_slots; ++n) { // the slots it plays; the offers' queue taken a block at a time
-        if (!project->samples[n].used() || !samples[n]) continue;
-        while (!host->offer_sample(n, samples[n])) idle();
-    }
-    idle();
-    std::unique_ptr<PluginRack> rack;
-    std::set<long> threads_before, threads_idle; // freeze plan F2d: the print's plug-ins' threads at SCHED_IDLE
-    bool plugins = false;
-    for (const auto& ref : project->plugins) plugins |= ref.used();
-    if (plugins) { // its own rack: the plug-ins opened again, staged apart from the live rack's
-        start_plugin_messages(); // a thread of the live rack's, not one of the print's
-        threads_before = task_ids();
-        rack = std::make_unique<PluginRack>(*host, "print-");
-        rack->set_card(job.card_top);
-        rack->set_states(job.states);
-        rack->sync(*project);
-        auto w0 = Clock::now();
-        while (r.error.empty()) {
-            idle();
-            bool ready = true;
-            for (unsigned entry = 0; entry < max_plugins; ++entry) {
-                if (!project->plugins[entry].used()) continue;
-                auto s = rack->status(entry);
-                if (s == PluginStatus::Failed || s == PluginStatus::Crashed) r.error = "plug-in did not open: " + rack->summary();
-                ready &= s == PluginStatus::Ready;
-            }
-            if (ready) break;
-            if (cancelled.load()) r.error = "stopped";
-            else if (since(w0) > plugin_wait_seconds) r.error = "plug-in did not open in time";
-            else std::this_thread::sleep_for(std::chrono::milliseconds(5));
-        }
-        idle(); // the plug-in offered is in place
-        idle_new_threads(threads_before, threads_idle);
-    }
+    PrintHost opened = open_print_host(*project, *bank, track, samples, job.states, job.card_top, cancelled);
+    r.error = opened.error;
+    auto& host = opened.host;
+    auto& rack = opened.rack;
+    const bool streams = opened.streams;
+    auto& threads_before = opened.threads_before;
+    auto& threads_idle = opened.threads_idle;
     r.host_mb = double(rss_kb() - rss0) / 1024.0;
     PrintAudio audio;
     double rendering = 0;
@@ -497,6 +551,146 @@ PrintResult PrintEngine::print_one(const PrintJob& job, unsigned pattern, const 
     r.made = true;
     r.seconds = since(t0);
     r.times_real = rendering > 0 ? double(audio.rendered) / rate / rendering : 0;
+    return r;
+}
+
+// ---- the auto sampler
+
+namespace {
+// A sample's name for a key: flats, so no "#" (Melodee's paths keep "#" for a program's pad), C4 = MIDI 60 as Melodee names it.
+std::string key_word(unsigned key) {
+    static const char* names[] {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+    return std::string(names[key % 12]) + std::to_string(int(key / 12) - 1);
+}
+} // namespace
+
+AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples) {
+    AutoSampleResult r;
+    r.project_path = job.project_path;
+    r.track = job.track % track_count;
+    r.name = job.sample_name;
+    auto t0 = Clock::now();
+    const unsigned t = r.track;
+    const auto& set = job.sampling;
+    const auto roots = set.roots();
+    const unsigned layers = std::clamp<unsigned>(set.layers, 1, 4);
+    if (roots.empty() || roots.size() > 128) { r.error = "no keys to sample"; return r; }
+    {
+        std::lock_guard<std::mutex> held(lock);
+        shown.count = uint16_t(roots.size() * layers);
+        shown.autosample = true;
+        doing = "track=" + std::to_string(t + 1) + " autosample";
+    }
+    auto project = std::make_unique<Project>(*job.project);
+    auto bank = std::make_unique<PatternBank>(*job.bank);
+    print_project(*project, *bank, t, project->tracks[t].pattern % pattern_count);
+    const Track& track = project->tracks[t];
+    if (track.engine != EngineKind::Plugin) { r.error = "not a plug-in track"; r.seconds = since(t0); return r; }
+    PrintHost opened = open_print_host(*project, *bank, track, samples, job.states, job.card_top, cancelled);
+    if (!opened.error.empty()) { r.error = opened.error; r.seconds = since(t0); return r; }
+    auto& host = *opened.host;
+
+    const float rate = dsp::sample_rate();
+    const unsigned whole_rate = unsigned(std::lround(rate));
+    const fs::path folder(job.sample_folder);
+    std::error_code e;
+    fs::create_directories(folder, e);
+    if (e) { r.error = "cannot make " + folder.filename().string(); r.seconds = since(t0); return r; }
+    const uint64_t hold = uint64_t(std::max(0.05f, set.hold) * rate);
+    std::vector<int32_t> out(EngineHost::block * 2);
+    // Between notes: silence until what is left of the last has died away (2 s at most).
+    auto settle = [&] {
+        unsigned quiet = 0;
+        for (unsigned b = 0; b < unsigned(2 * rate) / EngineHost::block && quiet < unsigned(0.1f * rate); ++b) {
+            host.render(out.data(), EngineHost::block, 1.0f);
+            const ProjectPack* done = nullptr;
+            while (host.take_done_pack(done)) delete done;
+            const float* l = host.print_left();
+            const float* rr = host.print_right();
+            bool loud = false;
+            for (unsigned f = 0; f < EngineHost::block; ++f) loud |= std::fabs(l[f]) >= 0.000316f || std::fabs(rr[f]) >= 0.000316f;
+            quiet = loud ? 0 : quiet + EngineHost::block;
+        }
+    };
+    host.set_print_tap(t, false); // the engine alone: the keygroup track gets its own chain
+    settle();
+
+    XpmProgram program;
+    program.name = job.sample_name;
+    std::vector<double> releases;
+    unsigned blocks = 0;
+    for (size_t k = 0; k < roots.size() && r.error.empty(); ++k) {
+        XpmKeygroup group;
+        group.low = uint8_t(k == 0 ? 0 : (roots[k - 1] + roots[k]) / 2 + 1);
+        group.high = uint8_t(k + 1 == roots.size() ? 127 : (roots[k] + roots[k + 1]) / 2);
+        for (unsigned v = 0; v < layers && r.error.empty(); ++v) {
+            const uint8_t velocity = set.velocity(v);
+            {
+                std::lock_guard<std::mutex> held(lock);
+                shown.pattern = int16_t(roots[k]);
+                shown.fraction = 0;
+            }
+            auto r0 = Clock::now();
+            NoteAudio audio = render_note(host, t, roots[k], velocity, hold, PrintTap::PreFx, set.tail, [&] {
+                if (opened.streams) {
+                    double ahead = double(blocks) * EngineHost::block / rate - since(r0);
+                    if (ahead > 0) std::this_thread::sleep_for(std::chrono::duration<double>(ahead));
+                }
+                ++blocks;
+                if (opened.rack && (blocks & 63) == 1) idle_new_threads(opened.threads_before, opened.threads_idle);
+                return !cancelled.load();
+            });
+            settle();
+            if (!audio.error.empty()) { r.error = audio.error; break; }
+            float peak = 0;
+            for (size_t f = 0; f < audio.left.size(); ++f) peak = std::max({peak, std::fabs(audio.left[f]), std::fabs(audio.right[f])});
+            {
+                std::lock_guard<std::mutex> held(lock);
+                ++shown.through;
+                const double wall = since(t0);
+                shown.seconds_left = shown.through ? float(wall / shown.through * (shown.count - shown.through)) : 0;
+            }
+            if (peak < 0.000316f) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
+            releases.push_back(double(audio.release) / rate);
+            XpmLayer layer;
+            layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity);
+            layer.root = roots[k];
+            layer.low_velocity = uint8_t(v == 0 ? 1 : set.velocity(v - 1) + 1);
+            layer.high_velocity = velocity;
+            layer.frames = uint32_t(audio.left.size());
+            const fs::path path = folder / (layer.sample + ".wav");
+            WavStream wav;
+            bool written = wav.open(path.string(), whole_rate, 24, 0, 2);
+            std::vector<float> interleaved(size_t(EngineHost::block) * 2);
+            for (size_t at = 0; written && at < audio.left.size(); at += EngineHost::block) {
+                unsigned n = unsigned(std::min<size_t>(EngineHost::block, audio.left.size() - at));
+                for (unsigned f = 0; f < n; ++f) { interleaved[2 * f] = audio.left[at + f]; interleaved[2 * f + 1] = audio.right[at + f]; }
+                written = wav.add(interleaved.data(), n);
+            }
+            written = wav.close() && written;
+            if (!written) { r.error = "cannot write " + path.filename().string(); break; }
+            group.layers.push_back(layer);
+            ++r.samples;
+        }
+        if (!group.layers.empty()) program.keygroups.push_back(std::move(group));
+    }
+    if (r.error.empty() && program.keygroups.empty()) r.error = "the plug-in made no sound";
+    if (r.error.empty()) {
+        // The keygroups that are left cover every key: each reaches halfway to the next.
+        for (size_t k = 0; k < program.keygroups.size(); ++k) {
+            auto& g = program.keygroups[k];
+            const int root = g.layers.front().root;
+            g.low = uint8_t(k == 0 ? 0 : (program.keygroups[k - 1].layers.front().root + root) / 2 + 1);
+            g.high = uint8_t(k + 1 == program.keygroups.size() ? 127 : (root + program.keygroups[k + 1].layers.front().root) / 2);
+        }
+        // Let go early, a key fades as the plug-in's own release did (the middle one heard).
+        std::sort(releases.begin(), releases.end());
+        program.release = std::clamp(releases.empty() ? 0.05 : releases[releases.size() / 2], 0.01, 8.0);
+        const fs::path xpm = folder / (job.sample_name + ".xpm");
+        r.error = write_xpm(xpm.string(), program);
+        if (r.error.empty()) r.program = xpm.string();
+    }
+    r.seconds = since(t0);
     return r;
 }
 

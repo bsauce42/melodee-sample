@@ -9,6 +9,7 @@
 #include "melodee/model/project.h"
 #include "melodee/model/project_file.h"
 #include "melodee/model/generators.h"
+#include "melodee/shell/auto_sample.h"
 #include "melodee/shell/bindings.h"
 #include "melodee/shell/capture_ring.h"
 #include "melodee/shell/history.h"
@@ -318,11 +319,19 @@ public:
         bool all = false; // every pattern of the track with notes
         PrintTap tap = PrintTap::PostFx;
         PrintTail tail = PrintTail::Loop;
-        enum Mode : uint8_t { Print, Freeze, Unfreeze } mode = Print; // freeze plan F2b: the same ask freezes the track
+        enum Mode : uint8_t { Print, Freeze, Unfreeze, AutoSample } mode = Print; // freeze plan F2b: the same ask freezes the track
+        AutoSampleSettings sampling; // AutoSample: `melodee-autosample`
         bool deep = false; // freeze plan F2d: a deep freeze (every pattern with notes, Post FX)
     };
     void print(const PrintAsk& ask);
     void print_tick();
+    // The auto sampler (shell/auto_sample.h): a plug-in track sampled a key at a time into Samples/Keygroups/<name>/,
+    // then played by a new KEYGROUP track. `autosample_track`: the track being sampled, -1 none.
+    std::string autosample_name(unsigned track) const;
+    void autosample(unsigned track, const AutoSampleSettings& settings);
+    void autosample_tick();
+    void autosample_landed(const AutoSampleResult& result);
+    int8_t autosample_track = -1;
     // Freeze plan F2b (shell/print_jobs.cpp): a track frozen plays its prints instead of its engine and chain (the
     // patterns asked; none: every pattern with notes). What is missing or changed is printed first; the track plays
     // live until every print is ready, then switches on a bar line. Unfreezing is at once and keeps the prints.
