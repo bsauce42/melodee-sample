@@ -69,6 +69,7 @@ in the middle. Making a track is one undo step.
 | **KIT** Empty | A kit with no samples. |
 | **KIT** Card | A kit. The Samples browser opens for its first sample. **B1** (**CANCEL**) at the top of Samples leaves the track empty. |
 | **KIT** Input | A kit. Sample Record opens to record its first sample. |
+| **KEYGROUP** Card | A [keygroup track](instrument-and-midi-tracks.md#keygroup-tracks): one instrument or sample played across the keys. The Samples browser opens for it. **B1** (**CANCEL**) at the top of Samples leaves the track empty. |
 | **MIDI** Out jack | A MIDI track on the MIDI Out jack. |
 | **MIDI** USB-C | A MIDI track on the USB-C port. |
 | **MIDI** All USB | A MIDI track on every USB MIDI device. |

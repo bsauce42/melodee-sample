@@ -59,6 +59,32 @@ Sus2, Sus4, Power, Dia 9), **K2** voicing (Close, Open, Drop 2, Spread),
 **FX**: the track's effect chain. The cards edit the selected slot. Push the
 encoder for the next slot. With no effects, push opens the effect picker.
 
+## Keygroup tracks
+
+A keygroup track plays one instrument across its pads and keys: an SFZ, an
+MPC keygroup program, an EXS, a DecentSampler preset, a SoundFont preset, or
+a single sample. Its pads play notes, as on a plug-in track.
+
+To make one: select an empty track, turn to **KEYGROUP** Card and push the
+encoder. Pick the instrument or sample in the browser. **SAMPLE SELECT** on
+the track opens the browser again to change it.
+
+| Key | Pages |
+| --- | --- |
+| **B1** | **TRIM** (**ZONES** on an instrument), **TUNE**, **AMP ENV**, **FILTER**, **FILT ENV** |
+| **B2** | **PLAY**, **ARP**, **CHORD** |
+| **B3** | **MIX**, **SENDS**, **FX** |
+
+![ZONES on a keygroup track](../images/screens/keygroupzones.png)
+
+**TUNE** moves every note. A single sample plays its own pitch on C4 (note 60).
+
+The fader starts on the sound's volume and can take pitch bend. A MIDI
+keyboard's pitch wheel and sustain pedal play it too.
+
+In an MPC 3 export a keygroup track is an MPC keygroup track, and an MPC 3
+project's keygroup tracks open as keygroup tracks.
+
 ## Keys
 
 Hold **SAMPLE** on an instrument track to see **Keys**. The 16 pads fill the

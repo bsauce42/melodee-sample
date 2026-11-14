@@ -93,6 +93,33 @@ class MpcProject(unittest.TestCase):
         self.assertIn("pattern 0 1 length=768 notes=2 first=0:36:127", out)
         self.assertIn("pattern 0 0 length=768 notes=1 first=0:37:127", out)
 
+    def test_keygroup_track(self):
+        # An MPC 3 keygroup track: a KEYGROUP track playing it from the project ("#k<track>"), its zones read from
+        # the data folder, its notes MIDI notes.
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder) / "Keys_[ProjectData]"
+            data.mkdir()
+            for name in ("Kick.wav", "Low.wav", "High.wav"):
+                (data / name).write_bytes(wav(44100))
+            document = project([instrument("Kick.wav", 10, 90)])
+            low, high = instrument("Low.wav", 0, 100, one_shot=False), instrument("High.wav", 0, 100, one_shot=False)
+            low.update(lowNote=0, highNote=59); low["layersv"][0]["rootNote"] = 49
+            high.update(lowNote=60, highNote=127); high["layersv"][0]["rootNote"] = 73
+            keys = {"name": "Keys", "program": {"type": 1, "mixable": {"volume": 0.7079457640647888, "pan": 0.5},
+                                                  "keygroup": {"numKeygroups": 2},
+                                                  "drum": {"monophonic": False, "instruments": [low, high] + [instrument() for _ in range(126)]}}}
+            document["data"]["tracks"].append(keys)
+            for entry in document["data"]["sequences"]:
+                if entry["key"] == 1:
+                    entry["value"]["trackClipMaps"][0].append({"key": "Keys", "value": {"eventList": {"events": [note(0, 64), note(480, 52, 0.5)]}}})
+            path = write(folder, "Keys", document)
+            result = self.run_tool(path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        out = result.stdout
+        self.assertIn("track 1 name=Keys level=100 pan=0 mute=0 pattern=1 engine=9", out)
+        self.assertIn("keygroup zones=2", out)
+        self.assertIn("pattern 1 1 length=768 notes=2 first=0:64:127", out)
+
     def test_two_members(self):
         # The factory kits in /content/Projects/Kits: the header in one gzip member, the JSON in the next.
         with tempfile.TemporaryDirectory() as folder:

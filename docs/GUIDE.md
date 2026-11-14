@@ -47,6 +47,7 @@ For the complete control reference, see [MELODEE.md](MELODEE.md).
    - [Latency and sample rate](guide/plug-ins.md#latency-and-sample-rate)
 7. [Instrument and MIDI tracks](guide/instrument-and-midi-tracks.md)
    - [Stage on a plug-in track](guide/instrument-and-midi-tracks.md#stage-on-a-plug-in-track)
+   - [Keygroup tracks](guide/instrument-and-midi-tracks.md#keygroup-tracks)
    - [Keys](guide/instrument-and-midi-tracks.md#keys)
    - [MIDI tracks](guide/instrument-and-midi-tracks.md#midi-tracks)
 8. [Sequencing](guide/sequencing.md)

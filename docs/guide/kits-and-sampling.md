@@ -145,8 +145,10 @@ to delete it. **Folder** makes a new folder.
 
 ## Sampled instruments
 
-The browser loads multi-sampled instruments onto one pad. Each row has a
-keyboard icon and its type at the right.
+To play an instrument across the keys, make a
+[keygroup track](instrument-and-midi-tracks.md#keygroup-tracks) for it. On a
+kit, the browser loads an instrument onto one pad. Each row has a keyboard
+icon and its type at the right.
 
 | Type | Files |
 | --- | --- |
@@ -176,9 +178,13 @@ Loading an instrument onto a pad removes the pad's layers.
 
 ![ZONES on an instrument](../images/screens/triminstrument.png)
 
-To play an instrument in pitch, use **16 LEVELS** with the type Scale or
-Tune (see [16 Levels](#16-levels)). While 16 Levels is on, a MIDI keyboard
-plays the instrument at its real pitch.
+To play an instrument in pitch on a kit, use **16 LEVELS** with the type
+Scale or Tune (see [16 Levels](#16-levels)). While 16 Levels is on, a MIDI
+keyboard plays the instrument at its real pitch.
+
+A project saved before keygroup tracks opens each kit's instrument pad as a
+keygroup track of its own, with its notes. A pad of an MPC drum program stays
+on its kit.
 
 ## Banks
 

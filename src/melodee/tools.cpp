@@ -2535,7 +2535,8 @@ static int mpc_import(const char* path) {
     for (unsigned t = 0; t < track_count; ++t) {
         const auto& track = project->tracks[t];
         if (!track.used()) continue;
-        std::printf("track %u name=%s level=%u pan=%d mute=%d pattern=%u\n", t, track.name, track.mix.level, track.mix.pan, track.mix.mute, track.pattern);
+        std::printf("track %u name=%s level=%u pan=%d mute=%d pattern=%u engine=%u\n", t, track.name, track.mix.level, track.mix.pan, track.mix.mute,
+                    track.pattern, unsigned(track.engine));
         for (unsigned n = 0; n < sampler_pads; ++n) {
             const auto& pad = track.pads[n];
             if (!pad.used()) continue;
@@ -2545,7 +2546,11 @@ static int mpc_import(const char* path) {
                         pad.start, pad.end, pad.level, pad.pan, pad.pitch, int(pad.play), pad.mono, pad.group, pad_filter_name(pad.filter), pad.cutoff, pad.warp, pad.attack, pad.decay, pad.loop, unsigned(pad.colour));
             const auto& ref = project->samples[pad.sample];
             std::string file, which;
-            if (ref.instrument() && split_program_pad(ref.path, file, which)) { // its layers, as the sample library will read them
+            if (ref.instrument() && split_program_pad(ref.path, file, which) && which.size() > 1 && which[0] == 'k') { // a keygroup track's
+                std::string why;
+                auto read = read_instrument(ref.path, &why);
+                std::printf("  keygroup zones=%zu%s\n", read.regions.size(), why.empty() ? "" : (" error=" + why).c_str());
+            } else if (ref.instrument() && split_program_pad(ref.path, file, which)) { // its layers, as the sample library will read them
                 std::string why;
                 auto pads = program_pads(file, why);
                 auto found = pads.find(which);

@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -233,6 +234,14 @@ SfzRead read_instrument(const std::string& path, std::string* error) {
         auto read = read_dspreset_text(*text, &why);
         if (!why.empty()) { if (error) *error = why; return {}; }
         return found_only(std::move(read), path, error);
+    }
+    if (split_program_pad(path, file, which) && which.size() > 1 && which[0] == 'k') { // a keygroup track of an MPC 3 project
+        auto text = read_text(file);
+        if (!text) { if (error) *error = "cannot read it"; return {}; }
+        KeygroupProgram program;
+        auto why = mpc_project_keygroup(std::vector<uint8_t>(text->begin(), text->end()), file, unsigned(std::atoi(which.c_str() + 1)), program);
+        if (!why.empty()) { if (error) *error = why; return {}; }
+        return found_only(read_keygroup(program), file, error);
     }
     if (split_program_pad(path, file, which)) { // one pad of a drum program or an MPC Sample project, its layers as zones
         std::string why;
