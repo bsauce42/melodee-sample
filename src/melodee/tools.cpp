@@ -5,6 +5,8 @@
 #include "melodee/shell/expansion_install.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/mpc_project.h"
+#include "melodee/shell/mpc3_export.h"
+#include "melodee/model/project_file.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/seq_layer.h"
@@ -2524,6 +2526,32 @@ static int mpc_import(const char* path) {
     return 0;
 }
 
+// A Melodee project (.mldp) or an MPC Sample project (.xpj, read as Melodee reads one) written as an MPC 3 project
+// into FOLDER, for the build's checks.
+static int mpc3_export(const char* path, const char* folder, const char* name) {
+    std::ifstream file(path, std::ios::binary);
+    std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)), {});
+    auto project = std::make_unique<Project>();
+    auto patterns = std::make_unique<PatternBank>();
+    std::string error;
+    if (is_mpc_project(path)) {
+        MpcImport imported;
+        error = import_mpc_project(bytes, path, *project, *patterns, imported);
+    } else {
+        error = load_project(bytes, *project, *patterns);
+    }
+    if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
+    Mpc3Export report;
+    auto began = std::chrono::steady_clock::now();
+    error = export_mpc3_project(*project, *patterns, folder, name, report);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - began).count();
+    if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
+    std::printf("exported tracks=%u sequences=%u pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
+                report.tracks, report.sequences, report.pads, report.notes, report.samples, report.skipped_tracks, report.skipped_pads,
+                report.missing, (long long)ms);
+    return 0;
+}
+
 std::optional<int> run_tool(int argc, char** argv) {
     if (argc >= 2 && !std::strcmp(argv[1], "--melodee-monkey")) { // [SEED COUNT MOVES], build.sh's: 1 12 3000
         auto arg = [&](int n, unsigned fallback) { return argc > n ? unsigned(std::strtoul(argv[n], nullptr, 10)) : fallback; };
@@ -2536,6 +2564,7 @@ std::optional<int> run_tool(int argc, char** argv) {
     // --self-test is what device.py and the SD boot run before stopping the stock app.
     if (argc == 3 && (!std::strcmp(argv[1], "--melodee-sound") || !std::strcmp(argv[1], "--self-test"))) return sound(argv[2]);
     if (argc == 3 && !std::strcmp(argv[1], "--mpc-import")) return mpc_import(argv[2]);
+    if (argc == 5 && !std::strcmp(argv[1], "--mpc3-export")) return mpc3_export(argv[2], argv[3], argv[4]); // IN FOLDER NAME
     if (argc == 3 && !std::strcmp(argv[1], "--instrument-read")) return instrument_read(argv[2]);
     if (argc == 4 && !std::strcmp(argv[1], "--mpc-install")) { // an expansion into DIR/<its title>, as Push on one does
         ExpansionInstall install;

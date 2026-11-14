@@ -29,6 +29,9 @@ build/gen/web_bundle.bin: $(WEB_INPUTS)
 	python3 tools/web_bundle.py $@
 build/obj/melodee/web/web_bundle.o: build/gen/web_bundle.bin
 
+# The MPC 3 export's template (tools/mpc3_template.py), carried in the binary.
+build/obj/melodee/shell/mpc3_export.o: src/melodee/shell/mpc3_template.json
+
 # JUCE's decoders, for an SFZ's FLAC, Ogg and AIFF samples and an MPC
 # expansion's MP3 previews. Melodee's alone, so the base stays as it is.
 FORMATS := $(JUCE)/juce_audio_formats
