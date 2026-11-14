@@ -69,7 +69,9 @@ folder with the samples. MPC One, Live, Key, X and the MPC 3 software open it.
   project needs a file for its prints: save it first.
 - Each pattern number becomes a sequence. The song becomes one sequence,
   **Song**, in the first free number, and MPC 3 opens on it.
-- MIDI tracks, effects, sends, the song's tempo changes and samples that are
+- A MIDI track becomes an MPC MIDI track on its channel, with its bank and
+  program. Pick its output port on the MPC.
+- Effects, sends, the song's tempo changes and samples that are
   not WAV files are left out. The message after the export says what was.
 
 ---

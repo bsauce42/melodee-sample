@@ -46,7 +46,7 @@ class Mpc3Export(unittest.TestCase):
     def test_document(self):
         with tempfile.TemporaryDirectory() as folder:
             report, out = self.export(folder)
-            self.assertIn("exported tracks=1 keygroups=0 audio=0 regions=0 sequences=2 song=0 pads=2 notes=3 samples=2 skipped_tracks=0 skipped_pads=0 missing=0", report)
+            self.assertIn("exported tracks=1 keygroups=0 audio=0 regions=0 midi=0 sequences=2 song=0 pads=2 notes=3 samples=2 skipped_tracks=0 skipped_pads=0 missing=0", report)
             header, data = read(out / "Beat.xpj")
             self.assertEqual(header[0], "ACVS")
             self.assertTrue(header[1].startswith("3."), header)
@@ -130,7 +130,7 @@ class Mpc3Export(unittest.TestCase):
             (keys / "Piano.sfz").write_text("<region> sample=low.wav lokey=0 hikey=59 pitch_keycenter=48\n"
                                             "<region> sample=high.wav lokey=60 hikey=127 pitch_keycenter=72 tune=10 volume=-6\n")
             report, out = self.export(folder, "0.1=FOLDER/Piano/Piano.sfz", "0.1^5")
-            self.assertIn("exported tracks=1 keygroups=1 audio=0 regions=0 sequences=2 song=0 pads=1 notes=3 samples=3", report)
+            self.assertIn("exported tracks=1 keygroups=1 audio=0 regions=0 midi=0 sequences=2 song=0 pads=1 notes=3 samples=3", report)
             _, data = read(out / "Beat.xpj")
         tracks = {t["name"]: t for t in data["tracks"]}
         piano = tracks["Piano"]["program"]
@@ -200,7 +200,7 @@ class Mpc3Export(unittest.TestCase):
             float_wav(prints / "T02 A1.wav", 48000, 2, 1000)
             float_wav(prints / "T02 A2.wav", 48000, 4, 500)
             report, out = self.export(folder, f"1@0={prints}/T02 A1.wav", f"1@1={prints}/T02 A2.wav")
-            self.assertIn("exported tracks=1 keygroups=0 audio=1 regions=2 sequences=2 song=0", report)
+            self.assertIn("exported tracks=1 keygroups=0 audio=1 regions=2 midi=0 sequences=2 song=0", report)
             _, data = read(out / "Beat.xpj")
             stereo = (out / "Beat_[ProjectData]" / "Synth A2.wav").read_bytes()
         tracks = {t["name"]: t for t in data["tracks"]}
@@ -270,6 +270,20 @@ class Mpc3Export(unittest.TestCase):
         for track in data["tracks"]:
             if track["program"]["type"] in (0, 1, 6):
                 self.assertEqual((track["length"], track["lengthFollowsSequenceLength"]), (0, True))
+
+    def test_midi_track(self):
+        # A MIDI track: MPC 3's own (type 4) on its channel, with its program, its notes as they are.
+        with tempfile.TemporaryDirectory() as folder:
+            report, out = self.export(folder, "M:0=5,11")
+            self.assertIn("exported tracks=0 keygroups=0 audio=0 regions=0 midi=1", report)
+            _, data = read(out / "Beat.xpj")
+        track = data["tracks"][0]
+        self.assertEqual((track["name"], track["program"]["type"], track["midiOutputRoute"]["outputChannel"]), ("MIDI OUT", 4, 4))  # channel 5, stored from 0
+        sound = track["midiBankAndProgramNumber"]
+        self.assertEqual((sound["midiProgramNumberEnable"], sound["midiProgramNumber"], sound["midiBankEnable"]), (True, 10, False))
+        second = next(s["value"] for s in data["sequences"] if s["key"] == 1)
+        events = next(c["value"] for c in second["trackClipMaps"][0] if c["key"] == "MIDI OUT")["eventList"]["events"]
+        self.assertEqual([(e["time"], e["note"]["note"]) for e in events], [(0, 36), (960, 37)])
 
     def test_warped_pad(self):
         with tempfile.TemporaryDirectory() as folder:

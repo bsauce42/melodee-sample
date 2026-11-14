@@ -2579,7 +2579,8 @@ static int mpc_import(const char* path) {
 // "T@P=PATH" makes track T a plug-in track with PATH as its print of pattern P (the prints all in one folder),
 // "T.P~W" warps that pad at W (1 Seq, 50..200 %), "S:T.P@B+N" puts a song clip of pattern P on track T's lane at bar B
 // (from 0) for N bars, "L:T.P=TICKS" sets pattern P of track T that long (96 a quarter), "K:T=PATH" makes track T a
-// keygroup of PATH (its notes kept, as MIDI notes).
+// keygroup of PATH (its notes kept, as MIDI notes), "M:T=CH,PROG" a MIDI track on channel CH sending program PROG
+// (as Stage shows it, 0 Off; its notes kept).
 static int mpc3_export(const char* path, const char* folder, const char* name, int changes, char** change) {
     std::ifstream file(path, std::ios::binary);
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)), {});
@@ -2600,6 +2601,14 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
         unsigned t = 0, n = 0;
         int used = 0;
         unsigned bar = 0, bars = 0;
+        unsigned channel = 0, program = 0;
+        if (std::sscanf(change[c], "M:%u=%u,%u", &t, &channel, &program) == 3 && t < track_count) {
+            auto& track = project->tracks[t];
+            load_sound(track, EngineKind::Midi, 0);
+            track.params[midi_track::Channel] = int16_t(channel);
+            track.params[midi_track::Program] = int16_t(program);
+            continue;
+        }
         if (std::sscanf(change[c], "K:%u=%n", &t, &used) == 1 && used && t < track_count) {
             unsigned slot = 0;
             while (slot < sample_slots && project->samples[slot].used()) ++slot;
@@ -2689,8 +2698,8 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
     error = export_mpc3_project(*project, *patterns, folder, name, report, prints.get(), prints_dir);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - began).count();
     if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
-    std::printf("exported tracks=%u keygroups=%u audio=%u regions=%u sequences=%u song=%u%s%s%s pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
-                report.tracks, report.keygroups, report.audio, report.regions, report.sequences, report.song_bars,
+    std::printf("exported tracks=%u keygroups=%u audio=%u regions=%u midi=%u sequences=%u song=%u%s%s%s pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
+                report.tracks, report.keygroups, report.audio, report.regions, report.midi, report.sequences, report.song_bars,
                 report.song_left_out ? " song_left_out" : "", report.song_full ? " song_full" : "", report.song_tempo_left_out ? " song_tempo_left_out" : "", report.pads, report.notes, report.samples, report.skipped_tracks, report.skipped_pads,
                 report.missing, (long long)ms);
     return 0;
