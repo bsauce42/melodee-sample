@@ -2751,7 +2751,7 @@ void sample_mode() {
         CHECK(!e->sounding());
     }
     { // Mono (a new pad's default): a second hit stops the first; Poly lets them sum. 16 Levels' notes at two
-      // pitches sum on a mono pad too (a chord).
+      // pitches: a mono pad keeps only the last, a poly pad plays the chord.
         PadSound pad = base; pad.end = 40000;
         CHECK(pad.mono);
         pad.mono = false;
@@ -2763,16 +2763,16 @@ void sample_mode() {
         mono->note_on(key, 127); mono->note_on(key, 127);
         float one = run(*mono, 8, 2).first;
         CHECK(both > one * 1.7f && one > 0.1f);
-        auto chord = [&](bool is_mono, bool again) {
+        auto chord = [&](bool is_mono, bool both_notes) {
             PadSound p = pad; p.mono = is_mono;
             auto e = engine_with(p);
-            e->note_on(pad_note(key, 4), 127); e->note_on(pad_note(key, 7), 127);
-            if (again) e->note_on(pad_note(key, 7), 127); // the same pitch again: mono cuts its last
+            if (both_notes) e->note_on(pad_note(key, 4), 127);
+            e->note_on(pad_note(key, 7), 127);
             return run(*e, 8, 2).first;
         };
-        float poly_chord = chord(false, false);
-        CHECK(std::fabs(chord(true, false) - poly_chord) < 1e-4f);
-        CHECK(std::fabs(chord(true, true) - poly_chord) < 1e-4f && chord(false, true) > poly_chord * 1.2f);
+        const float last_only = chord(false, false);
+        CHECK(std::fabs(chord(true, true) - last_only) < 1e-4f); // mono: the second pitch cuts the first
+        CHECK(chord(false, true) > last_only * 1.2f);           // poly: both sound
     }
     { // Velocity sensitivity: at 0 a soft hit is as loud as a hard one.
         PadSound pad = base;

@@ -74,8 +74,8 @@ the number of beats in the sample.
 
 **PLAY**: **K1** Mono or Poly, **K2** mute group, **K3** start offset.
 **SHIFT** + **K2**: Pad Link. **SHIFT** + **K3**: loop crossfade. New pads
-are Mono: a new hit stops the pad's last one at the same pitch, so 16 Levels
-chords still sound. A loaded instrument is Poly.
+are Mono: a new hit stops the pad's last one, also in 16 Levels. Set Poly
+to play chords. An instrument loaded on an empty pad is Poly.
 
 **COLOUR**: the bank's pads, each in its colour; the last pad you hit has
 a ring. **K1** or the encoder changes that pad's colour: **Track** (the
