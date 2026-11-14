@@ -62,7 +62,7 @@ work from memory.
 | Shift + Knob FX | **FX SELECT** = Melodee's chains (Track → Sends → Bus → Master, picker). |
 | Fader | Shift + Pad 9 picks a target per track: every MPC target plus mod wheel. Default: pad volume on sampler tracks, mod wheel on synths. **Context overrides** on pages with an obvious job: Mix selected track level, Step Edit nudge timing, Sends the send, Knob FX its mix, Compressor amount, Flex Beat mix (open question 2, Kerem, 2026-11-10); B3 off frees only the target, the overrides stay. Light shows the value. |
 | Pattern length | **Up to 128 bars** (MPC), replacing the 256-step limit; K1 on Patterns steps 1, 2, 4 … 128 bars, Shift + K1 any bar count. Needs event-list pattern storage (phase 2). |
-| Erase + pad (kit) | Stopped: empty the pad. Playing or Seq Record: erase **that pad's notes** in the pattern (one undo). |
+| Erase + pad (kit) | Stopped: empty the pad. Playing: while both are held, erase that pad's notes **as the playhead passes them** (as on the MPC; one undo, or part of an open take). Seq Record armed, stopped: every note of the pad. |
 | Shift + Erase | **Copy** everywhere: kit pads (kit pages), patterns (Patterns), tracks (Pad Bank held). Clearing a pattern stays Erase + pad on Patterns. |
 | Pad pressure on synths | What aftertouch does on synthesizers that have it (Kerem, 2026-11-10): pressing harder adds **vibrato** (the LFO into pitch) and **opens the sound** (cutoff on PROPHET and SID, DCW on CZ, modulator levels on FM6), as on a Prophet-6 / OB-6 or a DX7 patch. Each engine gets two parameters for it, AT > VIB and AT > BRIGHT, on its Edit pages next to the velocity ones, with defaults that are heard; a mod route from Aftertouch still adds to them. Phase 1d. |
 | Shift + pad on the browser | **Loads the file under the cursor onto the next empty pad** (Kerem, 2026-11-10): the browser owns Shift + pad; the printed Shift + pad jobs work on every other page. |
@@ -141,7 +141,7 @@ Things the remote cannot hear or move. Tick them off here when tried.
 - [x] Steps on a sampler track writes `track.last_note`, which kit pads never set: set it (or use `last_pad`) so steps get the pad last hit (`shell/context.cpp` `play_pad`, `pages/steps_page.cpp`).
 - [x] 16 Levels light: lit on the Levels page, not on Keys (`shell/lights.cpp`).
 - [x] Shift + Erase = Copy everywhere; drop "clear pattern" (`shell/shell.cpp` Erase branch); pattern copy via Shift + Erase on Patterns.
-- [x] Erase + pad on a kit: stopped empties the pad, playing / Seq Record erases that pad's notes (one undo).
+- [x] Erase + pad on a kit: stopped empties the pad; playing erases that pad's notes as the playhead passes them while held (one undo).
 - [x] Shift + −/+ always undo / redo; transpose to Shift + K3 on Keys (needs the Shift + K card, see phase 1; until then a Keys card on row 2).
 - [x] 909: pads 12–16 do something (another bank of voices or dark with a reason), not dead silently.
 - [x] Pad Bank tap on a non-sampler track: no silent no-op (flash the header or select the next track's bank).

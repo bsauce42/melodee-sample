@@ -234,7 +234,15 @@ public:
     void restore_chop(const ChopState& value);
     void notice(const std::string& text);                    // a word over the header for a moment
     void delete_pad(unsigned kit);                           // Erase + pad on a kit, stopped: the pad empty
-    void erase_pad_notes(unsigned kit);                      // playing or recording: its notes out of the pattern, one edit
+    void erase_pad_notes(unsigned kit);                      // recording, stopped: its notes out of the pattern, one edit
+    // Erase + pad on a kit while playing, as on the MPC: the pad's notes go as the playhead passes them, only while
+    // both are held (shell/erase_copy.cpp). Every pad held at once, and the whole hold, is one undo (or part of a take).
+    struct LiveErase { std::unique_ptr<Edit> edit; std::array<int16_t, 16> keys {}; uint16_t pads = 0; uint8_t track = 0, pattern = 0; int from = -1; bool found = false; };
+    LiveErase live_erase;
+    void live_erase_press(unsigned pad, unsigned kit);
+    void live_erase_release(unsigned pad);
+    void live_erase_tick(); // each frame: the notes passed since the last one
+    void live_erase_end();
     void copy_pad(unsigned from, unsigned to);               // Shift + Erase, pad, pad: sound and effects
     void restore_pattern(unsigned track, unsigned pattern, const Pattern& value);
     void restore_pad(unsigned track, unsigned kit, const PadState& value);

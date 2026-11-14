@@ -50,7 +50,8 @@ creating a project clears the undo history.
 ## Erase and copy
 
 - **ERASE** + pad on a kit, stopped: empty the pad.
-- **ERASE** + pad on a kit, playing: erase that pad's notes from the pattern.
+- **ERASE** + pad on a kit, playing: hold both to erase that pad's notes as
+  the playhead passes them. Notes outside the hold stay. One undo.
 - **ERASE** + pad on a synth, plug-in or MIDI track: erase that key's notes
   (asks first).
 - **ERASE** + **SEQ RECORD** on a kit: erase all notes of the selected pad

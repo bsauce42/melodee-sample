@@ -542,6 +542,7 @@ void Shell::pad(unsigned pad, uint8_t velocity, bool down) {
         // Whatever took the release (another page's pads, the Loop grid, the Name sheet), the pad lets go of
         // all it started: its notes, the step it held on Steps, the pattern it held under Seq.
         context_.release_pad(pad);
+        context_.live_erase_release(pad); // Erase + pad while playing: the erasing stops
         if (ui_.held_step >= 0 && unsigned(ui_.held_step) % bar_steps == pad % 16) ui_.held_step = -1;
         if (ui_.held_note == int(pad % 16)) ui_.held_note = -1; // Roll's note held for its locks
         if (ui_.pattern_held >= 0 && unsigned(ui_.pattern_held) % pattern_pads == pad % 16) ui_.pattern_held = -1; // a pattern of any bank
@@ -590,7 +591,8 @@ void Shell::hit(unsigned pad, uint8_t velocity, bool down) {
     case PadContext::StepCopy: step_copy_pad(context_, pad); return; // a step onto another step
     case PadContext::KeyErase: key_erase_pad(context_, pad); return; // that key's notes, once B3 says so
     case PadContext::PadErase: // stopped, the pad empty; playing or recording, its notes out of the pattern
-        if (host.playing() || ui_.recording) context_.erase_pad_notes(kit);
+        if (host.playing()) context_.live_erase_press(pad, kit); // as on the MPC: only the notes passed while held
+        else if (ui_.recording) context_.erase_pad_notes(kit);
         else context_.delete_pad(kit);
         return;
     case PadContext::PadCopy:

@@ -8,6 +8,7 @@
 #include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/note_copy.h"
 #include "melodee/shell/pad_bank.h"
+#include "melodee/shell/record_place.h"
 #include "melodee/shell/roll.h"
 #include "melodee/shell/step_edit.h"
 #include "melodee/shell/step_lane.h"
@@ -174,6 +175,70 @@ bool erase_selected_pad(Context& c) {
     if (!key_has_events(c.pattern(), key)) { c.notice("No events in this pad"); return false; }
     ask(c, UiState::Ask::EraseKeyEvents, key);
     return true;
+}
+
+// Erase + kit pad while playing. Its notes go from where the press was heard on, as the playhead passes them, a
+// little ahead of it (live_erase_tick) so a note the frame would reach is not heard. Let go of either, it stops.
+void Context::live_erase_press(unsigned pad, unsigned kit) {
+    pad %= 16;
+    const unsigned t = ui.track % track_count, p = track().pattern % pattern_count;
+    if (live_erase.pads && (live_erase.track != t || live_erase.pattern != p)) live_erase_end();
+    if (!live_erase.pads) {
+        live_erase = {};
+        live_erase.track = uint8_t(t); live_erase.pattern = uint8_t(p);
+        if (!in_take(t, p)) live_erase.edit = std::make_unique<Edit>(begin_edit("Erase notes", t, int(p), false));
+        int position = 0;
+        uint32_t ticks = 0;
+        if (!host.heard_place(t, hit_ns, position, ticks)) position = host.position_of(t);
+        live_erase.from = position < 0 ? -1 : int(wrap_tick(position, patterns.at[t][p].length));
+    }
+    live_erase.pads = uint16_t(live_erase.pads | 1u << pad);
+    live_erase.keys[pad] = int16_t(sampler_first_note + kit % sampler_pads);
+    notice(pad_text("Erase", kit % sampler_pads) + " notes");
+    live_erase_tick();
+}
+
+void Context::live_erase_release(unsigned pad) {
+    if (!(live_erase.pads & 1u << (pad % 16))) return;
+    live_erase.pads = uint16_t(live_erase.pads & ~(1u << (pad % 16)));
+    if (!live_erase.pads) live_erase_end();
+}
+
+void Context::live_erase_end() {
+    auto edit = std::move(live_erase.edit);
+    live_erase.pads = 0;
+    if (edit) commit_edit(std::move(*edit));
+    else if (live_erase.found) dirty = true; // part of the take
+}
+
+void Context::live_erase_tick() {
+    auto& le = live_erase;
+    if (!le.pads) return;
+    if (!ui.erase || !host.playing() || ui.track % track_count != le.track || track().pattern % pattern_count != le.pattern) {
+        live_erase_end();
+        return;
+    }
+    auto& p = patterns.at[le.track][le.pattern];
+    const int now = host.position_of(le.track);
+    if (now < 0 || p.length == 0) return;
+    // A little past the playhead: what the audio thread reaches before the next frame looks again (40 ms).
+    const Speed sp = speed_of(track().speed);
+    const uint64_t ahead = std::max<uint64_t>(2, (uint64_t(tempo_now()) * ticks_per_quarter * sp.num * 4 + 60000u * sp.den - 1) / (60000u * sp.den));
+    const uint32_t to = wrap_tick(int(uint64_t(now) + ahead), p.length);
+    const uint32_t from = le.from < 0 ? uint32_t(now) % p.length : uint32_t(le.from);
+    le.from = int(to);
+    if (from == to) return;
+    auto passed = [&](uint32_t tick) { return from < to ? tick >= from && tick < to : tick >= from || tick < to; };
+    auto held = [&](int key) {
+        for (unsigned n = 0; n < 16; ++n)
+            if (le.pads & 1u << n && le.keys[n] == key) return true;
+        return false;
+    };
+    auto before = p.events.size();
+    p.events.erase(std::remove_if(p.events.begin(), p.events.end(), [&](const Event& e) { return held(e.key) && passed(e.tick); }), p.events.end());
+    if (p.events.size() == before) return;
+    le.found = true;
+    sync_pattern(le.track, le.pattern);
 }
 
 void key_erase_pad(Context& c, unsigned pad) {
