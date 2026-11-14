@@ -253,6 +253,10 @@ SfzRead read_instrument(const std::string& path, std::string* error) {
     });
 }
 
+std::string instrument_zone_file(const std::string& instrument, const std::string& sample) {
+    return find_beside(fs::path(instrument).parent_path(), sample).string();
+}
+
 void SampleLibrary::cancel_landing(unsigned slot) {
     landings.erase(std::remove_if(landings.begin(), landings.end(), [&](const Landing& l) { return l.slot == slot; }), landings.end());
 }

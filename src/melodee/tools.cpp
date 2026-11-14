@@ -2528,8 +2528,9 @@ static int mpc_import(const char* path) {
 }
 
 // A Melodee project (.mldp) or an MPC Sample project (.xpj, read as Melodee reads one) written as an MPC 3 project
-// into FOLDER, for the build's checks.
-static int mpc3_export(const char* path, const char* folder, const char* name) {
+// into FOLDER, for the build's checks. Each change after them is made first: "T.P=PATH" puts a file or an instrument on
+// pad P of track T (from 0), "T.P^N" plays that pad's notes N semitones up, "T.P^A,B,C" each next note at the next.
+static int mpc3_export(const char* path, const char* folder, const char* name, int changes, char** change) {
     std::ifstream file(path, std::ios::binary);
     std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)), {});
     auto project = std::make_unique<Project>();
@@ -2542,13 +2543,38 @@ static int mpc3_export(const char* path, const char* folder, const char* name) {
         error = load_project(bytes, *project, *patterns);
     }
     if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
+    for (int c = 0; c < changes; ++c) {
+        unsigned t = 0, n = 0;
+        int used = 0;
+        if (std::sscanf(change[c], "%u.%u%n", &t, &n, &used) != 2 || t >= track_count || n >= sampler_pads) { std::printf("error=change %s\n", change[c]); return 1; }
+        const char* rest = change[c] + used;
+        auto& track = project->tracks[t];
+        if (*rest == '=') {
+            unsigned slot = 0;
+            while (slot < sample_slots && project->samples[slot].used()) ++slot;
+            if (slot == sample_slots) { std::printf("error=no free slot\n"); return 1; }
+            std::snprintf(project->samples[slot].path, sizeof(SampleRef::path), "%s", rest + 1);
+            std::snprintf(project->samples[slot].name, sizeof(SampleRef::name), "%s", std::filesystem::path(rest + 1).stem().string().c_str());
+            if (!track.used()) load_sound(track, EngineKind::Sampler, 0);
+            track.pads[n] = PadSound {};
+            track.pads[n].sample = uint16_t(slot);
+        } else if (*rest == '^') { // "^N" or "^A,B,C": the pad's notes in turn take each
+            std::vector<int> steps;
+            for (const char* at = rest + 1; *at; at = std::strchr(at, ',') ? std::strchr(at, ',') + 1 : at + std::strlen(at))
+                steps.push_back(std::atoi(at));
+            size_t next = 0;
+            for (auto& pattern : patterns->at[t])
+                for (auto& e : pattern.events)
+                    if (e.key == sampler_first_note + n && !steps.empty()) e.pitch = int8_t(steps[next++ % steps.size()]);
+        } else { std::printf("error=change %s\n", change[c]); return 1; }
+    }
     Mpc3Export report;
     auto began = std::chrono::steady_clock::now();
     error = export_mpc3_project(*project, *patterns, folder, name, report);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - began).count();
     if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
-    std::printf("exported tracks=%u sequences=%u pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
-                report.tracks, report.sequences, report.pads, report.notes, report.samples, report.skipped_tracks, report.skipped_pads,
+    std::printf("exported tracks=%u keygroups=%u sequences=%u pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
+                report.tracks, report.keygroups, report.sequences, report.pads, report.notes, report.samples, report.skipped_tracks, report.skipped_pads,
                 report.missing, (long long)ms);
     return 0;
 }
@@ -2565,7 +2591,7 @@ std::optional<int> run_tool(int argc, char** argv) {
     // --self-test is what device.py and the SD boot run before stopping the stock app.
     if (argc == 3 && (!std::strcmp(argv[1], "--melodee-sound") || !std::strcmp(argv[1], "--self-test"))) return sound(argv[2]);
     if (argc == 3 && !std::strcmp(argv[1], "--mpc-import")) return mpc_import(argv[2]);
-    if (argc == 5 && !std::strcmp(argv[1], "--mpc3-export")) return mpc3_export(argv[2], argv[3], argv[4]); // IN FOLDER NAME
+    if (argc >= 5 && !std::strcmp(argv[1], "--mpc3-export")) return mpc3_export(argv[2], argv[3], argv[4], argc - 5, argv + 5); // IN FOLDER NAME [CHANGE...]
     if (argc == 3 && !std::strcmp(argv[1], "--instrument-read")) return instrument_read(argv[2]);
     if (argc == 4 && !std::strcmp(argv[1], "--mpc-install")) { // an expansion into DIR/<its title>, as Push on one does
         ExpansionInstall install;
