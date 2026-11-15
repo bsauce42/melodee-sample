@@ -59,7 +59,7 @@ page. A frozen track shows a snowflake in its cell (see
 
 Select an empty track with **PAD BANK** + pad, or press **SAMPLE** on an
 empty track. Stage shows the track types as on the MPC: **Drum**,
-**Keygroup**, **Plugin** and **MIDI**. Turn the encoder to move along the
+**Keygroup**, **Plugin**, **MIDI** and **Audio**. Turn the encoder to move along the
 cards and push it to pick the card in the middle. Making a track is one undo
 step.
 
@@ -71,6 +71,7 @@ step.
 | **Keygroup** | Makes a [keygroup track](instrument-and-midi-tracks.md#keygroup-tracks): one instrument or sample played across the keys. The Samples browser opens for it. **B1** (**CANCEL**) at the top of Samples leaves the track empty. |
 | **Plugin** | Makes a plug-in track. The plug-in picker opens. The track stays empty until you pick a plug-in. |
 | **MIDI** | Opens the MIDI ports (below). |
+| **Audio** | Makes an [audio track](audio-tracks.md), which records the input into its patterns. Stage opens on its **INPUT**. |
 
 Drum and MIDI show their sources next. Push makes the card in the middle.
 **B1** (**BACK**) goes back to the types.

@@ -1,6 +1,6 @@
 # Instrument and MIDI tracks
 
-Previous: [Plug-ins](plug-ins.md) · [Contents](../GUIDE.md) · Next: [Sequencing](sequencing.md)
+Previous: [Plug-ins](plug-ins.md) · [Contents](../GUIDE.md) · Next: [Audio tracks](audio-tracks.md)
 
 ## Stage on a plug-in track
 
@@ -320,4 +320,4 @@ how MIDI tracks were designed, see the
 
 ---
 
-Previous: [Plug-ins](plug-ins.md) · [Contents](../GUIDE.md) · Next: [Sequencing](sequencing.md)
+Previous: [Plug-ins](plug-ins.md) · [Contents](../GUIDE.md) · Next: [Audio tracks](audio-tracks.md)

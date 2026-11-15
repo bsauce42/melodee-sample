@@ -1,6 +1,6 @@
 # Sequencing
 
-Previous: [Instrument and MIDI tracks](instrument-and-midi-tracks.md) · [Contents](../GUIDE.md) · Next: [Song](song.md)
+Previous: [Audio tracks](audio-tracks.md) · [Contents](../GUIDE.md) · Next: [Song](song.md)
 
 ## Patterns
 
@@ -368,4 +368,4 @@ press of **B1**, **B3**, **−** / **+** or **TAP TEMPO**.
 
 ---
 
-Previous: [Instrument and MIDI tracks](instrument-and-midi-tracks.md) · [Contents](../GUIDE.md) · Next: [Song](song.md)
+Previous: [Audio tracks](audio-tracks.md) · [Contents](../GUIDE.md) · Next: [Song](song.md)
