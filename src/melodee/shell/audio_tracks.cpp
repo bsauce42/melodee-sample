@@ -49,6 +49,12 @@ void AudioTracks::build(AudioPackJob job) {
     wake.notify_all();
 }
 
+void AudioTracks::prune_later(std::string folder, std::vector<unsigned> kept) {
+    std::lock_guard<std::mutex> held(lock);
+    prunes.emplace_back(std::move(folder), std::move(kept));
+    wake.notify_all();
+}
+
 bool AudioTracks::take_made(AudioPackMade& out) {
     std::lock_guard<std::mutex> held(lock);
     if (made.empty()) return false;
@@ -144,14 +150,18 @@ void AudioTracks::run() {
         AudioPackJob job;
         bool have = false;
         std::vector<AudioPack*> going;
+        std::deque<std::pair<std::string, std::vector<unsigned>>> pruning;
         {
             std::unique_lock<std::mutex> held(lock);
             // Often enough to keep up with a take (the engine host's ring holds 10 s at the highest rate).
-            wake.wait_for(held, std::chrono::milliseconds(25), [&] { return stopping || !jobs.empty() || !trash.empty() || take_wanted; });
+            wake.wait_for(held, std::chrono::milliseconds(25),
+                          [&] { return stopping || !jobs.empty() || !trash.empty() || take_wanted || !prunes.empty(); });
             if (stopping) return;
             if (!jobs.empty()) { job = std::move(jobs.front()); jobs.pop_front(); have = true; }
             going.swap(trash);
+            pruning.swap(prunes);
         }
+        for (const auto& [folder, kept] : pruning) prune(folder, kept);
         if (!going.empty()) {
             if (pager) pager->flush(); // the pager has seen every close the audio thread sent: none of their pins is taken after
             for (auto* pack : going) delete pack; // their takes' parts go with them

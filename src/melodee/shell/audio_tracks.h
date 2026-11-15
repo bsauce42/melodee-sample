@@ -73,8 +73,10 @@ public:
     bool writing() const { return busy.load(std::memory_order_relaxed); }
     // The take number after every take in `folder` (files left by takes undone count too, so none is written twice).
     static unsigned next_take(const std::string& folder, unsigned at_least);
-    // Files in `folder` no pattern of `kept` plays (takes undone, recorded over), removed; how many.
+    // Files in `folder` no pattern of `kept` plays (takes undone, recorded over), removed; how many. prune_later():
+    // the same on this thread (asked as a project opens: its history is empty, so no undo can want them back).
     static unsigned prune(const std::string& folder, const std::vector<unsigned>& kept);
+    void prune_later(std::string folder, std::vector<unsigned> kept);
 
 private:
     void run();
@@ -87,6 +89,7 @@ private:
     std::condition_variable wake;
     bool stopping = false;
     std::deque<AudioPackJob> jobs;
+    std::deque<std::pair<std::string, std::vector<unsigned>>> prunes;
     std::deque<AudioPackMade> made;
     std::vector<AudioPack*> trash;
     // The take being written (this thread's once `taking` is set).

@@ -67,10 +67,10 @@ solo: turn the kit down and its reverb goes down with it.
 | Page | Control | Does |
 |---|---|---|
 | Stage, **SENDS** (kit) | Hit a pad | Selects the pad. |
-| | **K1** | Selects the bus, A–D. |
-| | **K2** | The selected pad's send to that bus. |
+| | **K1** | The selected pad's send to the bus shown. |
+| | **K2** | Selects the bus, A–D. |
 | | **K3** | The bus return. |
-| | **SHIFT** + **K2** | The kit track's own send (**KIT SEND**). |
+| | **SHIFT** + **K1** | The kit track's own send (**KIT SEND**). |
 | Sends (kit), **B2** again | Hit a pad, or turn the encoder | Selects the pad. |
 | | **K1** | The selected pad's send to the bus shown. |
 | | **K2** | Selects the bus. |

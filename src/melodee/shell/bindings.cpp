@@ -517,17 +517,17 @@ std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui,
         if (shift_row) return {};
         return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
                 Binding {Kind::Send, 0, 0, 100, track.mix.sends[0]}};
-    case SK::Sends: { // K1 the bus (A-D, the one Tracks' SENDS and Bus show too), K2 the track's send into it, K3 its return
+    case SK::Sends: { // as MIX's SENDS: K1 the track's send, K2 the bus (A-D, the one Sends and Bus show too), K3 its return
         unsigned bus = ui.sends_bus % bus_count;
         Binding own {Kind::Send, int(bus), 0, 100, track.mix.sends[bus]};
-        if (track.engine == EngineKind::Sampler) { // a kit: K2 the last pad's own send, Shift + K2 the whole kit's (KIT SEND)
-            if (shift_row) return {Binding {}, own, Binding {}};
+        if (track.engine == EngineKind::Sampler) { // a kit: K1 the last pad's own send, Shift + K1 the whole kit's (KIT SEND)
+            if (shift_row) return {own, Binding {}, Binding {}};
             const auto& pad = track.pads[track.last_pad % sampler_pads];
             own = pad.used() ? Binding {Kind::PadSend, int(bus), 0, 100, pad.sends[bus]} : Binding {};
         } else if (shift_row) {
             return {};
         }
-        return {Binding {Kind::SendBus, 0, 0, int(bus_count) - 1, int(bus)}, own,
+        return {own, Binding {Kind::SendBus, 0, 0, int(bus_count) - 1, int(bus)},
                 Binding {Kind::BusReturn, int16_t(bus), 0, 100, project.buses[bus].level}};
     }
     case SK::Arp:
@@ -1054,9 +1054,9 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader
     // page keeps the favourites (fader C): a pot turned there is what the fader learns.
     case PageId::SettingsPage: case PageId::About: case PageId::MidiConfig: return {};
-    case PageId::Tracks: // the strip in hand: K1 the track, K2 its level, K3 its pan
-        return {Binding {Kind::TrackPick, 0, 0, int(track_count) - 1, ui.track % int(track_count)},
-                Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan}};
+    case PageId::Tracks: // the strip in hand, as Stage's MIX: K1 its level, K2 its pan, K3 its send into bus A (pads and the wheel pick the track)
+        return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
+                Binding {Kind::Send, 0, 0, 100, track.mix.sends[0]}};
     default: return favourite_bindings(track);
     }
 }

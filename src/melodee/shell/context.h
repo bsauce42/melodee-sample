@@ -327,6 +327,7 @@ public:
     std::string audio_sent_path;
     int audio_take_track = -1;
     bool audio_began = false;
+    bool audio_prune = false; // a project just opened: its folder's takes no pattern plays go (once it has a file)
     uint32_t audio_quiet_sent = 0;
     std::shared_ptr<const TakePeaks> audio_peaks; // a new map on each change, shared with the screen
     void add_peaks(TakePeaks&& more);

@@ -58,9 +58,10 @@ velocity sensitivity. At 100 %, a hit at velocity 64 plays 6 dB below a
 full hit, and softer hits quieter still. **SHIFT** + **K2** sets whether
 decay starts from the start or the end.
 
-**SENDS**: the last pad's own sends. **K1** selects bus A–D, **K2** sets
-the pad's send to it, **K3** the bus return. **SHIFT** + **K2** sets the
-send of the whole kit track (**KIT SEND**). A pad's send is taken after its
+**SENDS**: the last pad's own sends. **K1** sets the pad's send to the bus
+shown, **K2** selects bus A–D, **K3** the bus return, as on the mixer's
+Sends page. **SHIFT** + **K1** sets the send of the whole kit track
+(**KIT SEND**). A pad's send is taken after its
 Pad FX, volume and pan, and follows the kit's level, pan and mute. The pads
 light as bright as their send to the bus shown; pads that send nothing stay
 dark. With Seq Record on, turning a pad's send writes a lane of that pad.

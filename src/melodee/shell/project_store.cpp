@@ -126,7 +126,8 @@ void ProjectStore::start_export(Request& r) {
         auto prints = std::make_unique<PrintTable>();
         std::string why = load_project(bytes, *project, *bank, nullptr, nullptr, prints.get());
         Mpc3Export report;
-        if (why.empty()) why = export_mpc3_project(*project, *bank, folder.string(), name, report, prints.get(), prints_folder(from));
+        if (why.empty())
+            why = export_mpc3_project(*project, *bank, folder.string(), name, report, prints.get(), prints_folder(from), audio_folder(from));
         if (!why.empty()) note("MPC 3: " + why);
         else {
             std::string text = "MPC 3/" + name;

@@ -262,10 +262,10 @@ void bindings() {
     CHECK(stage[0].kind == Binding::Kind::Param && stage[0].id == midi_track::Cc1);
     CHECK(stage[0].at(0) == 0 && stage[0].at(127) == 127 && stage[0].at(64) == 64);
     ui.stage_sub[0] = 0;
-    ui.page = PageId::Tracks; // the strip in hand: the track, its level and pan
+    ui.page = PageId::Tracks; // the strip in hand, as Stage's MIX: level, pan, send A
     auto mix = page_bindings(project, ui, pattern);
-    CHECK(mix[0].kind == Binding::Kind::TrackPick && mix[1].kind == Binding::Kind::Level);
-    CHECK(mix[2].kind == Binding::Kind::Pan && mix[2].at(0) == -50 && mix[2].at(127) == 50);
+    CHECK(mix[0].kind == Binding::Kind::Level && mix[2].kind == Binding::Kind::Send && mix[2].id == 0);
+    CHECK(mix[1].kind == Binding::Kind::Pan && mix[1].at(0) == -50 && mix[1].at(127) == 50);
     ui.page = PageId::StepEdit; ui.step_pads = true; // Step Edit's pads on the steps
     CHECK(!page_bindings(project, ui, pattern)[0].bound()); // an empty step has nothing on the cards
     put(pattern, 0, 50, 90);
@@ -4132,7 +4132,7 @@ void performance_effects() {
     CHECK(page_bindings(*project, ui, pattern, false)[1].value == 90 && page_bindings(*project, ui, pattern, true)[2].value == 5);
     project->knob_fx.editing = 0;
     project->knob_fx.on = false;
-    CHECK(page_bindings(*project, ui, pattern, false)[1].kind == Binding::Kind::Level);
+    CHECK(page_bindings(*project, ui, pattern, false)[0].kind == Binding::Kind::Level);
     ui.page = PageId::Rack; ui.track = 2;
     project->tracks[2].fx.slots[0].kind = uint8_t(EffectKind::Spring);
     project->tracks[2].fx.slots[0].params = {0, 25, 30, 70, 60, 120};
@@ -4401,7 +4401,7 @@ void fader_and_takeover() {
     { // Round 3 (fader readout B): the K card showing the fader's value says it moved; with none the header does.
         Pattern pattern;
         UiState at; at.track = 3; at.page = PageId::Tracks;
-        CHECK(fader_twin(fader_job(*project, at), page_bindings(*project, at, pattern)) == 1); // LEVEL, K2
+        CHECK(fader_twin(fader_job(*project, at), page_bindings(*project, at, pattern)) == 0); // LEVEL, K1
         at.page = PageId::Pads; // the last pad's PITCH, VOLUME, PAN
         CHECK(fader_twin(fader_job(*project, at), page_bindings(*project, at, pattern)) == -1); // Kit Volume: no card
         kit.fader_target = uint8_t(FaderTarget::PadVolume);
@@ -6118,13 +6118,13 @@ void stage() {
     stage_go(ui, 2, 0);
     CHECK(cards(false)[0].kind == K::Level && cards(false)[1].kind == K::Pan && cards(false)[2].kind == K::Send && cards(false)[2].id == 0);
     CHECK(!shift_bindings(*project, ui, pattern)[2].bound()); // the quick send is A's; SENDS has all four
-    // SENDS (B3 again): K1 the bus, K2 the send into it, K3 its return; every bus, D too, without Shift.
+    // SENDS (B3 again): K1 the send, K2 the bus, K3 its return, as MIX's SENDS; every bus, D too, without Shift.
     stage_go(ui, 2, 1);
     ui.sends_bus = 0;
-    CHECK(key() == "SENDS" && cards(false)[0].kind == K::SendBus && cards(false)[1].kind == K::Send && cards(false)[1].id == 0);
+    CHECK(key() == "SENDS" && cards(false)[1].kind == K::SendBus && cards(false)[0].kind == K::Send && cards(false)[0].id == 0);
     CHECK(cards(false)[2].kind == K::BusReturn && cards(false)[2].id == 0 && !shift_bindings(*project, ui, pattern)[0].bound());
     ui.sends_bus = 3;
-    CHECK(cards(false)[0].value == 3 && cards(false)[1].id == 3 && cards(false)[2].id == 3);
+    CHECK(cards(false)[1].value == 3 && cards(false)[0].id == 3 && cards(false)[2].id == 3);
     // ARP: mode, rate, octaves; Shift + K1 gate, Shift + K3 hold.
     stage_go(ui, 1, 0);
     CHECK(cards(false)[0].kind == K::ArpMode && cards(false)[1].kind == K::ArpRate && cards(true)[0].kind == K::ArpGate && cards(true)[2].kind == K::ArpHold);
@@ -6159,7 +6159,7 @@ void stage() {
     stage_go(ui, 1, 0);
     CHECK(key() == "PLAY" && cards(false)[0].kind == K::PadMono && cards(true)[1].kind == K::PadLink);
     stage_go(ui, 2, 1);
-    CHECK(key() == "SENDS" && cards(false)[0].kind == K::SendBus);
+    CHECK(key() == "SENDS" && cards(false)[1].kind == K::SendBus);
     stage_go(ui, 2, 2);
     CHECK(key() == "FILTER" && cards(false)[2].kind == K::PadFilterType);
     stage_go(ui, 2, 3);
@@ -6277,9 +6277,9 @@ void stage() {
     CHECK(stage_focus(ui, project->tracks[9]) == 2 && stage_focus(ui, project->tracks[0]) == 2);
     ui.last_pot = -1;
 
-    // Tracks: K1 the track, K2 its level, K3 its pan.
+    // Tracks: K1 its level, K2 its pan, K3 its send into bus A, as Stage's MIX.
     ui.page = PageId::Tracks; ui.track = 0;
-    CHECK(cards(false)[0].kind == K::TrackPick && cards(false)[1].kind == K::Level && cards(false)[2].kind == K::Pan);
+    CHECK(cards(false)[0].kind == K::Level && cards(false)[1].kind == K::Pan && cards(false)[2].kind == K::Send);
 
     // Undo: Shift + B1 / B2 on a kit's TRIM (Loop Lock, Normalize) are the pad's; B1 alone on Stage keeps nothing.
     ui.page = PageId::Stage; ui.track = 1; stage_go(ui, 0, 0); kit.last_pad = 5;
@@ -15389,17 +15389,17 @@ void pad_sends_stage() {
     Pattern none;
     CHECK(stage_go(ui, EngineKind::Sampler, StageKind::Sends));
     auto cards = page_bindings(*project, ui, none, false);
-    CHECK(cards[0].kind == K::SendBus && cards[1].kind == K::PadSend && cards[1].id == 0 && cards[1].value == 30 && cards[2].kind == K::BusReturn);
+    CHECK(cards[1].kind == K::SendBus && cards[0].kind == K::PadSend && cards[0].id == 0 && cards[0].value == 30 && cards[2].kind == K::BusReturn);
     auto shift = shift_bindings(*project, ui, none);
-    CHECK(!shift[0].bound() && shift[1].kind == K::Send && shift[1].value == 20 && !shift[2].bound());
+    CHECK(shift[0].kind == K::Send && shift[0].value == 20 && !shift[1].bound() && !shift[2].bound());
     ui.sends_bus = 1;
-    CHECK(page_bindings(*project, ui, none, false)[1].value == 0 && page_bindings(*project, ui, none, false)[1].id == 1);
+    CHECK(page_bindings(*project, ui, none, false)[0].value == 0 && page_bindings(*project, ui, none, false)[0].id == 1);
     kit.last_pad = 2;
-    CHECK(page_bindings(*project, ui, none, false)[1].value == 40);
-    CHECK(binding_scope(*project, ui, page_bindings(*project, ui, none, false)[1]).kind == UndoScope::Kind::Pad);
+    CHECK(page_bindings(*project, ui, none, false)[0].value == 40);
+    CHECK(binding_scope(*project, ui, page_bindings(*project, ui, none, false)[0]).kind == UndoScope::Kind::Pad);
     kit.last_pad = 5; // empty: nothing to send
     cards = page_bindings(*project, ui, none, false);
-    CHECK(cards[0].bound() && !cards[1].bound() && cards[2].bound());
+    CHECK(!cards[0].bound() && cards[1].bound() && cards[2].bound());
     // A synth's SENDS: the track's, no Shift row.
     auto& synth = project->tracks[0];
     load_sound(synth, EngineKind::Plugin, 0);
@@ -15407,8 +15407,8 @@ void pad_sends_stage() {
     UiState su;
     su.track = 0; su.page = PageId::Stage; su.sends_bus = 1;
     CHECK(stage_go(su, EngineKind::Plugin, StageKind::Sends));
-    CHECK(page_bindings(*project, su, none, false)[1].kind == K::Send && page_bindings(*project, su, none, false)[1].value == 55);
-    CHECK(!shift_bindings(*project, su, none)[1].bound());
+    CHECK(page_bindings(*project, su, none, false)[0].kind == K::Send && page_bindings(*project, su, none, false)[0].value == 55);
+    CHECK(!shift_bindings(*project, su, none)[0].bound());
 
     // Pad lights on bus A: Snare (30) brighter than Hat (15), Kick (dry) dark, the last pad white.
     kit.last_pad = 0; ui.sends_bus = 0;

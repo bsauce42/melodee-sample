@@ -39,9 +39,9 @@ from 60 %, red from 85 %).
 | Pads | Select a track. An empty track opens its [new track cards](#make-a-new-track). |
 | Encoder | Select a track. |
 | **ERASE** + pad | Clear that track (asks first). |
-| **K1** | Select a track. |
-| **K2** | Level of the selected track. |
-| **K3** | Pan of the selected track. |
+| **K1** | Level of the selected track. |
+| **K2** | Pan of the selected track. |
+| **K3** | Send of the selected track to bus A. |
 | **SHIFT** + **K1** | Track speed: ×½, ×¾, ×1, ×1½ or ×2. The track's patterns play that much slower or faster. |
 | Fader | Level of the selected track. |
 | Encoder push | Open the track's Stage. |

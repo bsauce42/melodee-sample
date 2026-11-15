@@ -37,8 +37,8 @@ encoder or press **−** / **+** to move through them.
 
 ![MIX](../images/screens/stagemix.png)
 
-**SENDS**: **K1** selects bus A–D, **K2** sets the send to it, **K3** the
-bus return. The picture shows the four buses and each bus's first effect.
+**SENDS**: **K1** sets the send to the bus shown, **K2** selects bus A–D,
+**K3** the bus return, as on the mixer's Sends page. The picture shows the four buses and each bus's first effect.
 
 ![SENDS](../images/screens/stagesends.png)
 

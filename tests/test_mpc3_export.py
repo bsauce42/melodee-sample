@@ -421,6 +421,30 @@ class Mpc3Export(unittest.TestCase):
             events = next(c["value"] for c in sequence["trackClipMaps"][0] if c["key"] == "Synth")["eventList"]["events"]
             self.assertEqual([(e["type"], e["time"], e["audio"]["sample"]["path"], e["audio"]["sliceEnd"]) for e in events][0], (4, 0, file, frames))
 
+    def test_audio_track_takes(self):
+        # Freeze plan F3: an audio track's pattern's take: an Audio track of MPC 3's own with the take in its program,
+        # the take from the sequence's start, again each time the pattern loops, at the length it plays.
+        with tempfile.TemporaryDirectory() as folder:
+            takes = Path(folder) / "Song Audio"
+            takes.mkdir()
+            (takes / "Take 004.wav").write_bytes(wav(48000))
+            report, out = self.export(folder, f"A:3.0={takes}/Take 004.wav")
+            self.assertIn("audio=1", report)
+            _, data = read(out / "Beat.xpj")
+            copied = (out / "Beat_[ProjectData]" / "Take 004.wav").is_file()
+        self.assertTrue(copied)
+        tracks = {t["name"]: t for t in data["tracks"]}
+        self.assertEqual(tracks["Vox"]["program"]["type"], 6)
+        self.assertEqual([s["path"] for s in tracks["Vox"]["program"]["samples"]], ["Take 004.wav"])
+        sequence = next(s["value"] for s in data["sequences"] if s["key"] == 0)
+        events = next(c["value"] for c in sequence["trackClipMaps"][0] if c["key"] == "Vox")["eventList"]["events"]
+        self.assertTrue(events)
+        first = events[0]
+        self.assertEqual((first["type"], first["time"], first["audio"]["sample"]["path"], first["audio"]["sliceStart"]), (4, 0, "Take 004.wav", 0))
+        self.assertFalse(first["audio"]["warpEnable"])
+        self.assertGreater(first["audio"]["tempo"], 0)  # the tempo it was recorded at
+        self.assertEqual(first["audio"]["sliceEnd"], 100)  # the whole take (100 frames)
+
     def test_print_loops_in_a_longer_sequence(self):
         # A one-bar print in a two-bar sequence (the kit's pattern is longer): the clip spans the sequence, the print
         # once each bar, as Melodee loops it.

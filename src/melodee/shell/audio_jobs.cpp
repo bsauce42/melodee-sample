@@ -71,6 +71,12 @@ void Context::audio_tick() {
     }
     if (!printer) return;
     sync_audio(); // a few patterns' takes compared: what changed (a take, an undo, a copy) is made again
+    if (audio_prune && !project_path.empty() && audio_take_track < 0) {
+        audio_prune = false;
+        std::vector<unsigned> kept;
+        for (const auto& track : patterns.at) for (const auto& p : track) if (p.audio.used()) kept.push_back(p.audio.take);
+        audio_tracks->prune_later(audio_folder(project_path), std::move(kept));
+    }
     AudioPack* done = nullptr;
     while (host.take_done_audio(done)) audio_tracks->discard(done);
     AudioPackMade made;

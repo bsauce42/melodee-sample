@@ -269,9 +269,9 @@ void mix_picture(Paint& p, const Snapshot& s) {
 }
 
 // SENDS: the track's level on the left, a line from it to each of the four buses as thick as its send, each bus
-// with its first effect's glyph and name and a bar of what it receives. The bus in view (K1) wears its letter on a
-// chip in K1's shade, its line and bar in K2's (the send); the other three grey. On a kit the last pad's own sends,
-// under its name; Shift held, the whole kit's (KIT SEND) under the track's.
+// with its first effect's glyph and name and a bar of what it receives. The bus in view (K2) wears its letter on a
+// chip in K2's shade, its line and bar in K1's (the send); the other three grey. On a kit the last pad's own sends,
+// under its name; Shift held, the whole kit's (KIT SEND, Shift + K1) under the track's.
 void sends_picture(Paint& p, const Snapshot& s) {
     const auto& t = s.track();
     const auto& m = t.mix;
@@ -295,7 +295,7 @@ void sends_picture(Paint& p, const Snapshot& s) {
         unsigned b = n == bus_count - 1 ? in_view : n < in_view ? n : n + 1; // the bus in view last, its line on top
         bool picked = b == in_view;
         float by = top + 4 + b * (bh + gap), mid = by + bh / 2, amount = send_of(b) / 100.0f;
-        auto shade = picked ? knob_shade(s.ui.track, 1) : colour::mid;
+        auto shade = picked ? knob_shade(s.ui.track, 0) : colour::mid;
         const auto& bus = s.project.buses[b];
         bool has_fx = bus.fx.slots[0].used();
         juce::Path line;
@@ -314,7 +314,7 @@ void sends_picture(Paint& p, const Snapshot& s) {
         else p.circle(bx + 16, mid, 2, colour::dim);
         auto letter = juce::String::charToString(juce::juce_wchar('A' + b));
         if (picked) {
-            p.fill(bx + 29, mid - 8, 16, 16, knob_shade(s.ui.track, 0), 3);
+            p.fill(bx + 29, mid - 8, 16, 16, knob_shade(s.ui.track, 1), 3);
             p.text(letter, bx + 29, mid - 8, 16, 16, plain(colour::bg, type::body, Weight::Bold), juce::Justification::centred);
         } else {
             p.text(letter, bx + 31, by, 14, bh, plain(has_fx ? colour::text : colour::dim, type::body, Weight::Bold));

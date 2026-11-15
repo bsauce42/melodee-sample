@@ -2887,7 +2887,7 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
     auto project = std::make_unique<Project>();
     auto patterns = std::make_unique<PatternBank>();
     auto prints = std::make_unique<PrintTable>();
-    std::string prints_dir;
+    std::string prints_dir, audio_dir;
     std::string error;
     if (is_mpc_project(path)) {
         MpcImport imported;
@@ -2977,6 +2977,21 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
             prints_dir = file.parent_path().string();
             continue;
         }
+        if (std::sscanf(change[c], "A:%u.%u=%n", &t, &n, &used) == 2 && used && t < track_count && n < pattern_count) {
+            // Freeze plan F3: "A:T.P=FOLDER/Take NNN.wav": track T an audio track, pattern P playing that take whole.
+            const std::filesystem::path file(change[c] + used);
+            auto& track = project->tracks[t];
+            if (track.engine != EngineKind::Audio) { track = Track {}; track.engine = EngineKind::Audio; track.set_name("Vox"); }
+            WavReader reader;
+            if (!reader.open(file.string(), 3600).empty() || !reader.rate()) { std::printf("error=take %s\n", file.string().c_str()); return 1; }
+            AudioRegion r;
+            r.take = uint16_t(audio_take_of(file.filename().string()));
+            r.frames = r.take_frames = uint32_t(uint64_t(reader.frames()) * 44100 / reader.rate());
+            r.tempo = project->tempo;
+            patterns->at[t][n].audio = r;
+            audio_dir = file.parent_path().string();
+            continue;
+        }
         if (std::sscanf(change[c], "%u.%u%n", &t, &n, &used) != 2 || t >= track_count || n >= sampler_pads) { std::printf("error=change %s\n", change[c]); return 1; }
         const char* rest = change[c] + used;
         auto& track = project->tracks[t];
@@ -3004,7 +3019,7 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
     }
     Mpc3Export report;
     auto began = std::chrono::steady_clock::now();
-    error = export_mpc3_project(*project, *patterns, folder, name, report, prints.get(), prints_dir);
+    error = export_mpc3_project(*project, *patterns, folder, name, report, prints.get(), prints_dir, audio_dir);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - began).count();
     if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
     std::printf("exported tracks=%u keygroups=%u audio=%u regions=%u midi=%u sequences=%u song=%u%s%s%s pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld chops=%u\n",

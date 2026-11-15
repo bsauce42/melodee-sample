@@ -113,6 +113,7 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     for (unsigned t = 0; t < track_count; ++t) { ++freeze_serial[t]; if (frozen(t)) freeze_waiting |= 1u << t; }
     audio_stale = 0xffff; // freeze plan F3: its audio tracks' regions mapped again (the audio thread lets the last go)
     audio_peaks.reset();  // and their takes' overviews read again (another folder's)
+    audio_prune = true;   // and its takes no pattern plays removed (nothing in its history can bring them back)
     for (auto& serial : audio_serial) ++serial;
     if (plugins) plugins->set_states(plugin_states ? *plugin_states : PluginStates {});
     project = next;
