@@ -1116,6 +1116,26 @@ const Preview previews[] {
          auto& f = s.ui.auto_sheet.settings.found;
          f.heard = true; f.sustains = true; f.moves = true; f.hold = 8.0f;
      }},
+    {"autosamplesplit", [](Shell&, Snapshot& s) { // a split: a mono bass under a poly lead from C4
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2;
+         auto& f = s.ui.auto_sheet.settings.found;
+         f.heard = true; f.kind = AutoKind::Mono; f.glide = 0.03f; f.tied = false; f.sustains = true; f.hold = 2.0f; f.takes = 3;
+         f.split = 60; f.upper.sustains = true; f.upper.moves = true; f.upper.hold = 8.0f;
+     }},
+    {"autosamplesplitcheck", [](Shell&, Snapshot& s) { // the check, the split heard
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.checking = true;
+         auto& job = s.print;
+         job.busy = true; job.autosample = true; job.checking = true; job.opened = true; job.track = 2; job.check_step = 3;
+         auto& f = job.found;
+         f.kind = AutoKind::Mono; f.glide = 0.03f; f.tied = false; f.sustains = false; f.hold = 2.0f;
+         f.split = 60; f.upper.sustains = true; f.upper.moves = true; f.upper.hold = 8.0f;
+     }},
     {"autosamplemono", [](Shell&, Snapshot& s) {
          print_scene(s);
          s.ui.page = PageId::AutoSample;
@@ -2670,9 +2690,9 @@ static int instrument_read(const char* path) {
     for (const auto& i : read.ignored) ignored += i + ",";
     for (const auto& i : read.left_by) left_by += i + ",";
     const auto& e = read.envelope;
-    std::printf("zones=%zu left=%u left_by=%s velocity=%.0f ignored=%s attack=%.3f decay=%.3f sustain=%.1f release=%.3f mono=%d legato=%d tied=%d glide=%.3f\n",
+    std::printf("zones=%zu left=%u left_by=%s velocity=%.0f ignored=%s attack=%.3f decay=%.3f sustain=%.1f release=%.3f mono=%d legato=%d tied=%d glide=%.3f mono_keys=%u-%u\n",
                 read.regions.size(), read.left, left_by.c_str(), read.velocity, ignored.c_str(), e.attack.value_or(-1), e.decay.value_or(-1),
-                e.sustain.value_or(-1), e.release.value_or(-1), read.mono, read.legato, read.tied, read.glide);
+                e.sustain.value_or(-1), e.release.value_or(-1), read.mono, read.legato, read.tied, read.glide, read.mono_low, read.mono_high);
     for (const auto& r : read.regions) {
         const auto& z = r.zone;
         std::printf("  keys %u-%u root %u vel %u-%u tune %d track %d gain %.1f pan %.2f from %lld to %lld loop %d %u-%u one_shot %d seq %u/%u choke %u %s\n", z.low_key,

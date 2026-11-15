@@ -7250,6 +7250,27 @@ void xpm_writer() {
     CHECK(has("<SliceEnd>47999</SliceEnd>") && has("<SliceEnd>44099</SliceEnd>") && has("<TriggerMode>2</TriggerMode>")); // the last frame
     CHECK(!has("<TriggerMode>0</TriggerMode>"));
     { XpmProgram kit = program; kit.keygroups[0].one_shot = true; CHECK(xpm_text(kit).find("<TriggerMode>0</TriggerMode>") != std::string::npos); }
+    { // a split: Mono on the lower side's keys only. The program is not Mono; that side's keygroups are, in one mute
+      // group, and its glide is in tags of its own. Each keygroup follows velocity its own way, a layer at its own level.
+        XpmProgram split = program;
+        split.mono = true; split.legato = true; split.tied = false; split.glide = 0.06;
+        split.mono_high = 37;
+        split.keygroups[0].velocity = 0.25; split.keygroups[1].velocity = 1.0;
+        split.keygroups[0].layers[0].gain = 2.0;
+        const std::string text = xpm_text(split);
+        auto has = [&](const std::string& part) { return text.find(part) != std::string::npos; };
+        auto count = [&](const std::string& part) { size_t n = 0; for (size_t at = text.find(part); at != std::string::npos; at = text.find(part, at + 1)) ++n; return n; };
+        CHECK(has("    <Mono>False</Mono>") && has("    <PortamentoTime>0.000000</PortamentoTime>") && has("<PortamentoLegato>False</PortamentoLegato>"));
+        CHECK(has("<MonoSidePortamentoLegato>True</MonoSidePortamentoLegato>") && has("<MonoSidePortamentoTime>") && has("<MonoRetrigger>True</MonoRetrigger>"));
+        CHECK(count("        <Mono>True</Mono>") == 1 && count("<Polyphony>1</Polyphony>") == 1 && count("<MuteGroup>1</MuteGroup>") == 1);
+        CHECK(has("<VelocitySensitivity>0.250000</VelocitySensitivity>") && has("<VelocitySensitivity>1.000000</VelocitySensitivity>"));
+        CHECK(has("<Volume>2.000000</Volume>"));
+        CHECK(!split.mono_all() && split.mono_side(split.keygroups[0]) && !split.mono_side(split.keygroups[1]));
+        // the program's Volume on the MPC's curve (40 log10(v) + 6 dB): 0 dB, and the pan law's 3 dB given back
+        CHECK(has("    <Volume>0.707946</Volume>"));
+        split.volume_db = 3.0103;
+        CHECK(xpm_text(split).find("    <Volume>0.841") != std::string::npos);
+    }
     { // a fall of two stages: a keygroup twice over the same keys and layers, each its share of the level and its release
         XpmProgram two = program;
         two.release = 0.05;
@@ -7315,6 +7336,25 @@ void xpm_writer() {
     CHECK(read_keygroup(tree).tied && !read_keygroup(tree).legato);
     tree.tags.clear();
     CHECK(!read_keygroup(tree).mono && read_keygroup(tree).glide == 0);
+    { // a split's mono side read back: the keys of the keygroups that are Mono in a mute group, its glide from its own tags
+        KeygroupProgram split;
+        split.type = "Keygroup";
+        split.tags = {{"Mono", "False"}, {"PortamentoTime", "0.0"}, {"MonoRetrigger", "True"},
+                      {"MonoSidePortamentoTime", std::to_string(mpc_portamento_value(0.2))}, {"MonoSidePortamentoLegato", "True"}};
+        auto keygroup = [](unsigned number, int low, int high, bool mono, const char* velocity) {
+            KeygroupInstrument made;
+            made.number = number;
+            made.tags = {{"LowNote", std::to_string(low)}, {"HighNote", std::to_string(high)}, {"Mono", mono ? "True" : "False"},
+                         {"MuteGroup", mono ? "1" : "0"}, {"VelocitySensitivity", velocity}};
+            KeygroupTags layer {{"Active", "True"}, {"SampleName", "S" + std::to_string(number)}, {"RootNote", std::to_string(low + 1)}};
+            made.layers.push_back(layer);
+            return made;
+        };
+        split.instruments = {keygroup(1, 0, 47, true, "0.2"), keygroup(2, 48, 59, true, "0.2"), keygroup(3, 60, 127, false, "0.9")};
+        const SfzRead read = read_keygroup(split);
+        CHECK(read.mono && read.mono_low == 0 && read.mono_high == 59 && !read.tied && read.legato && std::fabs(read.glide - 0.2) < 1e-4);
+        CHECK(read.regions.size() == 3 && std::fabs(read.velocity - 20) < 0.5 && read.regions[0].zone.velocity == 0 && read.regions[2].zone.velocity == 70);
+    }
 }
 
 // Melodee's own card folders the MPC's browsers leave out (model/card_folders.h): Cache and Crashes in Melodee/ only.
@@ -7586,6 +7626,42 @@ void auto_probe() {
         note(steady_alone, 0, len, c3, 0, 0); note(steady_fresh, 0, len, g3, 0, 0);
         note(steady_both, 0, on, c3, 0, 0); note(steady_both, on, len - on, g3, 0, 0);
         CHECK(probe_retriggers(steady_both, steady_alone, steady_fresh, on, rate) == -1);
+    }
+    { // a key's character: two keys of one sound read alike, a sound that fades and a brighter one apart from it
+        auto held = [&](float hz, double fall, float overtone) {
+            std::vector<float> x(size_t(1.3f * rate));
+            double phase = 0;
+            for (size_t f = 0; f < x.size(); ++f) {
+                phase += 2 * M_PI * hz / rate;
+                const double level = 0.4 * (fall > 0 ? std::exp(-double(f) / rate / fall) : 1.0);
+                x[f] = float(level * (std::sin(phase) + overtone * std::sin(4 * phase)));
+            }
+            return x;
+        };
+        const ProbeCharacter one = probe_character(held(c3, 0, 0.2f), c3, rate), next = probe_character(held(c3 * 1.0595f, 0, 0.2f), c3 * 1.0595f, rate);
+        const ProbeCharacter fading = probe_character(held(c3, 0.15, 0.2f), c3, rate), bright = probe_character(held(c3, 0, 1.5f), c3, rate);
+        CHECK(probe_apart(one, next) < 1.5f && std::fabs(one.fade) < 1.0f);
+        CHECK(fading.fade > 30 && probe_apart(one, fading) > 20 && probe_apart(one, bright) > 6);
+        CHECK(probe_character(std::vector<float>(100), c3, rate).level == -120.0f); // too short to tell
+        // how far the level follows velocity: fully, half way, not at all
+        const std::vector<uint8_t> velocities {16, 48, 80, 112, 127};
+        auto levels = [&](double amount) {
+            std::vector<float> db;
+            for (uint8_t v : velocities) db.push_back(float(20 * std::log10(1.0 - amount * (1.0 - v / 127.0)) - 12));
+            return db;
+        };
+        CHECK(std::fabs(probe_velocity(velocities, levels(1.0)) - 1.0f) < 0.02f && std::fabs(probe_velocity(velocities, levels(0.5)) - 0.5f) < 0.02f);
+        CHECK(probe_velocity(velocities, levels(0.0)) < 0.02f && probe_velocity({}, {}) == 1.0f);
+        CHECK(probe_velocity(velocities, levels(0.12)) == 0.0f); // too little to be velocity
+        // A sound that wobbles from hit to hit (levels and brightness heard from a split patch): one big step and
+        // back again is no accent; the same step that stays is.
+        const std::vector<uint8_t> sixteen {8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 127};
+        const std::vector<float> wobble {-14.3f, -14.1f, -13.8f, -13.8f, -12.5f, -12.8f, -14.8f, -14.3f, -13.5f, -13.4f, -13.2f, -13.1f, -13.5f, -13.2f, -14.1f, -13.9f};
+        const std::vector<float> brights {344, 356, 329, 318, 303, 318, 343, 346, 338, 301, 307, 317, 306, 308, 334, 338};
+        CHECK(probe_accent(sixteen, wobble, brights) == 0);
+        std::vector<float> stepped = wobble;
+        for (size_t i = 0; i < stepped.size(); ++i) stepped[i] = i < 12 ? -20.0f - 0.2f * float(i % 2) : -12.0f - 0.2f * float(i % 2);
+        CHECK(probe_accent(sixteen, stepped, std::vector<float>(16, 320.0f)) == 104);
     }
     { // low keys lie close in frequency (C2 and G2, 33 Hz): still told apart, mono and poly
         const float c2 = 65.41f, g2 = 98.0f;
@@ -8918,6 +8994,51 @@ void instrument_zones_r3() {
 // A mono program's portamento on a KEYGROUP track (an MPC keygroup's Mono, PortamentoTime, PortamentoLegato): with
 // Legato a key pressed while one is held carries that note on, its pitch sliding to the new key; a Slide step does the
 // same on any instrument, a Tie at once.
+// A split (Multisample::mono_low, mono_high): Mono on one side's keys only. A note there cuts the last; the other side
+// plays chords, and neither side cuts the other. A zone follows velocity its own way over the pad's.
+void keygroup_split() {
+    const double rate = dsp::sample_rate();
+    ZoneRig r;
+    r.part(zone_tone(220, 0.25f, 3 * 44100));
+    r.part(zone_tone(660, 0.25f, 3 * 44100));
+    auto& under = r.zone(0); under.root = 48; under.low_key = 0; under.high_key = 59;
+    auto& over = r.zone(1); over.root = 72; over.low_key = 60; over.high_key = 127; over.velocity = -100;
+    r.pad.release = 0;
+    r.pad.velocity_sense = 100;
+    r.multi->mono = true; r.multi->mono_low = 0; r.multi->mono_high = 59;
+    r.build(PadPlay::Gate);
+    r.engine->set_keyed(true);
+    auto level = [&] { r.run(2000); return peak_of(r.run(unsigned(rate * 0.05))); };
+    r.engine->note_on(48, 127);
+    const float one = level();
+    CHECK(one > 0.05f);
+    r.engine->note_on(50, 127); // the mono side: the first is cut
+    CHECK(level() < 1.3f * one);
+    r.engine->note_on(72, 127); // the poly side: a chord, over the mono side's note
+    r.engine->note_on(76, 127);
+    CHECK(level() > 2.0f * one);
+    r.engine->note_on(52, 127); // the mono side again: the chord plays on
+    CHECK(level() > 2.0f * one);
+    r.engine->note_off(72); r.engine->note_off(76);
+    r.run(4000);
+    const float left = level();
+    CHECK(left > 0.6f * one && left < 1.3f * one); // the mono side's one note
+    r.engine->note_off(52); // keys 48 and 50 are held still: the note goes back to the newest of them
+    CHECK(level() > 0.6f * one);
+    r.engine->note_off(48); r.engine->note_off(50);
+    r.run(4000);
+    CHECK(level() < 0.01f);
+    // Velocity: the pad's is 100 (a soft press far quieter); the upper zone's is 100 under it (as loud at any velocity).
+    r.engine->note_on(48, 32);
+    const float soft = level();
+    r.engine->note_off(48);
+    r.run(4000);
+    r.engine->note_on(72, 32);
+    const float even = level();
+    r.engine->note_off(72);
+    CHECK(soft < 0.4f * one && even > 0.8f * one);
+}
+
 void keygroup_glide() {
     const double rate = dsp::sample_rate();
     auto rig = [](ZoneRig& r, bool mono, float glide) {
@@ -15492,6 +15613,7 @@ int main() {
     sampler_zones();
     keygroup_tracks();
     keygroup_glide();
+    keygroup_split();
     instrument_zones_r3();
     live_pad_values();
     note_pitches();

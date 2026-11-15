@@ -1110,8 +1110,45 @@ PortamentoTime (MPC 3's curve, 30 s x e^(7 (v - 1)), `mpc_portamento_value()`)
 and PortamentoLegato. Sixteen velocities of one key find an accent (one
 step that moves level and brightness far more than its neighbours and the
 rest), narrowed to the velocity; the layers split there, two at least.
-Three hits that differ in level envelope or brightness make three takes a
-key, played in turn (ZonePlay Cycle), when there is one layer.
+Five hits of which any two differ in level envelope or brightness make three takes a
+key, played in turn (ZonePlay Cycle), when there is one layer; a sound whose
+level does not follow velocity is also judged by the sixteen. An accent
+must stay: the velocities over the step are that far from those under it
+on average (a sound that differs from hit to hit has a big step somewhere
+and is back the hit after).
+
+Velocity (`probe_velocity()`): the sixteen levels fitted to a pad's
+Velocity (level 1 - amount x (1 - velocity / 127)); under 0.2 it is none.
+Each keygroup's VelocitySensitivity is that amount, so a soft press is as
+soft as the plug-in's; a velocity layer, recorded at its loudest velocity,
+has its Volume raised by what the keygroup's Velocity takes off there.
+The program's Volume is +3 dB: a centred sample plays 3 dB down a side
+(constant power pan, the sampler's and the MPC's), and with it the track
+is as loud as the plug-in track (measured: the same within 0.1 dB over
+eight hits, LEVEL as played).
+
+Splits (`AutoFindings::split`, `upper`). The range's ends are compared
+with the key the check heard: mono where that is poly, or unlike in sound
+(`probe_character()`: level, fade over a second, brightness against
+pitch; over 8 dB apart). Where the other sound starts is found by halves,
+each key compared with the nearest key known on either side, and holds
+only if the two keys it ends between are 6 dB apart (one sound changing
+slowly along the keyboard has no such step); sides alike but for mono are
+told by whether a fifth cuts its lower key. The other side then gets the
+whole check at a key of its own. Each side has its own hold, loops,
+release (fitted to its own notes; its keygroups' VolumeRelease), Velocity
+and mono or poly; keygroups do not reach across the split. Mono on one
+side: the program is not Mono (an MPC program is mono or poly as a
+whole); that side's keygroups are each Mono and share mute group 1, so on
+an MPC a note there cuts the last, and its glide is in
+`MonoSidePortamentoTime` / `MonoSidePortamentoLegato`, which an MPC
+passes over. `read_keygroup()` reads the side back from those keygroups
+(`SfzRead::mono_low`, `mono_high`) and the sampler plays it as a mono
+program on those keys: its notes cut, carry or go back to a held key
+among themselves, and the other side plays chords over it. A zone's
+Velocity is kept over the pad's (`SampleZone::velocity`). MPC 3 exports
+and the .xty write the side's keygroups monophonic in mute group 1 and
+each keygroup's velocitySensitivity. One split is found.
 
 The first key is also held alone for 8 s. Its level over the last quarter
 within 9 dB of its first (`probe_sustains()`): it sustains, and LOOP at

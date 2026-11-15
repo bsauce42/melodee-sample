@@ -66,7 +66,7 @@ void draw(Paint& p, const Snapshot& s) {
     if (checking) h.left.push_back(chip(Icon::Clock, check_word, colour::ice));
     else if (sampling) h.left.push_back(pill(kind_icon, ours ? "SAMPLING " + juce::String(std::min<unsigned>(job.through + 1, job.count)) + "/" + juce::String(job.count)
                                                             : juce::String("SAMPLING"), colour::ice));
-    else h.left.push_back(chip(kind_icon, !a.found.heard ? "AUTO SAMPLE" : a.found.kind == AutoKind::Mono ? "MONO" : drums ? "DRUMS" : "KEYS", colour::ice));
+    else h.left.push_back(chip(kind_icon, !a.found.heard ? "AUTO SAMPLE" : a.found.split ? "SPLIT" : a.found.kind == AutoKind::Mono ? "MONO" : drums ? "DRUMS" : "KEYS", colour::ice));
     h.right.push_back(tag_of(s, t));
     SoftKeys keys {{busy ? "CANCEL" : "BACK", busy ? "" : rows[sheet.row % 3], busy ? "" : "SAMPLE"}, -1, c,
                    {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
@@ -88,6 +88,8 @@ void draw(Paint& p, const Snapshot& s) {
         if (in) fill = black(k) ? c.withAlpha(0.45f) : c.withAlpha(0.8f);
         p.fill(x0 + (k - first) * kw, ky, std::max(1.0f, kw - (zoom ? 1.5f : 0.4f)), black(k) ? kh * 0.62f : kh, fill, zoom ? 2.0f : 0.0f);
     }
+    // A split: a line where the upper sound starts.
+    if (found.split && found.split >= first && found.split <= last) p.fill(x0 + (found.split - first) * kw - 1.0f, ky - 3, 1.5f, kh + 6, colour::text);
     const unsigned now_key = ours && job.pattern >= 0 ? unsigned(job.pattern) : 128;
     for (uint8_t r : checking ? std::vector<uint8_t> {} : roots) {
         if (r < first || r > last) continue;
@@ -110,14 +112,24 @@ void draw(Paint& p, const Snapshot& s) {
         const unsigned step = live ? job.check_step : 0;
         const juce::String none = juce::String::fromUTF8("\xe2\x80\x94");
         // Mono: whether a key pressed while another is held carries the note on (legato) or starts it again.
-        const juce::String type = found.kind == AutoKind::Mono ? (found.tied ? "Mono, legato" : "Mono, retrigger") : drums ? "Drums" : "Keys";
+        // A split: each side's, the upper one from its first key.
+        auto kind_of = [](const AutoZone& z) { return z.kind == AutoKind::Mono ? (z.tied ? juce::String("Mono, legato") : juce::String("Mono, retrigger")) : juce::String("Keys"); };
+        auto held_of = [](const AutoZone& z, bool brief) {
+            return z.moves ? juce::String(brief ? "Moves" : "Moves, long loops") : z.sustains ? juce::String(brief ? "Steady" : "Steady, loops") : juce::String("Fades");
+        };
+        const AutoZone under = found.zone(0), over = found.zone(found.split);
+        const juce::String type = drums ? juce::String("Drums")
+                                : found.split ? (under.kind == AutoKind::Mono ? "Mono" : "Keys") + juce::String(", ") + (over.kind == AutoKind::Mono ? "Mono" : "Keys")
+                                                + " from " + juce::String(note_name(int(found.split)))
+                                : kind_of(under);
+        const AutoZone& gliding = under.kind == AutoKind::Mono || !found.split ? under : over; // the mono side's
         const juce::String second_cap = drums ? "SOUNDS" : "GLIDE";
         const juce::String second = drums ? juce::String(found.sounding()) + " keys"
-                                  : found.kind == AutoKind::Mono && found.glide > 0 ? juce::String(int(std::lround(found.glide * 1000))) + " ms"
+                                  : gliding.kind == AutoKind::Mono && gliding.glide > 0 ? juce::String(int(std::lround(gliding.glide * 1000))) + " ms"
                                   : juce::String("None");
         const juce::String accent = found.accent ? juce::String::fromUTF8("vel \xe2\x89\xa5 ") + juce::String(int(found.accent)) : juce::String("None");
         const juce::String each = found.accent ? none : found.takes > 1 ? juce::String::fromUTF8("Varies \xc3\x97") + juce::String(int(found.takes)) : juce::String("Same");
-        const juce::String hold = drums ? none : found.moves ? juce::String("Moves, long loops") : found.sustains ? juce::String("Steady, loops") : juce::String("Fades");
+        const juce::String hold = drums ? none : found.split ? held_of(under, true) + ", " + held_of(over, true) : held_of(under, false);
         const juce::String caps[] {"TYPE", second_cap, "HOLD", "ACCENT", "EACH HIT"};
         const juce::String values[] {type, second, hold, accent, each};
         const unsigned heard_at[] {1, 2, 2, 3, 4}; // the check's step each is heard by
@@ -187,10 +199,11 @@ void draw(Paint& p, const Snapshot& s) {
               drums || per < 2 ? juce::String() : juce::String(roots.size()) + juce::String::fromUTF8(" \xc3\x97 ") + juce::String(per), colour::text);
         block(p, x0 + w, y, w, "KEYS", juce::String(note_name(a.low)) + juce::String::fromUTF8("\xe2\x80\x93") + juce::String(note_name(a.high)), "", colour::text);
         // At most: each note its hold and its whole tail, 24-bit stereo at the device's rate.
-        const double mb = double(samples) * (a.hold_seconds() + a.tail) * std::max(1u, s.audio_rate) * 6.0 / (1024.0 * 1024.0);
+        const double mb = double(samples) * (a.hold_most() + a.tail) * std::max(1u, s.audio_rate) * 6.0 / (1024.0 * 1024.0);
         block(p, x0 + 2 * w, y, w, "CARD", juce::String::fromUTF8("\xe2\x89\xa4 ") + (mb >= 10 ? juce::String(int(std::lround(mb))) : juce::String(mb, 1)), "MB", colour::text);
         // What the check heard, under them: the glide, the layers split at the accent, the takes.
-        const bool mono = a.found.kind == AutoKind::Mono, loops = a.looping();
+        const AutoZone side = a.found.kind == AutoKind::Mono || !a.found.split ? a.found.zone(0) : a.found.upper; // a split's mono side
+        const bool mono = side.kind == AutoKind::Mono, loops = a.loops_any();
         if (outside && !a.found.heard) {
             // An instrument outside, before it is sampled: its input's level, both sides (-60 to 0 dB; amber from
             // -3 dB, where it is about to clip), or that the track has no INPUT yet.
@@ -216,7 +229,7 @@ void draw(Paint& p, const Snapshot& s) {
             if (mono) {
                 icon(p, Icon::Slide, x, sy + 4, 12, c);
                 x += 16;
-                const juce::String g = a.found.glide > 0 ? "GLIDE " + juce::String(int(std::lround(a.found.glide * 1000))) + " ms" : juce::String("NO GLIDE");
+                const juce::String g = side.glide > 0 ? "GLIDE " + juce::String(int(std::lround(side.glide * 1000))) + " ms" : juce::String("NO GLIDE");
                 x += p.text(g, x, sy, 120, sh, caps_text(colour::text)) + 12;
             }
             if (loops) { // each note's held part loops: it plays on while the key is held

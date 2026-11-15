@@ -134,6 +134,7 @@ The check sets these for you; the sheet's chip shows the type:
 | --- | --- |
 | **KEYS** | Samples every **STEP** keys, as set. |
 | **MONO** | The program plays one note at a time and glides like the plug-in (**GLIDE** shows the time). **Mono, legato**: a key pressed while another is held carries the note on. **Mono, retrigger**: it starts the note again. |
+| **SPLIT** | The plug-in has two sounds side by side on the keyboard (a bass under a lead). A line on the keys shows where the upper one starts. Each side is checked on its own and gets its own mono or poly playing, hold, loops, release and velocity response. |
 | **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. Each drum plays whole however short the tap. |
 | **ACCENT** | The velocity layers split where the sound jumps (two layers at least). |
 | **TAKES ×3** | Each key is recorded three times and the program plays them in turn. |
@@ -160,8 +161,22 @@ again.
   plays as two keygroups over the same keys, one with the short release and
   one with the long.
 - **LEVEL** at −1 dB raises every sample by the same amount, so velocity
-  layers keep their balance.
+  layers keep their balance. With **LEVEL** as played, the keygroup track is
+  as loud as the plug-in track at the same settings.
+- The program follows velocity as far as the plug-in did. A plug-in that
+  plays every note at one level gives a program that does the same.
 - A key where the plug-in makes no sound is left out.
+
+Some things samples cannot hold, so the program does not have them:
+
+- What the mod wheel, aftertouch and other controllers do in the plug-in.
+- Movement that follows the tempo (an arpeggio, a synced LFO or delay). It
+  is recorded at the tempo it was sampled at.
+- More than one split. One is found; a plug-in with three sounds side by
+  side gets two.
+- On an MPC, the mono side of a split cuts its last note but does not glide,
+  and a program plays as mono or poly as a whole. In Melodee each side plays
+  as the plug-in did.
 
 ### Auto sample an external instrument
 

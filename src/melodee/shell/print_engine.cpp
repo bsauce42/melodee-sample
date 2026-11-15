@@ -845,54 +845,153 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
             any = true;
         }
     } else {
-        // Mono: the first key's pitch gone soon after a second is pressed legato, where alone it sounds on.
-        const uint8_t a = base, b = uint8_t(std::min(127, base + 7));
-        const float from_hz = hz[0] > 0 ? hz[0] : 440.0f * std::pow(2.0f, (int(a) - 69) / 12.0f);
-        const float to_hz = from_hz * std::pow(2.0f, 7.0f / 12.0f);
-        auto both = play({{0, true, a, 100}, {at(0.4), true, b, 100}, {at(1.2), false, a, 100}, {at(1.2), false, b, 100}}, 1.3);
-        // The first key alone, held 8 s: whether it sustains, whether it moves while held, how long it is heard.
-        auto alone = play({{0, true, a, 100}, {at(8.0), false, a, 100}}, 8.1);
+        auto hz_of = [](int key) { return 440.0f * std::pow(2.0f, float(key - 69) / 12.0f); };
+        auto fifth = [&](uint8_t a) { // `a` held, the fifth above pressed 0.4 s on, both let go at 1.2 s
+            const uint8_t b = uint8_t(std::min(127, a + 7));
+            return play({{0, true, a, 100}, {at(0.4), true, b, 100}, {at(1.2), false, a, 100}, {at(1.2), false, b, 100}}, 1.3);
+        };
+        // One sound, heard at key `a` (sounding `from_hz`) and the fifth above it: mono or poly, its glide, how it
+        // holds and how it falls. `both_out`, `alone_out`: what it played, kept.
+        auto check_zone = [&](uint8_t a, float from_hz, std::vector<float>* alone_out) {
+            AutoZone z;
+            const uint8_t b = uint8_t(std::min(127, a + 7));
+            const float to_hz = from_hz * std::pow(2.0f, 7.0f / 12.0f);
+            // Mono: the first key's pitch gone soon after a second is pressed legato, where alone it sounds on.
+            auto both = fifth(a);
+            // The first key alone, held 8 s: whether it sustains, whether it moves while held, how long it is heard.
+            auto alone = play({{0, true, a, 100}, {at(8.0), false, a, 100}}, 8.1);
+            if (stopped) return z;
+            const ProbeGlide g = probe_glide(both, alone, at(0.4), from_hz, to_hz, rate);
+            z.sustains = probe_sustains(alone, at(0.5), at(8.0), rate, 9.0f); // past its attack to the end of the 8 s: there still, or fading
+            z.moves = z.sustains && sound_moves(alone, at(8.0), rate);
+            // HOLD at Auto: a steady sound 2 s (a short loop is all it needs), one that moves 8 s (a long loop), one that
+            // fades for as long as it is heard (so a key held long plays its whole fade).
+            z.hold = z.moves ? 8.0f : z.sustains ? 2.0f : std::clamp(probe_fade_seconds(alone, rate) + 0.2f, 1.0f, 8.0f);
+            { // How it falls let go early, while it is loud: the key held half a second, then up to 4 s of what follows.
+                const double tail = std::clamp<double>(set.tail, 0.5, 4.0);
+                auto let_go = play({{0, true, a, 100}, {at(0.5), false, a, 100}}, 0.5 + tail);
+                if (stopped) return z;
+                const size_t last = size_t(at(0.1));
+                const float quiet = job.external ? 20.0f * std::log10(source->silence()) : -100.0f; // an input's own noise
+                const bool cut = let_go.size() > last && probe_db(let_go, let_go.size() - last, last) > quiet + 15.0f; // still sounding at the end
+                const ReleaseShape shape = release_shape(let_go, let_go, at(0.5), rate, cut, quiet);
+                if (!shape.db.empty()) {
+                    const ReleaseModel fall = fit_release({shape});
+                    z.release = fall.fast;
+                    z.release_slow = fall.two() ? fall.slow : 0;
+                    z.release_share = fall.two() ? fall.share : 0;
+                }
+            }
+            char held[64];
+            std::snprintf(held, sizeof(held), " hold=%.1f/%.1f", probe_db(alone, at(0.25), at(0.225)), probe_db(alone, at(0.925), at(0.225)));
+            r.heard += held;
+            if (g.mono) {
+                z.kind = AutoKind::Mono;
+                z.glide = g.seconds;
+                // Played legato, whether the second key starts the sound again or the first's note carries on: against
+                // the second key alone.
+                auto fresh = play({{0, true, b, 100}, {at(0.5), false, b, 100}}, 0.6);
+                if (stopped) return z;
+                const int again = probe_retriggers(both, alone, fresh, at(0.4), rate);
+                z.tied = again != 1;
+                r.heard += again < 0 ? " again=?" : again ? " again=1" : " again=0";
+                if (g.seconds > 0) { // gliding also from a key let go: not legato
+                    auto apart = play({{0, true, a, 100}, {at(0.3), false, a, 100}, {at(0.35), true, b, 100}, {at(0.8), false, b, 100}}, 0.9);
+                    if (stopped) return z;
+                    z.legato = !probe_slides_apart(apart, at(0.35), from_hz, to_hz, rate);
+                }
+            }
+            if (alone_out) *alone_out = std::move(alone);
+            return z;
+        };
+        std::vector<float> alone;
+        const float base_hz = hz[0] > 0 ? hz[0] : hz_of(base);
+        AutoZone lower = check_zone(base, base_hz, &alone), upper;
         if (stopped) return stop();
-        const ProbeGlide g = probe_glide(both, alone, at(0.4), from_hz, to_hz, rate);
-        found.sustains = probe_sustains(alone, at(0.5), at(8.0), rate, 9.0f); // past its attack to the end of the 8 s: there still, or fading
-        found.moves = found.sustains && sound_moves(alone, at(8.0), rate);
-        // HOLD at Auto: a steady sound 2 s (a short loop is all it needs), one that moves 8 s (a long loop), one that
-        // fades for as long as it is heard (so a key held long plays its whole fade).
-        found.hold = found.moves ? 8.0f : found.sustains ? 2.0f : std::clamp(probe_fade_seconds(alone, rate) + 0.2f, 1.0f, 8.0f);
-        { // How it falls let go early, while it is loud: the key held half a second, then up to 4 s of what follows.
-            const double tail = std::clamp<double>(set.tail, 0.5, 4.0);
-            auto let_go = play({{0, true, a, 100}, {at(0.5), false, a, 100}}, 0.5 + tail);
-            if (stopped) return stop();
-            const size_t last = size_t(at(0.1));
-            const float quiet = job.external ? 20.0f * std::log10(source->silence()) : -100.0f; // an input's own noise
-            const bool cut = let_go.size() > last && probe_db(let_go, let_go.size() - last, last) > quiet + 15.0f; // still sounding at the end
-            const ReleaseShape shape = release_shape(let_go, let_go, at(0.5), rate, cut, quiet);
-            if (!shape.db.empty()) {
-                const ReleaseModel fall = fit_release({shape});
-                found.release = fall.fast;
-                found.release_slow = fall.two() ? fall.slow : 0;
-                found.release_share = fall.two() ? fall.share : 0;
+
+        // A split: two sounds side by side on the keyboard. The range's ends against the key just heard: an end that
+        // is mono where that is poly (or the other way), or that sounds unlike it (probe_character()), is another
+        // sound. Where it starts is found by halves, each key compared with the nearest key known on either side, and
+        // holds only if the two keys it ends between are themselves unlike (one sound changing slowly along the
+        // keyboard has no such step). One split is looked for.
+        const ProbeCharacter here = probe_character(alone, base_hz, rate);
+        const bool here_mono = lower.kind == AutoKind::Mono;
+        struct End { int key = -1; ProbeCharacter sound; bool mono = false, other = false; float apart = 0; };
+        auto end_at = [&](int key) {
+            End e;
+            e.key = key;
+            auto two = fifth(uint8_t(key));
+            auto one = hit(uint8_t(key), 100, 1.2, 1.25);
+            if (stopped) return e;
+            e.sound = probe_character(one, hz_of(key), rate);
+            e.mono = probe_glide(two, one, at(0.4), hz_of(key), hz_of(key + 7), rate).mono;
+            e.apart = probe_apart(e.sound, here);
+            e.other = e.sound.level > -80.0f && (e.mono != here_mono || e.apart > 8.0f);
+            return e;
+        };
+        End bottom, top;
+        const int first = std::clamp(low, 24, 108), last = std::clamp(high, 24, 108);
+        if (int(base) - first >= 8) bottom = end_at(first);
+        if (stopped) return stop();
+        if (last - 7 - int(base) >= 8) top = end_at(last - 7);
+        if (stopped) return stop();
+        const End* far = top.other && (!bottom.other || top.apart >= bottom.apart) ? &top : bottom.other ? &bottom : nullptr;
+        uint8_t zone_key = 0; // where the other side was heard in full
+        if (far) {
+            const bool above = far == &top; // the other sound is above the key just heard
+            int lo = above ? int(base) : far->key, hi = above ? far->key : int(base);
+            ProbeCharacter under = above ? here : far->sound, over = above ? far->sound : here;
+            const bool under_mono = above ? here_mono : far->mono, over_mono = above ? far->mono : here_mono;
+            bool found_split = false;
+            if (probe_apart(under, over) >= 6.0f) { // by their sound
+                while (hi - lo > 1 && !stopped) {
+                    const int mid = (lo + hi) / 2;
+                    const ProbeCharacter c = probe_character(hit(uint8_t(mid), 100, 1.2, 1.25), hz_of(mid), rate);
+                    if (probe_apart(c, under) <= probe_apart(c, over)) { lo = mid; under = c; } else { hi = mid; over = c; }
+                }
+                found_split = probe_apart(under, over) >= 6.0f;
+            } else if (under_mono != over_mono) { // alike but for mono: a fifth cuts its lower key on the mono side only
+                auto cuts = [&](int key) { // the fifth above `key` cuts it
+                    auto two = fifth(uint8_t(key));
+                    auto one = hit(uint8_t(key), 100, 1.2, 1.25);
+                    return !stopped && probe_glide(two, one, at(0.4), hz_of(key), hz_of(key + 7), rate).mono;
+                };
+                if (under_mono) lo += 7; // the fifth above the lower key heard is still on its side
+                while (hi - lo > 1 && !stopped) {
+                    const int mid = (lo + hi) / 2;
+                    // Mono below: `mid` is below when the fifth under it is cut by it. Mono above: above when its fifth cuts it.
+                    const bool below = under_mono ? cuts(mid - 7) : !cuts(mid);
+                    if (below) lo = mid; else hi = mid;
+                }
+                found_split = hi > lo;
             }
-        }
-        char held[64];
-        std::snprintf(held, sizeof(held), " hold=%.1f/%.1f", probe_db(alone, at(0.25), at(0.225)), probe_db(alone, at(0.925), at(0.225)));
-        r.heard += held;
-        if (g.mono) {
-            found.kind = AutoKind::Mono;
-            found.glide = g.seconds;
-            // Played legato, whether the second key starts the sound again or the first's note carries on: against
-            // the second key alone.
-            auto fresh = play({{0, true, b, 100}, {at(0.5), false, b, 100}}, 0.6);
             if (stopped) return stop();
-            const int again = probe_retriggers(both, alone, fresh, at(0.4), rate);
-            found.tied = again != 1;
-            r.heard += again < 0 ? " again=?" : again ? " again=1" : " again=0";
-            if (g.seconds > 0) { // gliding also from a key let go: not legato
-                auto apart = play({{0, true, a, 100}, {at(0.3), false, a, 100}, {at(0.35), true, b, 100}, {at(0.8), false, b, 100}}, 0.9);
+            if (found_split) {
+                found.split = uint8_t(hi);
+                // The other side in full, at a key of its own whose fifth is on its side too where there is room.
+                if (above) zone_key = uint8_t(std::clamp(std::min((hi + last) / 2, 84), hi, std::max(hi, last - 7)));
+                else zone_key = uint8_t(std::clamp(std::max((first + hi) / 2 - 4, 36), first, std::max(first, hi - 8)));
+                r.heard += " | split=" + std::to_string(hi) + " other@" + std::to_string(zone_key);
+                AutoZone other = check_zone(zone_key, hz_of(zone_key), nullptr);
                 if (stopped) return stop();
-                found.legato = !probe_slides_apart(apart, at(0.35), from_hz, to_hz, rate);
+                // How far its level follows velocity, from five velocities of that key.
+                std::vector<uint8_t> its;
+                std::vector<float> levels;
+                for (int v : {16, 48, 80, 112, 127}) {
+                    auto x = hit(zone_key, uint8_t(v), 0.25, 0.3);
+                    if (stopped) return stop();
+                    its.push_back(uint8_t(v));
+                    levels.push_back(probe_db(x, at(0.01), at(0.15)));
+                }
+                other.velocity = probe_velocity(its, levels);
+                if (above) upper = other; else { upper = lower; lower = other; }
             }
         }
+        found.kind = lower.kind; found.glide = lower.glide; found.legato = lower.legato; found.tied = lower.tied;
+        found.sustains = lower.sustains; found.moves = lower.moves; found.hold = lower.hold;
+        found.release = lower.release; found.release_slow = lower.release_slow; found.release_share = lower.release_share;
+        found.velocity = lower.velocity;
+        found.upper = upper;
     }
     show(2);
     // Accent: one key at sixteen velocities, each one's level and brightness over its first 150 ms.
@@ -906,6 +1005,19 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         bright.push_back(probe_brightness(x, at(0.01), at(0.15), rate));
     }
     found.accent = probe_accent(velocities, db, bright);
+    // How far the level follows velocity, for the side of a split this key is on.
+    if (found.kind != AutoKind::Drums) {
+        std::vector<uint8_t> plain_v; // under an accent: the accent's jump is the top layer's, not the level following velocity
+        std::vector<float> plain_db;
+        for (size_t i = 0; i < velocities.size(); ++i)
+            if (!found.accent || velocities[i] < found.accent) { plain_v.push_back(velocities[i]); plain_db.push_back(db[i]); }
+        (found.split && loud_key >= found.split ? found.upper.velocity : found.velocity) = probe_velocity(plain_v, plain_db);
+    }
+    // A sound whose level does not follow velocity: these were sixteen hits of the same note, and tell as the five
+    // below do whether it differs from hit to hit.
+    bool sweep_varies = false;
+    if (found.kind != AutoKind::Drums && !found.accent && (found.split && loud_key >= found.split ? found.upper.velocity : found.velocity) == 0 && !db.empty())
+        sweep_varies = *std::max_element(db.begin(), db.end()) - *std::min_element(db.begin(), db.end()) > 1.5f;
     if (found.accent) { // narrowed down between the two velocities heard either side of it
         const size_t i = size_t(std::find(velocities.begin(), velocities.end(), found.accent) - velocities.begin());
         int below = velocities[i - 1], above = found.accent;
@@ -928,14 +1040,14 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         r.heard += one;
     }
     show(3);
-    // Takes: three hits of the key, when one velocity layer is all there is to take.
+    // Takes: five hits of the key, when one velocity layer is all there is to take.
     if (!found.accent) {
         std::vector<std::vector<float>> hits;
-        for (int n = 0; n < 3; ++n) {
+        for (int n = 0; n < 5; ++n) {
             hits.push_back(hit(loud_key, 80, 0.3, 0.35)); // under an accent, where one is (it may carry from hit to hit)
             if (stopped) return stop();
         }
-        if (probe_varies(hits, rate)) found.takes = 3;
+        if (probe_varies(hits, rate) || sweep_varies) found.takes = 3;
         for (size_t h = 0; h < hits.size(); ++h) {
             char one[48];
             std::snprintf(one, sizeof(one), "%s%.1f/%.0f", h ? "," : " hits=", probe_db(hits[h], at(0.01), at(0.15)), probe_brightness(hits[h], 0, at(0.1), rate));
@@ -943,6 +1055,18 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         }
     }
     if (auto why = source->trouble(); !why.empty()) { r.error = why; return r; } // an input that clips: nothing good can be sampled
+    {
+        char text[200];
+        std::snprintf(text, sizeof(text), " | velocity=%.2f", double(found.velocity));
+        r.heard += text;
+        if (found.split) {
+            const auto& u = found.upper;
+            std::snprintf(text, sizeof(text), " from %s: kind=%s glide_ms=%d legato=%d tied=%d sustains=%d moves=%d hold_s=%.1f release_ms=%d velocity=%.2f",
+                          key_word(found.split).c_str(), u.kind == AutoKind::Mono ? "mono" : "keys", int(std::lround(u.glide * 1000)), u.legato, u.tied,
+                          u.sustains, u.moves, double(u.hold), int(std::lround(u.release * 1000)), double(u.velocity));
+            r.heard += text;
+        }
+    }
     found.heard = true;
     show(4);
     return r;
@@ -983,7 +1107,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     const float rate = dsp::sample_rate();
     const unsigned whole_rate = unsigned(std::lround(rate));
     { // the card: room for every note at its longest, as 24-bit WAVs and the 32-bit float parts they are made from
-        const double most = double(roots.size()) * layers * takes * (std::max(0.05f, set.hold_seconds()) + set.tail + 0.01) * rate;
+        const double most = double(roots.size()) * layers * takes * (std::max(0.05f, set.hold_most()) + set.tail + 0.01) * rate;
         const uint64_t need = uint64_t(most * (6 + 8)) + (8u << 20);
         fs::path probe = folder.parent_path();
         while (!probe.empty() && !fs::exists(probe, e)) probe = probe.parent_path();
@@ -998,7 +1122,6 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     if (!e) fs::create_directories(files, e);
     if (e) return fail("cannot make " + folder.filename().string());
 
-    const uint64_t hold = uint64_t(std::max(0.05f, set.hold_seconds()) * rate);
     const float silent = source->silence();
     // Between notes: silence until what is left of the last (a delay's repeats too, at Post FX) has died away, 4 s at most.
     auto settle = [&] { source->settle(4.0f, 0.1f); };
@@ -1006,18 +1129,32 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
 
     XpmProgram program;
     program.name = job.sample_name;
-    if (set.found.kind == AutoKind::Mono) { // as the check heard it: one note at a time, sliding as the plug-in does
-        program.mono = true;
-        program.legato = set.found.legato;
-        program.tied = set.found.tied;
-        program.glide = set.found.glide;
+    program.volume_db = 20.0 * std::log10(std::sqrt(2.0)); // the pan law's 3 dB back: as loud as the plug-in (xpm_write.h)
+    const uint8_t split = drums ? 0 : set.found.split; // the first key of a split's upper side, 0 none
+    { // As the check heard it: one note at a time, sliding as the plug-in does; with a split, on its mono side's keys.
+        const AutoZone under = set.found.zone(0), over = set.found.zone(split);
+        const bool under_mono = !drums && under.kind == AutoKind::Mono, over_mono = split && over.kind == AutoKind::Mono;
+        if (under_mono || over_mono) {
+            const AutoZone& z = under_mono ? under : over;
+            program.mono = true;
+            program.legato = z.legato;
+            program.tied = z.tied;
+            program.glide = z.glide;
+            if (split && !over_mono) program.mono_high = uint8_t(split - 1);
+            if (split && !under_mono) program.mono_low = split;
+        }
     }
     std::vector<ReleaseShape> falls; // each note's fall once its key was let go (engine/release_fit.h)
+    std::vector<uint8_t> fall_keys;  // and the key it was
     float peak_all = 0;
     uint64_t rendered = 0;
     double rendering = 0;
     for (size_t k = 0; k < roots.size(); ++k) {
         XpmKeygroup group;
+        const AutoZone zone = set.found.zone(roots[k]); // its side of a split
+        // Held as long as its side needs, its level following velocity as its side's did.
+        const uint64_t hold = uint64_t(std::max(0.05f, set.hold_seconds(roots[k])) * rate);
+        if (set.found.heard && !drums) group.velocity = zone.velocity;
         group.cycle = takes > 1;
         group.one_shot = drums; // a drum plays out whole however short the tap
         for (unsigned v = 0; v < layers * takes; ++v) {
@@ -1087,16 +1224,23 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             }
             if (peak < silent) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
             // How it falls once its key is let go, against its level then: the program's release is fitted to these.
-            if (!drums) falls.push_back(release_shape(audio.left, audio.right, audio.held, rate,
-                                                      audio.release + uint64_t(0.02f * rate) >= uint64_t(std::max(0.0f, set.tail) * rate),
-                                                      job.external ? 20.0f * std::log10(silent) : -100.0f)); // an input's noise
+            if (!drums) {
+                falls.push_back(release_shape(audio.left, audio.right, audio.held, rate,
+                                              audio.release + uint64_t(0.02f * rate) >= uint64_t(std::max(0.0f, set.tail) * rate),
+                                              job.external ? 20.0f * std::log10(silent) : -100.0f)); // an input's noise
+                fall_keys.push_back(roots[k]);
+            }
             XpmLayer layer;
             layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity)
                          + (takes > 1 ? "-T" + std::to_string(take + 1) : std::string());
             layer.root = roots[k];
             layer.low_velocity = uint8_t(takes > 1 || layer_index == 0 ? 0 : set.velocity(layer_index - 1) + 1);
             layer.high_velocity = takes > 1 ? 127 : velocity;
-            if (set.looping()) {
+            // A velocity layer is recorded at its loudest velocity: the keygroup's Velocity would take it down again
+            // there, so it is raised by as much, and a softer press within the layer falls from that as the plug-in's.
+            if (takes == 1 && group.velocity > 0)
+                layer.gain = std::min(16.0, 1.0 / std::max(1e-3, 1.0 - group.velocity * (1.0 - velocity / 127.0)));
+            if (set.looping(roots[k])) {
                 LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate, true); // it sustains: a loop however unlike its ends
                 if (loop.found()) {
                     layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops;
@@ -1131,6 +1275,11 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         else {
             g.low = uint8_t(k == 0 ? 0 : (program.keygroups[k - 1].layers.front().root + root) / 2 + 1);
             g.high = uint8_t(k + 1 == program.keygroups.size() ? 127 : (root + program.keygroups[k + 1].layers.front().root) / 2);
+            // A split's sides keep to their own keys: the last below it reaches up to it, the first above down to it.
+            if (split && root < split) g.high = uint8_t(std::min<int>(g.high, split - 1));
+            if (split && root >= split) g.low = uint8_t(std::max<int>(g.low, split));
+            if (split && root < split && (k + 1 == program.keygroups.size() || program.keygroups[k + 1].layers.front().root >= split)) g.high = uint8_t(split - 1);
+            if (split && root >= split && (k == 0 || program.keygroups[k - 1].layers.front().root < split)) g.low = split;
         }
         if (g.cycle) continue;
         for (size_t l = 0; l < g.layers.size(); ++l) g.layers[l].low_velocity = uint8_t(l == 0 ? 0 : g.layers[l - 1].high_velocity + 1);
@@ -1142,31 +1291,53 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     // with the slow release and the rest, while there is room for both (128 keygroups). Notes that faded while held
     // and fall no faster let go (a pluck that rings on whatever the key does) play out whole, as one shots.
     const size_t played = program.keygroups.size();
-    if (!drums) {
-        ReleaseModel fall = fit_release(falls, &r.release_note);
-        if (job.external) r.release_note += " " + source->about(); // the input's silence and the instrument's delay
-        size_t told = 0;
-        for (const auto& f : falls) told += !f.db.empty();
-        if (!told && set.found.release > 0) { // held until they had died away: as the check heard it let go early
-            fall.fast = set.found.release; fall.slow = set.found.release_slow; fall.share = set.found.release_share;
+    for (unsigned side = 0; !drums && side < (split ? 2u : 1u); ++side) { // a split: each side falls its own way
+        const AutoZone zone = set.found.zone(side ? split : 0);
+        auto on_side = [&](unsigned key) { return !split || (key >= split) == (side == 1); };
+        std::vector<ReleaseShape> its;
+        for (size_t n = 0; n < falls.size(); ++n) if (on_side(fall_keys[n])) its.push_back(falls[n]);
+        size_t keygroups = 0;
+        for (size_t k = 0; k < played; ++k) keygroups += on_side(program.keygroups[k].layers.front().root);
+        if (!keygroups) continue;
+        std::string note;
+        ReleaseModel fall = fit_release(its, &note);
+        size_t told = 0, fading = 0;
+        for (const auto& f : its) { told += !f.db.empty(); fading += f.fading; }
+        if (!told && zone.release > 0) { // held until they had died away: as the check heard it let go early
+            fall.fast = zone.release; fall.slow = zone.release_slow; fall.share = zone.release_share;
         }
-        program.release = fall.fast;
-        r.release = fall.fast; r.release_slow = fall.two() ? fall.slow : 0; r.release_share = fall.two() ? fall.share : 0;
-        size_t fading = 0;
-        for (const auto& f : falls) fading += f.fading;
-        if (!set.looping() && fading * 2 > falls.size() && fall.db(1.0f) > -3.0f) {
-            for (auto& g : program.keygroups) g.one_shot = true;
-        } else if (fall.two() && played * 2 <= 128) {
-            for (size_t k = 0; k < played; ++k) {
-                XpmKeygroup ringing = program.keygroups[k];
-                ringing.gain = fall.share;
-                ringing.release = fall.slow;
-                program.keygroups[k].gain = 1.0 - fall.share;
-                program.keygroups.push_back(std::move(ringing));
+        const bool looping = set.looping(side ? split : 0);
+        const bool whole = !looping && fading * 2 > its.size() && fall.db(1.0f) > -3.0f; // played out whole, as one shots
+        const bool twice = !whole && fall.two() && program.keygroups.size() + keygroups <= 128;
+        if (!whole && fall.two() && !twice) { // no room for two: one stage, the slow one's time when it holds most of the level
+            fall.fast = fall.share >= 0.5f ? fall.slow : fall.fast;
+            fall.slow = fall.share = 0;
+        }
+        for (size_t k = 0; k < played; ++k) {
+            if (!on_side(program.keygroups[k].layers.front().root)) continue;
+            if (whole) { program.keygroups[k].one_shot = true; continue; }
+            if (side) program.keygroups[k].release = fall.fast; // the lower side's (or the only one's) is the program's
+            if (!twice) continue;
+            XpmKeygroup ringing = program.keygroups[k];
+            ringing.gain = fall.share;
+            ringing.release = fall.slow;
+            program.keygroups[k].gain = 1.0 - fall.share;
+            program.keygroups.push_back(std::move(ringing));
+        }
+        if (!side) {
+            r.release_note = note;
+            if (job.external) r.release_note += " " + source->about(); // the input's silence and the instrument's delay
+            program.release = fall.fast;
+            r.release = fall.fast; r.release_slow = fall.two() ? fall.slow : 0; r.release_share = fall.two() ? fall.share : 0;
+        } else {
+            char text[96];
+            std::snprintf(text, sizeof(text), " | from %s: release_ms=%d", key_word(split).c_str(), int(std::lround(fall.fast * 1000)));
+            r.release_note += text;
+            if (fall.two()) {
+                std::snprintf(text, sizeof(text), "+%d@%.0fdB", int(std::lround(fall.slow * 1000)), 20.0 * std::log10(double(fall.share)));
+                r.release_note += text;
             }
-        } else if (fall.two()) { // no room for two: one stage, the slow one's time when it holds most of the level
-            program.release = r.release = fall.share >= 0.5f ? fall.slow : fall.fast;
-            r.release_slow = r.release_share = 0;
+            r.release_note += " " + note;
         }
     }
     // One gain for every sample: the loudest at -1 dB (24 dB more at most), so the layers keep the balance played.

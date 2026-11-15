@@ -245,7 +245,10 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         else {
             const auto& a = s.ui.auto_sheet.settings;
             c.value = "Auto";
-            c.unit = a.found.heard && a.found.hold > 0 ? juce::String(a.found.hold, a.found.hold == std::floor(a.found.hold) ? 0 : 1) + " s" : juce::String();
+            auto seconds = [](float v) { return juce::String(v, v == std::floor(v) ? 0 : 1); };
+            const float under = a.hold_seconds(0), over = a.hold_seconds(a.found.split); // a split: each side's
+            c.unit = !a.found.heard || a.found.hold <= 0 ? juce::String()
+                   : a.found.split && over != under ? seconds(under) + "/" + seconds(over) + " s" : seconds(under) + " s";
         }
         break;
     case Kind::AutoTail: c.label = "TAIL"; c.value = b.value ? juce::String(b.value / 10.0, 1) : juce::String("Off"); c.unit = b.value ? "s" : ""; break;

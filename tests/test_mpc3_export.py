@@ -295,6 +295,44 @@ class Mpc3Export(unittest.TestCase):
             self.assertIn("error=", elsewhere.stdout)
             self.assertFalse((Path(folder) / "Other.xty").exists())
 
+    def test_keygroup_split(self):
+        # A split's mono side (a program that is not Mono, the side's keygroups Mono in one mute group) and each side's
+        # own Velocity: MPC 3's program stays poly, the side's keygroups monophonic in mute group 1.
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder) / "Split_[TrackData]"
+            data.mkdir()
+            for name in ("Split-C3", "Split-C5"):
+                (data / f"{name}.wav").write_bytes(wav(44100))
+
+            def keygroup(number, low, high, name, root, mono, velocity):
+                return (f"<Instrument number=\"{number}\"><LowNote>{low}</LowNote><HighNote>{high}</HighNote><TriggerMode>2</TriggerMode>"
+                        f"<VelocitySensitivity>{velocity}</VelocitySensitivity><Mono>{mono}</Mono><Polyphony>{1 if mono == 'True' else 0}</Polyphony>"
+                        f"<MuteGroup>{1 if mono == 'True' else 0}</MuteGroup><Layers><Layer number=\"1\"><Active>True</Active><Volume>1.0</Volume>"
+                        f"<Pan>0.5</Pan><VelStart>0</VelStart><VelEnd>127</VelEnd><RootNote>{root + 1}</RootNote><SampleName>{name}</SampleName>"
+                        "<SliceStart>0</SliceStart><SliceEnd>40000</SliceEnd></Layer></Layers></Instrument>")
+
+            (data / "Split.xpm").write_text(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><MPCVObject><Program type=\"Keygroup\"><ProgramName>Split</ProgramName>"
+                "<Mono>False</Mono><PortamentoTime>0.000000</PortamentoTime><PortamentoLegato>False</PortamentoLegato>"
+                "<MonoRetrigger>True</MonoRetrigger><MonoSidePortamentoTime>0.000000</MonoSidePortamentoTime>"
+                "<MonoSidePortamentoLegato>True</MonoSidePortamentoLegato><KeygroupNumKeygroups>2</KeygroupNumKeygroups><Instruments>"
+                + keygroup(1, 0, 59, "Split-C3", 48, "True", "0.000000") + keygroup(2, 60, 127, "Split-C5", 72, "False", "0.800000")
+                + "</Instruments></Program></MPCVObject>")
+            read_back = self.run_tool("--instrument-read", data / "Split.xpm").stdout
+            self.assertIn("mono=1 legato=1 tied=0 glide=0.000 mono_keys=0-59", read_back)
+            result = self.run_tool("--mpc-track", data / "Split.xpm", Path(folder) / "Split.xty")
+            self.assertEqual(result.stdout.strip(), "written", result.stdout + result.stderr)
+            _, track = read(Path(folder) / "Split.xty")
+            voices = track["program"]["drum"]
+            self.assertFalse(voices["monophonic"])
+            under, over = voices["instruments"][0], voices["instruments"][1]
+            self.assertEqual((under["monophonic"], under["polyphony"], under["whichMuteGroup"]), (True, 1, 1))
+            self.assertEqual((over["monophonic"], over["polyphony"], over["whichMuteGroup"]), (False, 0, 0))
+            self.assertAlmostEqual(under["synthSection"]["velocitySensitivity"], 0.0, places=3)
+            self.assertAlmostEqual(over["synthSection"]["velocitySensitivity"], 0.8, places=3)
+            # and read back from the track file: the same side
+            self.assertIn("mono_keys=0-59", self.run_tool("--instrument-read", Path(folder) / "Split.xty").stdout)
+
     def test_keygroup_two_stage_release(self):
         # An auto sampled sound that drops and rings on: two keygroups over the same keys and sample, one with most of
         # the level and a 50 ms release, one a fifth of it with 1.5 s. They stay two in the MPC 3 program, each with
