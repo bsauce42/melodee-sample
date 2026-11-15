@@ -8720,6 +8720,34 @@ void keygroup_glide() {
         r.run(44100);
         CHECK(peak_of(r.run(2000), 0) < 0.15f);
     }
+    { // a tail that knows its level starts at the level its note plays at as it is let go: quiet early, as loud later
+        auto play = [](unsigned hold) {
+            ZoneRig r;
+            std::vector<float> tone(88200);
+            for (size_t f = 0; f < tone.size(); ++f) { // a swell from 0.1 to 0.5 over the first 10000 frames, a tail at 0.5 falling
+                const float wave = float(std::sin(2 * M_PI * 220 * f / 44100.0));
+                tone[f] = f < 30000 ? wave * std::min(0.5f, 0.1f + 0.4f * float(f) / 10000.0f) : 0.5f * wave * std::exp(-float(f - 30000) / 40000.0f);
+            }
+            r.part(tone);
+            auto& held = r.zone(0); held.root = 57; held.loop = ZoneLoop::On; held.loop_start = 12000; held.loop_end = 20000; held.end = 30000;
+            held.release = -10;
+            auto& gone = r.zone(0); gone.root = 57; gone.on_release = true; gone.one_shot = true; gone.start = 30000; gone.end = 88200;
+            gone.start_level = 0.5f / std::sqrt(2.0f); // its first 20 ms: a 0.5 sine's RMS
+            r.multi->has_release = true;
+            r.pad.release = 10; r.pad.attack = 0;
+            r.build(PadPlay::Gate);
+            r.engine->set_keyed(true);
+            r.engine->note_on(57, 127);
+            r.run(hold);
+            const float before = peak_of(r.run(400), 0);
+            r.engine->note_off(57);
+            r.run(2205); // 50 ms on: the note gone, its tail playing
+            return std::pair<float, float> {before, peak_of(r.run(1000), 0)};
+        };
+        auto early = play(400), late = play(40000);
+        CHECK(early.first < 0.2f && early.second < 1.5f * early.first);   // let go at 0.1: the tail no louder
+        CHECK(late.first > 0.25f && std::fabs(late.second - late.first) < 0.1f); // let go on the loop: the tail where it was (0.35 a side, centred)
+    }
     { // a Tie: there at once
         ZoneRig r;
         rig(r, false, 0.0f);

@@ -1097,7 +1097,11 @@ release keygroup over the same keys (TriggerMode 1, Note Off): the same
 WAV from where the key was let go (SliceStart), those frames scaled in the
 WAV so the tail starts at the loop's level (at most 6 dB either way), crossfaded with the
 looped note over 20 ms, so letting go plays the plug-in's own tail with
-no bump or drop. MPC 3 exports carry release keygroups (triggerMode 1) and each
+no bump or drop. Melodee goes further: a release zone knows its start's
+level (`SampleZone::start_level`, read as the instrument lands), and the
+sampler starts it at the level its key's note plays at as it is let go
+(its envelope, gain and the last 20 ms it read), so a tap or a release on
+a loop's swell is followed at its own level. MPC 3 exports carry release keygroups (triggerMode 1) and each
 keygroup's own attack and release. The check's test notes stay
 in C2-C5 whatever the range, so a range at the keyboard's top or bottom is
 not taken for drums. Drums are one shots (TriggerMode 0), each cut where it

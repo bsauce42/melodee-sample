@@ -414,6 +414,12 @@ void SampleLibrary::land_next() {
             z.loop_start = loop_start; z.loop_end = loop_end;
             held = held && host.streams().hold(part, z.start, stream_chunk);
             if (z.loop != ZoneLoop::Off) held = held && host.streams().hold(part, z.loop_start, stream_chunk);
+            if (held && z.on_release) { // where its tail starts, as loud as it is there (held in memory just now)
+                const uint32_t n = std::min<uint32_t>(882, z.end > z.start ? z.end - z.start : 0);
+                double sum = 0;
+                for (uint32_t f = 0; f < n; ++f) { const double m = 0.5 * (double(part.left[z.start + f]) + part.right[z.start + f]); sum += m * m; }
+                z.start_level = n ? float(std::sqrt(sum / n)) : 0.0f;
+            }
         }
         if (!held) { why = "Too big for memory"; break; }
         part.frames.store(info.frames, std::memory_order_release);
