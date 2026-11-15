@@ -2046,7 +2046,7 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
   opens.
 - **Neural Amp Modeler.** An optional plug-in beside Melodee's own Amp sim
   effect: the official plug-in by Steven Atkinson, built for the MPC without its editor
-  (fork `mpc-vst-nam-official`, its `linux/README.md`). Its
+  (fork `keremimo/mpc-vst-neural-amp-modeler`, its `linux/README.md`). Its
   Model and Cab parameters pick files from `Neural Amp Modeler/Models`
   (`.nam`) and `Neural Amp Modeler/IRs` (`.wav`) in Plugin Data, which
   Melodee makes before it opens (`plugin/nam.h`); a turn loads the file on

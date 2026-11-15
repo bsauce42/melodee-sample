@@ -160,8 +160,11 @@ plug-ins.
 Melodee's own amp sim is the **Amp sim** effect in the Dirt family. For amp
 and pedal captures, the Neural Amp Modeler plug-in can be added on its own.
 It plays amp and pedal captures (`.nam` files) with a cab
-IR. Its MPC Sample build comes as `NeuralAmpModeler-<version>-mpc-sample.zip`:
-unzip it into `Melodee/Plugins`. Put the files it plays in
+IR. Its MPC Sample build is a free download:
+[Neural Amp Modeler](https://github.com/keremimo/mpc-vst-neural-amp-modeler/releases/latest).
+From the release, download `NeuralAmpModeler-<version>-mpc-sample.zip` and
+copy it into `Melodee/Plugins`. The next time the plug-in picker opens,
+Melodee unzips it into the `Neural Amp Modeler` folder. Put the files it plays in
 `Melodee/Plugin Data/Neural Amp Modeler`:
 
 - `Models`: `.nam` captures, in folders if you like.
