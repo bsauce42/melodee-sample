@@ -125,7 +125,12 @@ void make_new_track(Context& c, NewChoice choice) {
         c.set_param(t, midi_track::Channel, std::clamp<int>(ui.new_channel, 1, 16));
         stage_go(ui, 0, 0); // DEVICE
     };
+    auto audio = [&] { // freeze plan F3: records into the song, on its Record page
+        c.load_sound(t, EngineKind::Audio, 0);
+        c.track().set_name("AUDIO");
+    };
     switch (choice) {
+    case NewChoice::Audio: audio(); break;
     case NewChoice::Kit: kit(); break;
     case NewChoice::Samples: kit(); break;
     case NewChoice::Keygroup: keygroup(); break;
@@ -144,7 +149,7 @@ void make_new_track(Context& c, NewChoice choice) {
         if (c.library) c.library->rescan();
         return;
     }
-    if (choice == NewChoice::Record) { ui.new_for = -1; c.open(PageId::Record); return; } // Sample Record: a take of its own
+    if (choice == NewChoice::Record || choice == NewChoice::Audio) { ui.new_for = -1; c.open(PageId::Record); return; } // a take of its own
     if (picked) { ui.new_for = -1; c.open(back); }
 }
 

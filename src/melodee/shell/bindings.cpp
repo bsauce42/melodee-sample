@@ -611,6 +611,7 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
     }
     case PageId::Record: case PageId::InputConfig: { // Shift + K1: a track's tap (before or after its effects); Shift + K3: Melodee's input gain
         const auto& in = ui.settings.input;
+        if (ui.page == PageId::Record && track.is_audio()) return {}; // freeze plan F3: the gain is K3 there
         Binding tap = in.source == InputSource::Track ? Binding {Kind::RecTap, 0, 0, 1, int(in.post)} : Binding {};
         return {tap, Binding {}, Binding {Kind::RecGain, 0, -12, 24, in.gain}};
     }
@@ -971,6 +972,10 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     }
     case PageId::Record: case PageId::InputConfig: { // as on the MPC's Sample Record: K1 source, K2 rec length, K3 threshold
         const auto& in = ui.settings.input;
+        if (ui.page == PageId::Record && track.is_audio()) // freeze plan F3: an audio track's source and monitor, the input's gain
+            return {Binding {Kind::AudioSource, 0, 0, int(audio_source_count) - 1, int(audio_source_index(track.audio.source))},
+                    Binding {Kind::AudioMonitorMode, 0, 0, int(TrackMonitor::Count) - 1, int(track.audio.monitor)},
+                    Binding {Kind::RecGain, 0, -12, 24, in.gain}};
         auto choices = input_choices(project, ui.track, in);
         return {Binding {Kind::RecSource, 0, 0, int(choices.count) - 1, int(choices.index_of(input_code(in)))},
                 Binding {Kind::RecLength, 0, 0, int(rec_lengths) - 1, in.length},

@@ -86,11 +86,29 @@ void draw_clip(Paint& p, const Snapshot& s, const Clip& clip, float y, unsigned 
     p.g.restoreState();
 }
 
+// Freeze plan F3: an audio track's region, a block in the track's colour from where it starts to where it ends (a
+// part of a bar where it does not end on one), named by its take; the one at the cursor on the selected lane filled.
+void draw_region(Paint& p, const Snapshot& s, const AudioRegion& r, float y, unsigned view, float bw, bool selected) {
+    const unsigned bar = std::max(1u, s.project.bar_ticks());
+    const float a = float(region_start(r, bar)) / bar, b = float(region_end(r, bar)) / bar;
+    float rx = x0 + (a - float(view)) * bw, rw = (b - a) * bw;
+    float left = std::max(rx, x0), right = std::min(rx + rw, x1);
+    if (right <= left + 1) return;
+    auto c = track_colour(r.track);
+    p.g.saveState();
+    p.g.reduceClipRegion(juce::Rectangle<int>(int(left), int(y), int(right - left + 1), int(lane_h)));
+    p.fill(rx + 0.5f, y, rw - 1, lane_h, selected ? c : c.withAlpha(r.muted ? 0.12f : 0.38f), 2.5f);
+    if (rw > 22) p.text("T" + juce::String(r.take), rx + 3, y, 40, lane_h, plain(selected ? colour::bg : c, type::small, Weight::Bold));
+    if (selected) p.ring(rx + 0.5f, y, rw - 1, lane_h, colour::text, 2.5f);
+    p.g.restoreState();
+}
+
 // B1-B3 follow what is under the cursor; with Shift, the clip's second jobs.
 SoftKeys keys_of(const Snapshot& s, const Clip* clip, juce::Colour c) {
     if (s.ui.shift) return {{"", clip ? "MOTION" : "", clip ? "OWN PATTERN" : ""}, -1, c};
     if (clip) return {{"EXPORT", clip->muted ? "UNMUTE" : "MUTE", "DUPLICATE"}, -1, c};
-    return {{"EXPORT", "", s.project.tracks[s.ui.track].used() ? "PLACE" : ""}, -1, c};
+    const auto& t = s.project.tracks[s.ui.track];
+    return {{"EXPORT", "", t.used() && !t.is_audio() ? "PLACE" : ""}, -1, c}; // an audio track's lane holds its takes (freeze plan F3)
 }
 
 void draw(Paint& p, const Snapshot& s) {
@@ -224,6 +242,11 @@ void draw(Paint& p, const Snapshot& s) {
                juce::Justification::centred);
         for (unsigned n = 0; n < song.count; ++n)
             if (song.clips[n].track == t) draw_clip(p, s, song.clips[n], y, view, bw, int(n) == selected_clip);
+        if (s.project.tracks[t].is_audio()) { // freeze plan F3: its regions, the one at the cursor picked
+            const int here = selected ? song.region_at(t, cursor * s.project.bar_ticks(), s.project.bar_ticks()) : -1;
+            for (unsigned n = 0; n < song.region_count; ++n)
+                if (song.regions[n].track == t) draw_region(p, s, song.regions[n], y, view, bw, int(n) == here);
+        }
     }
     float bottom = tracks_top + shown * (lane_h + lane_gap);
     p.fill(x0 - 1, lane_top - 2, 0.5f, bottom - lane_top + 2, colour::line);
@@ -266,7 +289,7 @@ void draw(Paint& p, const Snapshot& s) {
 int clip_index(const Context& c) { return c.project.song.clip_at(c.ui.track, c.ui.song_cursor); }
 
 void place(Context& c) {
-    if (!c.track().used()) return;
+    if (!c.track().used() || c.track().is_audio()) return;
     Clip clip;
     clip.track = c.ui.track; clip.pattern = c.ui.song_pattern; clip.bar = c.ui.song_cursor; clip.bars = c.ui.song_length;
     if (c.project.song.place(clip)) c.sync_song();

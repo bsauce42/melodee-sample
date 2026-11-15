@@ -387,6 +387,12 @@ void Shell::press(Button b, bool pressed) {
         if (ui.shift) { context_.audio_recall(); break; } // Audio Recall: the input ring's last 25 s
         if (ui.page == PageId::AutoSample && ui.auto_sheet.sampling) break; // AUTO SAMPLE (Shift + Pad 11) runs: B1 calls it off
         if (ui.page == PageId::Print) { context_.print_sheet_cancel(); break; } // again: the sheet closes, calling off its prints
+        if (context_.track().is_audio()) { // freeze plan F3: an audio track's Record page; there, a take starts or ends
+            if (ui.page != PageId::Record) context_.open(PageId::Record);
+            else if (context_.host.playing()) context_.stop();
+            else context_.audio_record_play();
+            break;
+        }
         if (context_.track().engine != EngineKind::Sampler) { context_.open_print_sheet(); break; } // freeze plan F2c: PRINT
         if (ui.page != PageId::Record) context_.open(PageId::Record);
         else context_.record_button();
@@ -943,7 +949,11 @@ std::string Shell::input_summary() const {
          + " melodee_threshold=" + std::to_string(int8_t(r >> 24)) + " melodee_speaker=" + std::to_string(input_ ? int(input_->speaker_on()) : -1)
          + " melodee_recall_frames=" + std::to_string(uint64_t(host.recall().filled()) * 44100 / std::max(1u, host.recall().rate()))
          + " melodee_render=" + renders[unsigned(host.bounce().state()) % 7] + " melodee_render_frames=" + std::to_string(host.bounce().frames())
-         + " melodee_rendering=" + std::to_string((r >> 21) & 3) + " melodee_resample_pick=" + std::to_string((r >> 23) & 1);
+         + " melodee_rendering=" + std::to_string((r >> 21) & 3) + " melodee_resample_pick=" + std::to_string((r >> 23) & 1)
+         // Freeze plan F3: an audio track's take (its ring's state, frames at the device's rate, track) and its regions' runs.
+         + " melodee_audio_take=" + renders[unsigned(host.audio_take().state()) % 7] + " melodee_audio_take_frames=" + std::to_string(host.audio_take().taken())
+         + " melodee_audio_take_track=" + std::to_string(host.audio_take_track()) + " melodee_audio_underruns=" + std::to_string(host.audio_underruns())
+         + " melodee_audio_waits=" + std::to_string(host.audio_waits());
 }
 
 // Phase 4: the last pad's Sample Mode values, for remote checks.

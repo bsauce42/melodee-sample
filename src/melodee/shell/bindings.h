@@ -111,6 +111,8 @@ struct Binding {
         PadColour, // Stage's COLOUR on a kit, K1: the last pad's colour, a place on shell/pad_colour.h's list
         PadCloud,  // Stage's CLOUD on a kit: the last pad's cloud; id 0 on or off, 1-5 position, size, density, scan, spread
         ProgKey, ProgVoicing, // Keys on the Prog layout: K1 the progression's key (0..11), K2 its voicing (model/scales.h ProgVoicing)
+        // Freeze plan F3, the Record page on an audio track: K1 its source (an index into audio_sources()), K2 its monitor.
+        AudioSource, AudioMonitorMode,
     };
     Kind kind = Kind::None;
     int32_t id = 0;      // Param: the parameter

@@ -6269,12 +6269,12 @@ void stage() {
         CHECK(!none[0].bound() && !none[1].bound() && !none[2].bound());
         CHECK(!shift_bindings(*project, ui, pattern)[0].bound()); // no Shift row either
     }
-    // Its carousel as on the MPC: the types (Drum, Keygroup, Plugin, MIDI), then the opened type's sources.
+    // Its carousel as on the MPC: the types (Drum, Keygroup, Plugin, MIDI, Audio), then the opened type's sources.
     {
         UiState u;
-        CHECK(new_pick_count(u) == 4 && new_pick_choice(u) == NewChoice::Count); // the types: nothing made yet
+        CHECK(new_pick_count(u) == 5 && new_pick_choice(u) == NewChoice::Count); // the types: nothing made yet
         new_pick_turn(u, 9, 1);
-        CHECK(u.new_pick == 3);                // the wheel stops at the last type (MIDI)
+        CHECK(u.new_pick == 4);                // the wheel stops at the last type (Audio)
         new_pick_turn(u, -9, 2);
         CHECK(u.new_pick == 0);                // and at the first (Drum)
         u.new_sources = true; u.new_type = uint8_t(NewType::Drum); u.new_pick = 0;
@@ -6285,6 +6285,7 @@ void stage() {
         CHECK(new_pick_choice(u) == NewChoice::MidiUsb); // MIDI opens on USB-C
         CHECK(type_sources(NewType::Keygroup).count == 1 && type_sources(NewType::Keygroup).items[0] == NewChoice::Keygroup);
         CHECK(type_sources(NewType::Plugin).count == 1 && type_sources(NewType::Plugin).items[0] == NewChoice::Plugin);
+        CHECK(type_sources(NewType::Audio).count == 1 && type_sources(NewType::Audio).items[0] == NewChoice::Audio);
     }
     stage_go(ui, 0, 0);
     ui.last_pot = 2; // the pot touched last picks the door Push makes, on an empty track too
@@ -14727,6 +14728,58 @@ void prints_f2a() {
 // after them; its level and pan still apply. The engine sleeps a second after it falls quiet, a hand wakes it in the
 // same block, a pattern without a print keeps it awake. FRZN keeps the freeze. A streamed print reads only what the
 // pager pinned.
+// Freeze plan F3: an audio track plays its region from its bar, on the frame, until the song ends after it; a take
+// records between two bars (here the track itself, as the Track source takes it) and the song runs to where it ends.
+void audio_track_playback() {
+    auto project = std::make_unique<Project>();
+    auto bank = std::make_unique<PatternBank>();
+    project->tracks[0].engine = EngineKind::Audio;
+    const unsigned rate = unsigned(std::lround(dsp::sample_rate()));
+    const size_t bar_frames = size_t(rate) * 2; // 4/4 at 120 BPM
+    auto host = std::make_unique<EngineHost>();
+    host->load(*project, *bank);
+    host->set_print_tap(0, true);
+    auto* pack = new AudioPack;
+    unsigned take = pack->hold_take(std::vector<float>(bar_frames, 0.25f), std::vector<float>(bar_frames, -0.25f), float(rate));
+    RegionClip clip;
+    clip.take = pack->takes[take].get(); clip.start = 384; clip.end = 768; clip.frames = uint32_t(bar_frames); clip.resident = true;
+    pack->regions.push_back(clip);
+    CHECK(pack->at(383) == nullptr && pack->at(384) == &pack->regions[0] && pack->at(768) == nullptr);
+    Command regions {Command::Type::AudioRegions, 0};
+    regions.audio = pack;
+    CHECK(host->send(regions));
+    host->send({Command::Type::AudioRecord, 0, 0, 1, 2}); // bar 2 (counting from 1) only
+    host->send({Command::Type::Play, 0, 0, 0, 1});        // the song from its first bar
+    std::vector<int32_t> o(256);
+    std::vector<float> left;
+    for (unsigned b = 0; b < unsigned(3 * bar_frames / 128); ++b) {
+        host->render(o.data(), 128, 1);
+        for (unsigned f = 0; f < 128; ++f) left.push_back(host->print_left()[f]);
+    }
+    size_t first = 0;
+    while (first < left.size() && std::fabs(left[first]) < 1e-6f) ++first;
+    CHECK(first + 1 >= bar_frames && first <= bar_frames + 1); // on its bar's first frame
+    float low = 1, high = 0;
+    for (size_t f = bar_frames + 8; f < 2 * bar_frames - 8; ++f) { low = std::min(low, left[f]); high = std::max(high, left[f]); }
+    CHECK(std::fabs(low - 0.25f) < 1e-4f && std::fabs(high - 0.25f) < 1e-4f);
+    CHECK(peak_of(left, 2 * bar_frames + 8, left.size()) < 1e-6f && !host->playing()); // the song ended with the region
+    CHECK(host->audio_underruns() == 0 && host->audio_waits() == 0);
+    auto& ring = host->audio_take();
+    CHECK(ring.state() == Bounce::State::Done && ring.taken() + 1 >= bar_frames && ring.taken() <= bar_frames + 1);
+    std::vector<float> taken(2 * 4096);
+    float heard = 0;
+    for (unsigned n; (n = ring.pop(taken.data(), 4096)) > 0;) for (unsigned f = 0; f < 2 * n; ++f) heard = std::max(heard, std::fabs(taken[f]));
+    CHECK(std::fabs(heard - 0.25f) < 1e-3f);
+    ring.release();
+    CHECK(ring.state() == Bounce::State::Idle && host->audio_take_track() < 0);
+    host->send({Command::Type::AudioRegions, 0}); // none: the pack handed back
+    host->render(o.data(), 128, 1);
+    AudioPack* back = nullptr;
+    for (unsigned b = 0; b < 20 && !host->take_done_audio(back); ++b) host->render(o.data(), 128, 1);
+    CHECK(back == pack);
+    delete back;
+}
+
 void freeze_f2b() {
     const float rate = dsp::sample_rate();
     auto project = std::make_unique<Project>();
@@ -15606,6 +15659,7 @@ int main() {
     banks_f1();
     prints_f2a();
     freeze_f2b();
+    audio_track_playback();
     deep_freeze_f2d();
     exports_p4();
     midi_tracks_p4();

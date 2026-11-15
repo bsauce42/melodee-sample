@@ -111,6 +111,8 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     deep_hold = thawing = 0; // freeze plan F2d: its deep-frozen tracks' plug-ins are never loaded (plugins_asleep())
     deep_sent.fill(0);
     for (unsigned t = 0; t < track_count; ++t) { ++freeze_serial[t]; if (frozen(t)) freeze_waiting |= 1u << t; }
+    audio_stale = 0xffff; // freeze plan F3: its audio tracks' regions mapped again (the audio thread lets the last go)
+    for (auto& serial : audio_serial) ++serial;
     if (plugins) plugins->set_states(plugin_states ? *plugin_states : PluginStates {});
     project = next;
     patterns = bank;
@@ -817,6 +819,8 @@ void Context::apply(const Binding& b, int value) {
         break;
     }
     case Kind::RecTap: set_input_tap(value != 0); break;
+    case Kind::AudioSource: t.audio.source = audio_sources[unsigned(value) % audio_source_count]; dirty = true; break; // freeze plan F3
+    case Kind::AudioMonitorMode: t.audio.monitor = TrackMonitor(unsigned(value) % unsigned(TrackMonitor::Count)); dirty = true; break;
     case Kind::KnobParam: knob_fx_param(unsigned(b.id), value); break;
     case Kind::PadFxParam: set_pad_fx_param(unsigned(b.id) / 4, unsigned(b.id) % 4, value); break;
     case Kind::FlexMode: set_flex(1, value); break;
@@ -1744,6 +1748,7 @@ void Context::sync_song() {
         send(c);
     }
     send({Type::SongTempoCount, 0, 0, 0, int16_t(song.tempo.count)});
+    sync_audio(); // freeze plan F3: an audio track's regions (shell/audio_jobs.cpp)
 }
 
 // On the Song page Play plays the arrangement from the cursor; elsewhere the
@@ -1799,6 +1804,7 @@ void Context::send_click() {
 // armed, the take begins, after a bar's count when Count-In is on.
 void Context::play(bool external) {
     if (host.playing()) return;
+    if (ui.page == PageId::Record && track().is_audio() && !external) { audio_record_play(); return; } // freeze plan F3
     played_song = ui.page == PageId::Song;
     ui.span_count = 0; // the punches heard (pad-fx C) counted from this Play
     if (ui.rec_armed) { ui.rec_armed = false; set_recording(true); }

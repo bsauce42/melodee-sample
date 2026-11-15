@@ -577,6 +577,8 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         break;
     }
     case Kind::RecTap: c.label = "TAP"; c.value = b.value ? "Post FX" : "Pre FX"; break;
+    case Kind::AudioSource: c.label = "SOURCE"; c.value = audio_source_label(audio_sources[unsigned(b.value) % audio_source_count]); break; // freeze plan F3
+    case Kind::AudioMonitorMode: c.label = "MONITOR"; c.value = track_monitor_name(TrackMonitor(b.value)); break;
     case Kind::KnobParam: {
         if (unsigned(b.id) == knob_morph) { // the fader on Knob FX (knob fx C): the way from A to B
             c.label = "A TO B"; c.value = juce::String(b.value * 100 / 127); c.unit = "%"; c.fill = b.value / 127.0f;

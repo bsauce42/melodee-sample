@@ -113,6 +113,7 @@ void Context::go_live(unsigned track) {
 }
 
 void Context::print_tick() {
+    audio_tick(); // freeze plan F3: audio tracks' regions and takes (shell/audio_jobs.cpp)
     if (!printer) return;
     autosample_tick();
     // Freeze plan F2b: packs the audio thread is done with, freed on the print thread; prints ready to play, sent to

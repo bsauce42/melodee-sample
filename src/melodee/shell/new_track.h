@@ -7,7 +7,7 @@
 #include <cstdint>
 
 // An empty track's Stage: what it can become, as a carousel (pages/stage_page.cpp),
-// in two steps as on the MPC: the track type (Drum, Keygroup, Plugin, MIDI), then
+// in two steps as on the MPC: the track type (Drum, Keygroup, Plugin, MIDI, Audio), then
 // where it comes from (a Drum's samples, a MIDI track's port). The wheel moves
 // along it, Push opens the type's sources (a type with one goes straight on) or
 // makes the source in the middle, B1 BACK goes back to the types. Picked with a pad
@@ -15,18 +15,19 @@
 // there and, once made, back to the page it was picked on (B1 BACK goes back
 // empty): a kit or a MIDI track at once, a plug-in once one is picked from the
 // card, a kit from Samples once its first sample loads, a keygroup once its
-// instrument (or WAV) loads from Samples. B1 CANCEL at the top of Samples
-// leaves that kit or keygroup empty again.
+// instrument (or WAV) loads from Samples, an audio track at once, on its Record
+// page (freeze plan F3). B1 CANCEL at the top of Samples leaves that kit or
+// keygroup empty again.
 namespace melodee {
 
 class Context;
 
-enum class NewChoice : uint8_t { Plugin, Kit, Samples, Keygroup, Record, MidiOut, MidiUsb, MidiAllUsb, Count };
+enum class NewChoice : uint8_t { Plugin, Kit, Samples, Keygroup, Record, MidiOut, MidiUsb, MidiAllUsb, Audio, Count };
 constexpr unsigned new_choice_count = unsigned(NewChoice::Count);
 
 // The track types, in the MPC's order, and each one's sources (the first is the one the carousel opens on,
 // a type with one source makes it at once).
-enum class NewType : uint8_t { Drum, Keygroup, Plugin, Midi, Count };
+enum class NewType : uint8_t { Drum, Keygroup, Plugin, Midi, Audio, Count };
 constexpr unsigned new_type_count = unsigned(NewType::Count);
 struct NewSources { NewChoice items[3]; uint8_t count, first; };
 constexpr NewSources type_sources(NewType type) {
@@ -35,6 +36,7 @@ constexpr NewSources type_sources(NewType type) {
     case NewType::Keygroup: return {{NewChoice::Keygroup}, 1, 0};
     case NewType::Plugin: return {{NewChoice::Plugin}, 1, 0};
     case NewType::Midi: return {{NewChoice::MidiOut, NewChoice::MidiUsb, NewChoice::MidiAllUsb}, 3, 1}; // USB-C first
+    case NewType::Audio: return {{NewChoice::Audio}, 1, 0};
     default: return {{NewChoice::Plugin}, 1, 0};
     }
 }

@@ -808,7 +808,7 @@ void new_track_picture(Paint& p, const Snapshot& s) {
     std::vector<CarouselCard> cards;
     if (!s.ui.new_sources) {
         cards = {{Icon::Pads, "", "Drum", "PADS"}, {Icon::Keyboard, "", "Keygroup", "INSTRUMENT"}, {Icon::Plug, "", "Plugin", "VST CLAP LV2"},
-                 {Icon::Din, "", "MIDI", juce::String::fromUTF8("OUT \xc2\xb7 USB")}};
+                 {Icon::Din, "", "MIDI", juce::String::fromUTF8("OUT \xc2\xb7 USB")}, {Icon::Wav, "", "Audio", "RECORDING"}};
     } else {
         auto list = type_sources(NewType(s.ui.new_type % new_type_count));
         for (unsigned n = 0; n < list.count; ++n) switch (list.items[n]) {

@@ -16,6 +16,7 @@ void send_track(Context& c, unsigned t) {
     load.track_pack = pack;
     if (!c.host.send(load)) delete pack;
     c.refreeze(t); // freeze plan F2b: the audio thread's new track plays live until its prints are checked again
+    c.audio_stale |= 1u << (t % track_count); // freeze plan F3: and an audio track's regions are sent again
 }
 } // namespace
 

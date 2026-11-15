@@ -33,6 +33,7 @@ namespace melodee {
 class EngineHost;
 class PluginRack;
 class PrintEngine;
+class AudioTracks;
 struct PluginFile;
 class SampleLibrary;
 struct FrameView;
@@ -315,6 +316,29 @@ public:
     // taken in, often, from the shell's tick.
     PrintEngine* printer = nullptr;
     PrintTable prints;
+    // Freeze plan F3, audio tracks (shell/audio_jobs.cpp): the thread that maps their regions and writes their takes
+    // (made once the app's print engine is set: none in the host tests), what each track's pack was made from, which
+    // were let go by the audio thread (a track load, another project) and the take armed or recording (-1 none).
+    std::shared_ptr<AudioTracks> audio_tracks;
+    std::array<std::vector<AudioRegion>, track_count> audio_sent;
+    std::array<uint32_t, track_count> audio_serial {};
+    uint32_t audio_stale = 0xffff;
+    std::string audio_sent_path;
+    unsigned audio_sent_bar = 0;
+    int audio_take_track = -1;
+    uint32_t audio_quiet_sent = 0; // tracks whose regions the audio thread keeps quiet (their monitor hears the input)
+    void sync_audio();  // each audio track's pack made again where its regions changed
+    void audio_tick();  // packs made sent, packs done freed, takes recorded placed in the song
+    // A take for audio track `track` from bar `from` to bar `to` (0: until Stop), armed for the song's next Play;
+    // false (and a notice) when it cannot be.
+    bool record_audio(unsigned track, unsigned from, unsigned to);
+    void cancel_audio(); // the take armed let go (one recording ends with Stop)
+    // The Record page on an audio track: Play (or Push) records the brace's bars once (B3: from the cursor until
+    // Stop), the song playing from where the take starts; the wheel moves the brace (or the cursor), Shift + wheel its
+    // length; B3 between the two.
+    void audio_record_play();
+    void audio_record_wheel(int delta);
+    void toggle_audio_free();
     struct PrintAsk {
         uint8_t track = 0;
         std::array<uint64_t, (pattern_count + 63) / 64> patterns {};

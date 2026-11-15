@@ -218,10 +218,25 @@ void Context::audio_recall() {
 }
 
 void Context::record_tick(uint32_t at) {
-    const auto& in = ui.settings.input;
+    InputConfig in = ui.settings.input;
     bool page = ui.page == PageId::Record;
     // Monitor: Auto hears the source only while Record is in view.
     bool monitoring = in.monitoring(page);
+    // Freeze plan F3: an audio track selected (or one recording) takes its own source, and its Monitor says what is
+    // heard: In its input, Auto its input while armed (its Record page in view) or recording, Merge both; its regions
+    // go quiet under In, and under Auto while it records.
+    const int audio_t = audio_take_track >= 0 ? audio_take_track : track().is_audio() ? int(ui.track) : -1;
+    uint32_t quiet = 0;
+    if (audio_t >= 0 && autosample_source < 0) {
+        const auto& a = project.tracks[unsigned(audio_t)].audio;
+        in.source = a.source;
+        const bool armed = (page && int(ui.track) == audio_t) || audio_take_track >= 0;
+        monitoring = a.monitor == TrackMonitor::In || a.monitor == TrackMonitor::Merge || (a.monitor == TrackMonitor::Auto && armed);
+        if (a.monitor == TrackMonitor::In || (a.monitor == TrackMonitor::Auto && ui.audio_rec_running)) quiet = 1u << unsigned(audio_t);
+    }
+    for (unsigned t = 0; t < track_count; ++t)
+        if (((quiet ^ audio_quiet_sent) >> t) & 1) host.send({Type::AudioQuiet, uint8_t(t), 0, 0, int16_t((quiet >> t) & 1)});
+    audio_quiet_sent = quiet;
     if (!monitor_known || monitoring != monitor_sent) {
         send({Type::Monitor, 0, 0, 0, int16_t(monitoring)});
         monitor_sent = monitoring; monitor_known = true;
@@ -230,7 +245,8 @@ void Context::record_tick(uint32_t at) {
     if (loop_monitor_sent != int(in.monitor)) { send({Type::LoopMonitor, 0, 0, 0, int16_t(in.monitor)}); loop_monitor_sent = int(in.monitor); }
     unsigned loops = loop_input_needs(project.looper), midi_needs = midi_input_needs(project); // roadmap P4 (M5): MIDI tracks' inputs too
     bool loop_mic = (loops & InputRoute::need_mic) && in.monitor != Monitor::Off;
-    if (input) input->want(in.source, in.mutes_speaker(page) || loop_mic, loops | midi_needs);
+    const bool quiet_speaker = audio_t >= 0 ? in.source == InputSource::Mic && monitoring : in.mutes_speaker(page); // no howl
+    if (input) input->want(in.source, quiet_speaker || loop_mic, loops | midi_needs);
     midi_audio_tick(*this, loops | midi_needs, in.source == InputSource::Mic);
     // The engine hears the settings as loaded from the card (and after a take, a source changed meanwhile).
     // Not while the auto sampler hears a MIDI track's INPUT there (autosample_tick()).

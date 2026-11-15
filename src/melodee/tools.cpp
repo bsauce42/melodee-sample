@@ -522,6 +522,26 @@ void layered_pad(Snapshot& s, LayerPlay play) {
     h.serial = 41; h.pad = 8; h.slot = 1; h.from = 0; h.to = 26460; h.at = 6000; h.level = 0.8f; h.wake = 1; h.step = 1;
 }
 
+// Freeze plan F3's previews: track 13 an audio track (VOX) with two takes on its lane, bars 17-22 and 25-32, the
+// song's loop on bars 25-32, the input heard at about -12 dB.
+void audio_scene(Snapshot& s) {
+    auto& t = s.project.tracks[12];
+    t = Track {};
+    t.engine = EngineKind::Audio; t.set_name("VOX");
+    t.audio.source = InputSource::Rear; t.audio.monitor = TrackMonitor::Auto;
+    auto& song = s.project.song;
+    const unsigned bar = s.project.bar_ticks();
+    song.drop_regions(12);
+    for (auto [take, from, bars] : {std::array<unsigned, 3> {1, 16, 6}, std::array<unsigned, 3> {2, 24, 8}}) {
+        AudioRegion r;
+        r.track = 12; r.take = uint16_t(take); r.bar = uint16_t(from); r.tempo = s.project.tempo;
+        r.frames = r.take_frames = uint32_t(ticks_to_frames(bars * bar, s.project.tempo));
+        song.place_region(r, bar);
+    }
+    song.loop_start = 24; song.loop_end = 32;
+    s.ui.track = 12; s.ui.song_cursor = 24;
+    s.take.left = 0.26f; s.take.right = 0.22f;
+}
 void on_stage(Snapshot& s, unsigned track, unsigned group, unsigned sub) {
     s.ui.page = PageId::Stage; s.ui.track = uint8_t(track);
     s.ui.stage_group[track] = uint8_t(group); s.ui.stage_sub[track] = uint8_t(sub);
@@ -873,6 +893,7 @@ const Preview previews[] {
     {"stagemidiarp", [](Shell&, Snapshot& s) { stage_midi(s, 1, 0); }},
     // An empty track (shell/new_track.h): the types in the MPC's order, then a type's sources.
     {"stageemptytypes", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Drum); }},
+    {"stageemptyaudio", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Audio); }}, // freeze plan F3
     {"stageemptysynth", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Plugin); }},
     {"stageemptykeygroup", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Keygroup); }}, // Push: Samples
     {"stageemptykit", [](Shell&, Snapshot& s) { // Drum opened: where its samples come from; B1 BACK to the types
@@ -1699,6 +1720,14 @@ const Preview previews[] {
          s.usb_state = uint8_t(UsbStreamState::Waiting);
          s.ui.turning = 2; s.ui.turned_at = s.now;
      }},
+    {"recordaudio", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Record; }}, // freeze plan F3: the brace on bars 25-32
+    {"recordaudiorec", [](Shell&, Snapshot& s) { // recording them: the take grows to where the song is
+         audio_scene(s); s.ui.page = PageId::Record;
+         s.ui.audio_rec_track = 12; s.ui.audio_rec_from = 24; s.ui.audio_rec_to = 32; s.ui.audio_rec_running = true;
+         s.playing = s.song_playing = true; s.song_bar = 28; s.ticks = 28 * 384 + 160;
+     }},
+    {"recordaudiofree", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Record; s.ui.audio_free = true; }}, // B3: until Stop
+    {"songaudio", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Song; s.ui.song_cursor = 24; s.ui.song_view = 16; }},
     {"record", [](Shell&, Snapshot& s) { // a take onto B01 with three pads cut from it
          s.ui.page = PageId::Record; s.ui.track = 3; s.playing = true;
          auto& in = s.ui.settings.input;
