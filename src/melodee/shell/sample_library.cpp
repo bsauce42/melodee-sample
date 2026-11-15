@@ -277,18 +277,16 @@ void SampleLibrary::service(Hardware& hardware) {
     host.streams().start();
     reap(); // samples the audio thread has let go of
     refresh_playback();
-    land_next();
-    landings_open.store(unsigned(landings.size()), std::memory_order_relaxed);
+    // Loads: what the pool's threads have read is handed on, and every file asked for since is begun there.
+    take_loaded();
     Request request;
+    while (requests.pop(request)) dispatch(request);
+    landings_open.store(unsigned(landings.size()), std::memory_order_relaxed);
+    log_load();
     SampleJob job;
     bank_files();
     install_service();
-    if (requests.pop(request)) { // one file per pass keeps the thread answering
-        read(request);
-        landings_open.store(unsigned(landings.size()), std::memory_order_relaxed); // an instrument begun lands from here
-        answered.fetch_add(1, std::memory_order_release);
-    }
-    else if (jobs.pop(job)) make(job);
+    if (jobs.pop(job)) make(job);
     else {
         std::string heard;
         bool pending = false;
@@ -310,7 +308,7 @@ void SampleLibrary::service(Hardware& hardware) {
         if (changed) { root_seen = root; std::lock_guard<std::mutex> guard(lock); card_top = top; known.root = root; }
         if (changed) {
             cache.set_folder(top.empty() ? std::string() : top + "/Melodee/Cache");
-            if (!top.empty() && !cache_tidied) { cache_tidied = true; cache.tidy(); }
+            if (!top.empty() && !cache_tidied) { cache_tidied = true; pool.post([tidied = cache] { tidied.tidy(); }); } // a stat a file: not on this thread
         }
         scan_wanted.store(false);
         scan();
@@ -670,38 +668,190 @@ void SampleLibrary::land(unsigned slot, std::unique_ptr<SampleData> data, unsign
     changes.fetch_add(1, std::memory_order_release);
 }
 
-void SampleLibrary::read(const Request& request) {
+namespace {
+// A step timed into one of the load's sums.
+struct Lap {
+    std::chrono::steady_clock::time_point at = std::chrono::steady_clock::now();
+    void into(std::atomic<uint64_t>& sum) {
+        const auto now = std::chrono::steady_clock::now();
+        sum.fetch_add(uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(now - at).count()), std::memory_order_relaxed);
+        at = now;
+    }
+};
+} // namespace
+
+SampleLibrary::SlotLoad SampleLibrary::slot_load(unsigned slot) const {
+    const uint32_t packed = slot_state[slot % sample_slots].load(std::memory_order_relaxed);
+    SlotLoad out;
+    out.settled = (packed >> 31) != 0;
+    out.instrument = ((packed >> 30) & 1) != 0;
+    out.parts = (packed >> 15) & 0x7fff;
+    out.parts_in = packed & 0x7fff;
+    return out;
+}
+
+void SampleLibrary::set_slot_state(unsigned slot, bool settled, bool instrument, unsigned parts, unsigned parts_in) {
+    slot_state[slot % sample_slots].store((settled ? 1u << 31 : 0) | (instrument ? 1u << 30 : 0) | (std::min(parts, 0x7fffu) << 15) | std::min(parts_in, 0x7fffu),
+                                          std::memory_order_relaxed);
+}
+
+void SampleLibrary::dispatch(const Request& request) {
+    const unsigned slot = request.slot % sample_slots;
+    const uint32_t serial = ++slot_serial[slot]; // what an earlier load of this slot still brings is dropped
+    cancel_landing(slot);
+    set_slot_state(slot, false);
     if (!request.path[0]) { // an empty slot in the project now: nothing plays from it
-        if (host.offer_sample(request.slot, nullptr)) {
-            std::lock_guard<std::mutex> guard(lock);
-            known.slots[request.slot] = LoadedSample {};
-            data_of[request.slot % sample_slots] = nullptr;
-            changes.fetch_add(1, std::memory_order_release);
-        }
+        Handover h;
+        h.slot = uint8_t(slot); h.serial = serial; h.clear = true;
+        handovers.push_back(std::move(h));
         return;
     }
-    cancel_landing(request.slot);
-    if (is_instrument(request.path)) { begin_instrument(request); return; }
-    auto data = std::make_unique<SampleData>();
-    auto error = read_audio(request.path, *data, 60, nullptr, dsp::sample_rate()); // the copy the device plays, from the file
-    const SampleData* held = nullptr;
-    LoadedSample loaded;
-    loaded.path = request.path;
-    loaded.name = fs::path(request.path).stem().string();
-    std::transform(loaded.name.begin(), loaded.name.end(), loaded.name.begin(), [](unsigned char c) { return char(std::toupper(c)); });
-    if (!error.empty()) {
-        loaded.error = error;
-    } else {
-        loaded.frames = data->frames;
-        loaded.stereo = make_overview(*data, loaded.overview, &loaded.sides);
-        loaded.hit_count = find_hits(*data, loaded.hits, loaded.beats);
-        if (!offer(request.slot, data.get())) { loaded.error = "busy, try again"; }
-        else { held = data.get(); owned.push_back(std::move(data)); loaded.ready = true; }
+    if (!load_log.open) {
+        load_log = LoadLog {};
+        load_log.open = true;
+        load_log.since = std::chrono::steady_clock::now();
+        load_times.read = 0; load_times.analyse = 0; load_times.parse = 0; load_times.land = 0;
     }
-    std::lock_guard<std::mutex> guard(lock);
-    known.slots[request.slot] = loaded;
-    if (held) data_of[request.slot % sample_slots] = held;
-    changes.fetch_add(1, std::memory_order_release);
+    if (is_instrument(request.path)) {
+        ++load_log.instruments;
+        set_slot_state(slot, false, true);
+        pool.post([this, request, serial] {
+            now_loading.store(request.slot, std::memory_order_relaxed);
+            InstrumentRead out;
+            out.request = request; out.serial = serial;
+            Lap lap;
+            out.read = read_instrument(request.path, &out.error);
+            lap.into(load_times.parse);
+            std::lock_guard<std::mutex> guard(loaded_lock);
+            instruments_read.push_back(std::move(out));
+        });
+        return;
+    }
+    ++load_log.files;
+    const float rate = dsp::sample_rate();
+    pool.post([this, request, serial, rate] {
+        now_loading.store(request.slot, std::memory_order_relaxed);
+        Handover h;
+        h.slot = request.slot; h.serial = serial;
+        h.data = std::make_unique<SampleData>();
+        Lap lap;
+        auto error = read_audio(request.path, *h.data, 60, nullptr, rate); // the copy the device plays, from the file
+        lap.into(load_times.read);
+        LoadedSample& loaded = h.loaded;
+        loaded.path = request.path;
+        loaded.name = upper(fs::path(request.path).stem().string());
+        if (!error.empty()) {
+            loaded.error = error;
+        } else {
+            loaded.frames = h.data->frames;
+            loaded.stereo = make_overview(*h.data, loaded.overview, &loaded.sides);
+            loaded.hit_count = find_hits(*h.data, loaded.hits, loaded.beats);
+            lap.into(load_times.analyse);
+        }
+        std::lock_guard<std::mutex> guard(loaded_lock);
+        files_loaded.push_back(std::move(h));
+    });
+}
+
+// A sample read (or a slot emptied) to the audio thread and into what the pages see. False while that thread's
+// queue has no room.
+bool SampleLibrary::hand_over(Handover& h) {
+    const unsigned slot = h.slot % sample_slots;
+    if (h.serial != slot_serial[slot]) { answered.fetch_add(1, std::memory_order_release); return true; } // asked for again since
+    const SampleData* held = nullptr;
+    if (h.clear) {
+        if (!host.offer_sample(slot, nullptr)) return false;
+    } else if (h.loaded.error.empty()) {
+        if (!offer(slot, h.data.get())) return false;
+        held = h.data.get();
+        owned.push_back(std::move(h.data));
+        h.loaded.ready = true;
+    } else {
+        ++load_log.failed;
+    }
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        known.slots[slot] = h.clear ? LoadedSample {} : std::move(h.loaded);
+        if (held || h.clear) data_of[slot] = held;
+        changes.fetch_add(1, std::memory_order_release);
+    }
+    set_slot_state(slot, true);
+    answered.fetch_add(1, std::memory_order_release);
+    return true;
+}
+
+void SampleLibrary::take_loaded() {
+    std::vector<Handover> files;
+    std::vector<InstrumentRead> instruments;
+    std::vector<PartLanded> parts;
+    {
+        std::lock_guard<std::mutex> guard(loaded_lock);
+        files.swap(files_loaded); instruments.swap(instruments_read); parts.swap(parts_landed);
+    }
+    for (auto& f : files) handovers.push_back(std::move(f));
+    for (auto& i : instruments) instruments_waiting.push_back(std::move(i));
+    // In order, as the audio thread's queue has room (it takes them a block at a time). One refused for three
+    // seconds (the audio thread is not running) is given up, as a load that found the queue full always was.
+    while (!handovers.empty()) {
+        if (hand_over(handovers.front())) { handovers.pop_front(); handover_refused = false; continue; }
+        const auto now = std::chrono::steady_clock::now();
+        if (!handover_refused) { handover_refused = true; handover_since = now; }
+        if (now - handover_since < std::chrono::seconds(3)) break;
+        Handover& h = handovers.front();
+        if (!h.clear) {
+            h.loaded.error = "busy, try again";
+            ++load_log.failed;
+            std::lock_guard<std::mutex> guard(lock);
+            known.slots[h.slot % sample_slots] = std::move(h.loaded);
+            changes.fetch_add(1, std::memory_order_release);
+        }
+        set_slot_state(h.slot, true);
+        answered.fetch_add(1, std::memory_order_release);
+        handovers.pop_front();
+        handover_refused = false;
+    }
+    size_t begun = 0;
+    while (begun < instruments_waiting.size() && begin_landing(instruments_waiting[begun])) ++begun;
+    instruments_waiting.erase(instruments_waiting.begin(), instruments_waiting.begin() + std::ptrdiff_t(begun));
+    for (auto& p : parts) {
+        Landing& l = *p.landing;
+        if (l.cancelled.load(std::memory_order_relaxed)) continue; // its slot holds something else now
+        ++l.done;
+        ++load_log.parts;
+        if (p.laid_out) ++load_log.laid_out;
+        if (!p.landed) ++load_log.failed;
+        const unsigned slot = l.slot;
+        unsigned in = 0;
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            auto& shown = known.slots[slot];
+            if (p.landed) ++shown.parts_ready;
+            else { ++shown.parts_failed; if (shown.error.empty()) shown.error = p.why; }
+            if (p.index < shown.part_state.size()) shown.part_state[p.index] = p.landed ? PartState::Landed : PartState::Failed;
+            in = shown.parts_ready + shown.parts_failed;
+            changes.fetch_add(1, std::memory_order_release);
+        }
+        const bool done = l.done >= l.multi->part_count;
+        set_slot_state(slot, done, true, l.multi->part_count, in);
+        if (done) landings.erase(std::remove(landings.begin(), landings.end(), p.landing), landings.end());
+    }
+}
+
+void SampleLibrary::log_load() {
+    if (!load_log.open || pool.pending() || !handovers.empty() || !instruments_waiting.empty() || !landings.empty()) return;
+    {
+        std::lock_guard<std::mutex> guard(loaded_lock);
+        if (!files_loaded.empty() || !instruments_read.empty() || !parts_landed.empty()) return;
+    }
+    const auto& l = load_log;
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - l.since).count();
+    auto spent = [](const std::atomic<uint64_t>& us) { return (unsigned long long)(us.load(std::memory_order_relaxed) / 1000); };
+    std::printf("load: %u samples, %u instruments (%u files, %u laid out), %u failed, %lld ms; threads: read %llu, analyse %llu, instruments %llu, their files %llu ms\n",
+                l.files, l.instruments, l.parts, l.laid_out, l.failed, (long long)ms, spent(load_times.read), spent(load_times.analyse),
+                spent(load_times.parse), spent(load_times.land));
+    std::fflush(stdout);
+    load_log.open = false;
+    now_loading.store(-1, std::memory_order_relaxed);
 }
 
 } // namespace melodee

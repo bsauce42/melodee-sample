@@ -2,9 +2,9 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // Multisampled instruments in the sample library: an .sfz, an MPC keygroup
 // program (.xpm) or a Logic EXS24 instrument (.exs) read, then its files
-// brought in one a pass so the service thread keeps answering. The zones reach
-// the audio thread at once; each is silent until its file has landed. Every
-// kind streams from the card alike.
+// brought in on the load pool's threads, several side by side, so the service
+// thread keeps answering. The zones reach the audio thread at once; each is
+// silent until its file has landed. Every kind streams from the card alike.
 #include "melodee/engine/dsp.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/exs.h"
@@ -267,39 +267,54 @@ std::string instrument_zone_file(const std::string& instrument, const std::strin
 }
 
 void SampleLibrary::cancel_landing(unsigned slot) {
-    landings.erase(std::remove_if(landings.begin(), landings.end(), [&](const Landing& l) { return l.slot == slot; }), landings.end());
+    landings.erase(std::remove_if(landings.begin(), landings.end(), [&](const std::shared_ptr<Landing>& l) {
+        if (l->slot != slot) return false;
+        l->cancelled.store(true, std::memory_order_relaxed); // its files not yet begun are skipped
+        return true;
+    }), landings.end());
 }
 
-void SampleLibrary::begin_instrument(const Request& request) {
+// An instrument's text read (on the pool): its zones built and handed to the audio thread, its files begun on the pool.
+// False while the audio thread's queue has no room (again next pass).
+bool SampleLibrary::begin_landing(InstrumentRead& from) {
+    const Request& request = from.request;
+    const unsigned slot = request.slot % sample_slots;
+    if (from.serial != slot_serial[slot]) { answered.fetch_add(1, std::memory_order_release); return true; } // asked for again since
     LoadedSample loaded;
     loaded.path = request.path;
     loaded.name = upper_stem(request.path);
     loaded.instrument = true;
     auto finish_with = [&](const std::string& why) {
         loaded.error = why;
-        std::lock_guard<std::mutex> guard(lock);
-        known.slots[request.slot] = loaded;
-        changes.fetch_add(1, std::memory_order_release);
+        ++load_log.failed;
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            known.slots[slot] = loaded;
+            changes.fetch_add(1, std::memory_order_release);
+        }
+        set_slot_state(slot, true, true);
+        answered.fetch_add(1, std::memory_order_release);
+        return true;
     };
-    std::string error;
-    Landing l;
-    l.slot = request.slot;
+    auto landing = std::make_shared<Landing>();
+    Landing& l = *landing;
+    l.slot = uint8_t(slot);
     l.folder = fs::path(request.path).parent_path().string();
     {
         std::string file;
         unsigned preset = 0;
         if (split_sf2_preset(request.path, file, preset)) l.sf2 = file; // its sounds come out of the .sf2
     }
-    l.read = read_instrument(request.path, &error);
-    if (!error.empty()) { finish_with(error); return; }
-    if (l.read.regions.empty()) { finish_with("No sounds"); return; }
-    if (cache.folder().empty()) { finish_with("No card"); return; }
+    if (!from.error.empty()) return finish_with(from.error);
+    if (from.read.regions.empty()) return finish_with("No sounds");
+    if (cache.folder().empty()) return finish_with("No card");
     uint64_t held = 0; // what stays in memory: each zone's start, and its loop's
-    for (const auto& r : l.read.regions) held += stream_chunk_bytes * 4 * (1 + (r.zone.loop != ZoneLoop::Off || r.zone.loop_end));
+    for (const auto& r : from.read.regions) held += stream_chunk_bytes * 4 * (1 + (r.zone.loop != ZoneLoop::Off || r.zone.loop_end));
     if (uint64_t free = memory_free()) {
         const uint64_t headroom = uint64_t(256) << 20;
-        if (free < headroom || held > free - headroom) { finish_with("Too big for memory"); return; }
+        if (free < headroom || held > free - headroom) return finish_with("Too big for memory");
     }
+    l.read = from.read; // kept in `from` too, should the audio thread's queue be full
     auto multi = std::make_shared<Multisample>();
     std::map<std::string, uint16_t> part_of;
     for (size_t n = 0; n < l.read.regions.size(); ++n) {
@@ -349,35 +364,58 @@ void SampleLibrary::begin_instrument(const Request& request) {
     loaded.velocity = int8_t(std::clamp(l.read.velocity, 0.0, 100.0));
     auto data = std::make_unique<SampleData>();
     data->multi = multi;
-    if (!host.offer_sample(request.slot, data.get())) { finish_with("busy, try again"); return; }
+    if (!host.offer_sample(slot, data.get())) return false; // the queue is full: built again next pass
     loaded.ready = true;
     {
         std::lock_guard<std::mutex> guard(lock);
-        data_of[request.slot % sample_slots] = data.get();
-        known.slots[request.slot] = loaded;
-        part_names[request.slot % sample_slots] = l.names;
+        data_of[slot] = data.get();
+        known.slots[slot] = loaded;
+        part_names[slot] = l.names;
         changes.fetch_add(1, std::memory_order_release);
     }
     owned.push_back(std::move(data));
-    landings.push_back(std::move(l));
+    set_slot_state(slot, false, true, multi->part_count, 0);
+    landings.push_back(landing);
+    landings_open.store(unsigned(landings.size()), std::memory_order_relaxed); // before the request counts as answered
+    answered.fetch_add(1, std::memory_order_release);
+    // Its files, each on a thread of the pool as one comes free.
+    for (unsigned index = 0; index < multi->part_count; ++index)
+        pool.post([this, landing, index, files = cache] {
+            PartLanded out;
+            if (landing->cancelled.load(std::memory_order_relaxed)) { out.landing = landing; out.index = index; }
+            else {
+                now_loading.store(landing->slot, std::memory_order_relaxed);
+                const auto began = std::chrono::steady_clock::now();
+                out = land_part(landing, index, files);
+                load_times.land.fetch_add(uint64_t(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - began).count()),
+                                          std::memory_order_relaxed);
+            }
+            std::lock_guard<std::mutex> guard(loaded_lock);
+            parts_landed.push_back(std::move(out));
+        });
+    return true;
 }
 
-// One file of the instrument waiting longest: found, laid out if it must be,
-// mapped, what must stay in memory pinned, and its zones let play.
-void SampleLibrary::land_next() {
-    if (landings.empty()) return;
-    auto& l = landings.front();
-    const unsigned index = l.next++;
+// One file of an instrument, on a thread of the pool: found, laid out if it must be, mapped, what must stay in
+// memory pinned, and its zones let play. It writes that file's part and zones alone.
+SampleLibrary::PartLanded SampleLibrary::land_part(const std::shared_ptr<Landing>& landing, unsigned index, const SampleCache& files) {
+    Landing& l = *landing;
+    PartLanded out;
+    out.landing = landing; out.index = index;
     auto& part = l.multi->parts[index];
-    bool landed = false;
-    std::string why;
+    std::string& why = out.why;
     do {
         const fs::path source = l.sf2.empty() ? find_beside(l.folder, l.names[index]) : fs::path(l.sf2);
         if (source.empty()) { why = "Files missing"; break; }
-        const std::string file = l.sf2.empty() ? cache.file_of(source.string()) : cache.file_of(l.sf2, l.names[index]);
+        const std::string file = l.sf2.empty() ? files.file_of(source.string()) : files.file_of(l.sf2, l.names[index]);
         LaidOut info;
         if (file.empty()) { why = "Files missing"; break; }
-        if (!cache.ready(file, info)) {
+        if (!files.ready(file, info)) {
+            // A long file is held whole while it is laid out: one of those at a time, however many threads there are.
+            std::error_code size_error;
+            const auto source_bytes = fs::file_size(source, size_error);
+            std::unique_lock<std::mutex> one_long(long_layout, std::defer_lock);
+            if (size_error || source_bytes > long_layout_bytes) one_long.lock();
             SampleData decoded;
             WavInfo wav;
             auto error = l.sf2.empty() ? read_audio(source.string(), decoded, part_seconds, &wav)
@@ -385,9 +423,10 @@ void SampleLibrary::land_next() {
             if (!error.empty()) { why = "Files unreadable"; break; }
             info.frames = decoded.frames; info.channels = wav.channels; info.source_rate = wav.rate;
             info.loop_start = wav.loop_start; info.loop_end = wav.loop_end;
-            if (!cache.has_room(SampleCache::bytes_of(info.frames, info.channels))) { why = "Card full"; break; }
-            error = cache.lay_out(file, decoded, info);
-            if (!error.empty() || !cache.ready(file, info)) { why = "Card full"; break; }
+            if (!files.has_room(SampleCache::bytes_of(info.frames, info.channels))) { why = "Card full"; break; }
+            error = files.lay_out(file, decoded, info);
+            if (!error.empty() || !files.ready(file, info)) { why = "Card full"; break; }
+            out.laid_out = true;
         }
         if (!SampleCache::map(file, info, part)) { why = "Cannot map"; break; }
         part.total = info.frames;
@@ -417,19 +456,9 @@ void SampleLibrary::land_next() {
         }
         if (!held) { why = "Too big for memory"; break; }
         part.frames.store(info.frames, std::memory_order_release);
-        landed = true;
+        out.landed = true;
     } while (false);
-    const unsigned slot = l.slot;
-    const bool done = l.next >= l.multi->part_count;
-    {
-        std::lock_guard<std::mutex> guard(lock);
-        auto& shown = known.slots[slot];
-        if (landed) ++shown.parts_ready;
-        else { ++shown.parts_failed; if (shown.error.empty()) shown.error = why; }
-        if (index < shown.part_state.size()) shown.part_state[index] = landed ? PartState::Landed : PartState::Failed;
-        changes.fetch_add(1, std::memory_order_release);
-    }
-    if (done) landings.erase(landings.begin());
+    return out;
 }
 
 // The browser's preview: the zone nearest middle C at a middling velocity, plainly.
@@ -494,7 +523,11 @@ bool SampleLibrary::reap() {
         if ((*it)->multi) {
             // Nothing may still be pinning it when its mapping goes.
             host.streams().flush();
-            landings.erase(std::remove_if(landings.begin(), landings.end(), [&](const Landing& l) { return l.multi == (*it)->multi; }), landings.end());
+            landings.erase(std::remove_if(landings.begin(), landings.end(), [&](const std::shared_ptr<Landing>& l) {
+                if (l->multi != (*it)->multi) return false;
+                l->cancelled.store(true, std::memory_order_relaxed); // a file of it still being read keeps its own mapping until it ends
+                return true;
+            }), landings.end());
         }
         if (held) held_back.push_back(std::move(*it)); // a print host may still play it
         owned.erase(it);
@@ -504,6 +537,19 @@ bool SampleLibrary::reap() {
 
 bool SampleLibrary::release_instruments() {
     stop_hearing(); // the preview's file is on the card too: what was read of it plays out
+    // Nothing of a load may be reading the card or holding a mapping of it: the instruments still landing stop where
+    // they are (they are put down and asked for again below), and what the pool is in the middle of is waited for.
+    for (const auto& l : landings) l->cancelled.store(true, std::memory_order_relaxed);
+    if (!pool.wait_idle(8000)) { // a file still being laid out: the card stays, and what was stopped is asked for again
+        std::vector<std::pair<uint8_t, std::string>> stopped;
+        {
+            std::lock_guard<std::mutex> guard(lock);
+            for (const auto& l : landings) stopped.emplace_back(l->slot, known.slots[l->slot].path);
+        }
+        away.insert(away.end(), stopped.begin(), stopped.end());
+        restore_instruments();
+        return false;
+    }
     std::vector<std::pair<uint8_t, std::string>> putting;
     {
         std::lock_guard<std::mutex> guard(lock);
@@ -535,7 +581,8 @@ void SampleLibrary::restore_instruments() {
         Request again;
         again.slot = slot;
         std::snprintf(again.path, sizeof(again.path), "%s", path.c_str());
-        requests.push(again);
+        asked.fetch_add(1, std::memory_order_relaxed); // a load as any other: loads_waiting() counts it until it is in
+        dispatch(again);                               // on this thread: the queue of requests is the MIDI thread's to fill
     }
     away.clear();
 }
