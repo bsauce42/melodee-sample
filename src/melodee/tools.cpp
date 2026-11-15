@@ -1233,6 +1233,11 @@ const Preview previews[] {
          s.machine.render_load = 0.33f;
      }},
     {"seqdeep", [](Shell&, Snapshot& s) { deep_scene(s); s.ui.page = PageId::Stage; s.ui.seq_held = true; s.ui.seq_down = s.now - seq_sheet_ms; }},
+    {"askreplace", [](Shell&, Snapshot& s) { // another plug-in picked over Surge XT on track 4
+         s.ui.page = PageId::Plugins; s.ui.track = 3; s.ui.plugin_target = UiState::PluginTarget::Instrument;
+         std::snprintf(s.ui.ask_name.data(), s.ui.ask_name.size(), "%s", "Surge XT");
+         s.ui.ask = UiState::Ask::ReplacePlugin;
+     }},
     {"askthaw", [](Shell&, Snapshot& s) {
          deep_scene(s); on_stage(s, 2, 1, 0);
          s.ui.ask = UiState::Ask::Unfreeze; s.ui.ask_target = 2;

@@ -12,6 +12,7 @@
 // new one takes an entry nothing uses. The rack loads what is used and lets go
 // of the rest, so undo, a project switch or a removed effect need nothing more.
 #include "melodee/shell/context.h"
+#include "melodee/shell/ask.h"
 #include "melodee/shell/delete_jobs.h"
 #include "melodee/engine/effect_info.h"
 #include "melodee/model/scales.h"
@@ -102,6 +103,15 @@ void Context::choose_plugin(const PluginFile& file) {
         if (n >= chain_count || k >= project.chain(n).size) return;
         const auto& s = project.chain(n).slots[k];
         if (s.kind == plugin_effect_kind && unsigned(s.params[0]) < max_plugins) entry = s.params[0];
+    }
+    bool replace_asked = ui.plugin_replace;
+    ui.plugin_replace = false;
+    if (entry >= 0 && project.plugins[size_t(entry)].used() && !replace_asked
+        && !(file.path == project.plugins[size_t(entry)].path && file.id == project.plugins[size_t(entry)].id)) {
+        // Another plug-in over one in use: its sound and settings would go, and undo can't keep them; ask first
+        std::snprintf(ui.ask_name.data(), ui.ask_name.size(), "%s", project.plugins[size_t(entry)].name);
+        ask(*this, UiState::Ask::ReplacePlugin, int(ui.plugins_cursor));
+        return;
     }
     if (entry < 0) entry = free_entry(project);
     if (entry < 0) { notice("Every plug-in entry is in use"); return; }

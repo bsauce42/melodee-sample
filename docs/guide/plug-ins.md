@@ -106,7 +106,9 @@ on Stage (**EDIT**) to see the same parameters there.
 - **ERASE** + a pot sets its parameter back to the plug-in's default.
 - The header shows how much of each audio block the plug-in uses.
 - **B1** (**PLUG-INS**) opens the picker. **B2** (**PRESETS**) opens the
-  plug-in's presets, when it has some.
+  plug-in's presets, when it has some. Picking another plug-in there asks
+  "Replace Surge XT?" first: the old plug-in's sound and settings go, and
+  undo can't bring them back. The same question comes on an effect slot.
 - Every plug-in hears Melodee's Play and Stop, the tempo and the place in
   the song, so its own sequencer plays only while Melodee plays.
   **B3** (**TRANSPORT**) sets whether the plug-in hears Play and Stop. Its

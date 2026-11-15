@@ -5,6 +5,7 @@
 #include "melodee/shell/context.h"
 #include "melodee/shell/delete_jobs.h"
 #include "melodee/shell/looper_jobs.h"
+#include "melodee/plugin/plugin_rack.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/step_edit.h"
 #include "melodee/shell/track_copy.h"
@@ -61,6 +62,11 @@ bool ask_button(Context& c, SurfaceButton button) {
     } else if (kind == UiState::Ask::ErasePunches) c.erase_punches(); // Erase + KEEP on Pad FX (pad-fx C)
     else if (kind == UiState::Ask::ClearTrack) clear_track(c, unsigned(ui.ask_target)); // Pad Bank held + Erase + pad
     else if (kind == UiState::Ask::DeleteFile) delete_asked(c);    // shell/delete_jobs.h: Erase in a browser
+    else if (kind == UiState::Ask::ReplacePlugin && c.plugins) { // the picker's row asked about, picked again
+        auto view = c.plugins->view();
+        if (unsigned(ui.ask_target) < view.files.size()) { ui.plugin_replace = true; c.choose_plugin(view.files[size_t(ui.ask_target)]); }
+        ui.plugin_replace = false;
+    }
     else if (kind == UiState::Ask::InstallUpdate) begin_update(c); // shell/update.h
     else if (kind == UiState::Ask::Unfreeze) { // freeze plan F2c: live again at once; its prints stay for the next freeze
         unsigned t = unsigned(ui.ask_target) % track_count;
@@ -87,6 +93,7 @@ std::string ask_title(const Project& project, const UiState& ui) {
     case UiState::Ask::InstallUpdate: return std::string("Update to ") + ui.update.version + "?";
     case UiState::Ask::Unfreeze: return "Unfreeze track " + std::to_string(ui.ask_target % track_count + 1) + "?";
     case UiState::Ask::DeleteFile: return std::string("Delete ") + ui.ask_name.data() + "?";
+    case UiState::Ask::ReplacePlugin: return std::string("Replace ") + ui.ask_name.data() + "?";
     default: return {};
     }
 }
@@ -116,6 +123,7 @@ std::string ask_detail(const Project& project, const UiState& ui, const Pattern&
     if (ui.ask == UiState::Ask::InstallUpdate) return "The project is saved first, then Melodee restarts.";
     if (ui.ask == UiState::Ask::Unfreeze) return "Its sound plays live again; prints stay until what made them changes.";
     if (ui.ask == UiState::Ask::DeleteFile) return "It goes from the card. Undo can't bring it back.";
+    if (ui.ask == UiState::Ask::ReplacePlugin) return "Its sound and settings go. Undo can't bring them back.";
     if (ui.ask == UiState::Ask::NewProject)
         return ui.ask_target == 1 ? "Changes are saved first." : ui.ask_target == 2 ? "Unsaved changes are lost." : "The open project closes.";
     return {};

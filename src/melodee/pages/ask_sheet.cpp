@@ -157,6 +157,16 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
         verb = "DELETE";
         break;
     }
+    case Ask::ReplacePlugin: { // a picked plug-in over one in use (shell/plugin_jobs.cpp)
+        sheet.icon = Icon::Plug;
+        sheet.title = "Replace " + juce::String::fromUTF8(s.ui.ask_name.data()) + "?";
+        sheet.lines = {"Its sound and settings go.", "Undo can't bring them back."};
+        bool instrument = s.ui.plugin_target == UiState::PluginTarget::Instrument;
+        sheet.chip = instrument ? "TRACK " + juce::String(track + 1) : juce::String("EFFECT");
+        sheet.chip_colour = colour_of(s);
+        verb = "REPLACE"; verb_glyph = Icon::Swap;
+        break;
+    }
     case Ask::Unfreeze: { // freeze plan F2c: an edit of a frozen track
         unsigned which = unsigned(s.ui.ask_target) % track_count;
         const bool deep = s.freeze[which].state == FreezeState::Deep; // freeze plan F2d: thawed first
