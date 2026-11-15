@@ -88,6 +88,7 @@
 #include "melodee/shell/button_jobs.h"
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/tap_hold.h"
+#include "melodee/shell/autosave.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/sample_mode.h"
@@ -2213,6 +2214,24 @@ void button_remap() {
     // Opening a page already on the stack goes back to it instead of growing it.
     go(PageId::Sounds); go(PageId::Patterns); go(PageId::Sounds);
     CHECK(nav.back_depth == 1 && nav.back_stack[0] == PageId::Stage);
+    // Background save (shell/autosave.h): a changed project, nothing running, the controls quiet for a moment.
+    {
+        AutosaveFacts f;
+        f.dirty = true; f.last_input = 1000; f.now = 1000 + autosave_idle_ms - 1;
+        CHECK(!autosave_due(f)); // a hand was on the controls a moment ago
+        f.now = 1000 + autosave_idle_ms;
+        CHECK(autosave_due(f));
+        f.dirty = false; CHECK(!autosave_due(f)); f.dirty = true;
+        f.playing = true; CHECK(!autosave_due(f)); f.playing = false;
+        f.recording = true; CHECK(!autosave_due(f)); f.recording = false;
+        f.sheet = true; CHECK(!autosave_due(f)); f.sheet = false;
+        f.loading = true; CHECK(!autosave_due(f)); f.loading = false;
+        f.editing = true; CHECK(!autosave_due(f)); f.editing = false;
+        f.failed = true; f.last_try = f.now - autosave_retry_ms + 1;
+        CHECK(!autosave_due(f)); // no card a moment ago: not again yet
+        f.last_try = f.now - autosave_retry_ms;
+        CHECK(autosave_due(f));
+    }
     // Tap Tempo held (shell/tap_hold.h): a turn of the encoder shows the Tempo page until it is let go; held alone,
     // the page opens to stay; held on the page, it closes.
     {

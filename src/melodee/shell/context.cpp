@@ -77,6 +77,7 @@ void Context::save_project_to(const std::string& path) {
     if (project_path.empty() && !audio_staging_from.empty()) audio_sent_path = path; // its takes play on from where they are
     project_path = path;
     dirty = false;
+    import_unsaved = false;
 }
 
 // Roadmap P3: a sample slot no pad's layer plays, no undo or redo could bring back onto one, no file being made
@@ -99,6 +100,20 @@ unsigned Context::free_unused_samples() {
 
 void Context::save_project() { save_project_to(project_path.empty() && store ? store->free_path("") : project_path); }
 
+// Background save (shell/autosave.h): into its own file; with none yet, a new one named after the project
+// (an imported project keeps its name), else Project N. False when there is no card to save to.
+bool Context::autosave() {
+    if (!store) return false;
+    std::string path = project_path;
+    if (path.empty()) {
+        const std::string name = project.name;
+        path = name.empty() || name == "Untitled" ? store->free_path("") : store->named_path(name);
+    }
+    if (path.empty()) return false;
+    save_project_to(path);
+    return true;
+}
+
 void Context::new_project() {
     auto fresh = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
@@ -109,6 +124,7 @@ void Context::new_project() {
 void Context::switch_to(const Project& next, const PatternBank& bank, const std::string& path,
                         const std::array<std::vector<uint8_t>, max_plugins>* plugin_states, const PrintTable* next_prints) {
     send({Type::AllNotesOff, 255});
+    import_unsaved = false; // an MPC project's load sets it again once this is done (Shell::lights)
     prints = next_prints ? *next_prints : PrintTable {}; // a print still under way for the last project is dropped (print_tick)
     freeze_waiting = 0; // freeze plan F2b: its frozen tracks play live until their prints are checked and mapped again
     deep_hold = thawing = 0; // freeze plan F2d: its deep-frozen tracks' plug-ins are never loaded (plugins_asleep())

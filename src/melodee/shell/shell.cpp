@@ -89,6 +89,7 @@ struct HitStamp {
 void Shell::midi(const MidiPortInfo& port, const MidiPacket& packet, uint32_t now) {
     std::lock_guard<std::mutex> guard(lock);
     context_.now = now;
+    if (packet.size && packet.bytes[0] < 0xF8) last_input_ = now; // notes and controllers, not the clock: the background save waits
     HitStamp stamp(context_, packet.timestamp_ns);
     midi_io.receive(context_, port, packet);
 }
@@ -122,6 +123,7 @@ void Shell::midi_output(MidiOutput& out, MidiIo::Clock::time_point at, uint32_t 
 void Shell::surface(const SurfaceEvent& event, uint32_t now) {
     std::lock_guard<std::mutex> guard(lock);
     context_.now = now;
+    last_input_ = now; // a hand on the controls: the background save waits (shell/autosave.h)
     HitStamp stamp(context_, event.timestamp_ns);
     const auto& input = event.input;
     { // the crash report's last presses (melodee/crash_log.h), with the page and track they were made on

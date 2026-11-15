@@ -8,11 +8,26 @@ Press **SHIFT** + **Pad 16**.
 
 ![Project](../images/screens/project.png)
 
-- **B1** (**SAVE**): save the project. The first time, name it.
+- **B1** (**SAVE AS**): save the project under a new name. The old file
+  stays as it was.
 - **B2** (**OPEN**): the list of projects.
 - **B3** (**NEW**): start a new project (asks first).
 
 Or turn the encoder to pick one and push it.
+
+### Saving
+
+Melodee saves the project in the background, as the stock app does. Three
+seconds after you last used a control it writes the project to its file, as
+long as nothing plays, records or prints. A new project gets a file of its
+own the first time: **Project 1**, **Project 2** and so on, or its own name
+when it came from an MPC project.
+
+- The Project page shows **SAVED**, or **UNSAVED** until the next save.
+- While the sequencer plays, nothing is saved. Stop, and the save follows.
+- The Exit screen saves before it powers off or leaves.
+- Undo and redo are not saved with the project.
+- To keep an earlier state, press **B1** (**SAVE AS**) before you go on.
 
 The header shows **UNSAVED** in amber while the project has changes.
 

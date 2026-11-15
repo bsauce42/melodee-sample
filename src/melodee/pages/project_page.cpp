@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // PROJECT (Shift + Pad 16): the open project's three jobs as tiles under
-// the keys: B1 SAVE (to its file in one press; with no file yet the Name
-// sheet first), B2 OPEN (the list), B3 NEW (asks first, as the MPC does).
-// The wheel moves the highlight across the three, Push presses it (SAVE
-// first). Settings and About are Shift + Pad 8's.
+// the keys: B1 SAVE AS (the Name sheet, then a file of its own; the project
+// saves itself in the background, shell/autosave.h), B2 OPEN (the list), B3
+// NEW (asks first, as the MPC does). The wheel moves the highlight across
+// the three, Push presses it (SAVE AS first). Settings and About are Shift + Pad 8's.
 // The list behind OPEN: projects are files on the SD card, as many as it
 // holds, in folders; SD card access at the top lends the card to a computer
 // (pages/card_access_page.cpp). Each row a glyph first and its facts last.
@@ -88,16 +88,17 @@ juce::String count_text(unsigned n, const char* one, const char* many) { return 
 void draw_tiles(Paint& p, const Snapshot& s, const ProjectStore::View& v) {
     Header h = header_of(s);
     if (v.root.empty()) h.left.push_back(pill(Icon::Card, "NO CARD", amber));
-    else if (s.dirty) h.left.push_back(pill(Icon::Rec, "UNSAVED", amber));
+    else if (s.dirty) h.left.push_back(pill(Icon::Rec, "UNSAVED", amber)); // until the background save a moment later (shell/autosave.h)
+    else if (!s.project_path.empty()) h.left.push_back(pill(Icon::Check, "SAVED", colour::play));
     h.right.push_back(label(s.project.name));
     unsigned pick = s.ui.project_pick % 3; // the wheel's tile, raised; Push presses its key
-    SoftKeys keys {{"SAVE", "OPEN", "NEW"}, int(pick), colour::text};
+    SoftKeys keys {{"SAVE AS", "OPEN", "NEW"}, int(pick), colour::text}; // the project saves itself: B1 saves it under a new name
     keys.glyphs = {Icon::Save, Icon::Folder, Icon::Plus};
     frame(p, s, keys, h);
     unsigned projects = 0;
     for (const auto& e : v.entries) projects += e.kind == ProjectEntry::Kind::Project;
     juce::String fresh = !s.dirty ? juce::String() : s.project_path.empty() ? juce::String("CHANGES LOST") : juce::String("SAVES FIRST");
-    key_tiles(p, {word_sub_tile(Icon::Save, "SAVE", juce::String(s.project.name), pick == 0),
+    key_tiles(p, {word_sub_tile(Icon::Save, "SAVE AS", "NEW NAME", pick == 0),
                   word_sub_tile(Icon::Folder, "OPEN", v.root.empty() ? juce::String("NO CARD") : count_text(projects, "PROJECT", "PROJECTS"), pick == 1),
                   word_sub_tile(Icon::Plus, "NEW", fresh, pick == 2)});
 }
@@ -363,7 +364,7 @@ void push(Context& c) {
 
 void soft(Context& c, int key) {
     if (!c.ui.project_list) { // SAVE, OPEN, NEW
-        if (key == 0) c.save_project();
+        if (key == 0) c.name_project(true); // SAVE AS: the Name sheet, then a file of its own (the project saves itself otherwise)
         if (key == 1) open_list(c);
         if (key == 2) c.ask_new_project(); // asks first, as the MPC does; the open one is saved first if it has a file
         return;

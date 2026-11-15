@@ -456,7 +456,9 @@ public:
     unsigned removals_seen = 0;       // the library's deletions the plug-in picker has listed again for
     bool project_list_opened = false; // the list has been opened since start
     bool dirty = false;               // changed since it was saved or loaded
+    bool import_unsaved = false;      // an MPC project just opened, with no file of its own: saved by hand (SAVE AS), never in the background
     void save_project_to(const std::string& path);
+    bool autosave(); // background save (shell/autosave.h): false with no card
     void save_project();              // to its file, or a new one
     void new_project();
     // Parity phase 10 (shell/project_jobs.cpp): New project asks first (B3 / B1); Load Kit.

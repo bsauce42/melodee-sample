@@ -223,12 +223,16 @@ Record the plug-in track the same way as the kit in
 
 ## 8. Save the project
 
+Melodee saves the project by itself, three seconds after you last used a
+control while nothing plays. A new project is saved as **Project 1**,
+**Project 2** and so on. To give it a name of its own:
+
 1. Press **SHIFT** + **Pad 16** to open **Project**.
-2. Press **B1** (**SAVE**).
+2. Press **B1** (**SAVE AS**).
 
-![Project: SAVE, OPEN, NEW](images/screens/project.png)
+![Project: SAVE AS, OPEN, NEW](images/screens/project.png)
 
-The first time you save, Melodee asks for a name. The pads type like phone
+Melodee asks for a name. The pads type like phone
 keys: each pad shows the letter it types next. Pad 14 types a space, pad 15
 switches to digits and pad 16 deletes. Turn the encoder to move the cursor.
 Press **B3** (**SAVE**) or push the encoder to save. Press **B1** to cancel.

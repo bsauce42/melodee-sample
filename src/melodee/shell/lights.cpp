@@ -10,6 +10,7 @@
 #include "melodee/pages/pages.h"
 #include "melodee/plugin/plugin_rack.h"
 #include "melodee/model/scales.h"
+#include "melodee/shell/autosave.h"
 #include "melodee/shell/sampler_map.h"
 #include "melodee/shell/ask.h"
 #include "melodee/shell/bindings.h"
@@ -41,6 +42,28 @@ namespace melodee {
 // release, playback is stopped and no other sheet is open. After INSTALL (shell/ask.cpp), waits for the project
 // save, then asks the service thread to start the install, and copies its progress to the sheet. Also shows
 // notices from the service thread ("Updated to v0.2.0").
+// Background save, as on the stock app (shell/autosave.h): once the project has changed, nothing runs and no
+// control has been used for a moment, it goes to its file. A held control counts as in use.
+void Shell::autosave_tick(uint32_t now) {
+    const auto& ui = ui_;
+    if (ui.held_pads || ui.shift || ui.seq_held || ui.pad_bank || ui.sample_held || ui.erase || tap.down) last_input_ = now;
+    const auto& host = context_.host;
+    AutosaveFacts f;
+    f.dirty = context_.dirty;
+    f.playing = host.playing() || host.song_playing() || host.looper().recording() || host.looper().armed();
+    f.recording = ui.recording || ui.rec_armed || host.recorder().state() != TakeRecorder::State::Idle
+               || (context_.printer && context_.printer->busy()) || ui.print_sheet.printing
+               || ui.auto_sheet.sampling || ui.auto_sheet.checking || (store_ && store_->exporting());
+    f.sheet = ui.ask != UiState::Ask::None || ui.name.open() || ui.exit_open || card_owns_controls(ui) || ui.update.phase != 0;
+    f.loading = ui.loading || context_.samples_to_load < sample_slots;
+    f.editing = ui.page == PageId::Chop || ui.page == PageId::Record || context_.import_unsaved;
+    f.failed = autosave_failed_;
+    f.now = now; f.last_input = last_input_; f.last_try = autosave_try_;
+    if (!autosave_due(f)) return;
+    autosave_failed_ = !context_.autosave();
+    autosave_try_ = now;
+}
+
 void Shell::update_tick() {
     std::string text;
     if (update_link.take_note(text)) context_.notice(text);
@@ -148,6 +171,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (change.back && ui_.page == PageId::CardAccess) { context_.open(PageId::Project); context_.notice("Card ejected"); }
     }
     update_tick();
+    autosave_tick(now);
     // Power was pressed: the Exit sheet opens (the service thread only counts presses).
     // The library found files or finished a sample: the lengths go into the project.
     if (library_ && library_->generation() != library_seen) {
@@ -199,6 +223,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                     context_.switch_to(*project, *bank, {});
                     context_.audio_staging_from = loaded->audio_from;
                     context_.dirty = true;
+                    context_.import_unsaved = true; // opening one writes nothing: no background save until it has a file
                     context_.notice(loaded->note);
                 }
                 else context_.switch_to(*project, *bank, loaded->path, &plugin_states, &prints);

@@ -38,6 +38,8 @@ is different, and how to change your habits.
   sends all notes off.
 - Hold **TAP TEMPO** and turn the encoder to set the tempo. Held without a
   turn, it opens the Tempo page.
+- The project saves in the background. **SHIFT** + **Pad 16**, **B1**
+  (**SAVE AS**) saves it under a new name.
 - Knob FX, Pad FX, Flex Beat and the master compressor work as on the stock
   app, with the stock effects in the stock order.
 
@@ -51,7 +53,6 @@ is different, and how to change your habits.
 | In Sequence mode the pads select sequences. | **SEQ** opens **Patterns**, **Roll** or **Motion**. On Patterns the pads launch the selected track's patterns, laid out as the pads. You can also hold **SEQ** and press a pad on any page. |
 | A sequence plays every pad of the kit. | Each track has its own 128 patterns, in banks A–H. To change every track at once, launch a **sequence**: hold **SEQ** + **SHIFT** and press a pad. |
 | Song mode is a list of sequences. | **Song** is a timeline with a lane per track. You place pattern clips on it, add markers and tempo changes. |
-| The project saves in the background. | Save with **SHIFT** + **Pad 16**, then **B1** (**SAVE**). Leaving through the Exit screen also saves. |
 | Projects are on the internal drive. | Melodee's projects are on the card in `Melodee/Projects`. On the project list, **B2** (**INTERNAL**) shows the internal drive. Stock projects open as copies (see [MPC Sample projects](projects-and-files.md#mpc-sample-projects)). |
 | **SHIFT** + **KNOB FX** (FX Select) picks pad effects. | **SHIFT** + **KNOB FX** opens the effect chains: Track, Bus, Master and, on a kit, Pad. |
 | **SHIFT** + **SEQ RECORD** brings the last loop into the sequence. | **SHIFT** + **SEQ RECORD** (Recall) puts the last phrase you played on every track into each track's next empty pattern. |
@@ -83,9 +84,7 @@ These are the actions stock users look for first.
    other. **SHIFT** + push goes back one page. **B1** is BACK or CANCEL on
    every sheet. A page you opened with a **SHIFT** + pad job closes when you
    press that job again.
-5. **Save on purpose.** There is no background save. Save with **SHIFT** +
-   **Pad 16**, **B1**.
-6. **Open your stock projects.** On the Project page, press **B2** (**OPEN**).
+5. **Open your stock projects.** On the Project page, press **B2** (**OPEN**).
    Press **B2** (**INTERNAL**) for the projects on the internal drive, or
    open the **MPC Sample** folder for stock projects on the card.
 

@@ -161,6 +161,10 @@ private:
     unsigned library_seen = ~0u;
     unsigned format_seen = 0; // the engine's format_changes() the project was last sent again for
     TapHold tap; // Tap Tempo held: the tempo on the encoder, or the Tempo page (shell/tap_hold.h)
+    // Background save (shell/autosave.h): when a control or a note last came in, and the last save that found no card.
+    uint32_t last_input_ = 0, autosave_try_ = 0;
+    bool autosave_failed_ = false;
+    void autosave_tick(uint32_t now); // MIDI thread, from lights()
     ProjectStore* store_ = nullptr;
     InputRoute* input_ = nullptr;
     CardLink card_link;
