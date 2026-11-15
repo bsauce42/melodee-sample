@@ -60,6 +60,13 @@ void draw_clip(Paint& p, const Snapshot& s, const Clip& clip, float y, unsigned 
     p.g.reduceClipRegion(juce::Rectangle<int>(int(left), int(y), int(right - left + 1), int(lane_h)));
     p.fill(cx + 0.5f, y, cw - 1, lane_h, selected ? c : c.withAlpha(clip.muted ? 0.12f : 0.38f), 2.5f);
     const auto& sketch = s.sketches[clip.track][clip.pattern];
+    if (sketch.audio.used()) { // freeze plan F3: an audio track's take, from the top of each pass of its pattern
+        const unsigned bar = std::max(1u, s.project.bar_ticks());
+        const float pass = bw * std::max<uint32_t>(sketch.length, 1) / bar;
+        const float take = bw * float(frames_to_ticks(sketch.audio.frames, s.tempo)) / bar;
+        for (float px = cx; px < cx + cw - 1; px += std::max(pass, 2.0f))
+            region_wave(p, s, sketch.audio, px + 1, y + 1, std::min({take, pass, cx + cw - px}) - 2, lane_h - 2, selected ? colour::bg.withAlpha(0.55f) : c.withAlpha(0.9f));
+    }
     // Its notes in small: the pattern repeated across the clip.
     // In sixteenths: the sketch keeps the first note of each.
     unsigned bar = s.project.bar_ticks(), length = std::max<unsigned>((sketch.length + sixteenth_ticks - 1) / sixteenth_ticks, 1);
@@ -81,47 +88,20 @@ void draw_clip(Paint& p, const Snapshot& s, const Clip& clip, float y, unsigned 
     float repeat = length * step_w;
     if (repeat >= 4)
         for (float rx = cx + repeat; rx < cx + cw - 1; rx += repeat) p.fill(rx, y, 0.5f, lane_h, colour::bg);
+    if (sketch.audio.used()) { // the name on a backing, clear of the wave (freeze plan F3)
+        float lw = p.width("P" + juce::String(clip.pattern + 1), plain(c, type::small, Weight::Bold)) + 5;
+        p.fill(cx + 1, y + 1, lw, lane_h - 2, selected ? c : colour::bg.interpolatedWith(c, clip.muted ? 0.12f : 0.38f), 2);
+    }
     p.text("P" + juce::String(clip.pattern + 1), cx + 3, y, 24, lane_h, plain(selected ? colour::bg : c, type::small, Weight::Bold));
     if (selected) p.ring(cx + 0.5f, y, cw - 1, lane_h, colour::text, 2.5f);
     p.g.restoreState();
 }
 
-// Freeze plan F3: an audio track's region, a block in the track's colour from where it starts to where it ends (a
-// part of a bar where it does not end on one), named by its take; the one at the cursor on the selected lane filled.
-void draw_region(Paint& p, const Snapshot& s, const AudioRegion& r, float y, unsigned view, float bw, bool selected) {
-    const unsigned bar = std::max(1u, s.project.bar_ticks());
-    const float a = float(region_start(r, bar)) / bar, b = float(region_end(r, bar)) / bar;
-    float rx = x0 + (a - float(view)) * bw, rw = (b - a) * bw;
-    float left = std::max(rx, x0), right = std::min(rx + rw, x1);
-    if (right <= left + 1) return;
-    auto c = track_colour(r.track);
-    p.g.saveState();
-    p.g.reduceClipRegion(juce::Rectangle<int>(int(left), int(y), int(right - left + 1), int(lane_h)));
-    p.fill(rx + 0.5f, y, rw - 1, lane_h, selected ? c : c.withAlpha(r.muted ? 0.12f : 0.38f), 2.5f);
-    if (!r.muted) region_wave(p, s, r, rx + 1, y + 1, rw - 2, lane_h - 2, selected ? colour::bg.withAlpha(0.55f) : c.withAlpha(0.9f));
-    if (rw > 22) { // its take's number on a backing of the region's own colour, clear of the wave
-        auto style = plain(selected ? colour::bg : c, type::small, Weight::Bold);
-        juce::String name = "T" + juce::String(r.take);
-        float lw = p.width(name, style) + 5;
-        p.fill(rx + 1, y + 1, lw, lane_h - 2, selected ? c : colour::bg.interpolatedWith(c, r.muted ? 0.12f : 0.38f), 2);
-        p.text(name, rx + 3, y, lw, lane_h, style);
-    }
-    if (selected) p.ring(rx + 0.5f, y, rw - 1, lane_h, colour::text, 2.5f);
-    p.g.restoreState();
-}
-
-// B1-B3 follow what is under the cursor; with Shift, the clip's second jobs. On an audio track's lane, its region's.
+// B1-B3 follow what is under the cursor; with Shift, the clip's second jobs.
 SoftKeys keys_of(const Snapshot& s, const Clip* clip, juce::Colour c) {
-    if (s.project.tracks[s.ui.track].is_audio()) {
-        const unsigned bar = s.project.bar_ticks();
-        int here = s.project.song.region_at(s.ui.track, s.ui.song_cursor * bar, bar);
-        if (here < 0 || s.ui.shift) return {{"EXPORT", "", ""}, -1, c};
-        return {{"EXPORT", s.project.song.regions[size_t(here)].muted ? "UNMUTE" : "MUTE", "DUPLICATE"}, -1, c};
-    }
     if (s.ui.shift) return {{"", clip ? "MOTION" : "", clip ? "OWN PATTERN" : ""}, -1, c};
     if (clip) return {{"EXPORT", clip->muted ? "UNMUTE" : "MUTE", "DUPLICATE"}, -1, c};
-    const auto& t = s.project.tracks[s.ui.track];
-    return {{"EXPORT", "", t.used() && !t.is_audio() ? "PLACE" : ""}, -1, c}; // an audio track's lane holds its takes (freeze plan F3)
+    return {{"EXPORT", "", s.project.tracks[s.ui.track].used() ? "PLACE" : ""}, -1, c};
 }
 
 void draw(Paint& p, const Snapshot& s) {
@@ -149,7 +129,7 @@ void draw(Paint& p, const Snapshot& s) {
         frame(p, s, keys, h);
         p.dim_zone(zone::picture_y, zone::picture_h, 0.86f);
         p.dim_zone(zone::knobs_y, zone::knobs_h);
-        unsigned bars = song.length(s.project.bar_ticks()), seconds = unsigned(song.tempo.seconds(bars, double(s.project.bar_ticks()) / ticks_per_quarter, std::max(300u, unsigned(s.project.tempo))) + 0.5);
+        unsigned bars = song.length(), seconds = unsigned(song.tempo.seconds(bars, double(s.project.bar_ticks()) / ticks_per_quarter, std::max(300u, unsigned(s.project.tempo))) + 0.5);
         if (!bars && kind < 4) { // nothing to export yet (a MIDI file and an MPC 3 project take the patterns)
             icon(p, Icon::Pattern, zone::width / 2.0f - 14, zone::picture_y + 44, 28, colour::amber, 1.4f);
             p.text("EMPTY SONG", 0, zone::picture_y + 80, zone::width, 14, caps_text(colour::amber), juce::Justification::centred);
@@ -255,11 +235,6 @@ void draw(Paint& p, const Snapshot& s) {
                juce::Justification::centred);
         for (unsigned n = 0; n < song.count; ++n)
             if (song.clips[n].track == t) draw_clip(p, s, song.clips[n], y, view, bw, int(n) == selected_clip);
-        if (s.project.tracks[t].is_audio()) { // freeze plan F3: its regions, the one at the cursor picked
-            const int here = selected ? song.region_at(t, cursor * s.project.bar_ticks(), s.project.bar_ticks()) : -1;
-            for (unsigned n = 0; n < song.region_count; ++n)
-                if (song.regions[n].track == t) draw_region(p, s, song.regions[n], y, view, bw, int(n) == here);
-        }
     }
     float bottom = tracks_top + shown * (lane_h + lane_gap);
     p.fill(x0 - 1, lane_top - 2, 0.5f, bottom - lane_top + 2, colour::line);
@@ -290,8 +265,8 @@ void draw(Paint& p, const Snapshot& s) {
         }
     }
     // The whole song, with the window on it, after its length in bars.
-    unsigned total = std::max({song.length(s.project.bar_ticks()), view + zoom, 16u});
-    juce::String length = juce::String(song.length(s.project.bar_ticks())) + (song.length(s.project.bar_ticks()) == 1 ? " BAR" : " BARS");
+    unsigned total = std::max({song.length(), view + zoom, 16u});
+    juce::String length = juce::String(song.length()) + (song.length() == 1 ? " BAR" : " BARS");
     auto length_style = caps_text(colour::dim);
     float oy = bottom + (song.punch_count ? 13 : 6), lw = p.width(length, length_style) + 1, sx = zone::pad + lw + 6, ow = x1 - sx;
     p.text(length, zone::pad, oy - 5.5f, lw, 11, length_style);
@@ -300,27 +275,9 @@ void draw(Paint& p, const Snapshot& s) {
 }
 
 int clip_index(const Context& c) { return c.project.song.clip_at(c.ui.track, c.ui.song_cursor); }
-// Freeze plan F3: the region at the cursor on an audio track's lane, or -1.
-int region_index(const Context& c) {
-    if (!c.project.tracks[c.ui.track % track_count].is_audio()) return -1;
-    const unsigned bar = c.project.bar_ticks();
-    return c.project.song.region_at(c.ui.track, c.ui.song_cursor * bar, bar);
-}
-// The region again right after itself.
-void duplicate_region(Context& c, int index) {
-    auto& song = c.project.song;
-    const unsigned bar = c.project.bar_ticks();
-    AudioRegion copy = song.regions[size_t(index)];
-    set_region_start(copy, region_end(copy, bar), bar);
-    if (!song.place_region(copy, bar)) { c.notice("Song: no room for another region"); return; }
-    c.ui.song_cursor = copy.bar;
-    c.ui.song_view = uint16_t(view_of(c.ui));
-    c.sync_song();
-    c.dirty = true;
-}
 
 void place(Context& c) {
-    if (!c.track().used() || c.track().is_audio()) return;
+    if (!c.track().used()) return;
     Clip clip;
     clip.track = c.ui.track; clip.pattern = c.ui.song_pattern; clip.bar = c.ui.song_cursor; clip.bars = c.ui.song_length;
     if (c.project.song.place(clip)) c.sync_song();
@@ -369,32 +326,12 @@ void pad(Context& c, unsigned pad, uint8_t, bool down) {
 
 void wheel(Context& c, int delta) {
     if (c.ui.song_export) { c.ui.export_kind = uint8_t(std::clamp(int(c.ui.export_kind) + delta, 0, 5)); return; } // what B2 makes (roadmap P4)
-    if (c.track().is_audio() && !c.ui.shift) { // freeze plan F3: an audio lane's regions one by one (Shift: by the bar)
-        const auto& song = c.project.song;
-        const unsigned bar = c.project.bar_ticks();
-        std::array<uint16_t, song_regions> lane {};
-        unsigned count = song.lane_regions(c.ui.track, bar, lane);
-        if (count) {
-            int at = -1, here = song.region_at(c.ui.track, c.ui.song_cursor * bar, bar);
-            for (unsigned n = 0; n < count; ++n) if (int(lane[n]) == here) at = int(n);
-            if (at < 0) { // between regions: the next one on, or the one before
-                at = delta > 0 ? int(count) : -1;
-                for (unsigned n = 0; n < count; ++n)
-                    if (song.regions[lane[n]].bar > c.ui.song_cursor) { at = delta > 0 ? int(n) - 1 : int(n); break; }
-            }
-            at = std::clamp(at + delta, 0, int(count) - 1);
-            c.ui.song_cursor = song.regions[lane[size_t(at)]].bar;
-            c.ui.song_view = uint16_t(view_of(c.ui));
-            return;
-        }
-    }
     c.ui.song_cursor = uint16_t(std::clamp<int>(c.ui.song_cursor + delta, 0, int(song_bars) - 1));
     c.ui.song_view = uint16_t(view_of(c.ui));
 }
 
 void push(Context& c) {
     if (c.ui.song_export) return;
-    if (c.track().is_audio()) { if (region_index(c) >= 0) c.open(PageId::Stage); return; } // freeze plan F3: its CLIP
     int index = clip_index(c);
     if (index >= 0) open_clip(c, index, false);
     else place(c);
@@ -410,13 +347,6 @@ void soft(Context& c, int key) {
         return;
     }
     if (key == 0) c.ui.song_export = true; // Export, as on the MPC (Patterns is on Seq)
-    if (c.track().is_audio()) { // freeze plan F3: the region at the cursor muted, or again after itself
-        int region = region_index(c);
-        if (region < 0) return;
-        if (key == 1) { auto& r = c.project.song.regions[size_t(region)]; r.muted = !r.muted; c.sync_song(); c.dirty = true; }
-        if (key == 2) duplicate_region(c, region);
-        return;
-    }
     if (key == 1 && index >= 0) {
         auto& clip = c.project.song.clips[size_t(index)];
         clip.muted = !clip.muted;
@@ -448,25 +378,9 @@ void song_marker(Context& c) {
     else c.project.song.step_marker(c.ui.song_cursor);
 }
 
-// Chop: the clip in two at the cursor (an audio track's region: at the cursor's bar, both parts playing on as before).
+// Chop: the clip in two at the cursor.
 void song_chop(Context& c) {
     auto& song = c.project.song;
-    if (int region = region_index(c); region >= 0) {
-        const unsigned bar = c.project.bar_ticks(), at = c.ui.song_cursor * bar;
-        AudioRegion r = song.regions[size_t(region)];
-        if (at <= region_start(r, bar)) { c.notice("Chop: cursor inside a region"); return; }
-        if (song.region_count >= song.regions.size()) { c.notice("Chop: the song is full"); return; }
-        uint32_t head = uint32_t(std::min<uint64_t>(r.frames, ticks_to_frames(at - region_start(r, bar), r.tempo)));
-        AudioRegion tail = r;
-        tail.offset = r.offset + head; tail.frames = r.frames - head; tail.fade_in = 0;
-        set_region_start(tail, at, bar);
-        auto& first = song.regions[size_t(region)];
-        first.frames = head; first.fade_out = 0;
-        if (tail.frames) song.regions[song.region_count++] = tail;
-        c.sync_song();
-        c.dirty = true;
-        return;
-    }
     int index = clip_index(c);
     if (index < 0 || c.ui.song_cursor <= song.clips[size_t(index)].bar) { c.notice("Chop: cursor inside a clip"); return; }
     if (song.count >= song.clips.size()) { c.notice("Chop: the song is full"); return; } // the tail would be lost
@@ -481,13 +395,11 @@ void song_chop(Context& c) {
 
 // Shift + Erase: the clip under the cursor again after itself, as DUPLICATE.
 void song_copy(Context& c) {
-    if (int region = region_index(c); region >= 0) { duplicate_region(c, region); return; } // freeze plan F3
     int index = clip_index(c);
     if (index >= 0) duplicate(c, index);
 }
 
 void song_erase(Context& c) {
-    if (int region = region_index(c); region >= 0) { c.project.song.erase_region(unsigned(region)); c.sync_song(); c.dirty = true; return; } // freeze plan F3
     int index = clip_index(c);
     if (index < 0) return;
     c.project.song.erase(unsigned(index));
@@ -514,15 +426,6 @@ void song_repeat(Context& c) {
 // Loop: the brace on the clip's bars; again, or on empty time, off.
 bool song_loop(Context& c) {
     auto& song = c.project.song;
-    if (int region = region_index(c); region >= 0) { // freeze plan F3: the region's bars, a part of one as a whole bar
-        const unsigned bar = c.project.bar_ticks();
-        const auto& r = song.regions[size_t(region)];
-        unsigned from = r.bar, to = (region_end(r, bar) + bar - 1) / bar;
-        bool same = song.loop_start == from && song.loop_end == to;
-        song.loop_start = uint16_t(same ? 0 : from); song.loop_end = uint16_t(same ? 0 : to);
-        c.sync_song();
-        return true;
-    }
     int index = clip_index(c);
     if (index < 0 && !song.looping()) return false;
     bool same = index >= 0 && song.loop_start == song.clips[size_t(index)].bar && song.loop_end == song.clips[size_t(index)].end();

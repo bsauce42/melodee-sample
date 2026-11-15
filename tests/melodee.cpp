@@ -484,51 +484,36 @@ void pad_expression() {
     read_back.read(set.text());
     CHECK(!read_back.pressure);
 }
-// Freeze plan F3: audio tracks' regions on the Song lane. Recording over part of one replaces that part and keeps
-// the rest in its place in time; the song runs to the last region's end; a file keeps them and the track's settings.
-void audio_regions() {
-    const unsigned bar = 384; // 4/4
-    Song song;
+// Freeze plan F3: an audio track's take lives in its pattern (a pattern with one is not empty) and goes through a
+// file with the track's settings; a take on a track that is not an audio track is dropped.
+void audio_takes() {
     AudioRegion take;
-    take.track = 3; take.take = 1; take.bar = 24; take.tempo = 1200;
-    take.frames = take.take_frames = uint32_t(ticks_to_frames(8 * bar, 1200)); // eight bars at 120 BPM
-    CHECK(take.frames == 705600 && region_ticks(take) == 8 * bar && region_end(take, bar) == 32 * bar);
-    CHECK(song.place_region(take, bar) && song.length(bar) == 32 && song.region_at(3, 24 * bar, bar) == 0 && song.region_at(2, 24 * bar, bar) < 0);
-    AudioRegion again = take;
-    again.take = 2; again.bar = 28; again.frames = again.take_frames = uint32_t(ticks_to_frames(4 * bar, 1200));
-    CHECK(song.place_region(again, bar) && song.region_count == 2);
-    const auto& head = song.regions[size_t(song.region_at(3, 24 * bar, bar))];
-    CHECK(head.take == 1 && head.frames == take.frames / 2 && region_end(head, bar) == 28 * bar);
-    CHECK(song.regions[size_t(song.region_at(3, 30 * bar, bar))].take == 2 && song.last_take() == 2);
-    // Bars 26-29 over both: the first keeps 24-25, the second goes on from 30 into the same part of its take.
-    AudioRegion middle = take;
-    middle.take = 3; middle.bar = 26; middle.frames = middle.take_frames = uint32_t(ticks_to_frames(4 * bar, 1200));
-    CHECK(song.place_region(middle, bar) && song.region_count == 3);
-    const auto& tail = song.regions[size_t(song.region_at(3, 30 * bar, bar))];
-    CHECK(tail.take == 2 && tail.bar == 30 && tail.tick == 0 && tail.offset == uint32_t(ticks_to_frames(2 * bar, 1200)) && region_end(tail, bar) == 32 * bar);
-    CHECK(song.regions[size_t(song.region_at(3, 25 * bar, bar))].frames == uint32_t(ticks_to_frames(2 * bar, 1200)));
+    take.take = 3; take.tempo = 1200;
+    take.frames = take.take_frames = uint32_t(ticks_to_frames(2 * 384, 1200)); // two bars at 120 BPM
+    CHECK(take.frames == 176400 && frames_to_ticks(take.frames, 1200) == 768);
+    Pattern pattern;
+    CHECK(pattern.empty());
+    pattern.audio = take;
+    CHECK(!pattern.empty() && pattern != Pattern {});
     CHECK(audio_take_name(7) == "Take 007.wav" && audio_take_of("Take 007.wav") == 7 && audio_take_of("Take 7.wav.part") == 0);
     CHECK(audio_folder("/card/Melodee/Projects/Song.mlp") == "/card/Melodee/Projects/Song Audio");
 
     auto project = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
     project->tracks[3].engine = EngineKind::Audio; project->tracks[3].set_name("VOX");
-    project->tracks[3].audio.source = InputSource::Usb; project->tracks[3].audio.monitor = TrackMonitor::Merge;
-    project->song = song;
-    project->song.regions[0].gain = -35; project->song.regions[0].fade_in = 441; project->song.regions[0].warp = true;
-    project->song.regions[0].mode = WarpMode::Repitch; project->song.regions[0].semi = -3; project->song.regions[0].reverse = true;
-    AudioRegion stray = take; stray.track = 5; stray.bar = 40; // on a track that is not an audio track: dropped
-    project->song.regions[project->song.region_count++] = stray;
+    project->tracks[3].audio.source = InputSource::Usb; project->tracks[3].audio.monitor = TrackMonitor::Off;
+    take.gain = -35; take.fade_in = 441; take.offset = 100; take.frames -= 100; take.reverse = true;
+    bank->at[3][5].audio = take;
+    bank->at[3][5].length = 2 * 384;
+    bank->at[6][0].audio = take; // a kit track's: dropped
     auto bytes = save_project(*project, *bank);
     auto back = std::make_unique<Project>();
     auto back_bank = std::make_unique<PatternBank>();
     CHECK(load_project(bytes, *back, *back_bank).empty());
     const auto& t = back->tracks[3];
-    CHECK(t.engine == EngineKind::Audio && std::string(t.name) == "VOX" && t.audio.source == InputSource::Usb && t.audio.monitor == TrackMonitor::Merge);
-    CHECK(back->song.region_count == 3);
-    bool same = true;
-    for (unsigned n = 0; n < 3; ++n) same = same && back->song.regions[n] == project->song.regions[n];
-    CHECK(same && back->song.regions[0].gain == -35 && back->song.regions[0].mode == WarpMode::Repitch && back->song.regions[0].reverse);
+    CHECK(t.engine == EngineKind::Audio && std::string(t.name) == "VOX" && t.audio.source == InputSource::Usb && t.audio.monitor == TrackMonitor::Off);
+    CHECK(back_bank->at[3][5].audio == take && back_bank->at[3][5].length == 768 && !back_bank->at[3][4].audio.used());
+    CHECK(!back_bank->at[6][0].audio.used());
 }
 
 void arrange() {
@@ -537,7 +522,7 @@ void arrange() {
     CHECK(song.place({0, 0, 0, 8, false}) && song.place({0, 1, 2, 2, false}));
     CHECK(song.count == 3 && song.clip_at(0, 1) >= 0 && song.clips[size_t(song.clip_at(0, 3))].pattern == 1);
     CHECK(song.clips[size_t(song.clip_at(0, 5))].pattern == 0 && song.clips[size_t(song.clip_at(0, 5))].bar == 4);
-    CHECK(song.clip_at(1, 0) < 0 && song.length(384) == 8);
+    CHECK(song.clip_at(1, 0) < 0 && song.length() == 8);
     song.erase(unsigned(song.clip_at(0, 3)));
     CHECK(song.clip_at(0, 3) < 0 && song.count == 2);
     // Markers: added at a bar, named after the one before, stepped through the names, then gone.
@@ -3807,10 +3792,10 @@ void audio_input_and_rendering() {
     Clip muted = a; muted.bar = 4; muted.bars = 1; muted.muted = true; song.place(muted);
     Clip other = a; other.track = 5; song.place(other);
     Pattern flat; bool full = false;
-    CHECK(flatten_lane(song, 4, lane, bar, song.length(bar), flat, full) && !full);
+    CHECK(flatten_lane(song, 4, lane, bar, song.length(), flat, full) && !full);
     CHECK(flat.length == 5 * bar && flat.events.size() == 8); // two bars of a half-bar pattern: four times two notes
     CHECK(flat.events.front().tick == bar && flat.events.back().tick == 3 * bar - 96 && flat.events.back().key == 38);
-    CHECK(!flatten_lane(song, 6, lane, bar, song.length(bar), flat, full));
+    CHECK(!flatten_lane(song, 6, lane, bar, song.length(), flat, full));
 }
 
 
@@ -14728,50 +14713,52 @@ void prints_f2a() {
 // after them; its level and pan still apply. The engine sleeps a second after it falls quiet, a hand wakes it in the
 // same block, a pattern without a print keeps it awake. FRZN keeps the freeze. A streamed print reads only what the
 // pager pinned.
-// Freeze plan F3: an audio track plays its region from its bar, on the frame, until the song ends after it; a take
-// records between two bars (here the track itself, as the Track source takes it) and the song runs to where it ends.
+// Freeze plan F3: an audio track plays its pattern's take from the pattern's top, on the frame, again each pass; a
+// take armed records one pass from where the pattern comes round (here the track itself, as the Track source takes it).
 void audio_track_playback() {
     auto project = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
     project->tracks[0].engine = EngineKind::Audio;
+    bank->at[0][0].length = 384; // one bar
     const unsigned rate = unsigned(std::lround(dsp::sample_rate()));
     const size_t bar_frames = size_t(rate) * 2; // 4/4 at 120 BPM
     auto host = std::make_unique<EngineHost>();
     host->load(*project, *bank);
     host->set_print_tap(0, true);
     auto* pack = new AudioPack;
-    unsigned take = pack->hold_take(std::vector<float>(bar_frames, 0.25f), std::vector<float>(bar_frames, -0.25f), float(rate));
-    RegionClip clip;
-    clip.take = pack->takes[take].get(); clip.start = 384; clip.end = 768; clip.frames = uint32_t(bar_frames); clip.resident = true;
-    pack->regions.push_back(clip);
-    CHECK(pack->at(383) == nullptr && pack->at(384) == &pack->regions[0] && pack->at(768) == nullptr);
+    const size_t take = bar_frames / 2; // half a bar: the second half of each pass is quiet
+    unsigned part = pack->hold_take(std::vector<float>(take, 0.25f), std::vector<float>(take, -0.25f), float(rate));
+    RegionClip& clip = pack->add(0);
+    clip.take = pack->takes[part].get(); clip.frames = uint32_t(take); clip.resident = true;
+    CHECK(pack->clips[0] == &clip && pack->clips[1] == nullptr);
     Command regions {Command::Type::AudioRegions, 0};
     regions.audio = pack;
     CHECK(host->send(regions));
-    host->send({Command::Type::AudioRecord, 0, 0, 1, 2}); // bar 2 (counting from 1) only
-    host->send({Command::Type::Play, 0, 0, 0, 1});        // the song from its first bar
+    host->send({Command::Type::AudioRecord, 0, 0, 0, 0}); // one pass, from the pattern's top
+    host->send({Command::Type::Play});
     std::vector<int32_t> o(256);
     std::vector<float> left;
     for (unsigned b = 0; b < unsigned(3 * bar_frames / 128); ++b) {
         host->render(o.data(), 128, 1);
         for (unsigned f = 0; f < 128; ++f) left.push_back(host->print_left()[f]);
     }
-    size_t first = 0;
-    while (first < left.size() && std::fabs(left[first]) < 1e-6f) ++first;
-    CHECK(first + 1 >= bar_frames && first <= bar_frames + 1); // on its bar's first frame
-    float low = 1, high = 0;
-    for (size_t f = bar_frames + 8; f < 2 * bar_frames - 8; ++f) { low = std::min(low, left[f]); high = std::max(high, left[f]); }
-    CHECK(std::fabs(low - 0.25f) < 1e-4f && std::fabs(high - 0.25f) < 1e-4f);
-    CHECK(peak_of(left, 2 * bar_frames + 8, left.size()) < 1e-6f && !host->playing()); // the song ended with the region
+    for (size_t pass = 0; pass < 2; ++pass) { // each pass: the take from the top, then quiet
+        size_t top = pass * bar_frames;
+        float low = 1, high = 0;
+        for (size_t f = top + 8; f < top + take - 8; ++f) { low = std::min(low, left[f]); high = std::max(high, left[f]); }
+        CHECK(std::fabs(low - 0.25f) < 1e-4f && std::fabs(high - 0.25f) < 1e-4f);
+        CHECK(peak_of(left, top + take + 8, top + bar_frames - 8) < 1e-6f);
+    }
+    CHECK(std::fabs(left[bar_frames]) > 0.2f && std::fabs(left[bar_frames - 300]) < 1e-6f); // on the second pass's first frame
     CHECK(host->audio_underruns() == 0 && host->audio_waits() == 0);
     auto& ring = host->audio_take();
     CHECK(ring.state() == Bounce::State::Done && ring.taken() + 1 >= bar_frames && ring.taken() <= bar_frames + 1);
+    CHECK(host->audio_take_pattern() == 0 && host->audio_take_track() < 0);
     std::vector<float> taken(2 * 4096);
     float heard = 0;
     for (unsigned n; (n = ring.pop(taken.data(), 4096)) > 0;) for (unsigned f = 0; f < 2 * n; ++f) heard = std::max(heard, std::fabs(taken[f]));
     CHECK(std::fabs(heard - 0.25f) < 1e-3f);
     ring.release();
-    CHECK(ring.state() == Bounce::State::Idle && host->audio_take_track() < 0);
     host->send({Command::Type::AudioRegions, 0}); // none: the pack handed back
     host->render(o.data(), 128, 1);
     AudioPack* back = nullptr;
@@ -15781,7 +15768,7 @@ int main() {
     preview_progressive();
     effects();
     arrange();
-    audio_regions();
+    audio_takes();
     motion();
     layouts();
     bindings();

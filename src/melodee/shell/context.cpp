@@ -626,29 +626,10 @@ void Context::apply(const Binding& b, int value) {
         send({Type::Swing, 0, 0, 0, int16_t(value)});
         break;
     case Kind::SongZoom: ui.song_zoom = uint8_t(value); break;
-    case Kind::SongRegion: { // freeze plan F3: the cursor to the lane's region `value`
-        std::array<uint16_t, song_regions> lane {};
-        unsigned count = project.song.lane_regions(ui.track, project.bar_ticks(), lane);
-        if (count) ui.song_cursor = project.song.regions[lane[std::min<unsigned>(unsigned(value), count - 1)]].bar;
-        break;
-    }
     case Kind::RegionGain: case Kind::RegionStart: case Kind::RegionEnd: case Kind::RegionFadeIn: case Kind::RegionFadeOut:
-    case Kind::RegionReverse: case Kind::RegionBpm: case Kind::RegionSemi: case Kind::RegionFine: case Kind::RegionWarp: case Kind::RegionMode:
+    case Kind::RegionReverse:
         set_region_value(b, value); // freeze plan F3 (shell/audio_jobs.cpp)
         break;
-    case Kind::SongRegionBars: { // its length in bars, no longer than its take allows
-        if (b.id < 0 || unsigned(b.id) >= project.song.region_count) break;
-        auto& r = project.song.regions[size_t(b.id)];
-        uint64_t want = ticks_to_frames(uint64_t(value) * project.bar_ticks(), r.tempo);
-        r.frames = uint32_t(std::clamp<uint64_t>(want, 1, r.take_frames - std::min(r.offset, r.take_frames - 1)));
-        r.fade_out = std::min(r.fade_out, r.frames);
-        AudioRegion kept = r; // what it now covers on the lane is its alone
-        project.song.erase_region(unsigned(b.id));
-        project.song.place_region(kept, project.bar_ticks());
-        sync_song();
-        dirty = true;
-        break;
-    }
     case Kind::SongPattern:
     case Kind::SongLength:
         if (b.id >= 0) { // the clip under the cursor
@@ -1772,7 +1753,6 @@ void Context::sync_song() {
         send(c);
     }
     send({Type::SongTempoCount, 0, 0, 0, int16_t(song.tempo.count)});
-    sync_audio(); // freeze plan F3: an audio track's regions (shell/audio_jobs.cpp)
 }
 
 // On the Song page Play plays the arrangement from the cursor; elsewhere the
@@ -1828,7 +1808,6 @@ void Context::send_click() {
 // armed, the take begins, after a bar's count when Count-In is on.
 void Context::play(bool external) {
     if (host.playing()) return;
-    if (ui.page == PageId::Record && track().is_audio() && !external) { audio_record_play(); return; } // freeze plan F3
     played_song = ui.page == PageId::Song;
     ui.span_count = 0; // the punches heard (pad-fx C) counted from this Play
     if (ui.rec_armed) { ui.rec_armed = false; set_recording(true); }
@@ -1925,6 +1904,14 @@ void Context::time_correct() {
 // Off: the clips being written end, and the take goes into the history.
 void Context::set_recording(bool on) {
     if (on == ui.recording) return;
+    if (track().is_audio() || (!on && audio_take_track >= 0)) { // freeze plan F3: an audio track's take (shell/audio_jobs.cpp)
+        ui.rec_armed = false;
+        if (on && !record_audio(ui.track)) return;
+        if (!on) end_audio(true);
+        ui.recording = on;
+        if (ui.settings.click == 2) send_click();
+        return;
+    }
     ui.recording = on;
     send({Type::SongRecord, 0, 0, 0, int16_t(on)});
     if (ui.settings.click == 2) send_click(); // the Rec metronome follows Seq Record

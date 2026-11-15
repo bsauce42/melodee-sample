@@ -14,8 +14,8 @@
 #include <vector>
 
 // Freeze plan F3, audio tracks (model/audio_track.h) on a thread of their own:
-// each audio track's regions made into a pack the audio thread plays (each
-// take read in place from its WAV file, the start of each region pinned), and
+// each audio track's patterns' takes made into a pack the audio thread plays
+// (each take read in place from its WAV file, where it starts pinned), and
 // a take drained from the engine host (Command::AudioRecord) into its file as
 // it is recorded: "Take NNN.wav.part" while it grows, renamed once whole. The
 // card's waits are this thread's, never the MIDI thread's or the audio thread's.
@@ -24,30 +24,30 @@ namespace melodee {
 class EngineHost;
 class StreamPager;
 
-// A track's regions to make into a pack: those on its lane, the folder their takes are in, a bar's ticks.
+// A track's patterns' takes to make into a pack (pattern, take), and the folder their files are in.
 struct AudioPackJob {
     unsigned track = 0;
     uint32_t serial = 0;
     std::string folder;
-    unsigned bar_ticks = 384;
-    std::vector<AudioRegion> regions;
+    std::vector<std::pair<uint8_t, AudioRegion>> takes;
 };
 struct AudioPackMade {
     unsigned track = 0;
     uint32_t serial = 0;
     AudioPack* pack = nullptr; // the MIDI thread's to send or discard
-    unsigned missing = 0;      // regions whose take could not be read
+    unsigned missing = 0;      // patterns whose take could not be read
     TakePeaks peaks;           // its takes' overviews (read beside them, or made once from the take)
 };
 
-// A take to record: its file, the track and the bars it is for, the tempo it is recorded at.
+// A take to record: its file's folder and number (at least), the track it is for, the tempo it is recorded at.
 struct AudioTakeJob {
     std::string folder;
-    unsigned take = 0, track = 0, from_bar = 0, to_bar = 0;
+    unsigned take = 0, track = 0;
     uint16_t tempo = 1200;
 };
 struct AudioTakeDone {
     AudioTakeJob job;
+    int pattern = -1;    // the pattern it recorded (the engine host's word as it began)
     uint32_t frames = 0; // the file's (device) frames, at `rate`
     unsigned rate = 44100;
     std::string error;   // empty: the file is whole
@@ -73,7 +73,7 @@ public:
     bool writing() const { return busy.load(std::memory_order_relaxed); }
     // The take number after every take in `folder` (files left by takes undone count too, so none is written twice).
     static unsigned next_take(const std::string& folder, unsigned at_least);
-    // Files in `folder` no region of `kept` plays (takes undone, recorded over), removed; how many.
+    // Files in `folder` no pattern of `kept` plays (takes undone, recorded over), removed; how many.
     static unsigned prune(const std::string& folder, const std::vector<unsigned>& kept);
 
 private:

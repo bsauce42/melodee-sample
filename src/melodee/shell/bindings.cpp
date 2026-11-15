@@ -464,7 +464,7 @@ unsigned new_engines(std::array<EngineKind, size_t(EngineKind::Count)>& out) {
     return n;
 }
 
-std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui, bool shift_row) {
+std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui, const Pattern& pattern, bool shift_row) {
     const auto& track = project.tracks[ui.track % track_count];
     const auto& page = stage_page_now(ui, track, stage_instrument(project, track));
     using SK = StageKind;
@@ -495,26 +495,23 @@ std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui,
         return {Binding {Kind::StageSound, 0, 0, int(std::max(listed, 2u)) - 1, at}, Binding {Kind::SoundList, 0, 0, 2, ui.sounds_filter},
                 Binding {Kind::Engine, 0, 0, int(std::max(count, 2u)) - 1, int(here)}};
     }
-    case SK::Clip: case SK::Fades: case SK::Warp: case SK::WarpMode: { // freeze plan F3: the region at the Song cursor
+    case SK::Clip: case SK::Fades: { // freeze plan F3: the take of the pattern in hand
         if (shift_row) return {};
-        const unsigned bar = project.bar_ticks();
-        const int at = project.song.region_near(ui.track, ui.song_cursor * bar, bar);
-        if (at < 0) return {};
-        const auto& r = project.song.regions[size_t(at)];
+        const auto& r = pattern.audio;
+        if (!r.used()) return {};
         auto ms = [](uint32_t frames) { return int((uint64_t(frames) * 10 + 220) / 441); };
         const int take_ms = ms(r.take_frames), start = ms(r.offset), end = ms(r.offset + r.frames), length = end - start;
-        switch (page.kind) {
-        case SK::Clip:
-            return {Binding {Kind::RegionGain, at, region_gain_min, region_gain_max, r.gain}, Binding {Kind::RegionStart, at, 0, std::max(end - 1, 1), start},
-                    Binding {Kind::RegionEnd, at, std::min(start + 1, take_ms - 1), std::max(take_ms, 1), end}};
-        case SK::Fades:
-            return {Binding {Kind::RegionFadeIn, at, 0, std::max(length, 1), ms(r.fade_in)}, Binding {Kind::RegionFadeOut, at, 0, std::max(length, 1), ms(r.fade_out)},
-                    Binding {Kind::RegionReverse, at, 0, 1, int(r.reverse)}};
-        case SK::Warp:
-            return {Binding {Kind::RegionBpm, at, 300, 3000, r.tempo}, Binding {Kind::RegionSemi, at, -24, 24, r.semi}, Binding {Kind::RegionFine, at, -50, 50, r.fine}};
-        default:
-            return {Binding {Kind::RegionWarp, at, 0, 1, int(r.warp)}, Binding {Kind::RegionMode, at, 0, int(WarpMode::Count) - 1, int(r.mode)}, Binding {}};
-        }
+        if (page.kind == SK::Clip)
+            return {Binding {Kind::RegionGain, 0, region_gain_min, region_gain_max, r.gain}, Binding {Kind::RegionStart, 0, 0, std::max(end - 1, 1), start},
+                    Binding {Kind::RegionEnd, 0, std::min(start + 1, take_ms - 1), std::max(take_ms, 1), end}};
+        return {Binding {Kind::RegionFadeIn, 0, 0, std::max(length, 1), ms(r.fade_in)}, Binding {Kind::RegionFadeOut, 0, 0, std::max(length, 1), ms(r.fade_out)},
+                Binding {Kind::RegionReverse, 0, 0, 1, int(r.reverse)}};
+    }
+    case SK::AudioInput: { // freeze plan F3: what the track records from, whether it is heard, the input's gain
+        if (shift_row) return {};
+        return {Binding {Kind::AudioSource, 0, 0, int(audio_source_count) - 1, int(audio_source_index(track.audio.source))},
+                Binding {Kind::AudioMonitorMode, 0, 0, int(TrackMonitor::Count) - 1, int(track.audio.monitor)},
+                Binding {Kind::RecGain, 0, -12, 24, ui.settings.input.gain}};
     }
     case SK::Mix: // level, pan and the quick send, into bus A (SENDS has all four)
         if (shift_row) return {};
@@ -632,7 +629,6 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
     }
     case PageId::Record: case PageId::InputConfig: { // Shift + K1: a track's tap (before or after its effects); Shift + K3: Melodee's input gain
         const auto& in = ui.settings.input;
-        if (ui.page == PageId::Record && track.is_audio()) return {}; // freeze plan F3: the gain is K3 there
         Binding tap = in.source == InputSource::Track ? Binding {Kind::RecTap, 0, 0, 1, int(in.post)} : Binding {};
         return {tap, Binding {}, Binding {Kind::RecGain, 0, -12, 24, in.gain}};
     }
@@ -727,7 +723,7 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
                 Binding {Kind::PunchTail, 0, 0, 2, project.punch_tail}};
     case PageId::Compressor: // Shift + K3: In Boost
         return {Binding {}, Binding {}, Binding {Kind::CompBoost, 0, 0, 24, project.compressor.boost}};
-    case PageId::Stage: return stage_bindings(project, ui, true);
+    case PageId::Stage: return stage_bindings(project, ui, pattern, true);
     case PageId::Pads: case PageId::Tempo: return project_key(project); // Shift + K1 / K2: the project's key, no synth track needed
     case PageId::TimeCorrect: { // Shift: humanize, its velocity, the groove's amount (a pad picks the groove)
         auto feel = feel_cards(pattern, 0), more = feel_cards(pattern, 1);
@@ -940,18 +936,6 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         return {Binding {Kind::PrintTapPick, 0, 0, 1, int(sheet.tap)}, Binding {Kind::PrintTailPick, 0, 0, 2, int(sheet.tail)}, Binding {}};
     }
     case PageId::Song: {
-        if (track.is_audio()) { // freeze plan F3: its regions
-            const unsigned bar = project.bar_ticks();
-            std::array<uint16_t, song_regions> lane {};
-            unsigned count = project.song.lane_regions(ui.track, bar, lane), at = 0;
-            int here = project.song.region_at(ui.track, ui.song_cursor * bar, bar);
-            for (unsigned n = 0; n < count; ++n) if (int(lane[n]) == here) at = n;
-            Binding zoom {Kind::SongZoom, 0, 0, int(sizeof(song_zooms) / sizeof(song_zooms[0])) - 1, ui.song_zoom};
-            if (!count) return {zoom, Binding {}, Binding {}};
-            unsigned bars = here >= 0 ? (region_ticks(project.song.regions[size_t(here)]) + bar / 2) / bar : 0;
-            return {zoom, Binding {Kind::SongRegion, here, 0, std::max(int(count) - 1, 1), int(at)},
-                    here >= 0 ? Binding {Kind::SongRegionBars, here, 1, 64, int(std::max(bars, 1u))} : Binding {}};
-        }
         int clip = project.song.clip_at(ui.track, ui.song_cursor);
         int pattern_value = clip >= 0 ? project.song.clips[size_t(clip)].pattern : ui.song_pattern;
         int length_value = clip >= 0 ? project.song.clips[size_t(clip)].bars : ui.song_length;
@@ -1005,10 +989,6 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     }
     case PageId::Record: case PageId::InputConfig: { // as on the MPC's Sample Record: K1 source, K2 rec length, K3 threshold
         const auto& in = ui.settings.input;
-        if (ui.page == PageId::Record && track.is_audio()) // freeze plan F3: an audio track's source and monitor, the input's gain
-            return {Binding {Kind::AudioSource, 0, 0, int(audio_source_count) - 1, int(audio_source_index(track.audio.source))},
-                    Binding {Kind::AudioMonitorMode, 0, 0, int(TrackMonitor::Count) - 1, int(track.audio.monitor)},
-                    Binding {Kind::RecGain, 0, -12, 24, in.gain}};
         auto choices = input_choices(project, ui.track, in);
         return {Binding {Kind::RecSource, 0, 0, int(choices.count) - 1, int(choices.index_of(input_code(in)))},
                 Binding {Kind::RecLength, 0, 0, int(rec_lengths) - 1, in.length},
@@ -1070,7 +1050,7 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         return {Binding {Kind::EventLength, 0, 1, 64, int(std::min(steps, 64u))}, Binding {Kind::EventVelocity, 0, 1, 127, e.velocity},
                 Binding {Kind::EventChance, 0, 0, 100, e.chance}};
     }
-    case PageId::Stage: return stage_bindings(project, ui, false);
+    case PageId::Stage: return stage_bindings(project, ui, pattern, false);
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader
     // page keeps the favourites (fader C): a pot turned there is what the fader learns.
     case PageId::SettingsPage: case PageId::About: case PageId::MidiConfig: return {};

@@ -222,17 +222,16 @@ void Context::record_tick(uint32_t at) {
     bool page = ui.page == PageId::Record;
     // Monitor: Auto hears the source only while Record is in view.
     bool monitoring = in.monitoring(page);
-    // Freeze plan F3: an audio track selected (or one recording) takes its own source, and its Monitor says what is
-    // heard: In its input, Auto its input while armed (its Record page in view) or recording, Merge both; its regions
-    // go quiet under In, and under Auto while it records.
+    // Freeze plan F3: an audio track selected (or one recording) takes its own source; with its Monitor on, its input
+    // is heard while Seq Record arms it or it records (as the MPC's Auto). While it records, its old take is not heard.
     const int audio_t = audio_take_track >= 0 ? audio_take_track : track().is_audio() ? int(ui.track) : -1;
     uint32_t quiet = 0;
     if (audio_t >= 0 && autosample_source < 0) {
         const auto& a = project.tracks[unsigned(audio_t)].audio;
         in.source = a.source;
-        const bool armed = (page && int(ui.track) == audio_t) || audio_take_track >= 0;
-        monitoring = a.monitor == TrackMonitor::In || a.monitor == TrackMonitor::Merge || (a.monitor == TrackMonitor::Auto && armed);
-        if (a.monitor == TrackMonitor::In || (a.monitor == TrackMonitor::Auto && ui.audio_rec_running)) quiet = 1u << unsigned(audio_t);
+        const bool armed = audio_take_track >= 0 || (int(ui.track) == audio_t && (ui.rec_armed || ui.recording));
+        monitoring = a.monitor == TrackMonitor::On && armed;
+        if (ui.audio_rec_running) quiet = 1u << unsigned(audio_t);
     }
     for (unsigned t = 0; t < track_count; ++t)
         if (((quiet ^ audio_quiet_sent) >> t) & 1) host.send({Type::AudioQuiet, uint8_t(t), 0, 0, int16_t((quiet >> t) & 1)});

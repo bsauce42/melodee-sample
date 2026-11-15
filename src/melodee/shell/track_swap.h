@@ -37,11 +37,6 @@ inline SwapChanges swap_tracks(Project& project, PatternBank& patterns, unsigned
         unsigned t = swapped(clip.track, a, b);
         if (t != clip.track) { clip.track = uint8_t(t); out.song = true; }
     }
-    for (unsigned n = 0; n < song.region_count; ++n) { // freeze plan F3: an audio track's regions
-        auto& region = song.regions[n];
-        unsigned t = swapped(region.track, a, b);
-        if (t != region.track) { region.track = uint8_t(t); out.song = true; }
-    }
     for (unsigned n = 0; n < song.punch_count; ++n) {
         auto& punch = song.punches[n];
         if (punch.target >= track_count) continue; // the master

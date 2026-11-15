@@ -316,32 +316,27 @@ public:
     // taken in, often, from the shell's tick.
     PrintEngine* printer = nullptr;
     PrintTable prints;
-    // Freeze plan F3, audio tracks (shell/audio_jobs.cpp): the thread that maps their regions and writes their takes
-    // (made once the app's print engine is set: none in the host tests), what each track's pack was made from, which
-    // were let go by the audio thread (a track load, another project) and the take armed or recording (-1 none).
+    // Freeze plan F3, audio tracks (shell/audio_jobs.cpp): the thread that maps their takes and writes new ones (made
+    // once the app's print engine is set: none in the host tests), what each track's pack was made from, which were
+    // let go by the audio thread (a track load, another project), the take armed or recording (-1 none) and whether the
+    // audio thread has said it is (so its end can be told), the tracks whose takes it keeps quiet, the takes' overviews.
     std::shared_ptr<AudioTracks> audio_tracks;
-    std::array<std::vector<AudioRegion>, track_count> audio_sent;
+    std::array<std::vector<std::pair<uint8_t, AudioRegion>>, track_count> audio_sent;
     std::array<uint32_t, track_count> audio_serial {};
     uint32_t audio_stale = 0xffff;
     std::string audio_sent_path;
-    unsigned audio_sent_bar = 0;
     int audio_take_track = -1;
-    uint32_t audio_quiet_sent = 0; // tracks whose regions the audio thread keeps quiet (their monitor hears the input)
-    std::shared_ptr<const TakePeaks> audio_peaks; // this project's takes' overviews, for the screen (a new map on each change)
+    bool audio_began = false;
+    uint32_t audio_quiet_sent = 0;
+    std::shared_ptr<const TakePeaks> audio_peaks; // a new map on each change, shared with the screen
     void add_peaks(TakePeaks&& more);
-    void sync_audio();  // each audio track's pack made again where its regions changed
-    void audio_tick();  // packs made sent, packs done freed, takes recorded placed in the song
-    // A take for audio track `track` from bar `from` to bar `to` (0: until Stop), armed for the song's next Play;
-    // false (and a notice) when it cannot be.
-    bool record_audio(unsigned track, unsigned from, unsigned to);
-    void cancel_audio(); // the take armed let go (one recording ends with Stop)
-    // The Record page on an audio track: Play (or Push) records the brace's bars once (B3: from the cursor until
-    // Stop), the song playing from where the take starts; the wheel moves the brace (or the cursor), Shift + wheel its
-    // length; B3 between the two.
-    void audio_record_play();
-    void audio_record_wheel(int delta);
-    void toggle_audio_free();
-    void set_region_value(const Binding& b, int value); // Stage's CLIP, FADES, WARP and MODE cards on a region
+    void sync_audio(); // each audio track's pack made again where its patterns' takes changed
+    void audio_tick(); // packs made sent, packs done freed, takes recorded put in their patterns
+    // Seq Record on an audio track: a take of one pass of its pattern, from where the pattern next comes round; false
+    // (and a notice) when it cannot be. end_audio(): it ends now and is kept, or (not begun) is let go.
+    bool record_audio(unsigned track);
+    void end_audio(bool keep);
+    void set_region_value(const Binding& b, int value); // Stage's CLIP and FADES cards on the pattern's take
     struct PrintAsk {
         uint8_t track = 0;
         std::array<uint64_t, (pattern_count + 63) / 64> patterns {};

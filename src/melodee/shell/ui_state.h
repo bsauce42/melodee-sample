@@ -224,11 +224,8 @@ struct UiState {
     uint8_t song_zoom = 2;      // index into song_zooms
     uint8_t song_pattern = 0;   // what Push places on empty time
     uint8_t song_length = 4;    // bars
-    // Freeze plan F3, the Record page on an audio track: B3 records from the cursor until Stop (no loop); the take
-    // armed or recording (its track, -1 none; its bars, `audio_rec_to` 0 until Stop; whether it runs now).
-    bool audio_free = false;
+    // Freeze plan F3: an audio track's take armed or recording (its track, -1 none), and whether it runs now.
     int8_t audio_rec_track = -1;
-    uint16_t audio_rec_from = 0, audio_rec_to = 0;
     bool audio_rec_running = false;
     // Per chain: the slot (or + ADD) and parameter row; the pad chains share the last entry (cursor_of()).
     std::array<uint8_t, chain_count + 1> fx_cursor {}, fx_row {};

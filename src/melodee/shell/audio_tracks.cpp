@@ -161,19 +161,16 @@ void AudioTracks::run() {
     }
 }
 
-// Each region of the job that is not muted, by start: its take read in place (once for every region of it), its
-// frames counted at the take's own rate, and a second from where it starts pinned so it plays at once there.
+// Each pattern's take: its file read in place (once for every pattern playing it), its frames counted at the take's
+// own rate, and a second from where it starts pinned so it plays at once there.
 void AudioTracks::make(const AudioPackJob& job) {
     AudioPackMade out;
     out.track = job.track; out.serial = job.serial;
     auto pack = std::make_unique<AudioPack>();
     pack->track = uint8_t(job.track);
-    std::vector<AudioRegion> regions = job.regions;
-    const unsigned bar = std::max(job.bar_ticks, 1u);
-    std::sort(regions.begin(), regions.end(), [&](const AudioRegion& a, const AudioRegion& b) { return region_start(a, bar) < region_start(b, bar); });
     std::map<unsigned, ZonePart*> parts;
-    for (const auto& r : regions) {
-        if (r.muted || !r.used()) continue;
+    for (const auto& [pattern, r] : job.takes) {
+        if (!r.used()) continue;
         auto found = parts.find(r.take);
         ZonePart* part = nullptr;
         if (found != parts.end()) {
@@ -191,30 +188,28 @@ void AudioTracks::make(const AudioPackJob& job) {
             if (part) out.peaks[r.take] = peaks_of(job.folder, r.take);
         }
         if (!part || !part->total) { ++out.missing; continue; }
-        const double k = double(part->rate) / 44100.0; // the region counts 44.1 kHz frames; the take has its own
+        const double k = double(part->rate) / 44100.0; // the take counts 44.1 kHz frames; its file has its own
         auto own = [&](uint32_t frames) { return uint32_t(std::llround(double(frames) * k)); };
-        RegionClip c;
+        const uint32_t offset = std::min(own(r.offset), part->total - 1);
+        const uint32_t frames = std::min(own(r.frames), part->total - offset);
+        if (!frames) continue;
+        RegionClip& c = pack->add(pattern);
         c.take = part;
-        c.start = region_start(r, bar);
-        c.end = region_end(r, bar);
-        c.offset = std::min(own(r.offset), part->total - 1);
-        c.frames = std::min(own(r.frames), part->total - c.offset);
-        if (!c.frames) continue;
-        c.fade_in = std::min(own(r.fade_in), c.frames);
-        c.fade_out = std::min(own(r.fade_out), c.frames);
+        c.offset = offset;
+        c.frames = frames;
+        c.fade_in = std::min(own(r.fade_in), frames);
+        c.fade_out = std::min(own(r.fade_out), frames);
         c.gain = std::pow(10.0f, float(r.gain) / 200.0f);
         c.reverse = r.reverse;
-        const uint32_t second = std::min(c.frames, uint32_t(part->rate));
+        const uint32_t second = std::min(frames, uint32_t(part->rate));
         if (pager) {
-            if (c.reverse) pager->hold(*part, c.offset + c.frames - second, second);
-            else if (pager->hold(*part, c.offset, second)) c.held = second;
+            if (c.reverse) pager->hold(*part, offset + frames - second, second);
+            else if (pager->hold(*part, offset, second)) c.held = second;
         }
-        if (!pack->regions.empty() && pack->regions.back().end > c.start) pack->regions.back().end = c.start; // never two at once
-        pack->regions.push_back(c);
     }
     out.pack = pack.release();
     std::lock_guard<std::mutex> held(lock);
-    made.push_back(out);
+    made.push_back(std::move(out));
 }
 
 // The take: its file opened when it is asked for, the engine host's frames written as they come, and once the take
@@ -270,6 +265,7 @@ void AudioTracks::drain() {
     if (!ended || !ring.drained()) return; // a take stopped before its first bar ends Cancelled, with nothing in it
     AudioTakeDone done;
     done.job = take_job;
+    done.pattern = host.audio_take_pattern();
     done.rate = take_rate;
     done.frames = take_file.frames();
     bool whole = take_file.close();

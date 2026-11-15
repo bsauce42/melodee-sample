@@ -387,10 +387,9 @@ void Shell::press(Button b, bool pressed) {
         if (ui.shift) { context_.audio_recall(); break; } // Audio Recall: the input ring's last 25 s
         if (ui.page == PageId::AutoSample && ui.auto_sheet.sampling) break; // AUTO SAMPLE (Shift + Pad 11) runs: B1 calls it off
         if (ui.page == PageId::Print) { context_.print_sheet_cancel(); break; } // again: the sheet closes, calling off its prints
-        if (context_.track().is_audio()) { // freeze plan F3: an audio track's Record page; there, a take starts or ends
-            if (ui.page != PageId::Record) context_.open(PageId::Record);
-            else if (context_.host.playing()) context_.stop();
-            else context_.audio_record_play();
+        if (context_.track().is_audio()) { // freeze plan F3: an audio track's input, on Stage's INPUT (Seq Record records)
+            stage_go(ui, 1, 0);
+            if (ui.page != PageId::Stage) context_.open(PageId::Stage);
             break;
         }
         if (context_.track().engine != EngineKind::Sampler) { context_.open_print_sheet(); break; } // freeze plan F2c: PRINT
@@ -756,6 +755,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
             sketch.moves = uint16_t(std::min<size_t>(pattern.motion.size(), 0xffff));
             sketch.follows = pattern.follow.on(); // roadmap P5
             sketch.program = pattern.program;
+            sketch.audio = pattern.audio; // freeze plan F3: an audio track's take
             for (const auto& e : pattern.events) { // the first note of each of the first 64 sixteenths
                 unsigned k = e.tick / sixteenth_ticks;
                 if (k >= sketch.keys.size() || e.tick >= pattern.length) break;

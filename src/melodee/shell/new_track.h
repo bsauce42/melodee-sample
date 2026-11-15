@@ -15,8 +15,8 @@
 // there and, once made, back to the page it was picked on (B1 BACK goes back
 // empty): a kit or a MIDI track at once, a plug-in once one is picked from the
 // card, a kit from Samples once its first sample loads, a keygroup once its
-// instrument (or WAV) loads from Samples, an audio track at once, on its Record
-// page (freeze plan F3). B1 CANCEL at the top of Samples leaves that kit or
+// instrument (or WAV) loads from Samples, an audio track at once, on Stage's
+// INPUT (freeze plan F3). B1 CANCEL at the top of Samples leaves that kit or
 // keygroup empty again.
 namespace melodee {
 

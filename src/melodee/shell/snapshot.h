@@ -28,6 +28,7 @@ struct PatternSketch {
     bool follows = false; // it has a follow action (roadmap P5)
     uint8_t program = 0;  // a MIDI track's own program for it (Pattern::program)
     std::array<uint8_t, 64> keys {};
+    AudioRegion audio; // freeze plan F3: an audio track's pattern's take (Pattern::audio)
 };
 
 struct Snapshot {

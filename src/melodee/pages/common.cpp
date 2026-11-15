@@ -346,12 +346,7 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::SongZoom: c.label = "ZOOM"; c.value = juce::String(song_zooms[b.value]); c.unit = "bars"; break;
     case Kind::SongPattern: c.label = "PATTERN"; c.value = "P" + juce::String(b.value + 1); break;
     case Kind::SongLength: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "bar" : "bars"; break;
-    case Kind::SongRegion: // freeze plan F3: the region at the cursor by its take
-        c.label = "REGION";
-        c.value = b.id >= 0 && unsigned(b.id) < s.project.song.region_count ? "Take " + juce::String(s.project.song.regions[size_t(b.id)].take) : juce::String("None");
-        break;
-    case Kind::SongRegionBars: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "bar" : "bars"; break;
-    case Kind::RegionGain: { // freeze plan F3: Stage on an audio track's region
+    case Kind::RegionGain: { // freeze plan F3: Stage on an audio track's pattern's take
         c.label = "LEVEL";
         juce::String sign = b.value < 0 ? juce::String::fromUTF8("\xe2\x88\x92") : b.value > 0 ? juce::String("+") : juce::String();
         c.value = sign + juce::String(std::abs(b.value) / 10.0, 1); c.unit = "dB"; c.bipolar = true;
@@ -366,11 +361,6 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         if (b.value < 1000) { c.value = juce::String(b.value); c.unit = "ms"; } else { c.value = juce::String(b.value / 1000.0, 2); c.unit = "s"; }
         break;
     case Kind::RegionReverse: c.label = "REVERSE"; c.value = b.value ? "On" : "Off"; break;
-    case Kind::RegionBpm: c.label = "BPM"; c.value = juce::String(b.value / 10) + "." + juce::String(b.value % 10); break;
-    case Kind::RegionSemi: c.label = "SEMI"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.bipolar = true; break;
-    case Kind::RegionFine: c.label = "FINE"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.unit = "ct"; c.bipolar = true; break;
-    case Kind::RegionWarp: c.label = "WARP"; c.value = b.value ? "On" : "Off"; break;
-    case Kind::RegionMode: c.label = "MODE"; c.value = warp_mode_name(WarpMode(b.value)); break;
     case Kind::FxParam: {
         const auto& slot = s.project.chain(unsigned(b.id) / 64).slots[(unsigned(b.id) / 8) % 8];
         const auto& pi = effect_info(EffectKind(slot.kind)).params[unsigned(b.id) % 8];

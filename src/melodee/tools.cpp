@@ -522,35 +522,38 @@ void layered_pad(Snapshot& s, LayerPlay play) {
     h.serial = 41; h.pad = 8; h.slot = 1; h.from = 0; h.to = 26460; h.at = 6000; h.level = 0.8f; h.wake = 1; h.step = 1;
 }
 
-// Freeze plan F3's previews: track 13 an audio track (VOX) with two takes on its lane, bars 17-22 and 25-32, the
-// song's loop on bars 25-32, the input heard at about -12 dB.
-void audio_scene(Snapshot& s) {
+// Freeze plan F3's previews: track 13 an audio track (VOX) on pattern A1 of two bars, with take 3 in it (`take`) or
+// none, the input heard at about -12 dB; on the Song, A1's clips on its lane at bars 17, 19 and 25.
+void audio_scene(Snapshot& s, bool take) {
     auto& t = s.project.tracks[12];
     t = Track {};
     t.engine = EngineKind::Audio; t.set_name("VOX");
-    t.audio.source = InputSource::Rear; t.audio.monitor = TrackMonitor::Auto;
-    auto& song = s.project.song;
+    t.audio.source = InputSource::Mic; t.audio.monitor = TrackMonitor::On;
     const unsigned bar = s.project.bar_ticks();
-    song.drop_regions(12);
-    for (auto [take, from, bars] : {std::array<unsigned, 3> {1, 16, 6}, std::array<unsigned, 3> {2, 24, 8}}) {
+    s.pattern = Pattern {};
+    s.pattern.length = 2 * bar;
+    if (take) {
         AudioRegion r;
-        r.track = 12; r.take = uint16_t(take); r.bar = uint16_t(from); r.tempo = s.project.tempo;
-        r.frames = r.take_frames = uint32_t(ticks_to_frames(bars * bar, s.project.tempo));
-        song.place_region(r, bar);
+        r.take = 3; r.tempo = uint16_t(s.tempo);
+        r.frames = r.take_frames = uint32_t(ticks_to_frames(2 * bar, s.tempo));
+        s.pattern.audio = r;
     }
-    song.loop_start = 24; song.loop_end = 32;
-    s.ui.track = 12; s.ui.song_cursor = 24;
+    auto& sketch = s.sketches[12][0];
+    sketch = PatternSketch {};
+    sketch.length = s.pattern.length; sketch.notes = take; sketch.audio = s.pattern.audio;
+    s.has_notes[12] = take;
+    s.ui.track = 12;
     s.take.left = 0.26f; s.take.right = 0.22f;
+    auto& song = s.project.song;
+    for (unsigned at : {16u, 18u, 24u}) { Clip c; c.track = 12; c.pattern = 0; c.bar = uint16_t(at); c.bars = 2; song.place(c); }
     auto peaks = std::make_shared<TakePeaks>(); // a sung line: phrases rising and falling, breaths between
-    for (unsigned take : {1u, 2u}) {
-        auto& v = (*peaks)[take];
-        v.resize(2000);
-        for (size_t n = 0; n < v.size(); ++n) {
-            double phrase = std::fmod(double(n) / (take == 1 ? 130.0 : 170.0), 1.0);
-            double shape = phrase < 0.85 ? std::sin(phrase / 0.85 * 3.14159) : 0.03;
-            double grain = 0.75 + 0.25 * std::sin(double(n) * 0.9 + take) * std::sin(double(n) * 0.13);
-            v[n] = uint8_t(std::clamp(shape * grain * 230.0, 0.0, 255.0));
-        }
+    auto& v = (*peaks)[3];
+    v.resize(800);
+    for (size_t n = 0; n < v.size(); ++n) {
+        double phrase = std::fmod(double(n) / 120.0, 1.0);
+        double shape = phrase < 0.85 ? std::sin(phrase / 0.85 * 3.14159) : 0.03;
+        double grain = 0.75 + 0.25 * std::sin(double(n) * 0.9) * std::sin(double(n) * 0.13);
+        v[n] = uint8_t(std::clamp(shape * grain * 230.0, 0.0, 255.0));
     }
     s.audio_peaks = peaks;
 }
@@ -1732,29 +1735,34 @@ const Preview previews[] {
          s.usb_state = uint8_t(UsbStreamState::Waiting);
          s.ui.turning = 2; s.ui.turned_at = s.now;
      }},
-    {"recordaudio", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Record; }}, // freeze plan F3: the brace on bars 25-32
-    {"recordaudiorec", [](Shell&, Snapshot& s) { // recording them: the take grows to where the song is
-         audio_scene(s); s.ui.page = PageId::Record;
-         s.ui.audio_rec_track = 12; s.ui.audio_rec_from = 24; s.ui.audio_rec_to = 32; s.ui.audio_rec_running = true;
-         s.playing = s.song_playing = true; s.song_bar = 28; s.ticks = 28 * 384 + 160;
+    {"stageaudioinput", [](Shell&, Snapshot& s) { audio_scene(s, false); on_stage(s, 12, 1, 0); }}, // freeze plan F3: INPUT, A1 empty
+    {"stageaudioarmed", [](Shell&, Snapshot& s) { // Seq Record pressed: Play records; the mic heard, the speaker quiet
+         audio_scene(s, false); on_stage(s, 12, 1, 0);
+         s.ui.rec_armed = true; s.speaker_quieted = true; s.take.left = 0.4f; s.take.right = 0.36f;
      }},
-    {"recordaudiofree", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Record; s.ui.audio_free = true; }}, // B3: until Stop
-    {"songaudio", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Song; s.ui.song_cursor = 24; s.ui.song_view = 16; }},
-    {"stageaudioclip", [](Shell&, Snapshot& s) { // freeze plan F3: the region at the cursor (take 2), its start trimmed and faded in
-         audio_scene(s); on_stage(s, 12, 0, 0);
-         auto& r = s.project.song.regions[size_t(s.project.song.region_at(12, 24 * 384, 384))];
+    {"stageaudiorec", [](Shell&, Snapshot& s) { // recording A1, in its second bar
+         audio_scene(s, false); on_stage(s, 12, 1, 0);
+         s.ui.recording = true; s.ui.audio_rec_track = 12; s.ui.audio_rec_running = true; s.speaker_quieted = true;
+         s.playing = true; s.position = 480; s.take.left = 0.5f; s.take.right = 0.45f;
+     }},
+    {"stageaudioagain", [](Shell&, Snapshot& s) { // recording over A1's take: the old one dim under the new
+         audio_scene(s, true); on_stage(s, 12, 1, 0);
+         s.ui.recording = true; s.ui.audio_rec_track = 12; s.ui.audio_rec_running = true; s.speaker_quieted = true;
+         s.playing = true; s.position = 230; s.take.left = 0.5f; s.take.right = 0.45f;
+     }},
+    {"stageaudioclip", [](Shell&, Snapshot& s) { // A1's take playing; its start trimmed and faded in
+         audio_scene(s, true); on_stage(s, 12, 0, 0);
+         auto& r = s.pattern.audio;
          r.gain = 15; r.offset = 3175; r.frames -= 3175; r.fade_in = 1323; r.fade_out = 6615;
+         s.sketches[12][0].audio = r;
+         s.playing = true; s.position = 290;
      }},
     {"stageaudiofades", [](Shell&, Snapshot& s) {
-         audio_scene(s); on_stage(s, 12, 0, 1);
-         auto& r = s.project.song.regions[size_t(s.project.song.region_at(12, 24 * 384, 384))];
-         r.fade_in = 8820; r.fade_out = 22050;
+         audio_scene(s, true); on_stage(s, 12, 0, 1);
+         s.pattern.audio.fade_in = 8820; s.pattern.audio.fade_out = 22050;
+         s.sketches[12][0].audio = s.pattern.audio;
      }},
-    {"stageaudiowarp", [](Shell&, Snapshot& s) { audio_scene(s); on_stage(s, 12, 1, 0); }},
-    {"stageaudiomode", [](Shell&, Snapshot& s) {
-         audio_scene(s); on_stage(s, 12, 1, 1);
-         s.project.song.regions[size_t(s.project.song.region_at(12, 24 * 384, 384))].warp = true;
-     }},
+    {"songaudio", [](Shell&, Snapshot& s) { audio_scene(s, true); s.ui.page = PageId::Song; s.ui.song_cursor = 24; s.ui.song_view = 16; }},
     {"record", [](Shell&, Snapshot& s) { // a take onto B01 with three pads cut from it
          s.ui.page = PageId::Record; s.ui.track = 3; s.playing = true;
          auto& in = s.ui.settings.input;
@@ -2607,13 +2615,14 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
         shell.snapshot(*snapshot, 100000);
         snapshot->ui = UiState {};
         snapshot->now = 100000;
+        const Pattern before = snapshot->pattern;
         preview.set(shell, *snapshot);
         // MELODEE_PALETTE / MELODEE_FONT: every page in another of Settings' palettes or faces (by number).
         if (auto* v = std::getenv("MELODEE_PALETTE"); v && !snapshot->ui.settings_look) snapshot->ui.settings.palette = uint8_t(std::atoi(v));
         if (auto* v = std::getenv("MELODEE_FONT"); v && !snapshot->ui.settings_look) snapshot->ui.settings.font = uint8_t(std::atoi(v));
-        // The pattern in view follows the track the preview picked.
+        // The pattern in view follows the track the preview picked (unless it set one of its own).
         const auto& track = snapshot->project.tracks[snapshot->ui.track];
-        snapshot->pattern = shell.patterns().at[snapshot->ui.track][track.pattern];
+        if (snapshot->pattern == before) snapshot->pattern = shell.patterns().at[snapshot->ui.track][track.pattern];
         for (int scale : {1, 2}) {
             juce::Image image(juce::Image::ARGB, screen_width * scale, screen_height * scale, true);
             std::vector<ui::TextIssue> issues;

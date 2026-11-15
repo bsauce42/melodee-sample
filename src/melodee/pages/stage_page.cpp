@@ -21,7 +21,9 @@
 #include "melodee/engine/midi_engine.h"
 #include "melodee/engine/sampler.h"
 #include "melodee/model/chords.h"
+#include "melodee/model/print.h"
 #include "melodee/model/scales.h"
+#include "melodee/pages/input_meter.h"
 #include "melodee/pages/sampler_common.h"
 #include "melodee/shell/key_pick.h"
 #include "melodee/shell/meter_lights.h"
@@ -802,58 +804,110 @@ void cc_picture(Paint& p, const Snapshot& s) {
 
 // An empty track: what it can become, as a carousel in two steps (shell/new_track.h): the track types in the MPC's
 // order, then the sources of the type opened. The wheel moves along it, Push opens or makes the card in the middle.
-// Freeze plan F3, an audio track's region at the Song cursor (CLIP, FADES, WARP, MODE): the whole take in small with
-// the part the region plays lit, then the region large, its fades drawn over it; under it where it sits in the song
-// (and on WARP its BPM and whether it follows the song's tempo).
-int stage_region(const Snapshot& s) {
-    const unsigned bar = s.project.bar_ticks();
-    return s.project.song.region_near(s.ui.track, s.ui.song_cursor * bar, bar);
+// Freeze plan F3, an audio track's pattern in hand. Its bars across the picture (numbered over a frame), and in it
+// the take as long as it plays at the tempo now: CLIP and FADES draw it, its fades over it; INPUT draws what Seq Record
+// + Play will do (glyphs on an empty pattern; armed, a dashed red frame; recording, the take so far in red over the old
+// one), then the input's level, left over right.
+constexpr float take_x = px + 6, take_w = pw - 12, take_y = top + 22;
+void take_frame(Paint& p, const Snapshot& s, float h) {
+    const unsigned bar = std::max(1u, s.project.bar_ticks()), bars = std::max(1u, (s.pattern.length + bar - 1) / bar);
+    p.fill(take_x, take_y, take_w, h, colour::panel, 3);
+    const unsigned every = bars <= 8 ? 1 : bars <= 16 ? 2 : 4;
+    for (unsigned b = 0; b < bars; ++b) {
+        float bx = take_x + take_w * float(b * bar) / s.pattern.length;
+        if (b) p.fill(bx, take_y, 1, h, colour::line);
+        if (b % every == 0) p.text(juce::String(b + 1), bx + 3, take_y - 16, 30, 14, plain(colour::mid, type::small, Weight::SemiBold));
+    }
+}
+// The take's width in the pattern's frame: its frames at the tempo playing now, no wider than the pattern.
+float take_span(const Snapshot& s, const AudioRegion& r) {
+    const float ticks = float(frames_to_ticks(r.frames, s.tempo));
+    return std::min(take_w, take_w * ticks / std::max<uint32_t>(s.pattern.length, 1));
+}
+void glyph_hint(Paint& p, float cy, const juce::String& words, bool armed) {
+    float x = zone::width / 2.0f;
+    if (!armed) {
+        p.circle(x - 30, cy, 6, colour::rec);
+        p.text("+", x - 22, cy - 9, 18, 18, plain(colour::mid, type::body, Weight::SemiBold), juce::Justification::centred);
+        icon(p, Icon::Play, x - 2, cy - 7, 14, colour::text, 1.6f);
+    } else {
+        icon(p, Icon::Play, x - 7, cy - 7, 14, colour::text, 1.6f);
+    }
+    p.text(words, 0, cy + 12, zone::width, 14, caps_text(armed ? colour::rec : colour::sec), juce::Justification::centred);
 }
 void region_picture(Paint& p, const Snapshot& s, const StagePage& page) {
-    const int at = stage_region(s);
+    const auto& r = s.pattern.audio;
     auto c = colour_of(s);
-    if (at < 0) {
-        icon(p, Icon::Wav, zone::width / 2.0f - 14, top + 40, 28, colour::mid, 1.4f);
-        p.text("NO TAKE YET", 0, top + 76, zone::width, 14, caps_text(colour::mid), juce::Justification::centred);
-        return;
+    const float h = 92;
+    take_frame(p, s, h);
+    if (!r.used()) { glyph_hint(p, take_y + h / 2 - 8, "RECORDS P" + juce::String(s.track().pattern + 1) + " ONCE", false); return; }
+    const float w = take_span(s, r);
+    region_wave(p, s, r, take_x + 2, take_y + 2, w - 4, h - 4, c);
+    if (page.kind == StageKind::Fades || page.kind == StageKind::Clip) {
+        p.g.setColour(colour::text);
+        if (r.fade_in) { float fw = w * float(r.fade_in) / r.frames; p.g.drawLine(take_x, take_y + h - 2, take_x + fw, take_y + 2, 1.4f); }
+        if (r.fade_out) { float fw = w * float(r.fade_out) / r.frames; p.g.drawLine(take_x + w - fw, take_y + 2, take_x + w, take_y + h - 2, 1.4f); }
     }
-    const auto& r = s.project.song.regions[size_t(at)];
-    const unsigned bar = std::max(1u, s.project.bar_ticks());
-    // The take: dim end to end, the region's part lit.
-    const float tx = px + 6, tw = pw - 12, ty = top + 6, th = 14;
-    p.fill(tx, ty, tw, th, colour::panel, 2);
-    AudioRegion whole = r;
-    whole.offset = 0; whole.frames = std::max(r.take_frames, 1u); whole.fade_in = whole.fade_out = 0; whole.gain = 0; whole.reverse = false;
-    region_wave(p, s, whole, tx, ty, tw, th, colour::dim);
-    const float from = tw * float(r.offset) / whole.frames, span = std::max(2.0f, tw * float(r.frames) / whole.frames);
-    p.ring(tx + from, ty, span, th, c, 2, 1.2f);
-    // The region large, with its fades as ramps over it.
-    const float wx = px + 6, ww = pw - 12, wy = ty + th + 8, wh = 74;
-    p.fill(wx, wy, ww, wh, colour::panel, 3);
-    if (r.muted) p.text("MUTED", wx, wy, ww, wh, caps_text(colour::mid), juce::Justification::centred);
-    else region_wave(p, s, r, wx + 2, wy + 2, ww - 4, wh - 4, c);
-    const bool fades = page.kind == StageKind::Fades || page.kind == StageKind::Clip;
-    if (fades && r.fade_in) { float fw = ww * float(r.fade_in) / r.frames; p.g.setColour(colour::text); p.g.drawLine(wx, wy + wh - 2, wx + fw, wy + 2, 1.4f); }
-    if (fades && r.fade_out) { float fw = ww * float(r.fade_out) / r.frames; p.g.setColour(colour::text); p.g.drawLine(wx + ww - fw, wy + 2, wx + ww, wy + wh - 2, 1.4f); }
-    if (r.reverse) icon(p, Icon::Reverse, wx + ww - 16, wy + 3, 12, colour::text, 1.4f);
-    if (page.kind == StageKind::Warp || page.kind == StageKind::WarpMode) { // its beats at its BPM, a bar's taller
-        const unsigned beat = std::max(1u, s.project.beat_ticks()), ticks = region_ticks(r);
-        if (ticks / beat <= 128)
-            for (unsigned b = 0; b * beat <= ticks; ++b) {
-                bool line = (b * beat) % bar == 0;
-                p.fill(wx + ww * float(b * beat) / ticks, wy + wh - (line ? 9 : 5), 1, line ? 9 : 5, line ? colour::mid : colour::line);
-            }
+    if (r.reverse) icon(p, Icon::Reverse, take_x + w - 16, take_y + 3, 12, colour::text, 1.4f);
+    if (s.playing && s.has_notes[s.ui.track % track_count]) { // where the pattern plays
+        float at = take_x + take_w * float(s.position % std::max<uint32_t>(s.pattern.length, 1)) / std::max<uint32_t>(s.pattern.length, 1);
+        p.fill(at, take_y - 2, 1, h + 4, colour::text);
     }
-    // Where it sits: its bars (a part of one counted as a bar) and how long it is.
-    const unsigned first = r.bar + 1, last = (region_end(r, bar) + bar - 1) / bar, bars = last >= first ? last - first + 1 : 1;
-    juce::String where = juce::String(first) + juce::String::fromUTF8("\xe2\x80\x93") + juce::String(last) + juce::String::fromUTF8(" \xc2\xb7 ")
-                       + juce::String(bars) + (bars == 1 ? " BAR" : " BARS");
-    if (page.kind == StageKind::Warp || page.kind == StageKind::WarpMode)
-        where = juce::String(r.tempo / 10) + "." + juce::String(r.tempo % 10) + " BPM" + juce::String::fromUTF8(" \xc2\xb7 ")
-              + (r.warp ? juce::String("FOLLOWS THE SONG") : juce::String("AS RECORDED"));
+    const unsigned bar = std::max(1u, s.project.bar_ticks()), bars = std::max(1u, (s.pattern.length + bar - 1) / bar);
+    juce::String what = juce::String(bars) + (bars == 1 ? " BAR" : " BARS") + juce::String::fromUTF8(" \xc2\xb7 ") + "TAKE " + juce::String(r.take);
     auto style = plain(colour::mid, type::small, Weight::SemiBold);
-    float w = p.width(where, style);
-    p.text(where, px + pw - w - 4, wy + wh + 4, w + 1, 14, style);
+    float ww = p.width(what, style);
+    p.text(what, px + pw - ww - 4, take_y + h + 6, ww + 1, 14, style);
+}
+void input_picture(Paint& p, const Snapshot& s) {
+    const unsigned t = s.ui.track % track_count;
+    const auto& r = s.pattern.audio;
+    auto c = colour_of(s);
+    const bool armed = s.ui.audio_rec_track == int(t) || (s.ui.rec_armed && !s.ui.recording);
+    const bool running = s.ui.audio_rec_track == int(t) && s.ui.audio_rec_running;
+    const float h = 72;
+    take_frame(p, s, h);
+    const uint32_t length = std::max<uint32_t>(s.pattern.length, 1);
+    const float at = s.playing ? take_w * float(s.position % length) / length : 0;
+    if (running) { // the old take dim, the new one so far in red over it
+        if (r.used()) region_wave(p, s, r, take_x + 2, take_y + 2, take_span(s, r) - 4, h - 4, c.withAlpha(0.35f));
+        p.fill(take_x, take_y, at, h, colour::panel, 3);
+        const float level = std::clamp((20 * std::log10(std::max(1e-5f, std::max(s.take.left, s.take.right))) + 60) / 60, 0.05f, 1.0f);
+        for (float x = take_x + 2; x < take_x + at - 1; x += 2.4f) {
+            float wobble = 0.55f + 0.45f * std::sin(x * 0.7f) * std::sin(x * 0.13f + 1);
+            float half = std::max(0.5f, level * wobble * (h / 2 - 2));
+            p.fill(x, take_y + h / 2 - half, 1.5f, half * 2, colour::rec);
+        }
+        p.fill(take_x + at, take_y - 2, 1.5f, h + 4, colour::rec);
+    } else if (armed) {
+        if (r.used()) region_wave(p, s, r, take_x + 2, take_y + 2, take_span(s, r) - 4, h - 4, c.withAlpha(0.35f));
+        juce::Path frame;
+        frame.addRoundedRectangle(take_x + 0.5f, take_y + 0.5f, take_w - 1, h - 1, 3);
+        juce::Path dashed;
+        const float dashes[] {4, 4};
+        juce::PathStrokeType(1.0f).createDashedStroke(dashed, frame, dashes, 2);
+        p.g.setColour(colour::rec); p.g.fillPath(dashed);
+        glyph_hint(p, take_y + h / 2 - 8, "PLAY RECORDS", true);
+    } else if (r.used()) {
+        region_wave(p, s, r, take_x + 2, take_y + 2, take_span(s, r) - 4, h - 4, c);
+    } else {
+        glyph_hint(p, take_y + h / 2 - 8, "RECORDS P" + juce::String(s.track().pattern + 1) + " ONCE", false);
+    }
+    // The input's level, left over right; recording, which bar of how many.
+    const float my = take_y + h + 10;
+    auto fraction = [](float level) { return level > 0 ? std::clamp((20 * std::log10(level) + 96) / 96, 0.0f, 1.0f) : 0.0f; };
+    for (int side = 0; side < 2; ++side) {
+        float level = fraction(side ? s.take.right : s.take.left), sy = my + side * 4.5f;
+        p.fill(px, sy, pw, 3, colour::line, 1.5f);
+        if (level > 0) p.fill(px, sy, pw * level, 3, c, 1.5f);
+    }
+    if (running) {
+        const unsigned bar = std::max(1u, s.project.bar_ticks()), bars = std::max(1u, (length + bar - 1) / bar);
+        juce::String where = "BAR " + juce::String(std::min(bars, s.position % length / bar + 1)) + " OF " + juce::String(bars);
+        auto style = plain(colour::rec, type::small, Weight::Bold);
+        float ww = p.width(where, style);
+        p.text(where, px + pw - ww, my + 12, ww + 1, 14, style);
+    }
 }
 
 void new_track_picture(Paint& p, const Snapshot& s) {
@@ -1084,12 +1138,16 @@ void draw(Paint& p, const Snapshot& s) {
     } else if (page.kind == StageKind::PluginEdit && plugin_ready(s)) { // the share of each audio block it takes, as Edit's
         const auto& panel = s.ui.plugin_panel;
         h.left.push_back(pill(Icon::Chip, juce::String(panel.load / 10) + " %", panel.load > 700 ? colour::amber : colour::mid));
-    } else if (page.picture == StagePicture::Region) { // freeze plan F3: which region, by its bar and take
-        if (int at = stage_region(s); at >= 0) {
-            const auto& r = s.project.song.regions[size_t(at)];
-            h.left.push_back(pill("BAR " + juce::String(r.bar + 1) + juce::String::fromUTF8(" \xc2\xb7 ") + "TAKE " + juce::String(r.take)));
-            if (r.warp && (page.kind == StageKind::Warp || page.kind == StageKind::WarpMode)) h.left.push_back(chip("WARP", c));
-        }
+    } else if (t.is_audio() && t.used()) { // freeze plan F3: the pattern in hand and its bars; red armed, filled recording
+        const unsigned bar = std::max(1u, s.project.bar_ticks()), bars = std::max(1u, (s.pattern.length + bar - 1) / bar);
+        juce::String name = "P" + juce::String(t.pattern + 1) + juce::String::fromUTF8(" \xc2\xb7 ") + juce::String(bars)
+                          + (bars == 1 ? " BAR" : " BARS");
+        const bool mine = s.ui.audio_rec_track == int(s.ui.track % track_count);
+        if (mine && s.ui.audio_rec_running) h.left.push_back(chip(Icon::Pattern, name, colour::rec));
+        else if (mine || (s.ui.rec_armed && !s.ui.recording)) h.left.push_back(pill(Icon::Pattern, name, colour::rec));
+        else h.left.push_back(pill(Icon::Pattern, name));
+        if (s.speaker_quieted) h.left.push_back(pill(Icon::SpeakerOff, "SPEAKER OFF", colour::amber));
+        else if (page.kind == StageKind::AudioInput) h.left.push_back(pill(source_icon(t.audio.source), juce::String(audio_source_label(t.audio.source)).toUpperCase()));
     } else if (page.kind == StageKind::Arp || page.kind == StageKind::Chord) { // on or off, as the LED on the MPC would say
         bool on = page.kind == StageKind::Arp ? t.arp : t.chord;
         h.left.push_back(pill(on ? Icon::Check : Icon::None, on ? "ON" : "OFF", on ? c : colour::mid));
@@ -1140,6 +1198,7 @@ void draw(Paint& p, const Snapshot& s) {
     case StagePicture::Engines: case StagePicture::Sources: case StagePicture::Ports: break; // new_track_picture
     case StagePicture::Colours: colours_picture(p, s); break;
     case StagePicture::Region: region_picture(p, s, page); break;
+    case StagePicture::Input: input_picture(p, s); break;
     }
 }
 
