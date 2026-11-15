@@ -212,33 +212,42 @@ class Mpc3Export(unittest.TestCase):
         self.assertTrue(voices["portamentoLegato"])
         self.assertAlmostEqual(voices["portamentoTime"], time, places=5)
 
-    def test_keygroup_release_tails(self):
-        # An auto sampled pad: a looped keygroup and its tail on the key's release (TriggerMode 1, the same WAV from
-        # frame 30000). Both go to the MPC 3 program, the tail as triggerMode 1 from its start.
+    def test_keygroup_two_stage_release(self):
+        # An auto sampled sound that drops and rings on: two keygroups over the same keys and sample, one with most of
+        # the level and a 50 ms release, one a fifth of it with 1.5 s. They stay two in the MPC 3 program, each with
+        # its level and its release as the MPC's 0..1 (1 ms to 100 s, by ratio).
+        def stage(seconds):
+            return math.log10(seconds * 1000) / 5
         with tempfile.TemporaryDirectory() as folder:
             keys = Path(folder) / "Pad"
             keys.mkdir()
             (keys / "Pad-C3.wav").write_bytes(wav(44100))
-            def layer(extra):
-                return ("<Layer number=\"1\"><Active>True</Active><Volume>1.0</Volume><Pan>0.5</Pan><VelStart>0</VelStart>"
-                        f"<VelEnd>127</VelEnd><RootNote>49</RootNote><SampleName>Pad-C3</SampleName>{extra}</Layer>")
-            held = layer("<SliceEnd>29999</SliceEnd><SliceLoop>1</SliceLoop><SliceLoopStart>20000</SliceLoopStart>")
-            gone = layer("<SliceStart>30000</SliceStart><SliceEnd>44099</SliceEnd>")
+            def group(number, volume, release):
+                layer = ("<Layer number=\"1\"><Active>True</Active><Pan>0.5</Pan><VelStart>0</VelStart><VelEnd>127</VelEnd>"
+                         f"<Volume>{volume}</Volume><RootNote>49</RootNote><SampleName>Pad-C3</SampleName>"
+                         "<SliceEnd>29999</SliceEnd><SliceLoop>1</SliceLoop><SliceLoopStart>20000</SliceLoopStart></Layer>")
+                return (f"<Instrument number=\"{number}\"><LowNote>0</LowNote><HighNote>127</HighNote><TriggerMode>2</TriggerMode>"
+                        f"<VolumeRelease>{stage(release):.6f}</VolumeRelease><Layers>{layer}</Layers></Instrument>")
             (keys / "Pad.xpm").write_text(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?><MPCVObject><Program type=\"Keygroup\"><ProgramName>Pad</ProgramName>"
                 "<KeygroupNumKeygroups>2</KeygroupNumKeygroups><Instruments>"
-                f"<Instrument number=\"1\"><LowNote>0</LowNote><HighNote>127</HighNote><TriggerMode>2</TriggerMode><Layers>{held}</Layers></Instrument>"
-                f"<Instrument number=\"2\"><LowNote>0</LowNote><HighNote>127</HighNote><TriggerMode>1</TriggerMode><Layers>{gone}</Layers></Instrument>"
-                "</Instruments></Program></MPCVObject>")
+                + group(1, 0.8, 0.05) + group(2, 0.2, 1.5) + "</Instruments></Program></MPCVObject>")
             report, out = self.export(folder, "K:0=FOLDER/Pad/Pad.xpm")
             self.assertIn("exported tracks=0 keygroups=1", report)
             _, data = read(out / "Beat.xpj")
         program = data["tracks"][0]["program"]
         self.assertEqual(program["keygroup"]["numKeygroups"], 2)
         groups = [i for i in program["drum"]["instruments"] if i["layersv"][0]["sampleFile"]]
-        self.assertEqual([g["triggerMode"] for g in groups], [2, 1])
-        self.assertEqual(groups[0]["layersv"][0]["loopMode"], 1)
+        self.assertEqual([g["triggerMode"] for g in groups], [2, 2])
+        self.assertEqual([g["layersv"][0]["loopMode"] for g in groups], [1, 1])
         self.assertEqual(groups[1]["layersv"][0]["sampleFile"], groups[0]["layersv"][0]["sampleFile"])
+        levels = [g["layersv"][0]["volume"]["gainCoefficient"] for g in groups]
+        self.assertAlmostEqual(levels[0], 0.8, places=2)
+        self.assertAlmostEqual(levels[1], 0.2, places=2)
+        releases = [g["synthSection"]["ampEnvelope"]["Release"]["value0"] for g in groups]
+        # Melodee's release steps are a tenth apart by ratio: within that of what the program asked for
+        self.assertAlmostEqual(releases[0], stage(0.05), delta=0.02)
+        self.assertAlmostEqual(releases[1], stage(1.5), delta=0.02)
 
     def test_pitched_wav_pad(self):
         # A WAV pad its notes play 7 semitones up (16 Levels, Keys): one keygroup over every key, its own pitch at 60.

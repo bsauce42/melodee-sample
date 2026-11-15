@@ -1086,23 +1086,46 @@ and PortamentoLegato. Sixteen velocities of one key find an accent (one
 step that moves level and brightness far more than its neighbours and the
 rest), narrowed to the velocity; the layers split there, two at least.
 Three hits that differ in level envelope or brightness make three takes a
-key, played in turn (ZonePlay Cycle), when there is one layer. A key held
-1.2 s whose level at the end is within 4 dB of its start sustains
-(`probe_sustains()`): LOOP at Auto (the card's Auto, On, Off) then loops
-each note's held part; drums never loop at Auto. A sound that never
-repeats closely (detuned unison saws, chorus) still loops: most of its
-held part from a third of the way in, the join an equal-power crossfade of
-up to 0.5 s (`find_loop(..., always)`). Each looped keygroup gets a
-release keygroup over the same keys (TriggerMode 1, Note Off): the same
-WAV from where the key was let go (SliceStart), those frames scaled in the
-WAV so the tail starts at the loop's level (at most 6 dB either way), crossfaded with the
-looped note over 20 ms, so letting go plays the plug-in's own tail with
-no bump or drop. Melodee goes further: a release zone knows its start's
-level (`SampleZone::start_level`, read as the instrument lands), and the
-sampler starts it at the level its key's note plays at as it is let go
-(its envelope, gain and the last 20 ms it read), so a tap or a release on
-a loop's swell is followed at its own level. MPC 3 exports carry release keygroups (triggerMode 1) and each
-keygroup's own attack and release. The check's test notes stay
+key, played in turn (ZonePlay Cycle), when there is one layer.
+
+The first key is also held alone for 8 s. Its level over the last quarter
+within 9 dB of its first (`probe_sustains()`): it sustains, and LOOP at
+Auto (the card's Auto, On, Off) loops each note's held part; drums never
+loop at Auto. Held, its level or brightness climbing 1.5 dB or more back
+from a low (`sound_moves()`: an LFO, detuned oscillators beating, not a
+fade): it moves. HOLD at Auto (the card's 0) then holds each key 2 s for
+a steady sound, 8 s for one that moves, and for one that fades as long as
+it is heard (45 dB under its loudest, 1 to 8 s; 2 s when LOOP is put on
+it). A key held 0.5 s and let go gives the release for sounds whose
+sampled notes have died away by the time their keys are let go.
+
+Loops (`engine/loop_find.h`). A steady sound: the short loop whose ends
+match in wave (0.1 to 1 s), a fade over it levelled; none alike enough,
+most of the held part with an equal-power crossfade of up to 0.5 s. A
+sound that moves: a long loop, so a moment of it is not frozen: from a
+place where it was in the state it ends in (level and brightness over
+0.4 s; the earliest such place when it comes round to it, as an LFO does,
+so the loop is whole turns; else the longest loop the hold has room for),
+with a crossfade of up to a second. A note that has died away by its
+key's release (50 dB under its loudest) is not looped. A looped sample's
+file ends at its loop.
+
+Release (`engine/release_fit.h`). Nothing recorded is played when a key
+is let go: a recorded tail holds the echoes and the LFO of the one take
+it was recorded in. Each note's fall is measured against its level as its
+key was let go (its last tenth of a second held; its mean power over
+spans that grow with the time since; a fading note's own fade taken out),
+and the notes' median at each time (what a note usually does), never
+rising, is fitted by an envelope of one stage or two (a share of the
+level falling slowly, the rest fast, for a drop and then echoes or a
+reverb), a fit louder than the fall counting twice one quieter. One stage is the keygroups'
+VolumeRelease. Two are each keygroup twice over the same keys and
+layers: one with the fast release and its share of the level (the layers'
+Volume), one with the slow release and the rest, while both fit in 128
+keygroups. Notes that fade while held and fall no faster let go play out
+whole (TriggerMode 0). MPC 3 exports write each keygroup's own level and
+its attack and release as the MPC's 0..1 for the seconds Melodee plays
+them in. The check's test notes stay
 in C2-C5 whatever the range, so a range at the keyboard's top or bottom is
 not taken for drums. Drums are one shots (TriggerMode 0), each cut where it
 falls silent. A note off zero by more than 2 % of its peak (a plug-in's DC

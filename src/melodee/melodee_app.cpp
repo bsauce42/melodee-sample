@@ -287,7 +287,7 @@ std::string MelodeeApp::command(const std::string& action, const std::string& ar
             if (!(words >> value)) return usage;
             if (word == "step") set.step = uint8_t(std::clamp(std::atoi(value.c_str()), 1, 24));
             else if (word == "layers") set.layers = uint8_t(std::clamp(std::atoi(value.c_str()), 1, 4));
-            else if (word == "hold") set.hold = std::clamp(float(std::atof(value.c_str())), 0.05f, 30.0f);
+            else if (word == "hold") { set.hold_auto = false; set.hold = std::clamp(float(std::atof(value.c_str())), 0.05f, 30.0f); } // else Auto
             else if (word == "tail") set.tail = std::clamp(float(std::atof(value.c_str())), 0.0f, 30.0f);
             else return usage;
         }

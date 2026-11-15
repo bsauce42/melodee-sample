@@ -15,7 +15,7 @@ SOURCES = ["src/melodee/engine/engine_info.cpp", "src/melodee/engine/engine_host
            "src/melodee/shell/shift_pad_jobs.cpp", "src/melodee/shell/fader_job.cpp", "src/melodee/shell/midi_route.cpp", "src/melodee/shell/mtc_in.cpp",
            "src/melodee/shell/undo_scope.cpp", "src/melodee/shell/project_kits.cpp", "src/melodee/shell/card_access.cpp",
            "src/melodee/shell/pad_lights.cpp", "src/melodee/plugin/nam.cpp", "src/melodee/shell/xpm_write.cpp", "src/melodee/engine/loop_find.cpp",
-           "src/melodee/engine/auto_probe.cpp"]
+           "src/melodee/engine/auto_probe.cpp", "src/melodee/engine/release_fit.cpp"]
 
 
 class MelodeeTests(unittest.TestCase):

@@ -105,7 +105,7 @@ void draw(Paint& p, const Snapshot& s) {
                                   : juce::String("None");
         const juce::String accent = found.accent ? juce::String::fromUTF8("vel \xe2\x89\xa5 ") + juce::String(int(found.accent)) : juce::String("None");
         const juce::String each = found.accent ? none : found.takes > 1 ? juce::String::fromUTF8("Varies \xc3\x97") + juce::String(int(found.takes)) : juce::String("Same");
-        const juce::String hold = drums ? none : found.sustains ? juce::String("Steady, loops") : juce::String("Fades");
+        const juce::String hold = drums ? none : found.moves ? juce::String("Moves, long loops") : found.sustains ? juce::String("Steady, loops") : juce::String("Fades");
         const juce::String caps[] {"TYPE", second_cap, "HOLD", "ACCENT", "EACH HIT"};
         const juce::String values[] {type, second, hold, accent, each};
         const unsigned heard_at[] {1, 2, 2, 3, 4}; // the check's step each is heard by
@@ -175,7 +175,7 @@ void draw(Paint& p, const Snapshot& s) {
               drums || per < 2 ? juce::String() : juce::String(roots.size()) + juce::String::fromUTF8(" \xc3\x97 ") + juce::String(per), colour::text);
         block(p, x0 + w, y, w, "KEYS", juce::String(note_name(a.low)) + juce::String::fromUTF8("\xe2\x80\x93") + juce::String(note_name(a.high)), "", colour::text);
         // At most: each note its hold and its whole tail, 24-bit stereo at the device's rate.
-        const double mb = double(samples) * (a.hold + a.tail) * std::max(1u, s.audio_rate) * 6.0 / (1024.0 * 1024.0);
+        const double mb = double(samples) * (a.hold_seconds() + a.tail) * std::max(1u, s.audio_rate) * 6.0 / (1024.0 * 1024.0);
         block(p, x0 + 2 * w, y, w, "CARD", juce::String::fromUTF8("\xe2\x89\xa4 ") + (mb >= 10 ? juce::String(int(std::lround(mb))) : juce::String(mb, 1)), "MB", colour::text);
         // What the check heard, under them: the glide, the layers split at the accent, the takes.
         const bool mono = a.found.kind == AutoKind::Mono, loops = a.looping();

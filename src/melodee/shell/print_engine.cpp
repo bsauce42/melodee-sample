@@ -6,6 +6,7 @@
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/print_player.h"
 #include "melodee/engine/print_render.h"
+#include "melodee/engine/release_fit.h"
 #include "melodee/engine/loop_find.h"
 #include "melodee/engine/stream_pager.h"
 #include "melodee/engine/sample_data.h"
@@ -319,7 +320,7 @@ void PrintEngine::run() {
                             (heard.error.empty() ? "kind=" + std::string(f.kind == AutoKind::Mono ? "mono" : f.kind == AutoKind::Drums ? "drums" : "keys")
                                                        + " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato)
                                                        + " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes)
-                                                       + " sustains=" + std::to_string(f.sustains)
+                                                       + " sustains=" + std::to_string(f.sustains) + " moves=" + std::to_string(f.moves) + " hold_s=" + std::to_string(int(std::lround(f.hold * 10)) / 10) + "." + std::to_string(int(std::lround(f.hold * 10)) % 10) + " release_ms=" + std::to_string(int(std::lround(f.release * 1000)))
                                                        + " sounds=" + std::to_string(f.sounding()) + heard.heard
                                                  : "error=" + heard.error));
             while (lines.size() > kept_lines) lines.pop_front();
@@ -338,7 +339,7 @@ void PrintEngine::run() {
                 lines.push_back("autosample-check track=" + std::to_string(job->track + 1) + " kind=" +
                                 std::string(f.kind == AutoKind::Mono ? "mono" : f.kind == AutoKind::Drums ? "drums" : "keys") +
                                 " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato) +
-                                " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes) + " sustains=" + std::to_string(f.sustains) +
+                                " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes) + " sustains=" + std::to_string(f.sustains) + " moves=" + std::to_string(f.moves) + " hold_s=" + std::to_string(int(std::lround(f.hold * 10)) / 10) + "." + std::to_string(int(std::lround(f.hold * 10)) % 10) + " release_ms=" + std::to_string(int(std::lround(f.release * 1000))) +
                                 " sounds=" + std::to_string(f.sounding()) + (heard.error.empty() ? std::string() : " error=" + heard.error) + heard.heard);
                 while (lines.size() > kept_lines) lines.pop_front();
                 shown.checking = false;
@@ -348,8 +349,11 @@ void PrintEngine::run() {
             std::lock_guard<std::mutex> held(lock);
             lines.push_back("autosample track=" + std::to_string(job->track + 1) + " " +
                             (made.error.empty() ? "made=" + made.program + " samples=" + std::to_string(made.samples)
-                                                      + " loops=" + std::to_string(made.loops) + " tails=" + std::to_string(made.tails)
-                                                      + " centred=" + std::to_string(made.centred)
+                                                      + " loops=" + std::to_string(made.loops) + " release_ms=" + std::to_string(int(std::lround(made.release * 1000)))
+                                                      + (made.release_slow > 0 ? "+" + std::to_string(int(std::lround(made.release_slow * 1000))) + "@"
+                                                                                     + std::to_string(int(std::lround(20 * std::log10(made.release_share)))) + "dB"
+                                                                               : std::string())
+                                                      + " centred=" + std::to_string(made.centred) + " " + made.release_note
                                                 : "error=" + made.error) +
                             " seconds=" + std::to_string(int(std::lround(made.seconds))));
             while (lines.size() > kept_lines) lines.pop_front();
@@ -689,6 +693,7 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
     uint8_t loud_key = base;
     if (found.kind == AutoKind::Drums) { // the keys of the range that sound, a short hit each
         found.scan_low = uint8_t(low); found.scan_high = uint8_t(high);
+        found.hold = 2.0f; // a drum is cut where it falls silent, however long its key is held
         bool any = false;
         for (int k = low; k <= high; ++k) {
             auto x = hit(uint8_t(k), 100, 0.1, 0.15);
@@ -706,10 +711,29 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         const float from_hz = hz[0] > 0 ? hz[0] : 440.0f * std::pow(2.0f, (int(a) - 69) / 12.0f);
         const float to_hz = from_hz * std::pow(2.0f, 7.0f / 12.0f);
         auto both = play({{0, true, a, 100}, {at(0.4), true, b, 100}, {at(1.2), false, a, 100}, {at(1.2), false, b, 100}}, 1.3);
-        auto alone = play({{0, true, a, 100}, {at(1.2), false, a, 100}}, 1.3);
+        // The first key alone, held 8 s: whether it sustains, whether it moves while held, how long it is heard.
+        auto alone = play({{0, true, a, 100}, {at(8.0), false, a, 100}}, 8.1);
         if (stopped) return stop();
         const ProbeGlide g = probe_glide(both, alone, at(0.4), from_hz, to_hz, rate);
-        found.sustains = probe_sustains(alone, at(0.25), at(1.15), rate); // held past its attack: steady, or fading
+        found.sustains = probe_sustains(alone, at(0.5), at(8.0), rate, 9.0f); // past its attack to the end of the 8 s: there still, or fading
+        found.moves = found.sustains && sound_moves(alone, at(8.0), rate);
+        // HOLD at Auto: a steady sound 2 s (a short loop is all it needs), one that moves 8 s (a long loop), one that
+        // fades for as long as it is heard (so a key held long plays its whole fade).
+        found.hold = found.moves ? 8.0f : found.sustains ? 2.0f : std::clamp(probe_fade_seconds(alone, rate) + 0.2f, 1.0f, 8.0f);
+        { // How it falls let go early, while it is loud: the key held half a second, then up to 4 s of what follows.
+            const double tail = std::clamp<double>(set.tail, 0.5, 4.0);
+            auto let_go = play({{0, true, a, 100}, {at(0.5), false, a, 100}}, 0.5 + tail);
+            if (stopped) return stop();
+            const size_t last = size_t(at(0.1));
+            const bool cut = let_go.size() > last && probe_db(let_go, let_go.size() - last, last) > -85.0f; // still sounding at the end
+            const ReleaseShape shape = release_shape(let_go, let_go, at(0.5), rate, cut);
+            if (!shape.db.empty()) {
+                const ReleaseModel fall = fit_release({shape});
+                found.release = fall.fast;
+                found.release_slow = fall.two() ? fall.slow : 0;
+                found.release_share = fall.two() ? fall.share : 0;
+            }
+        }
         char held[64];
         std::snprintf(held, sizeof(held), " hold=%.1f/%.1f", probe_db(alone, at(0.25), at(0.225)), probe_db(alone, at(0.925), at(0.225)));
         r.heard += held;
@@ -808,7 +832,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     const float rate = dsp::sample_rate();
     const unsigned whole_rate = unsigned(std::lround(rate));
     { // the card: room for every note at its longest, as 24-bit WAVs and the 32-bit float parts they are made from
-        const double most = double(roots.size()) * layers * takes * (std::max(0.05f, set.hold) + set.tail + 0.01) * rate;
+        const double most = double(roots.size()) * layers * takes * (std::max(0.05f, set.hold_seconds()) + set.tail + 0.01) * rate;
         const uint64_t need = uint64_t(most * (6 + 8)) + (8u << 20);
         fs::path probe = folder.parent_path();
         while (!probe.empty() && !fs::exists(probe, e)) probe = probe.parent_path();
@@ -828,7 +852,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     if (e) return fail("cannot make " + folder.filename().string());
 
     const PrintTap tap = set.post_fx ? PrintTap::PostFx : PrintTap::PreFx;
-    const uint64_t hold = uint64_t(std::max(0.05f, set.hold) * rate);
+    const uint64_t hold = uint64_t(std::max(0.05f, set.hold_seconds()) * rate);
     std::vector<int32_t> out(EngineHost::block * 2);
     // Between notes: silence until what is left of the last (a delay's repeats too, at Post FX) has died away, 4 s at most.
     auto settle = [&] {
@@ -854,7 +878,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         program.legato = set.found.legato;
         program.glide = set.found.glide;
     }
-    std::vector<double> releases;
+    std::vector<ReleaseShape> falls; // each note's fall once its key was let go (engine/release_fit.h)
     float peak_all = 0;
     unsigned blocks = 0;
     uint64_t rendered = 0;
@@ -935,7 +959,9 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 if (v + 1 == layers * takes) shown.done[roots[k] / 64 % shown.done.size()] |= uint64_t(1) << (roots[k] % 64);
             }
             if (peak < 0.000316f) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
-            releases.push_back(double(audio.release) / rate);
+            // How it falls once its key is let go, against its level then: the program's release is fitted to these.
+            if (!drums) falls.push_back(release_shape(audio.left, audio.right, audio.held, rate,
+                                                      audio.release + uint64_t(0.02f * rate) >= uint64_t(std::max(0.0f, set.tail) * rate)));
             XpmLayer layer;
             layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity)
                          + (takes > 1 ? "-T" + std::to_string(take + 1) : std::string());
@@ -946,28 +972,15 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate, true); // it sustains: a loop however unlike its ends
                 if (loop.found()) {
                     layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops;
-                    // The tail's level: what the loop plays at against what sounded as the key was let go (a moving
-                    // patch's LFO wherever it happened to be then), so letting go neither drops nor jumps; at most 6 dB.
-                    auto power = [&](size_t from, size_t to) {
-                        double sum = 0;
-                        for (size_t f = from; f < to && f < audio.left.size(); ++f) {
-                            const double m = 0.5 * (double(audio.left[f]) + audio.right[f]);
-                            sum += m * m;
-                        }
-                        return to > from ? sum / double(to - from) : 0.0;
-                    };
-                    const size_t keyup = size_t(audio.held), before = std::min(keyup, size_t(0.05f * rate));
-                    const double looped = power(loop.start, loop.end), let_go = power(keyup - before, keyup);
-                    // Its frames from the key's release on are the tail's alone (the loop ends before them): scaled
-                    // there, in the file, so any MPC plays it so.
-                    const float tail_gain = looped > 0 && let_go > 0 ? float(std::clamp(std::sqrt(looped / let_go), 0.5, 2.0)) : 1.0f;
-                    for (size_t f = keyup; f < audio.left.size(); ++f) { audio.left[f] *= tail_gain; audio.right[f] *= tail_gain; }
+                    // A looped note never plays past its loop (the keygroup's release fades the loop itself): what
+                    // was recorded after it is left out of the file.
+                    const size_t keep = std::min(audio.left.size(), size_t(loop.end) + 256);
+                    audio.left.resize(keep); audio.right.resize(keep);
                 }
             }
-            // The program's gain is set by the loudest sample as written: after a loop's levelling and its tail's level.
+            // The program's gain is set by the loudest sample as written (after a loop's levelling).
             for (size_t f = 0; f < audio.left.size(); ++f) peak_all = std::max({peak_all, std::fabs(audio.left[f]), std::fabs(audio.right[f])});
             layer.frames = uint32_t(audio.left.size());
-            layer.held = uint32_t(audio.held);
             // Kept as 32-bit float until the program's gain is known.
             std::ofstream part(parts / (layer.sample + ".f32"), std::ios::binary | std::ios::trunc);
             std::vector<float> interleaved(audio.left.size() * 2);
@@ -995,35 +1008,43 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         for (size_t l = 0; l < g.layers.size(); ++l) g.layers[l].low_velocity = uint8_t(l == 0 ? 0 : g.layers[l - 1].high_velocity + 1);
         g.layers.back().high_velocity = 127;
     }
-    // A looped note's own tail, played when its key is let go: a keygroup over the same keys on its key's release,
-    // each layer the looped one's WAV from where its key was let go at the loop's level, crossfaded with the loop over
-    // 20 ms. A note too short to have a tail (under 20 ms), or a program with no room left (128), goes without.
+    // Let go, a key falls as the plug-in's did (engine/release_fit.h): the keygroups' release, fitted to how the notes
+    // fell against their level as their keys were let go. Two stages (a fast drop, then echoes or a reverb ringing
+    // on): each keygroup twice over the same keys and layers, one with the fast release and most of the level, one
+    // with the slow release and the rest, while there is room for both (128 keygroups). Notes that faded while held
+    // and fall no faster let go (a pluck that rings on whatever the key does) play out whole, as one shots.
     const size_t played = program.keygroups.size();
-    for (size_t k = 0; k < played && program.keygroups.size() < 128; ++k) {
-        auto& g = program.keygroups[k];
-        XpmKeygroup tail;
-        tail.low = g.low; tail.high = g.high;
-        tail.on_release = true;
-        tail.cycle = g.cycle;
-        tail.attack = 0.02; // a crossfade with the loop, which fades over the same 20 ms
-        for (const auto& l : g.layers) {
-            if (!l.looped() || l.frames < l.held + uint32_t(0.02f * rate)) continue;
-            XpmLayer from = l;
-            from.start = l.held;
-            from.loop_start = from.loop_end = 0;
-            tail.layers.push_back(from);
+    if (!drums) {
+        ReleaseModel fall = fit_release(falls, &r.release_note);
+        size_t told = 0;
+        for (const auto& f : falls) told += !f.db.empty();
+        if (!told && set.found.release > 0) { // held until they had died away: as the check heard it let go early
+            fall.fast = set.found.release; fall.slow = set.found.release_slow; fall.share = set.found.release_share;
         }
-        if (tail.layers.size() != g.layers.size()) continue; // every layer its tail, or none: velocities stay whole
-        g.release = 0.02;
-        program.keygroups.push_back(std::move(tail));
-        ++r.tails;
+        program.release = fall.fast;
+        r.release = fall.fast; r.release_slow = fall.two() ? fall.slow : 0; r.release_share = fall.two() ? fall.share : 0;
+        size_t fading = 0;
+        for (const auto& f : falls) fading += f.fading;
+        if (!set.looping() && fading * 2 > falls.size() && fall.db(1.0f) > -3.0f) {
+            for (auto& g : program.keygroups) g.one_shot = true;
+        } else if (fall.two() && played * 2 <= 128) {
+            for (size_t k = 0; k < played; ++k) {
+                XpmKeygroup ringing = program.keygroups[k];
+                ringing.gain = fall.share;
+                ringing.release = fall.slow;
+                program.keygroups[k].gain = 1.0 - fall.share;
+                program.keygroups.push_back(std::move(ringing));
+            }
+        } else if (fall.two()) { // no room for two: one stage, the slow one's time when it holds most of the level
+            program.release = r.release = fall.share >= 0.5f ? fall.slow : fall.fast;
+            r.release_slow = r.release_share = 0;
+        }
     }
     // One gain for every sample: the loudest at -1 dB (24 dB more at most), so the layers keep the balance played.
     const float gain = set.normalize && peak_all > 0 ? std::min(0.891251f / peak_all, 15.8489f) : 1.0f;
     r.gain_db = 20 * std::log10(gain);
-    for (const auto& g : program.keygroups)
-        for (const auto& l : g.layers) {
-            if (g.on_release) break; // a tail plays the WAV its note wrote
+    for (size_t k = 0; k < played; ++k) // the second stage's keygroups play the same files
+        for (const auto& l : program.keygroups[k].layers) {
             if (cancelled.load()) return fail("stopped");
             std::ifstream part(parts / (l.sample + ".f32"), std::ios::binary);
             std::vector<float> interleaved(size_t(l.frames) * 2);
@@ -1041,9 +1062,6 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             if (!written) return fail("cannot write " + path.filename().string());
         }
     fs::remove_all(parts, e);
-    // Let go early, a key fades as the plug-in's own release did (the middle one heard).
-    std::sort(releases.begin(), releases.end());
-    program.release = std::clamp(releases.empty() ? 0.05 : releases[releases.size() / 2], 0.01, 8.0);
     const fs::path xpm = folder / (job.sample_name + ".xpm");
     if (auto why = write_xpm(xpm.string(), program); !why.empty()) return fail(why);
     r.program = xpm.string();

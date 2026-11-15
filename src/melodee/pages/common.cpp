@@ -239,7 +239,15 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::AutoHigh: c.label = "HIGH"; c.value = juce::String(note_name(b.value)); break;
     case Kind::AutoStep: c.label = "STEP"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "semitone" : "semitones"; break;
     case Kind::AutoLayers: c.label = "LAYERS"; c.value = juce::String(b.value); c.unit = "velocity"; break;
-    case Kind::AutoHold: c.label = "HOLD"; c.value = juce::String(b.value / 10.0, 1); c.unit = "s"; break;
+    case Kind::AutoHold: // Auto: as long as the check found the sound needs, shown beside it once heard
+        c.label = "HOLD";
+        if (b.value > 0) { c.value = juce::String(b.value / 10.0, 1); c.unit = "s"; }
+        else {
+            const auto& a = s.ui.auto_sheet.settings;
+            c.value = "Auto";
+            c.unit = a.found.heard && a.found.hold > 0 ? juce::String(a.found.hold, a.found.hold == std::floor(a.found.hold) ? 0 : 1) + " s" : juce::String();
+        }
+        break;
     case Kind::AutoTail: c.label = "TAIL"; c.value = b.value ? juce::String(b.value / 10.0, 1) : juce::String("Off"); c.unit = b.value ? "s" : ""; break;
     case Kind::AutoTap: c.label = "TAP"; c.value = b.value ? "Post FX" : "Pre FX"; break;
     case Kind::AutoLoop: c.label = "LOOP"; c.value = b.value == 0 ? "Auto" : b.value == 1 ? "On" : "Off"; break; // Auto: as the check heard

@@ -1093,13 +1093,22 @@ const Preview previews[] {
          job.busy = true; job.autosample = true; job.checking = true; job.track = 2; job.check_step = 2;
          job.found.kind = AutoKind::Mono; job.found.glide = 0.06f;
      }},
+    {"autosamplecheckmoves", [](Shell&, Snapshot& s) { // the check on a sound that moves while held
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.checking = true;
+         auto& job = s.print;
+         job.busy = true; job.autosample = true; job.checking = true; job.track = 2; job.check_step = 3;
+         job.found.sustains = true; job.found.moves = true; job.found.hold = 8.0f;
+     }},
     {"autosamplepad", [](Shell&, Snapshot& s) { // a pad that sustains: LOOP at Auto loops it
          print_scene(s);
          s.ui.page = PageId::AutoSample;
          s.ui.auto_sheet = UiState::AutoSheet {};
-         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 2;
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 1; // NOTE: HOLD at Auto, 8 s for a sound that moves
          auto& f = s.ui.auto_sheet.settings.found;
-         f.heard = true; f.sustains = true;
+         f.heard = true; f.sustains = true; f.moves = true; f.hold = 8.0f;
      }},
     {"autosamplemono", [](Shell&, Snapshot& s) {
          print_scene(s);
@@ -1107,7 +1116,7 @@ const Preview previews[] {
          s.ui.auto_sheet = UiState::AutoSheet {};
          s.ui.auto_sheet.track = 2;
          auto& f = s.ui.auto_sheet.settings.found;
-         f.heard = true; f.kind = AutoKind::Mono; f.glide = 0.06f; f.accent = 100;
+         f.heard = true; f.kind = AutoKind::Mono; f.glide = 0.06f; f.accent = 100; f.hold = 2.4f;
      }},
     {"autosampledrums", [](Shell&, Snapshot& s) {
          print_scene(s);
@@ -2772,6 +2781,15 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
             track.pads = {};
             track.pads[0].sample = uint16_t(slot);
             track.last_pad = 0;
+            { // as a Load lands it (shell/sample_files.cpp): the envelope most of its zones have goes on the pad
+                std::string why;
+                const auto e = read_instrument(project->samples[slot].path, &why).envelope;
+                auto& pad = track.pads[0];
+                if (e.attack) pad.attack = uint8_t(*e.attack > 0 ? sfz_attack_step(*e.attack) : 0);
+                if (e.decay) pad.decay = uint8_t(sfz_decay_step(*e.decay));
+                if (e.sustain) pad.sustain = uint8_t(sfz_percent_step(*e.sustain));
+                if (e.release) pad.release = uint8_t(sfz_release_step(*e.release));
+            }
             continue;
         }
         unsigned ticks = 0;

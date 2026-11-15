@@ -30,6 +30,7 @@
 #include "melodee/shell/light_show.h"
 #include "melodee/shell/xpm_write.h"
 #include "melodee/engine/auto_probe.h"
+#include "melodee/engine/release_fit.h"
 #include "melodee/model/card_folders.h"
 #include "melodee/shell/auto_sample.h"
 #include "melodee/engine/loop_find.h"
@@ -7248,39 +7249,37 @@ void xpm_writer() {
     CHECK(has("<SliceEnd>47999</SliceEnd>") && has("<SliceEnd>44099</SliceEnd>") && has("<TriggerMode>2</TriggerMode>")); // the last frame
     CHECK(!has("<TriggerMode>0</TriggerMode>"));
     { XpmProgram kit = program; kit.keygroups[0].one_shot = true; CHECK(xpm_text(kit).find("<TriggerMode>0</TriggerMode>") != std::string::npos); }
-    { // a looped note's tail on the key's release: the same WAV from where the key was let go, faded in
-        XpmProgram tails = program;
-        XpmKeygroup tail = tails.keygroups[1];
-        tail.on_release = true; tail.attack = 0.005;
-        tail.layers[0].start = 30000;
-        tails.keygroups[1].release = 0.03;
-        tails.keygroups.push_back(tail);
-        const std::string text = xpm_text(tails);
-        CHECK(text.find("<TriggerMode>1</TriggerMode>") != std::string::npos && text.find("<SliceStart>30000</SliceStart>") != std::string::npos);
+    { // a fall of two stages: a keygroup twice over the same keys and layers, each its share of the level and its release
+        XpmProgram two = program;
+        two.release = 0.05;
+        XpmKeygroup ringing = two.keygroups[1];
+        ringing.gain = 0.2; ringing.release = 1.5;
+        two.keygroups[1].gain = 0.8;
+        two.keygroups.push_back(ringing);
+        const std::string text = xpm_text(two);
         CHECK(text.find("<KeygroupNumKeygroups>3</KeygroupNumKeygroups>") != std::string::npos);
-        char attack[64];
-        std::snprintf(attack, sizeof(attack), "<VolumeAttack>%.6f</VolumeAttack>", xpm_envelope_value(0.005));
-        CHECK(text.find(attack) != std::string::npos);
-        // read back as Melodee plays it: the tail a release zone from frame 30000, its keys the keygroup's
+        CHECK(text.find("<Volume>0.800000</Volume>") != std::string::npos && text.find("<Volume>0.200000</Volume>") != std::string::npos);
+        char slow[64], fast[64];
+        std::snprintf(slow, sizeof(slow), "<VolumeRelease>%.6f</VolumeRelease>", xpm_envelope_value(1.5));
+        std::snprintf(fast, sizeof(fast), "<VolumeRelease>%.6f</VolumeRelease>", xpm_envelope_value(0.05));
+        CHECK(text.find(slow) != std::string::npos && text.find(fast) != std::string::npos);
+        CHECK(text.find("<TriggerMode>1</TriggerMode>") == std::string::npos && text.find("<SliceStart>0</SliceStart>") != std::string::npos);
+        // read back as Melodee plays it: two zones over the same keys, the second 14 dB under with the longer release
         KeygroupProgram tree;
         tree.type = "Keygroup";
         tree.tags = {{"KeygroupNumKeygroups", "2"}};
-        KeygroupInstrument held, gone;
-        held.number = 1; held.tags = {{"LowNote", "38"}, {"HighNote", "127"}, {"TriggerMode", "2"}};
-        held.layers = {{{"SampleName", "Pad-Eb2-V127"}, {"RootNote", "40"}, {"SliceEnd", "44099"}, {"SliceLoop", "1"}, {"SliceLoopStart", "20000"}}};
-        gone.number = 2; gone.tags = {{"LowNote", "38"}, {"HighNote", "127"}, {"TriggerMode", "1"}};
-        gone.layers = {{{"SampleName", "Pad-Eb2-V127"}, {"RootNote", "40"}, {"SliceStart", "30000"}, {"SliceEnd", "44099"}}};
-        tree.instruments = {held, gone};
+        KeygroupInstrument body, ring;
+        body.number = 1; body.tags = {{"LowNote", "38"}, {"HighNote", "127"}, {"TriggerMode", "2"}, {"VolumeRelease", std::to_string(xpm_envelope_value(0.05))}};
+        body.layers = {{{"SampleName", "Pad-Eb2-V127"}, {"RootNote", "40"}, {"Volume", "0.8"}, {"SliceEnd", "44099"}, {"SliceLoop", "1"}, {"SliceLoopStart", "20000"}}};
+        ring = body;
+        ring.number = 2; ring.tags["VolumeRelease"] = std::to_string(xpm_envelope_value(1.5));
+        ring.layers[0]["Volume"] = "0.2";
+        tree.instruments = {body, ring};
         const SfzRead read = read_keygroup(tree);
-        CHECK(read.regions.size() == 2 && !read.regions[0].zone.on_release && read.regions[0].zone.loop == ZoneLoop::On);
-        CHECK(read.regions[1].zone.on_release && read.regions[1].offset == 30000 && read.regions[1].zone.low_key == 38);
+        CHECK(read.regions.size() == 2 && read.regions[0].zone.low_key == 38 && read.regions[1].zone.low_key == 38);
+        CHECK(std::fabs(read.regions[0].zone.gain - 20 * std::log10(0.8)) < 0.1 && std::fabs(read.regions[1].zone.gain - 20 * std::log10(0.2)) < 0.1);
+        CHECK(read.regions[1].zone.release > read.regions[0].zone.release && read.regions[0].zone.loop == ZoneLoop::On && read.regions[1].zone.loop == ZoneLoop::On);
     }
-    CHECK(has("<SliceLoop>1</SliceLoop>") && has("<SliceLoopStart>20000</SliceLoopStart>") && has("<SliceEnd>40000</SliceEnd>")); // the loop
-    CHECK(has("<VelocitySensitivity>0.000000</VelocitySensitivity>")); // layered
-    char release[64];
-    std::snprintf(release, sizeof(release), "<VolumeRelease>%.6f</VolumeRelease>", xpm_envelope_value(0.4));
-    CHECK(has(release));
-    CHECK(std::fabs(keygroup_seconds(xpm_envelope_value(2.5)) - 2.5) < 1e-6 && xpm_envelope_value(0) == 0);
     // the sampler's roots and velocities
     AutoSampleSettings set;
     CHECK(set.roots().size() == 21 && set.roots().front() == 36 && set.roots().back() == 96);
@@ -7313,6 +7312,99 @@ void card_folders() {
     CHECK(melodee_own_folder("/media/card/Melodee/Cache") && melodee_own_folder("/media/card/Melodee/Crashes"));
     CHECK(!melodee_own_folder("/media/card/Melodee/Plugins") && !melodee_own_folder("/media/card/Samples/Cache")
           && !melodee_own_folder("/media/card/Melodee/Projects/Crashes"));
+}
+
+// The auto sampler's release (engine/release_fit.h): a note's fall against its level as its key was let go, never
+// rising, and the envelope fitted to it: one stage, or two where it drops and then rings on.
+void release_fitting() {
+    const float rate = 48000;
+    const size_t held = size_t(rate * 1.0f);
+    // A 220 Hz tone at `hold(t)` while held and `after(t)` (t from the release) once let go.
+    auto note = [&](const std::function<double(double)>& hold, const std::function<double(double)>& after, float tail) {
+        std::vector<float> x(held + size_t(tail * rate));
+        for (size_t f = 0; f < x.size(); ++f) {
+            const double t = double(f) / rate, wave = std::sin(2 * M_PI * 220 * t);
+            x[f] = float(wave * (f < held ? hold(t) : after(double(f - held) / rate)));
+        }
+        return x;
+    };
+    auto steady = [](double) { return 0.5; };
+    auto shape_of = [&](const std::vector<float>& x, bool cut = false) { return release_shape(x, x, held, rate, cut); };
+    { // one stage: 26 dB down in 0.3 s
+        const auto x = note(steady, [](double t) { return 0.5 * std::exp(-3 * t / 0.3); }, 2.0f);
+        const auto shape = shape_of(x);
+        CHECK(!shape.fading && shape.whole && shape.db.size() > 50 && std::fabs(shape.db[0]) < 2.5f);
+        const auto model = fit_release({shape, shape});
+        CHECK(!model.two() && model.fast > 0.24f && model.fast < 0.37f);
+        CHECK(std::fabs(model.db(0.3f) + 26.06f) < 4.0f && model.db(0) == 0);
+    }
+    { // two: most of it gone in 50 ms, a fifth ringing on for 1.5 s
+        const auto x = note(steady, [](double t) { return 0.5 * (0.8 * std::exp(-3 * t / 0.05) + 0.2 * std::exp(-3 * t / 1.5)); }, 6.0f);
+        const auto model = fit_release({shape_of(x)});
+        CHECK(model.two() && model.fast < 0.1f && model.slow > 1.1f && model.slow < 2.0f);
+        CHECK(20 * std::log10(model.share) > -17.5f && 20 * std::log10(model.share) < -10.5f);
+    }
+    { // a delay: the note stops in 20 ms, echoes every 0.4 s, each 6 dB under the last: its shape never rises, and the
+      // fit is a drop and then a ring over the echoes' own time (26 dB in 1.7 s)
+        const auto x = note(steady, [](double t) {
+            double level = 0.5 * std::exp(-3 * t / 0.02);
+            for (int e = 1; e <= 12; ++e) {
+                const double at = t - 0.4 * e;
+                if (at > -0.15 && at < 0.15) level += 0.5 * 0.25 * std::pow(0.5, e - 1) * (0.5 + 0.5 * std::cos(M_PI * at / 0.15));
+            }
+            return level;
+        }, 6.0f);
+        const auto model = fit_release({shape_of(x)});
+        CHECK(model.two() && model.fast < 0.15f && model.slow > 1.0f && model.slow < 2.8f);
+    }
+    { // a sound that swings 12 dB every 3 s, its keys let go at eight moments of the swing: each stops in 0.1 s, and a
+      // quarter of its usual level rings on for 1.5 s whatever the moment. The notes together tell the drop and the
+      // ring, where each alone would tell of its own moment.
+        std::vector<ReleaseShape> notes;
+        const double usual = 0.3;
+        for (int n = 0; n < 8; ++n) {
+            const double turn = n / 8.0;
+            auto swing = [&](double t) { return usual * std::pow(10.0, 6.0 * std::sin(2 * M_PI * (t / 3.0 + turn)) / 20.0); };
+            std::vector<float> x(size_t(rate * 8) + size_t(rate * 5));
+            const size_t up = size_t(rate * 8);
+            for (size_t f = 0; f < x.size(); ++f) {
+                const double t = double(f) / rate, after = double(f) / rate - 8.0;
+                const double dry = std::sin(2 * M_PI * 220 * t) * swing(t) * (f < up ? 1.0 : std::exp(-3 * after / 0.1));
+                const double ring = f < up ? 0.0 : std::sin(2 * M_PI * 331 * t + n) * 0.25 * usual * std::exp(-3 * after / 1.5);
+                x[f] = float(dry + ring);
+            }
+            notes.push_back(release_shape(x, x, up, rate, false));
+        }
+        const auto model = fit_release(notes);
+        CHECK(model.two() && model.fast < 0.2f && model.slow > 1.0f && model.slow < 2.2f);
+        CHECK(20 * std::log10(model.share) > -16.0f && 20 * std::log10(model.share) < -8.0f);
+    }
+    { // a pluck fading 17 dB a second that takes no notice of its key: no fall of its own, however long is known
+        auto fade = [](double t) { return 0.5 * std::exp(-t / 0.5); };
+        const auto x = note(fade, [&](double t) { return fade(1.0 + t); }, 2.0f);
+        const auto shape = shape_of(x);
+        CHECK(shape.fading && !shape.db.empty() && shape.db.back() > -2.5f);
+        const auto model = fit_release({shape});
+        CHECK(!model.two() && model.db(1.0f) > -3.0f);
+    }
+    { // the same pluck damped when let go (26 dB in 0.1 s): its own fade is not counted twice
+        auto fade = [](double t) { return 0.5 * std::exp(-t / 0.5); };
+        const auto x = note(fade, [&](double t) { return fade(1.0 + t) * std::exp(-3 * t / 0.1); }, 2.0f);
+        const auto model = fit_release({shape_of(x)});
+        CHECK(!model.two() && model.fast > 0.07f && model.fast < 0.14f);
+    }
+    { // cut dead: the shortest release; nothing to go by: 50 ms
+        const auto x = note(steady, [](double) { return 0.0; }, 0.5f);
+        CHECK(fit_release({shape_of(x)}).fast <= 0.02f);
+        CHECK(fit_release({}).fast == 0.05f && !fit_release({}).two());
+        std::vector<float> quiet(size_t(rate * 2), 0.0f);
+        CHECK(release_shape(quiet, quiet, held, rate, false).db.empty());
+    }
+    { // notes cut at the longest tail kept say nothing after it: a long release is still found from what there is
+        const auto x = note(steady, [](double t) { return 0.5 * std::exp(-3 * t / 4.0); }, 1.0f);
+        const auto model = fit_release({shape_of(x, true)});
+        CHECK(model.fast > 2.8f && model.fast < 5.6f);
+    }
 }
 
 // The auto sampler's check (engine/auto_probe.h), on made-up sounds: a pitch, a mono glide and a poly chord, an accent,
@@ -7404,6 +7496,43 @@ void auto_probe() {
         CHECK(probe_sustains(steady, 0, steady.size(), rate) && probe_sustains(trem, 0, trem.size(), rate));
         CHECK(!probe_sustains(fade, 0, fade.size(), rate) && !probe_sustains(std::vector<float>(48000), 0, 48000, rate));
     }
+    { // HOLD at Auto: how long a fading key is heard; whether a held sound moves; what the settings then hold for
+        std::vector<float> pluck(size_t(rate * 8));
+        for (size_t f = 0; f < pluck.size(); ++f) pluck[f] = float(0.5 * std::sin(2 * M_PI * 220 * f / rate) * std::pow(10.0, -15.0 * (f / rate) / 20)); // 15 dB a second
+        const float heard = probe_fade_seconds(pluck, rate);
+        CHECK(heard > 2.7f && heard < 3.4f); // 45 dB down after 3 s
+        std::vector<float> still(size_t(rate * 8)), swell(size_t(rate * 8));
+        for (size_t f = 0; f < still.size(); ++f) {
+            const double t = double(f) / rate, wave = std::sin(2 * M_PI * 220 * t);
+            still[f] = float(0.4 * wave);
+            swell[f] = float(0.4 * wave * (0.6 + 0.4 * std::sin(2 * M_PI * 0.3 * t)));
+        }
+        CHECK(probe_fade_seconds(still, rate) > 7.9f && !sound_moves(still, still.size(), rate) && sound_moves(swell, swell.size(), rate));
+        CHECK(!sound_moves(pluck, size_t(rate * 2), rate)); // a steady fade is not movement
+        std::vector<float> settle(size_t(rate * 8)); // nor one that falls fast and then levels out (a 303's note)
+        for (size_t f = 0; f < settle.size(); ++f) settle[f] = float(std::sin(2 * M_PI * 110 * f / rate) * (0.15 + 0.35 * std::exp(-double(f) / rate / 0.8)));
+        CHECK(!sound_moves(settle, settle.size(), rate));
+        AutoSampleSettings set;
+        CHECK(set.hold_auto && set.hold_seconds() == 2.0f); // nothing heard yet
+        set.found.heard = true; set.found.hold = 8.0f;
+        CHECK(set.hold_seconds() == 8.0f);
+        set.found.sustains = false; set.found.hold = 5.0f; // a sound that fades: as long as it is heard,
+        CHECK(set.hold_seconds() == 5.0f);
+        set.loop_auto = false; set.loop = true;            // but 2 s with LOOP put on: looped while it still sounds
+        CHECK(set.hold_seconds() == 2.0f);
+        set.hold_auto = false; set.hold = 3.5f;
+        CHECK(set.hold_seconds() == 3.5f);
+        // a note that has died away: silence is not movement, and there is nothing to loop
+        std::vector<float> dies(size_t(rate * 8)), dies2;
+        uint32_t seed = 5;
+        for (size_t f = 0; f < dies.size(); ++f) {
+            seed = seed * 1664525u + 1013904223u;
+            dies[f] = float(0.3 * std::sin(2 * M_PI * 110 * f / rate) * std::pow(10.0, -14.0 * (f / rate) / 20)) + float(int32_t(seed)) / 2147483648.0f * 2e-6f;
+        }
+        dies2 = dies;
+        CHECK(!sound_moves(dies, dies.size(), rate) && !find_loop(dies, dies2, dies.size(), rate, true).found());
+        CHECK(!probe_sustains(dies, size_t(0.5f * rate), dies.size(), rate, 9.0f) && probe_sustains(swell, size_t(0.5f * rate), swell.size(), rate, 9.0f));
+    }
     { // hits: the same at another phase are the same; one 3 dB louder differs
         std::vector<float> a, b, c; double p1 = 0, p2 = 1.3, p3 = 0;
         tone(a, 0, 19200, 220, 220, 0, 0.5f, p1);
@@ -7434,7 +7563,8 @@ void loop_finder() {
     const double periods = double(loop.end - loop.start) * hz / rate;
     CHECK(std::fabs(periods - std::round(periods)) < 0.05);
     CHECK(std::fabs(l[loop.end - 1] - l[loop.start - 1]) < 0.02f); // the frame before the jump meets the one before the start
-    { // a sound that never repeats closely (seven detuned saws): no loop matched; with `always` a long one, smeared
+    { // seven detuned saws: their beating moves the level, so the loop is a long one (a third of the hold or more, from
+      // a fifth of the way in at the earliest), not a short one that would freeze a moment of it
         std::vector<float> wl(size_t(rate * 2)), wr;
         const double detune[] {-0.31, -0.19, -0.07, 0, 0.11, 0.23, 0.37};
         for (size_t f = 0; f < wl.size(); ++f) {
@@ -7443,10 +7573,26 @@ void loop_finder() {
             wl[f] = float(0.08 * v);
         }
         wr = wl;
-        auto copy_l = wl, copy_r = wr;
-        CHECK(!find_loop(copy_l, copy_r, uint64_t(rate * 2), rate).found());
-        auto smeared = find_loop(wl, wr, uint64_t(rate * 2), rate, true);
-        CHECK(smeared.found() && smeared.end - smeared.start > uint32_t(0.5f * rate) && smeared.start >= uint32_t(rate * 2 / 3));
+        auto beating = find_loop(wl, wr, uint64_t(rate * 2), rate);
+        CHECK(beating.found() && beating.moving && beating.end - beating.start >= uint32_t(rate * 2 / 3) && beating.start >= uint32_t(rate * 2 / 5));
+    }
+    { // a tone under a slow tremolo (a swing every 2 s), held 8 s: the loop is whole swings long, so it goes round in step
+        std::vector<float> tl(size_t(rate * 8)), tr;
+        for (size_t f = 0; f < tl.size(); ++f) {
+            const double t = double(f) / rate;
+            tl[f] = float(0.4 * std::sin(2 * M_PI * 220 * t) * (0.6 + 0.4 * std::sin(2 * M_PI * 0.5 * t)));
+        }
+        tr = tl;
+        auto swing = find_loop(tl, tr, uint64_t(rate * 8), rate);
+        CHECK(swing.found() && swing.moving);
+        const double swings = double(swing.end - swing.start) / rate / 2.0;
+        CHECK(swings > 0.9 && std::fabs(swings - std::round(swings)) < 0.08);
+        // a steady tone held as long does not move: a short loop
+        std::vector<float> sl(size_t(rate * 8)), sr;
+        for (size_t f = 0; f < sl.size(); ++f) sl[f] = float(0.4 * std::sin(2 * M_PI * 220 * double(f) / rate));
+        sr = sl;
+        auto still = find_loop(sl, sr, uint64_t(rate * 8), rate);
+        CHECK(still.found() && !still.moving && still.end - still.start <= uint32_t(rate));
     }
     { // a drum cut where it falls silent, not at the end of the time its key was held
         NoteAudio n;
@@ -8719,34 +8865,6 @@ void keygroup_glide() {
         CHECK(peak_of(r.run(2000), 0) > 0.2f);
         r.run(44100);
         CHECK(peak_of(r.run(2000), 0) < 0.15f);
-    }
-    { // a tail that knows its level starts at the level its note plays at as it is let go: quiet early, as loud later
-        auto play = [](unsigned hold) {
-            ZoneRig r;
-            std::vector<float> tone(88200);
-            for (size_t f = 0; f < tone.size(); ++f) { // a swell from 0.1 to 0.5 over the first 10000 frames, a tail at 0.5 falling
-                const float wave = float(std::sin(2 * M_PI * 220 * f / 44100.0));
-                tone[f] = f < 30000 ? wave * std::min(0.5f, 0.1f + 0.4f * float(f) / 10000.0f) : 0.5f * wave * std::exp(-float(f - 30000) / 40000.0f);
-            }
-            r.part(tone);
-            auto& held = r.zone(0); held.root = 57; held.loop = ZoneLoop::On; held.loop_start = 12000; held.loop_end = 20000; held.end = 30000;
-            held.release = -10;
-            auto& gone = r.zone(0); gone.root = 57; gone.on_release = true; gone.one_shot = true; gone.start = 30000; gone.end = 88200;
-            gone.start_level = 0.5f / std::sqrt(2.0f); // its first 20 ms: a 0.5 sine's RMS
-            r.multi->has_release = true;
-            r.pad.release = 10; r.pad.attack = 0;
-            r.build(PadPlay::Gate);
-            r.engine->set_keyed(true);
-            r.engine->note_on(57, 127);
-            r.run(hold);
-            const float before = peak_of(r.run(400), 0);
-            r.engine->note_off(57);
-            r.run(2205); // 50 ms on: the note gone, its tail playing
-            return std::pair<float, float> {before, peak_of(r.run(1000), 0)};
-        };
-        auto early = play(400), late = play(40000);
-        CHECK(early.first < 0.2f && early.second < 1.5f * early.first);   // let go at 0.1: the tail no louder
-        CHECK(late.first > 0.25f && std::fabs(late.second - late.first) < 0.1f); // let go on the loop: the tail where it was (0.35 a side, centred)
     }
     { // a Tie: there at once
         ZoneRig r;
@@ -15142,6 +15260,7 @@ int main() {
     xpm_writer();
     loop_finder();
     auto_probe();
+    release_fitting();
     card_folders();
     exs_reader();
     kit_levels_octave();

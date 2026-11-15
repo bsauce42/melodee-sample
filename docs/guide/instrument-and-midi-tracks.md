@@ -101,7 +101,7 @@ almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 | Row | K1 | K2 | K3 |
 | --- | --- | --- | --- |
 | **KEYS** | **LOW**: lowest note | **HIGH**: highest note | **STEP**: semitones between notes |
-| **NOTE** | **LAYERS**: velocity layers, 1–4 | **HOLD**: how long each key is held | **TAIL**: longest release kept |
+| **NOTE** | **LAYERS**: velocity layers, 1–4 | **HOLD**: how long each key is held, or Auto | **TAIL**: longest release measured |
 | **SOUND** | **TAP**: Pre FX or Post FX | **LOOP**: Auto, On or Off | **LEVEL**: as played, or loudest at −1 dB |
 
 ![The AUTO SAMPLE sheet](../images/screens/autosample.png)
@@ -127,7 +127,8 @@ The check sets these for you; the sheet's chip shows the type:
 | **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. Each drum plays whole however short the tap. |
 | **ACCENT** | The velocity layers split where the sound jumps (two layers at least). |
 | **TAKES ×3** | Each key is recorded three times and the program plays them in turn. |
-| **LOOPS** | The sound holds steady while a key is held, so each note loops and plays on for as long as you hold the pad. With **LOOP** at Auto this follows the check; set it to On or Off to choose yourself. |
+| **LOOPS** | The sound keeps sounding while a key is held, so each note loops and plays on for as long as you hold the pad. With **LOOP** at Auto this follows the check; set it to On or Off to choose yourself. |
+| **HOLD Auto** | A steady sound is held 2 s. A sound that moves while held (a slow LFO, detuned oscillators) is held 8 s and gets a long loop, so its movement carries on. A sound that fades is held until it has died away. |
 
 On a keygroup track from a **MONO** program, a key pressed while another is
 held glides to the new note without starting it again. A **Slide** step does
@@ -136,11 +137,14 @@ works on an MPC and in MPC 3 exports.
 
 - Each key covers the notes halfway to the next sampled key.
 - **LOOP** finds a loop in the held part of each note and crossfades it, so
-  pads and organs sustain. Sounds that never repeat exactly (wide detuned
-  saws, chorus) get a longer, smoother crossfade. Sounds that fade while held
-  (plucks, a 303) are not looped at Auto.
-- When a looped note is let go, its own recorded release plays, as the
-  plug-in's would: the filter closing, the delay or reverb at Post FX.
+  pads and organs sustain. Sounds that move while held get a loop several
+  seconds long. Sounds that fade while held (plucks, a 303) are not looped at
+  Auto; put **LOOP** On to hold them.
+- When you let a key go, the note fades as the plug-in's did: Auto sample
+  measures how fast the plug-in falls and how much of it rings on (echoes,
+  reverb), and sets the program's release to match. A sound that rings on
+  plays as two keygroups over the same keys, one with the short release and
+  one with the long.
 - **LEVEL** at −1 dB raises every sample by the same amount, so velocity
   layers keep their balance.
 - A key where the plug-in makes no sound is left out.
