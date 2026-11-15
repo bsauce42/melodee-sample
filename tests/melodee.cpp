@@ -30,6 +30,7 @@
 #include "melodee/shell/light_show.h"
 #include "melodee/shell/xpm_write.h"
 #include "melodee/engine/auto_probe.h"
+#include "melodee/model/card_folders.h"
 #include "melodee/shell/auto_sample.h"
 #include "melodee/engine/loop_find.h"
 #include "melodee/engine/engine_host.h"
@@ -7252,6 +7253,13 @@ void xpm_writer() {
     CHECK(read.mono && read.legato && std::fabs(read.glide - 0.2) < 1e-4);
     tree.tags.clear();
     CHECK(!read_keygroup(tree).mono && read_keygroup(tree).glide == 0);
+}
+
+// Melodee's own card folders the MPC's browsers leave out (model/card_folders.h): Cache and Crashes in Melodee/ only.
+void card_folders() {
+    CHECK(melodee_own_folder("/media/card/Melodee/Cache") && melodee_own_folder("/media/card/Melodee/Crashes"));
+    CHECK(!melodee_own_folder("/media/card/Melodee/Plugins") && !melodee_own_folder("/media/card/Samples/Cache")
+          && !melodee_own_folder("/media/card/Melodee/Projects/Crashes"));
 }
 
 // The auto sampler's check (engine/auto_probe.h), on made-up sounds: a pitch, a mono glide and a poly chord, an accent,
@@ -15017,6 +15025,7 @@ int main() {
     xpm_writer();
     loop_finder();
     auto_probe();
+    card_folders();
     exs_reader();
     kit_levels_octave();
     drum_program_pads();

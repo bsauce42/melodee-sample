@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/plugin/plugin_files.h"
+#include "melodee/model/card_folders.h"
 #include <juce_core/juce_core.h>
 #include <algorithm>
 #include <cctype>
@@ -231,6 +232,7 @@ std::vector<PluginFile> list_plugins(const std::string& folder, bool zips) {
         auto name = entry.path().filename().string();
         if (name.empty() || name[0] == '.' || name == "System Volume Information") continue;
         bool dir = entry.is_directory(error);
+        if (dir && melodee_own_folder(entry.path())) continue; // Melodee/Cache, Melodee/Crashes
         if (!dir && is_zip(name)) { // one unzip_plugins() could not unzip: listed dimmed
             if (!zips) continue;
             PluginFile zip;

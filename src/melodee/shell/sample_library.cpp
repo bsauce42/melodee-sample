@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/sample_library.h"
+#include "melodee/model/card_folders.h"
 #include "melodee/shell/sf2_file.h"
 #include "melodee/shell/chop.h"
 #include "melodee/shell/mpc_program.h"
@@ -245,6 +246,7 @@ void list_into(const std::string& folder, std::vector<SampleFile>& out, bool car
         auto name = it->path().filename().string();
         if (name.empty() || name[0] == '.' || name == "lost+found" || (card_top && name == "autorun")) continue;
         bool folder_here = it->is_directory(error);
+        if (folder_here && melodee_own_folder(it->path())) continue; // Melodee/Cache, Melodee/Crashes
         if (folder_here && name == "[Previews]") continue; // an expansion's program previews: Preview plays them on the program
         if (folder_here && owned_data(it->path())) continue;  // a program's or project's own samples: it is the row
         bool bank = !folder_here && is_bank(it->path());

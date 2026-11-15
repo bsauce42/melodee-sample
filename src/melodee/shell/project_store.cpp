@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/project_store.h"
+#include "melodee/model/card_folders.h"
 #include "drivers/platform.h"
 #include "melodee/crash_log.h"
 #include "melodee/engine/engine_info.h"
@@ -486,6 +487,7 @@ void ProjectStore::scan() {
             if (item.is_directory(error)) {
                 if (is_hidden_folder(item.path(), extension)) continue; // a project's loops or samples
                 if (on_card_top(folder) && skip_on_card(item.path())) continue;
+                if (melodee_own_folder(item.path())) continue; // Melodee/Cache, Melodee/Crashes
                 e.kind = ProjectEntry::Kind::Folder;
                 e.projects = projects_in(item.path(), extension);
             } else if (item.path().extension() == extension) {
