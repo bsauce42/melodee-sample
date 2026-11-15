@@ -11233,6 +11233,13 @@ void track_move() {
     swap_track_views(ui, 0, 1);
     CHECK(ui.track == 6);
 
+    // Only a tap of Pad Bank steps the bank: held past pad_bank_hold_ms, or used while down, it does not.
+    {
+        UiState tap; tap.pad_bank = true; tap.pad_bank_down = 1000;
+        CHECK(pad_bank_tap(tap, 1000 + pad_bank_hold_ms - 1) && !pad_bank_tap(tap, 1000 + pad_bank_hold_ms));
+        tap.pad_bank_used = true;
+        CHECK(!pad_bank_tap(tap, 1001));
+    }
     // B1-B3 with Pad Bank held: B2 MOVE, B3 COPY; B1 steps back, then out; the active key again ends it.
     UiState held; held.pad_bank = true;
     CHECK(track_key(held, 0) == TrackKey::Tracks && held.copying == UiState::Copying::Off && held.pad_bank_used); // B1 TRACKS

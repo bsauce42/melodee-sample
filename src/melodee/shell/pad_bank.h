@@ -13,6 +13,10 @@ namespace melodee {
 
 class Context;
 
+constexpr uint32_t pad_bank_hold_ms = 400; // longer than this, Pad Bank was held, not tapped: its release steps no bank
+// Whether letting go of Pad Bank at `now` steps the bank: a tap only, nothing done while it was down.
+inline bool pad_bank_tap(const UiState& ui, uint32_t now) { return !ui.pad_bank_used && now - ui.pad_bank_down < pad_bank_hold_ms; }
+
 void pad_bank_button(Context& c, bool pressed);
 // Minus / Plus or the wheel while Pad Bank is held: the bank jumps. False when it is not held.
 bool pad_bank_move(Context& c, int way);

@@ -74,6 +74,7 @@ struct UiState {
     bool shift = false, shift_used = false; // Shift held; another control used during the hold
     bool pad_bank = false, mute = false, erase = false; // held
     bool pad_bank_used = false;  // Pad Bank held did something (a pad, -/+, the wheel): its release steps no bank
+    uint32_t pad_bank_down = 0;  // ms: when Pad Bank went down (held past pad_bank_hold_ms, its release steps no bank)
     bool erase_used = false;     // Erase held did something (a pad, a pot, the fader): its release deletes nothing
     // Mute mode (shell/mute_mode.cpp): a tap latches it, a hold lasts while held.
     bool mute_latch = false, mute_used = false;

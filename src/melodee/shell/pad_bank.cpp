@@ -45,10 +45,10 @@ void step_bank(Context& c, int way) {
 
 void pad_bank_button(Context& c, bool pressed) {
     auto& ui = c.ui;
-    if (pressed) { ui.pad_bank = true; ui.pad_bank_used = false; return; }
+    if (pressed) { ui.pad_bank = true; ui.pad_bank_used = false; ui.pad_bank_down = c.now; return; }
     if (!ui.pad_bank) return; // its press went elsewhere (a question took it): no step
     ui.pad_bank = false;
-    if (ui.pad_bank_used) return; // held for a pad, a jump or a copy: no step
+    if (!pad_bank_tap(ui, c.now)) return; // held (for a track, a jump, a copy, or just long): no step; only a tap steps
     if (ui.shift) ui.shift_used = true;
     if (ui.seq_held || ui.page == PageId::Patterns || ui.page == PageId::Scenes) { step_pattern_bank(c, ui.shift ? -1 : 1); return; } // the patterns' bank (Seq's layer)
     if (ui.page == PageId::Punch) { c.step_punch_bank(ui.shift ? -1 : 1); return; } // the next bank of punches
