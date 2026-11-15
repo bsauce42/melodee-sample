@@ -121,7 +121,9 @@ struct UiState {
     // An empty track picked (shell/new_track.h): that track, its Stage open (-1 none), and the page to go back to
     // once it is made.
     int8_t new_for = -1;
-    uint8_t new_pick = 0; // the carousel's card in the middle (NewChoice)
+    uint8_t new_pick = 0; // the carousel's card in the middle: a NewType, or with new_sources one of its sources
+    uint8_t new_type = 0; // the type whose sources are open (NewType)
+    bool new_sources = false; // the carousel shows that type's sources (B1 BACK: the types)
     float new_pick_from = 0; // and where it was drawn when it last moved (new_pick_shown())
     uint32_t new_pick_at = 0; // ms, when (0: still)
     PageId new_back = PageId::Stage;

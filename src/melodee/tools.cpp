@@ -870,12 +870,18 @@ const Preview previews[] {
     {"stagemidicc", [](Shell&, Snapshot& s) { stage_midi(s, 0, 2); }},
     {"stagemidiccshift", [](Shell&, Snapshot& s) { stage_midi(s, 0, 2); s.ui.shift = true; }},
     {"stagemidiarp", [](Shell&, Snapshot& s) { stage_midi(s, 1, 0); }},
-    {"stageemptysynth", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewChoice::Plugin); }},
-    {"stageemptykit", [](Shell&, Snapshot& s) { on_stage(s, 12, 1, 0); s.ui.new_pick = uint8_t(NewChoice::Samples); s.ui.new_for = 12; }}, // picked from Tracks: B1 BACK
-    {"stageemptymidi", [](Shell&, Snapshot& s) { on_stage(s, 12, 2, 0); s.ui.new_pick = uint8_t(NewChoice::MidiUsb); }},
-    {"stageemptykeygroup", [](Shell&, Snapshot& s) { on_stage(s, 12, 1, 0); s.ui.new_pick = uint8_t(NewChoice::Keygroup); }}, // a keygroup: its instrument from Samples
-    {"stageemptyslide", [](Shell&, Snapshot& s) { // the wheel just moved: Card on its way to the middle
-         on_stage(s, 12, 1, 0); s.ui.new_pick = uint8_t(NewChoice::Samples); s.ui.new_pick_from = 1; s.now = 1000; s.ui.new_pick_at = 960;
+    // An empty track (shell/new_track.h): the types in the MPC's order, then a type's sources.
+    {"stageemptytypes", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Drum); }},
+    {"stageemptysynth", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Plugin); }},
+    {"stageemptykeygroup", [](Shell&, Snapshot& s) { on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Keygroup); }}, // Push: Samples
+    {"stageemptykit", [](Shell&, Snapshot& s) { // Drum opened: where its samples come from; B1 BACK to the types
+         on_stage(s, 12, 0, 0); s.ui.new_sources = true; s.ui.new_type = uint8_t(NewType::Drum); s.ui.new_pick = 0; s.ui.new_for = 12;
+     }},
+    {"stageemptymidi", [](Shell&, Snapshot& s) { // MIDI opened: the port
+         on_stage(s, 12, 0, 0); s.ui.new_sources = true; s.ui.new_type = uint8_t(NewType::Midi); s.ui.new_pick = 1;
+     }},
+    {"stageemptyslide", [](Shell&, Snapshot& s) { // the wheel just moved: Keygroup on its way to the middle
+         on_stage(s, 12, 0, 0); s.ui.new_pick = uint8_t(NewType::Keygroup); s.ui.new_pick_from = 0; s.now = 1000; s.ui.new_pick_at = 960;
      }},
     {"tracks", [](Shell&, Snapshot& s) { // Pad Bank tapped twice; each track's share of a block (roadmap P2), one heavy
         s.ui.page = PageId::Tracks; s.ui.track = 2; s.playing = true;

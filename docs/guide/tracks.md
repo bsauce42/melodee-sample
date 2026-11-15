@@ -58,25 +58,37 @@ page. A frozen track shows a snowflake in its cell (see
 ## Make a new track
 
 Select an empty track with **PAD BANK** + pad, or press **SAMPLE** on an
-empty track. Stage shows a row of cards, one for each kind of track. Turn the encoder to move along the row and push it to make the card
-in the middle. Making a track is one undo step.
+empty track. Stage shows the track types as on the MPC: **Drum**,
+**Keygroup**, **Plugin** and **MIDI**. Turn the encoder to move along the
+cards and push it to pick the card in the middle. Making a track is one undo
+step.
 
-![An empty track](../images/screens/stageemptykit.png)
+![An empty track](../images/screens/stageemptytypes.png)
 
-| Card | Makes |
+| Type | Push |
 | --- | --- |
-| **SYNTH** Plugin | A plug-in track. The plug-in picker opens. The track stays empty until you pick a plug-in. |
-| **KIT** Empty | A kit with no samples. |
-| **KIT** Card | A kit. The Samples browser opens for its first sample. **B1** (**CANCEL**) at the top of Samples leaves the track empty. |
-| **KIT** Input | A kit. Sample Record opens to record its first sample. |
-| **KEYGROUP** Card | A [keygroup track](instrument-and-midi-tracks.md#keygroup-tracks): one instrument or sample played across the keys. The Samples browser opens for it. **B1** (**CANCEL**) at the top of Samples leaves the track empty. |
+| **Drum** | Opens the Drum sources (below). |
+| **Keygroup** | Makes a [keygroup track](instrument-and-midi-tracks.md#keygroup-tracks): one instrument or sample played across the keys. The Samples browser opens for it. **B1** (**CANCEL**) at the top of Samples leaves the track empty. |
+| **Plugin** | Makes a plug-in track. The plug-in picker opens. The track stays empty until you pick a plug-in. |
+| **MIDI** | Opens the MIDI ports (below). |
+
+Drum and MIDI show their sources next. Push makes the card in the middle.
+**B1** (**BACK**) goes back to the types.
+
+![Drum sources](../images/screens/stageemptykit.png)
+
+| Source | Makes |
+| --- | --- |
+| **DRUM** Card | A kit. The Samples browser opens for its first sample. **B1** (**CANCEL**) at the top of Samples leaves the track empty. |
+| **DRUM** Empty | A kit with no samples. |
+| **DRUM** Input | A kit. Sample Record opens to record its first sample. |
 | **MIDI** Out jack | A MIDI track on the MIDI Out jack. |
 | **MIDI** USB-C | A MIDI track on the USB-C port. |
 | **MIDI** All USB | A MIDI track on every USB MIDI device. |
 
 Until the track is made, the other buttons wait. **PLAY**, **STOP** and
 **TAP TEMPO** still work, and **PAD BANK** + pad selects another track.
-**B1** (**CANCEL**) selects the nearest track that is not empty.
+On the types, **B1** (**CANCEL**) selects the nearest track that is not empty.
 
 When you pick an empty track with a pad (on Tracks, with **PAD BANK** held,
 or on a Song lane), Stage opens and, once the track is made, you go back to

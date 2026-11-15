@@ -55,6 +55,7 @@
 #include "melodee/model/lane_value.h"
 #include "melodee/model/scales.h"
 #include "melodee/shell/bindings.h"
+#include "melodee/shell/new_track.h"
 #include "melodee/shell/pad_colour.h"
 #include "melodee/shell/zoom_view.h"
 #include "melodee/shell/settings.h"
@@ -6201,6 +6202,23 @@ void stage() {
         auto none = cards(false);
         CHECK(!none[0].bound() && !none[1].bound() && !none[2].bound());
         CHECK(!shift_bindings(*project, ui, pattern)[0].bound()); // no Shift row either
+    }
+    // Its carousel as on the MPC: the types (Drum, Keygroup, Plugin, MIDI), then the opened type's sources.
+    {
+        UiState u;
+        CHECK(new_pick_count(u) == 4 && new_pick_choice(u) == NewChoice::Count); // the types: nothing made yet
+        new_pick_turn(u, 9, 1);
+        CHECK(u.new_pick == 3);                // the wheel stops at the last type (MIDI)
+        new_pick_turn(u, -9, 2);
+        CHECK(u.new_pick == 0);                // and at the first (Drum)
+        u.new_sources = true; u.new_type = uint8_t(NewType::Drum); u.new_pick = 0;
+        CHECK(new_pick_count(u) == 3 && new_pick_choice(u) == NewChoice::Samples);
+        new_pick_turn(u, 1, 3); CHECK(new_pick_choice(u) == NewChoice::Kit);
+        new_pick_turn(u, 5, 4); CHECK(new_pick_choice(u) == NewChoice::Record);
+        u.new_type = uint8_t(NewType::Midi); u.new_pick = type_sources(NewType::Midi).first;
+        CHECK(new_pick_choice(u) == NewChoice::MidiUsb); // MIDI opens on USB-C
+        CHECK(type_sources(NewType::Keygroup).count == 1 && type_sources(NewType::Keygroup).items[0] == NewChoice::Keygroup);
+        CHECK(type_sources(NewType::Plugin).count == 1 && type_sources(NewType::Plugin).items[0] == NewChoice::Plugin);
     }
     stage_go(ui, 0, 0);
     ui.last_pot = 2; // the pot touched last picks the door Push makes, on an empty track too

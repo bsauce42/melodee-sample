@@ -65,7 +65,7 @@ A keygroup track plays one instrument across its pads and keys: an SFZ, an
 MPC keygroup program, an EXS, a DecentSampler preset, a SoundFont preset, or
 a single sample. Its pads play notes, as on a plug-in track.
 
-To make one: select an empty track, turn to **KEYGROUP** Card and push the
+To make one: select an empty track, turn to **Keygroup** and push the
 encoder. Pick the instrument or sample in the browser. **SAMPLE SELECT** on
 the track opens the browser again to change it.
 

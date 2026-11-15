@@ -69,8 +69,8 @@ The same page updates Melodee: drop the release zip on **Update**, press
 ## Plug-in instruments
 
 1. Select an empty track with **PAD BANK** + pad. Stage shows the
-   new-track cards.
-2. Turn the encoder to **SYNTH** and push it. The plug-in picker opens.
+   track types.
+2. Turn the encoder to **Plugin** and push it. The plug-in picker opens.
 3. Turn the encoder to a plug-in and push to load it.
 
 ![The plug-in picker](../images/screens/plugins.png)

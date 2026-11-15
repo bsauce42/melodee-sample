@@ -789,19 +789,27 @@ void cc_picture(Paint& p, const Snapshot& s) {
     rows(p, {}, list, 44); // DEVICE says where they go
 }
 
-// An empty track: what it can become, as a carousel; the wheel moves along it, Push makes the card in the middle.
+// An empty track: what it can become, as a carousel in two steps (shell/new_track.h): the track types in the MPC's
+// order, then the sources of the type opened. The wheel moves along it, Push opens or makes the card in the middle.
 void new_track_picture(Paint& p, const Snapshot& s) {
     p.fill(0, zone::picture_y, zone::width, zone::height - zone::picture_y, colour::bg); // the knob strip too: no pots here
     juce::String channel = juce::String::fromUTF8("MIDI \xc2\xb7 CH ") + juce::String(std::clamp<int>(s.ui.new_channel, 1, 16));
-    std::vector<CarouselCard> cards(new_choice_count);
-    cards[size_t(NewChoice::Plugin)] = {Icon::Plug, "SYNTH", "Plugin", "VST CLAP LV2"};
-    cards[size_t(NewChoice::Kit)] = {Icon::Pads, "KIT", "Empty", "NO SAMPLES"};
-    cards[size_t(NewChoice::Samples)] = {Icon::Folder, "KIT", "Card", "SAMPLES"};
-    cards[size_t(NewChoice::Keygroup)] = {Icon::Keyboard, "KEYGROUP", "Card", "INSTRUMENT"};
-    cards[size_t(NewChoice::Record)] = {Icon::Mic, "KIT", "Input", "RECORD"};
-    cards[size_t(NewChoice::MidiOut)] = {Icon::Din, "MIDI", "Out jack", channel};
-    cards[size_t(NewChoice::MidiUsb)] = {Icon::Din, "MIDI", "USB-C", channel};
-    cards[size_t(NewChoice::MidiAllUsb)] = {Icon::Din, "MIDI", "All USB", channel};
+    std::vector<CarouselCard> cards;
+    if (!s.ui.new_sources) {
+        cards = {{Icon::Pads, "", "Drum", "PADS"}, {Icon::Keyboard, "", "Keygroup", "INSTRUMENT"}, {Icon::Plug, "", "Plugin", "VST CLAP LV2"},
+                 {Icon::Din, "", "MIDI", juce::String::fromUTF8("OUT \xc2\xb7 USB")}};
+    } else {
+        auto list = type_sources(NewType(s.ui.new_type % new_type_count));
+        for (unsigned n = 0; n < list.count; ++n) switch (list.items[n]) {
+            case NewChoice::Samples: cards.push_back({Icon::Folder, "DRUM", "Card", "SAMPLES"}); break;
+            case NewChoice::Kit: cards.push_back({Icon::Pads, "DRUM", "Empty", "NO SAMPLES"}); break;
+            case NewChoice::Record: cards.push_back({Icon::Mic, "DRUM", "Input", "RECORD"}); break;
+            case NewChoice::MidiOut: cards.push_back({Icon::Din, "MIDI", "Out jack", channel}); break;
+            case NewChoice::MidiUsb: cards.push_back({Icon::Din, "MIDI", "USB-C", channel}); break;
+            case NewChoice::MidiAllUsb: cards.push_back({Icon::Din, "MIDI", "All USB", channel}); break;
+            default: break;
+        }
+    }
     carousel(p, cards, new_pick_shown(s.ui, s.now), colour_of(s), zone::picture_y + 8, zone::height - zone::picture_y - 12);
 }
 
@@ -1033,10 +1041,10 @@ void draw(Paint& p, const Snapshot& s) {
     if (s.ui.shift && page.kind == StageKind::Trim && t.engine == EngineKind::Sampler && !instrument_pad(s)) // the old Trim's Shift jobs on B1 and B2
         { keys = SoftKeys {{"LOOP LOCK", "NORMALIZE", ""}, -1, c}; keys.toggles = 1; keys.lit = sampler_pad(s).loop_lock ? 1 : 0; keys.leds[0] = c; }
     if (s.ui.shift && page.kind == StageKind::Layers && t.engine == EngineKind::Sampler) keys = layers_keys(s);
-    if (!t.used()) { // what it becomes: B1 CANCEL to the nearest track that is not empty
-        bool any = false;
+    if (!t.used()) { // what it becomes: B1 BACK to the types, or CANCEL to the nearest track that is not empty
+        bool any = s.ui.new_sources;
         for (const auto& other : s.project.tracks) any |= other.used();
-        keys = SoftKeys {{any ? "CANCEL" : "", "", ""}, -1, c, {any ? KeyIcon::Back : KeyIcon::None, KeyIcon::None, KeyIcon::None}};
+        keys = SoftKeys {{any ? (s.ui.new_sources ? "BACK" : "CANCEL") : "", "", ""}, -1, c, {any ? KeyIcon::Back : KeyIcon::None, KeyIcon::None, KeyIcon::None}};
     }
     frame(p, s, keys, h);
     if (!t.used()) { new_track_picture(p, s); return; }
@@ -1082,8 +1090,8 @@ void soft(Context& c, int key) {
         return;
     }
     c.stage_tick(UINT32_MAX); // a sound still waiting to load lands first
-    if (!c.track().used()) { // B1 CANCEL: the nearest track that is not empty, on the page this one was picked on
-        if (key == 0) cancel_new_track(c);
+    if (!c.track().used()) { // B1 BACK: the types; CANCEL: the nearest track that is not empty, on the page this one was picked on
+        if (key == 0) { if (c.ui.new_sources) new_track_types(c); else cancel_new_track(c); }
         return;
     }
     if (stage_opens_edit(c.track(), unsigned(key))) { c.open(PageId::Edit); return; } // a MIDI track's B3 EDIT
@@ -1115,7 +1123,7 @@ void wheel(Context& c, int delta) {
 void push(Context& c) {
     auto& t = c.track();
     const auto& page = stage_page_now(c.ui, t, stage_instrument(c.project, t));
-    if (!t.used()) { make_new_track(c, NewChoice(c.ui.new_pick % new_choice_count)); return; } // the card in the middle
+    if (!t.used()) { new_track_push(c); return; } // the card in the middle: a type's sources, or the track made
     if (page.kind == StageKind::Preset) { c.stage_tick(UINT32_MAX); c.open(PageId::Sounds); return; }
     if (page.kind == StageKind::Fx && !t.fx.count()) { // nothing yet: the picker on the track's chain, to add the first
         c.ui.fx_loop = -1;

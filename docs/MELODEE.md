@@ -367,14 +367,16 @@ beat; the meters show the mix.
     General MIDI names (74 Brightness, 71 Resonance, 1 Mod wheel at first),
     Shift + K picks a controller's number; they go out on a turn and record
     as Motion.
-  - **An empty track**: a carousel of seven cards (`shell/new_track.h`),
-    animated as the wheel moves; Push makes the card in the middle, one
-    undo step. SYNTH Plugin (the plug-in picker on Melodee/Plugins; the
-    track turns PLUGIN only once one is picked), KIT Empty, KIT Card
-    (Samples; B1 CANCEL at its top leaves the track empty), KIT Input
-    (Sample Record), MIDI Out jack / USB-C / All USB. No knob cards. Until
-    the track is made the other buttons wait (Play, Stop, Tap Tempo and
-    Pad Bank + pad still work); B1 CANCEL selects the nearest used track.
+  - **An empty track**: a carousel in two steps as on the MPC
+    (`shell/new_track.h`), animated as the wheel moves: the types Drum,
+    Keygroup, Plugin, MIDI; Push on Drum or MIDI opens its sources, B1 BACK
+    goes back. Keygroup (Samples; B1 CANCEL at its top leaves the track
+    empty) and Plugin (the plug-in picker on Melodee/Plugins; the track
+    turns PLUGIN only once one is picked) are made at once. Drum: Card
+    (Samples), Empty, Input (Sample Record). MIDI: Out jack / USB-C (first) /
+    All USB. Making one is one undo step. No knob cards. Until the track is
+    made the other buttons wait (Play, Stop, Tap Tempo and Pad Bank + pad
+    still work); B1 CANCEL on the types selects the nearest used track.
     Picked with a pad (Tracks, Pad Bank held, Song's lanes), the track goes
     back to that page once made.
 - **Tracks** (Pad FX + Knob FX together, the MIX hub's B1): the sixteen tracks as the

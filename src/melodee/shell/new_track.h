@@ -6,8 +6,11 @@
 #include <algorithm>
 #include <cstdint>
 
-// An empty track's Stage: what it can become, as a carousel (pages/stage_page.cpp).
-// The wheel moves along it, Push makes the card in the middle. Picked with a pad
+// An empty track's Stage: what it can become, as a carousel (pages/stage_page.cpp),
+// in two steps as on the MPC: the track type (Drum, Keygroup, Plugin, MIDI), then
+// where it comes from (a Drum's samples, a MIDI track's port). The wheel moves
+// along it, Push opens the type's sources (a type with one goes straight on) or
+// makes the source in the middle, B1 BACK goes back to the types. Picked with a pad
 // (Tracks, Pad Bank held, Song's lanes) or Push on Tracks, the track goes straight
 // there and, once made, back to the page it was picked on (B1 BACK goes back
 // empty): a kit or a MIDI track at once, a plug-in once one is picked from the
@@ -21,11 +24,36 @@ class Context;
 enum class NewChoice : uint8_t { Plugin, Kit, Samples, Keygroup, Record, MidiOut, MidiUsb, MidiAllUsb, Count };
 constexpr unsigned new_choice_count = unsigned(NewChoice::Count);
 
+// The track types, in the MPC's order, and each one's sources (the first is the one the carousel opens on,
+// a type with one source makes it at once).
+enum class NewType : uint8_t { Drum, Keygroup, Plugin, Midi, Count };
+constexpr unsigned new_type_count = unsigned(NewType::Count);
+struct NewSources { NewChoice items[3]; uint8_t count, first; };
+constexpr NewSources type_sources(NewType type) {
+    switch (type) {
+    case NewType::Drum: return {{NewChoice::Samples, NewChoice::Kit, NewChoice::Record}, 3, 0};
+    case NewType::Keygroup: return {{NewChoice::Keygroup}, 1, 0};
+    case NewType::Plugin: return {{NewChoice::Plugin}, 1, 0};
+    case NewType::Midi: return {{NewChoice::MidiOut, NewChoice::MidiUsb, NewChoice::MidiAllUsb}, 3, 1}; // USB-C first
+    default: return {{NewChoice::Plugin}, 1, 0};
+    }
+}
+// The cards on the carousel now: the types, or the sources of the type opened.
+inline unsigned new_pick_count(const UiState& ui) {
+    return ui.new_sources ? type_sources(NewType(ui.new_type % new_type_count)).count : new_type_count;
+}
+// The source in the middle (the types: none, Count).
+inline NewChoice new_pick_choice(const UiState& ui) {
+    if (!ui.new_sources) return NewChoice::Count;
+    auto list = type_sources(NewType(ui.new_type % new_type_count));
+    return list.items[ui.new_pick % list.count];
+}
+
 // Where the carousel is drawn at `now`: the card picked, or on the way there (an ease-out over carousel_ms
 // from new_pick_from, set as the wheel moves, at the ends a bump back, and a slide in as the carousel opens).
 constexpr uint32_t carousel_ms = 220;
 inline float new_pick_shown(const UiState& ui, uint32_t now) {
-    float to = float(ui.new_pick % new_choice_count);
+    float to = float(ui.new_pick % new_pick_count(ui));
     uint32_t gone = now - ui.new_pick_at;
     if (!ui.new_pick_at || gone >= carousel_ms) return to;
     float t = 1 - float(gone) / float(carousel_ms);
@@ -34,7 +62,8 @@ inline float new_pick_shown(const UiState& ui, uint32_t now) {
 // The wheel `delta` detents along the carousel (at `now`).
 inline void new_pick_turn(UiState& ui, int delta, uint32_t now) {
     float shown = new_pick_shown(ui, now);
-    int to = std::clamp<int>(int(ui.new_pick % new_choice_count) + delta, 0, int(new_choice_count) - 1);
+    const int count = int(new_pick_count(ui));
+    int to = std::clamp<int>(int(ui.new_pick % unsigned(count)) + delta, 0, count - 1);
     ui.new_pick_from = to == int(ui.new_pick) ? float(to) + (delta < 0 ? -0.18f : 0.18f) : shown; // at an end: a bump
     ui.new_pick = uint8_t(to);
     ui.new_pick_at = now ? now : 1;
@@ -53,7 +82,11 @@ void cancel_new_track(Context& c);
 
 // The selected track empty: its Stage, the page in view kept to come back to.
 void offer_new_track(Context& c);
-// The card in the middle pressed: the track made, one undo step.
+// Push on the carousel: a type's sources opened (one source: made at once), or the source in the middle made.
+void new_track_push(Context& c);
+// B1 BACK on the sources: the types again, the type opened in the middle.
+void new_track_types(Context& c);
+// A source made: the track made, one undo step.
 void make_new_track(Context& c, NewChoice choice);
 // A sample loaded: a kit made for Samples goes back to the page it was picked on.
 void new_track_landed(Context& c);
