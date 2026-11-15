@@ -1758,6 +1758,11 @@ const Preview previews[] {
          s.sketches[12][0].audio = r;
          s.playing = true; s.position = 290;
      }},
+    {"stageaudiowarp", [](Shell&, Snapshot& s) { // A1's take fitted to the tempo, kept at its pitch
+         audio_scene(s, true); on_stage(s, 12, 0, 2);
+         s.pattern.audio.warp = true; s.pattern.audio.tempo = 1080; // recorded at 108 BPM
+         s.sketches[12][0].audio = s.pattern.audio;
+     }},
     {"stageaudiofades", [](Shell&, Snapshot& s) {
          audio_scene(s, true); on_stage(s, 12, 0, 1);
          s.pattern.audio.fade_in = 8820; s.pattern.audio.fade_out = 22050;

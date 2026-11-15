@@ -167,6 +167,10 @@ void Context::set_region_value(const Binding& b, int value) {
     case K::RegionFadeIn: r.fade_in = std::min(frames(value), r.frames); break;
     case K::RegionFadeOut: r.fade_out = std::min(frames(value), r.frames); break;
     case K::RegionReverse: r.reverse = value != 0; break;
+    case K::RegionWarp: r.warp = value != 0; r.mode = value == 2 ? WarpMode::Repitch : WarpMode::Stretch; break;
+    case K::RegionBpm: r.tempo = uint16_t(std::clamp(value, 300, 3000)); break;
+    case K::RegionSemi: r.semi = int8_t(std::clamp(value, -24, 24)); break;
+    case K::RegionFine: r.fine = int8_t(std::clamp(value, -50, 50)); break;
     default: return;
     }
     r.fade_in = std::min(r.fade_in, r.frames); r.fade_out = std::min(r.fade_out, r.frames);

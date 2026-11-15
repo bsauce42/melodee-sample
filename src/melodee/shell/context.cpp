@@ -629,7 +629,7 @@ void Context::apply(const Binding& b, int value) {
         break;
     case Kind::SongZoom: ui.song_zoom = uint8_t(value); break;
     case Kind::RegionGain: case Kind::RegionStart: case Kind::RegionEnd: case Kind::RegionFadeIn: case Kind::RegionFadeOut:
-    case Kind::RegionReverse:
+    case Kind::RegionReverse: case Kind::RegionWarp: case Kind::RegionBpm: case Kind::RegionSemi: case Kind::RegionFine:
         set_region_value(b, value); // freeze plan F3 (shell/audio_jobs.cpp)
         break;
     case Kind::SongPattern:

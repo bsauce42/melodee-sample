@@ -371,6 +371,10 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         if (b.value < 1000) { c.value = juce::String(b.value); c.unit = "ms"; } else { c.value = juce::String(b.value / 1000.0, 2); c.unit = "s"; }
         break;
     case Kind::RegionReverse: c.label = "REVERSE"; c.value = b.value ? "On" : "Off"; break;
+    case Kind::RegionWarp: { static const char* const how[] {"Off", "Stretch", "Repitch"}; c.label = "WARP"; c.value = how[std::clamp(b.value, 0, 2)]; break; }
+    case Kind::RegionBpm: c.label = "BPM"; c.value = juce::String(b.value / 10) + "." + juce::String(b.value % 10); break;
+    case Kind::RegionSemi: c.label = "SEMI"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.bipolar = true; break;
+    case Kind::RegionFine: c.label = "FINE"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.unit = "ct"; c.bipolar = true; break;
     case Kind::FxParam: {
         const auto& slot = s.project.chain(unsigned(b.id) / 64).slots[(unsigned(b.id) / 8) % 8];
         const auto& pi = effect_info(EffectKind(slot.kind)).params[unsigned(b.id) % 8];

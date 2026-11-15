@@ -821,7 +821,7 @@ void take_frame(Paint& p, const Snapshot& s, float h) {
 }
 // The take's width in the pattern's frame: its frames at the tempo playing now, no wider than the pattern.
 float take_span(const Snapshot& s, const AudioRegion& r) {
-    const float ticks = float(frames_to_ticks(r.frames, s.tempo));
+    const float ticks = float(frames_to_ticks(r.frames, r.warp ? r.tempo : s.tempo)); // warped, it keeps its bars
     return std::min(take_w, take_w * ticks / std::max<uint32_t>(s.pattern.length, 1));
 }
 void glyph_hint(Paint& p, float cy, const juce::String& words, bool armed) {
@@ -855,6 +855,17 @@ void region_picture(Paint& p, const Snapshot& s, const StagePage& page) {
     }
     const unsigned bar = std::max(1u, s.project.bar_ticks()), bars = std::max(1u, (s.pattern.length + bar - 1) / bar);
     juce::String what = juce::String(bars) + (bars == 1 ? " BAR" : " BARS") + juce::String::fromUTF8(" \xc2\xb7 ") + "TAKE " + juce::String(r.take);
+    if (page.kind == StageKind::Warp) { // its beats at its BPM, and whether it keeps to the tempo
+        const unsigned beat = std::max(1u, s.project.beat_ticks()), ticks = unsigned(frames_to_ticks(r.frames, r.warp ? r.tempo : s.tempo));
+        const float w = take_span(s, r);
+        if (ticks / beat <= 128)
+            for (unsigned b = 0; b * beat <= ticks; ++b) {
+                const bool line = (b * beat) % bar == 0;
+                p.fill(take_x + w * float(b * beat) / std::max(1u, ticks), take_y + h - (line ? 9 : 5), 1, line ? 9 : 5, line ? colour::mid : colour::line);
+            }
+        what = juce::String(r.tempo / 10) + "." + juce::String(r.tempo % 10) + " BPM" + juce::String::fromUTF8(" \xc2\xb7 ")
+             + (r.warp ? juce::String("FITS THE TEMPO") : juce::String("AS RECORDED"));
+    }
     auto style = plain(colour::mid, type::small, Weight::SemiBold);
     float ww = p.width(what, style);
     p.text(what, px + pw - ww - 4, take_y + h + 6, ww + 1, 14, style);

@@ -63,7 +63,7 @@ void draw_clip(Paint& p, const Snapshot& s, const Clip& clip, float y, unsigned 
     if (sketch.audio.used()) { // freeze plan F3: an audio track's take, from the top of each pass of its pattern
         const unsigned bar = std::max(1u, s.project.bar_ticks());
         const float pass = bw * std::max<uint32_t>(sketch.length, 1) / bar;
-        const float take = bw * float(frames_to_ticks(sketch.audio.frames, s.tempo)) / bar;
+        const float take = bw * float(frames_to_ticks(sketch.audio.frames, sketch.audio.warp ? sketch.audio.tempo : s.tempo)) / bar;
         for (float px = cx; px < cx + cw - 1; px += std::max(pass, 2.0f))
             region_wave(p, s, sketch.audio, px + 1, y + 1, std::min({take, pass, cx + cw - px}) - 2, lane_h - 2, selected ? colour::bg.withAlpha(0.55f) : c.withAlpha(0.9f));
     }

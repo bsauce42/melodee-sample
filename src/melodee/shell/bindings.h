@@ -116,6 +116,9 @@ struct Binding {
         // Stage on an audio track, the take of the pattern in hand: CLIP its level (tenths of a dB), start and end in the
         // take (ms); FADES fade in and out (ms) and reverse.
         RegionGain, RegionStart, RegionEnd, RegionFadeIn, RegionFadeOut, RegionReverse,
+        // WARP (B1's third page): K1 0 Off, 1 Stretch, 2 Repitch; K2 the tempo it was recorded at (tenths of a BPM); K3
+        // its semitones, Shift + K3 its cents (Stretch moves its pitch by them).
+        RegionWarp, RegionBpm, RegionSemi, RegionFine,
     };
     Kind kind = Kind::None;
     int32_t id = 0;      // Param: the parameter

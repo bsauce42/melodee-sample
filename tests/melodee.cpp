@@ -14715,6 +14715,43 @@ void prints_f2a() {
 // pager pinned.
 // Freeze plan F3: an audio track plays its pattern's take from the pattern's top, on the frame, again each pass; a
 // take armed records one pass from where the pattern comes round (here the track itself, as the Track source takes it).
+// Freeze plan F3, Warp: a take recorded at 120 BPM played at 150 BPM ends a fifth sooner; Repitch raises it with the
+// speed, Stretch keeps its pitch (and Stretch's semitones move it alone); off, it plays as recorded.
+void audio_warp() {
+    const float rate = dsp::sample_rate();
+    const unsigned frames = unsigned(rate) * 2;
+    std::vector<float> sine(frames);
+    for (unsigned f = 0; f < frames; ++f) sine[f] = 0.5f * std::sin(2 * dsp::pi * 441.0f * float(f) / rate);
+    struct Heard { double hz; unsigned length; };
+    auto play = [&](bool warp, WarpMode mode, float pitch) {
+        AudioPack pack;
+        unsigned part = pack.hold_take(sine, sine, rate);
+        RegionClip& clip = pack.add(0);
+        clip.take = pack.takes[part].get(); clip.frames = frames; clip.resident = true;
+        clip.tempo = 1200; clip.warp = warp; clip.mode = mode; clip.pitch = pitch;
+        RegionPlayer player;
+        player.set_tempo(1500);
+        player.follow(&clip, 0, true, true, rate);
+        std::vector<float> l(256), r(256), out;
+        while (player.sounding() && out.size() < size_t(frames) * 2) {
+            std::fill(l.begin(), l.end(), 0.0f); std::fill(r.begin(), r.end(), 0.0f);
+            player.render(l.data(), r.data(), 256);
+            out.insert(out.end(), l.begin(), l.end());
+        }
+        unsigned rising = 0, length = 0;
+        const size_t from = size_t(rate * 0.2f), to = size_t(rate * 1.2f);
+        for (size_t f = from + 1; f < to && f < out.size(); ++f) rising += out[f - 1] < 0 && out[f] >= 0;
+        for (size_t f = 0; f < out.size(); ++f) if (std::fabs(out[f]) > 1e-3f) length = unsigned(f);
+        return Heard {double(rising) * rate / double(to - from), length};
+    };
+    auto off = play(false, WarpMode::Stretch, 1), repitch = play(true, WarpMode::Repitch, 1), stretch = play(true, WarpMode::Stretch, 1);
+    auto up = play(true, WarpMode::Stretch, std::pow(2.0f, 3 / 12.0f));
+    CHECK(std::fabs(off.hz - 441) < 4 && off.length + 300 >= frames);
+    CHECK(std::fabs(repitch.hz - 551.25) < 6 && std::abs(int(repitch.length) - int(frames * 4 / 5)) < 600);
+    CHECK(std::fabs(stretch.hz - 441) < 6 && std::abs(int(stretch.length) - int(frames * 4 / 5)) < int(rate * 0.07f));
+    CHECK(std::fabs(up.hz - 524.4) < 8 && std::abs(int(up.length) - int(frames * 4 / 5)) < int(rate * 0.07f));
+}
+
 void audio_track_playback() {
     auto project = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
@@ -15647,6 +15684,7 @@ int main() {
     prints_f2a();
     freeze_f2b();
     audio_track_playback();
+    audio_warp();
     deep_freeze_f2d();
     exports_p4();
     midi_tracks_p4();

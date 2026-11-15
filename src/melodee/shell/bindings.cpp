@@ -495,10 +495,15 @@ std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui,
         return {Binding {Kind::StageSound, 0, 0, int(std::max(listed, 2u)) - 1, at}, Binding {Kind::SoundList, 0, 0, 2, ui.sounds_filter},
                 Binding {Kind::Engine, 0, 0, int(std::max(count, 2u)) - 1, int(here)}};
     }
-    case SK::Clip: case SK::Fades: { // freeze plan F3: the take of the pattern in hand
-        if (shift_row) return {};
+    case SK::Clip: case SK::Fades: case SK::Warp: { // freeze plan F3: the take of the pattern in hand
         const auto& r = pattern.audio;
         if (!r.used()) return {};
+        if (page.kind == SK::Warp) {
+            if (shift_row) return {Binding {}, Binding {}, Binding {Kind::RegionFine, 0, -50, 50, r.fine}};
+            const int how = r.warp ? (r.mode == WarpMode::Repitch ? 2 : 1) : 0;
+            return {Binding {Kind::RegionWarp, 0, 0, 2, how}, Binding {Kind::RegionBpm, 0, 300, 3000, r.tempo}, Binding {Kind::RegionSemi, 0, -24, 24, r.semi}};
+        }
+        if (shift_row) return {};
         auto ms = [](uint32_t frames) { return int((uint64_t(frames) * 10 + 220) / 441); };
         const int take_ms = ms(r.take_frames), start = ms(r.offset), end = ms(r.offset + r.frames), length = end - start;
         if (page.kind == SK::Clip)

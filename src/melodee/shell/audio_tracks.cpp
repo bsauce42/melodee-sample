@@ -211,6 +211,8 @@ void AudioTracks::make(const AudioPackJob& job) {
         c.fade_out = std::min(own(r.fade_out), frames);
         c.gain = std::pow(10.0f, float(r.gain) / 200.0f);
         c.reverse = r.reverse;
+        c.tempo = r.tempo; c.warp = r.warp; c.mode = r.mode;
+        c.pitch = std::pow(2.0f, float(r.semi * 100 + r.fine) / 1200.0f);
         const uint32_t second = std::min(frames, uint32_t(part->rate));
         if (pager) {
             if (c.reverse) pager->hold(*part, offset + frames - second, second);
