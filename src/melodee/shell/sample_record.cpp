@@ -51,6 +51,7 @@ Command source_command(const InputConfig& in) {
 bool arm_take(Context& c, unsigned kit) {
     auto& t = c.track();
     if (t.engine != EngineKind::Sampler) { c.notice("Sample Record: kit tracks"); return false; }
+    if (c.autosample_track >= 0 && c.autosample_outside) { c.notice("Auto sample under way"); return false; } // it has the input
     const auto& in = c.ui.settings.input;
     unsigned source = in.track % track_count;
     if (in.source == InputSource::Track) { // a track records onto a kit pad: another track, with a sound
@@ -147,7 +148,7 @@ void Context::toggle_rec_fx() {
 void Context::input_changed() {
     auto& in = ui.settings.input;
     in.clamp();
-    send(source_command(in));
+    if (autosample_source < 0) send(source_command(in)); // the auto sampler has the input: sent once it lets go (record_tick())
     send({Type::RecordGain, 0, 0, 0, int16_t(in.gain)});
     gain_sent = in.gain;
     send_knob_state(); // Rec Input FX: Knob FX on the input while monitored or during a take
@@ -232,7 +233,8 @@ void Context::record_tick(uint32_t at) {
     if (input) input->want(in.source, in.mutes_speaker(page) || loop_mic, loops | midi_needs);
     midi_audio_tick(*this, loops | midi_needs, in.source == InputSource::Mic);
     // The engine hears the settings as loaded from the card (and after a take, a source changed meanwhile).
-    if (host.recorder().state() == State::Idle
+    // Not while the auto sampler hears a MIDI track's INPUT there (autosample_tick()).
+    if (autosample_source < 0 && host.recorder().state() == State::Idle
         && (host.record_source() != unsigned(in.source)
             || (in.source == InputSource::Track && (host.record_track() != in.track % track_count || host.record_post() != in.post))))
         send(source_command(in));

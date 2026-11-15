@@ -338,6 +338,10 @@ public:
     void autosample_landed(const AutoSampleResult& result);
     int first_empty_track() const; // -1: none
     int8_t autosample_track = -1;
+    // A MIDI track's instrument outside (engine/external_notes.h): the job under way is one; the input whose sound
+    // the input's ring and meter are given while the sheet is on a MIDI track or its job runs (-1: Input Config's own).
+    bool autosample_outside = false, autosample_playing_told = false;
+    int8_t autosample_source = -1;
     // The AUTO SAMPLE sheet: Sample Record again on a plug-in track's PRINT. B3 (or Push) SAMPLE starts it, B1 or
     // Sample Record calls it off, B2 the next row of cards.
     void open_auto_sheet();

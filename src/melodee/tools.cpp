@@ -1129,6 +1129,21 @@ const Preview previews[] {
          f.heard = true; f.kind = AutoKind::Drums; f.takes = 3; f.scan_low = 36; f.scan_high = 59;
          for (unsigned k : {36u, 37u, 38u, 39u, 40u, 42u, 44u, 46u, 47u, 49u, 50u, 51u}) f.keys[0] |= uint64_t(1) << k;
      }},
+    // On a MIDI track: the instrument outside. Its INPUT where a plug-in's TAP is, and the input's level.
+    {"autosamplemidi", [](Shell&, Snapshot& s) {
+         stage_midi(s, 0, 0);
+         s.project.tracks[11].params[midi_track::AudioIn] = midi_track::AudioRear;
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 11; s.ui.auto_sheet.row = 2;
+         s.take.left = 0.25f; s.take.right = 0.18f;
+     }},
+    {"autosamplemidinone", [](Shell&, Snapshot& s) {
+         stage_midi(s, 0, 0);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 11; s.ui.auto_sheet.row = 2;
+     }},
     {"autosampling", [](Shell&, Snapshot& s) {
          print_scene(s);
          s.ui.page = PageId::AutoSample;

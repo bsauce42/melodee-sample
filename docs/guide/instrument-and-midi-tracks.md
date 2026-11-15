@@ -149,6 +149,42 @@ works on an MPC and in MPC 3 exports.
   layers keep their balance.
 - A key where the plug-in makes no sound is left out.
 
+### Auto sample an external instrument
+
+Auto sample also works on a MIDI track. Melodee plays the instrument over
+MIDI and records its sound from an input. This runs in real time: each note
+plays for its hold and its release.
+
+1. Connect the instrument: MIDI from the MPC (the MIDI Out jack or USB) and
+   its audio to the rear inputs.
+2. Select the MIDI track and play the pads to check that the instrument
+   answers.
+3. Press **SHIFT** + **Pad 11** (Resample).
+4. On the **SOUND** row, set **INPUT** (**K1**) to the input the instrument
+   is on: Rear, Rear L, Rear R, Mic or USB. It starts at Rear.
+5. Play a pad and watch the **IN** meter. Amber is close to clipping: turn
+   the instrument down.
+6. Set the other cards as for a plug-in and press **B3 SAMPLE**.
+
+![The AUTO SAMPLE sheet on a MIDI track](../images/screens/autosamplemidi.png)
+
+Melodee first listens to the input with nothing playing, then plays one
+short note to measure how long the instrument takes to answer. The check
+(**CHECKING**) and the sampling follow in one go. Each sample starts where
+its sound starts.
+
+- Do not play the instrument while it samples. Pressing **PLAY** stops it.
+- **INPUT** is the track's own audio input (the **AUDIO** page in Edit), so
+  you hear the instrument through the track. Input Config's source is not
+  used and does not change; its gain applies.
+- **No sound at the input**: check the cables, the MIDI channel and
+  **INPUT**.
+- **The input is not quiet**: something is sounding or humming at the input
+  before the first note.
+- **The input clips**: turn the instrument down and sample again.
+- The program goes on the first empty track as a keygroup track with the
+  MIDI track's patterns. The MIDI track stays as it was.
+
 ## Keys
 
 Hold **SAMPLE** on an instrument track to see **Keys**. The 16 pads fill the
@@ -247,7 +283,9 @@ Edit on a MIDI track has more pages: eight **SLOTS** pages with 24 knobs
 (CC, 14-bit CC, pitch bend, channel pressure or NRPN), **EXPRESS** (pitch
 bend and pad pressure), **PADS** (Keys or Drums with General MIDI drum
 names), **AUDIO** (route an input into the track's mixer strip) and
-**SYSEX** (send a `.syx` file from the `SysEx` folder on the card). For
+**SYSEX** (send a `.syx` file from the `SysEx` folder on the card).
+**SHIFT** + **Pad 11** samples the instrument into a keygroup program; see
+[Auto sample an external instrument](#auto-sample-an-external-instrument). For
 how MIDI tracks were designed, see the
 [MIDI tracks design notes](../MIDI_TRACKS.md).
 

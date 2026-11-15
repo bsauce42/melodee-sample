@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
+#include "melodee/engine/recall_ring.h"
+#include "melodee/engine/engine_host.h"
 #include "melodee/model/print.h"
 #include "melodee/shell/auto_sample.h"
 #include "melodee/model/project.h"
@@ -50,6 +52,10 @@ struct PrintJob {
     // The auto sampler: the track's instrument played a note at a time into `sample_folder` as `sample_name`.xpm
     // and its WAVs, not its patterns printed.
     bool autosample = false;
+    // On a MIDI track: the instrument outside, played over the track's MIDI and heard at `input` (the live engine's
+    // input ring, on the input the track takes as its sound) in real time (engine/external_notes.h).
+    bool external = false;
+    const RecallRing* input = nullptr;
     bool probing = false;                // the check alone (AutoFindings), nothing sampled
     bool probe_first = false;            // autosample: the check, then sampled as it heard (`melodee-autosample ... auto`)
     AutoSampleSettings sampling;
@@ -126,6 +132,12 @@ public:
     bool take_sampled(AutoSampleResult& out);
     // MIDI thread: a check's findings.
     bool take_probed(AutoProbeResult& out);
+    // An instrument outside: its notes, sent by the MIDI thread once the input's clock (RecallRing::written()) has
+    // reached their frame, so their lengths do not hang on the print thread's turn. post(): the print thread;
+    // due(): the MIDI thread, each command whose frame has come, in order.
+    void post(const Command& command, uint64_t at);
+    void forget(); // the print thread: what was posted and not sent yet is not sent (a run of notes called off)
+    bool due(uint64_t now, Command& out);
     // Freeze plan F2b. The pager the audio thread reads prints with (set before any freeze). MIDI thread: a freeze's
     // prints ready; a pack the audio thread has finished with, freed on the print thread once the pager has let go of
     // its streams (and its files' mappings with it).
@@ -155,6 +167,7 @@ private:
     std::deque<PrintResult> results;   // under lock
     std::deque<AutoSampleResult> sampled; // under lock
     std::deque<AutoProbeResult> probed;   // under lock
+    std::deque<std::pair<uint64_t, Command>> outbox; // under lock: post()'s, by frame
     std::deque<std::string> lines;     // under lock: the latest results
     std::string doing;                 // under lock
     PrintProgress shown;               // under lock

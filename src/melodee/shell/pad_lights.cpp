@@ -651,7 +651,7 @@ bool shift_can_act(const PadScene& s, unsigned pad) {
     case 1: return notes && std::max<uint32_t>(p.length / 2, 1) != p.length; // Half Seq
     case 2: return notes && p.length * 2 <= s.project.max_length();         // Double Seq
     case 5: case 6: case 13: return notes;                                  // Half Speed, Double Speed, Time Correct
-    case 10: return s.ui.resample_pick || (t.engine == EngineKind::Plugin && s.ui.page != PageId::Song) // Resample; AUTO SAMPLE on a plug-in track
+    case 10: return s.ui.resample_pick || ((t.engine == EngineKind::Plugin || t.engine == EngineKind::Midi) && s.ui.page != PageId::Song) // Resample; AUTO SAMPLE on a plug-in or MIDI track
                     || (!s.ui.rendering && t.engine == EngineKind::Sampler && any_notes(s));
     case 12: case 14: { // Trim Sample, Warp: a kit's own sample, not an instrument's
         if (t.engine != EngineKind::Sampler) return false;

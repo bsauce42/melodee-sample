@@ -160,7 +160,7 @@ holds the table the dispatch and the lights share.
 | --- | --- | --- | --- |
 | 1 | Full Level (every hit at 127; again back) | 9 | Fader page |
 | 2 | Half Seq | 10 | Rec Quantize: on / off (B3) and its grid |
-| 3 | Double Seq | 11 | Resample (then a pad; on a plug-in track AUTO SAMPLE) |
+| 3 | Double Seq | 11 | Resample (then a pad; on a plug-in or MIDI track AUTO SAMPLE) |
 | 4 | Count-In on / off | 12 | Song |
 | 5 | Compressor | 13 | Trim Sample |
 | 6 | Half Speed | 14 | Time Correct |
@@ -171,7 +171,7 @@ Toggles (1, 4, 10) are kept in the settings file. While Shift is held the
 pads light white, the panel's own: a toggle that is on Full, a job Dim, and
 dark where the job would only answer with a notice (Half and Double Seq,
 Half and Double Speed and Time Correct with no notes in the pattern;
-Resample off a kit or a plug-in track, Trim Sample and Warp off a kit or
+Resample off a kit, a plug-in or a MIDI track, Trim Sample and Warp off a kit or
 on an instrument). The screen draws no
 Shift layer, since the jobs are printed on the MPC: the page stays, and
 the knob strip shows only the Shift + K cards.
@@ -1068,7 +1068,7 @@ cancel or failure deletes the folder. The program then goes on the
 first empty track as a KEYGROUP track with the plug-in track's
 patterns, Song clips, mix, pitch bend and (Pre FX) its chain without
 plug-in effects; one undo. The AUTO SAMPLE sheet (Resample, Shift + Pad 11,
-on a plug-in track, `pages/auto_sample_page.cpp`) has three
+on a plug-in or MIDI track, `pages/auto_sample_page.cpp`) has three
 rows of cards on B2: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL),
 SOUND (TAP, LOOP, LEVEL). Remote: `melodee-autosample TRACK [LOW-HIGH]
 [step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop] [raw] [check]`;
@@ -1132,6 +1132,32 @@ falls silent. A note off zero by more than 2 % of its peak (a plug-in's DC
 offset, an uneven pulse) goes through a 5 Hz DC blocker (`remove_dc()`). The sheet
 shows CHECKING with a row a finding, then the type on its chip and the
 glide, accent and takes under the blocks.
+
+External instruments (`engine/external_notes.h`). On a MIDI track the
+same job runs in real time: the instrument is played over the track's
+port and channel and heard at the track's INPUT (the AUDIO page's: Rear,
+Rear L, Rear R, Mic, USB). The print thread posts each note with the
+input frame it is due at (`PrintEngine::post()`); the MIDI thread sends
+it once the input's ring (`RecallRing`, Audio Recall's 25 s) has written
+that frame (`autosample_tick()`), and the print thread copies the note's
+frames from the ring as they come. While the sheet is open on a MIDI
+track or the job runs, the engine's record source is the track's INPUT:
+Input Config leaves it alone (`record_tick()`) and takes it back after,
+and Sample Record is refused during the job. Before the first note the
+input with nothing playing, 0.3 s at a time until it has stopped dying
+away, gives the silence (2.5 times its peak, -70 dB at least; over
+-26 dB: "the input is not quiet"), and one 0.25 s note gives the delay
+(its first frame 12 dB over the silence, -50 dB at least; none within
+0.5 s: "no sound at the input"). Each note is heard from the frame it is
+sent and cut to a millisecond before its own first frame over that level
+(looked for until 50 ms after the delay: the delay is never twice the
+same), and ends once the input has been under the silence for 0.2 s
+(TAIL at most). A frame at full scale fails the job ("the input clips").
+The check runs first in the same job (`probe_first`), its notes played
+the same way; the sequencer starting calls the job off. The sheet has
+INPUT in TAP's place and the input's meter (IN), amber within 3 dB of
+full scale; Input Config's gain applies. `melodee-autosample TRACK ...`
+takes a MIDI track too, and its status line adds the silence and delay.
 
 **Keygroup glide.** A KEYGROUP track's program (an .xpm's or an MPC 3
 program's Mono, PortamentoTime and PortamentoLegato, `SfzRead`) plays

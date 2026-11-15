@@ -3,6 +3,7 @@
 #include "melodee/shell/print_engine.h"
 #include "melodee/engine/auto_probe.h"
 #include "melodee/engine/effects.h"
+#include "melodee/engine/external_notes.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/print_player.h"
 #include "melodee/engine/print_render.h"
@@ -111,6 +112,7 @@ struct PrintHost {
     std::string error;
     PrintHost() = default;
     PrintHost(PrintHost&&) = default;
+    PrintHost& operator=(PrintHost&&) = default;
     ~PrintHost() {
         if (streams && host) host->streams().stop();
         rack.reset(); // its plug-ins freed before the host
@@ -245,6 +247,26 @@ bool PrintEngine::start(PrintJob job) {
 
 void PrintEngine::cancel() { cancelled.store(true); }
 
+void PrintEngine::post(const Command& command, uint64_t at) {
+    std::lock_guard<std::mutex> held(lock);
+    auto place = outbox.end();
+    while (place != outbox.begin() && std::prev(place)->first > at) --place; // by frame; equal frames in the order posted
+    outbox.insert(place, {at, command});
+}
+
+void PrintEngine::forget() {
+    std::lock_guard<std::mutex> held(lock);
+    outbox.clear();
+}
+
+bool PrintEngine::due(uint64_t now, Command& out) {
+    std::lock_guard<std::mutex> held(lock);
+    if (outbox.empty() || outbox.front().first > now) return false;
+    out = outbox.front().second;
+    outbox.pop_front();
+    return true;
+}
+
 bool PrintEngine::take_probed(AutoProbeResult& out) {
     std::lock_guard<std::mutex> held(lock);
     if (probed.empty()) return false;
@@ -331,9 +353,11 @@ void PrintEngine::run() {
             continue;
         }
         if (job->autosample) { // the auto sampler: notes, not patterns
+            std::string check_failed; // its check found no sound, an input that clips, or was called off: nothing is sampled
             if (job->probe_first) { // as the sheet does: the check first, its findings sampled with
                 AutoProbeResult heard = probe_track(*job, samples);
                 if (heard.error.empty()) job->sampling.found = heard.found;
+                check_failed = heard.error;
                 std::lock_guard<std::mutex> held(lock);
                 const auto& f = heard.found;
                 lines.push_back("autosample-check track=" + std::to_string(job->track + 1) + " kind=" +
@@ -344,7 +368,12 @@ void PrintEngine::run() {
                 while (lines.size() > kept_lines) lines.pop_front();
                 shown.checking = false;
             }
-            AutoSampleResult made = sample_track(*job, samples);
+            AutoSampleResult made;
+            if (check_failed.empty()) made = sample_track(*job, samples);
+            else {
+                made.project_path = job->project_path; made.track = job->track % track_count; made.name = job->sample_name;
+                made.error = check_failed;
+            }
             if (library) library->release_samples();
             std::lock_guard<std::mutex> held(lock);
             lines.push_back("autosample track=" + std::to_string(job->track + 1) + " " +
@@ -605,6 +634,131 @@ PrintResult PrintEngine::print_one(const PrintJob& job, unsigned pattern, const 
 // ---- the auto sampler
 
 namespace {
+// Where the auto sampler's notes are played and heard: a plug-in in a print host of its own, faster than real time,
+// or an instrument outside over MIDI and an input, in real time (engine/external_notes.h).
+struct NoteSource {
+    using Heard = ExternalNotes::Heard;
+    virtual ~NoteSource() = default;
+    // Nothing playing, until what is left of the last note has died away (`quiet` seconds of silence, `most` at most).
+    virtual void settle(float most, float quiet) = 0;
+    virtual NoteAudio note(uint8_t key, uint8_t velocity, uint64_t hold, float most_tail, const Heard& heard) = 0;
+    virtual std::vector<float> notes(std::vector<ProbeNote> notes, uint64_t frames) = 0;
+    virtual std::string about() const { return {}; } // for `melodee-print status`
+    virtual float silence() const { return 0.000316f; } // what counts as silent (-70 dB; an input's own noise and a little more)
+    virtual std::string trouble() const { return {}; }  // what went wrong meanwhile, if anything
+};
+
+struct PluginNotes final : NoteSource {
+    std::unique_ptr<Project> project;
+    std::unique_ptr<PatternBank> bank;
+    PrintHost opened;
+    unsigned track = 0;
+    PrintTap tap = PrintTap::PreFx;
+    const std::atomic<bool>* cancelled = nullptr;
+    std::vector<int32_t> out = std::vector<int32_t>(EngineHost::block * 2);
+    void settle(float most, float quiet) override {
+        auto& host = *opened.host;
+        const float rate = dsp::sample_rate();
+        unsigned still = 0;
+        for (unsigned b = 0; b < unsigned(most * rate) / EngineHost::block && still < unsigned(quiet * rate); ++b) {
+            host.render(out.data(), EngineHost::block, 1.0f);
+            const ProjectPack* done = nullptr;
+            while (host.take_done_pack(done)) delete done;
+            const float* l = host.print_left();
+            const float* r = host.print_right();
+            bool loud = false;
+            for (unsigned f = 0; f < EngineHost::block; ++f) loud |= std::fabs(l[f]) >= 0.000316f || std::fabs(r[f]) >= 0.000316f;
+            still = loud ? 0 : still + EngineHost::block;
+        }
+    }
+    NoteAudio note(uint8_t key, uint8_t velocity, uint64_t hold, float most_tail, const Heard& heard) override {
+        auto& host = *opened.host;
+        const float rate = dsp::sample_rate();
+        unsigned blocks = 0;
+        const auto r0 = Clock::now();
+        return render_note(host, track, key, velocity, hold, tap, most_tail, [&] {
+            bool go = !cancelled->load();
+            if (blocks && heard) go = heard(host.print_left(), host.print_right(), EngineHost::block) && go; // the block rendered last
+            if (opened.streams) { // an instrument streamed from the card: no faster than real time
+                double ahead = double(blocks) * EngineHost::block / rate - since(r0);
+                if (ahead > 0) std::this_thread::sleep_for(std::chrono::duration<double>(ahead));
+            }
+            ++blocks;
+            if (opened.rack && (blocks & 63) == 1) idle_new_threads(opened.threads_before, opened.threads_idle);
+            return go;
+        });
+    }
+    std::vector<float> notes(std::vector<ProbeNote> notes, uint64_t frames) override {
+        return render_notes(*opened.host, track, std::move(notes), frames, tap, [&] { return !cancelled->load(); });
+    }
+    std::string trouble() const override {
+        return opened.streams && opened.host->streams().underruns() ? "the card's reads came late" : std::string();
+    }
+};
+
+struct OutsideNotes final : NoteSource {
+    struct Io final : ExternalIo {
+        PrintEngine& engine;
+        const RecallRing& ring;
+        Io(PrintEngine& engine, const RecallRing& ring) : engine(engine), ring(ring) {}
+        uint64_t now() override { return ring.written(); }
+        void post(const Command& command, uint64_t at) override { engine.post(command, at); }
+        void forget() override { engine.forget(); }
+        bool copy(uint64_t from, uint32_t frames, float* left, float* right) override { return ring.copy(from, frames, left, right); }
+        void wait(unsigned milliseconds) override { std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds)); }
+    };
+    Io io;
+    ExternalNotes played;
+    const std::atomic<bool>* cancelled;
+    OutsideNotes(PrintEngine& engine, const RecallRing& ring, unsigned track, const std::atomic<bool>* cancelled)
+        : io(engine, ring), played(io, track, dsp::sample_rate()), cancelled(cancelled) {}
+    void settle(float, float) override { played.settle([&] { return !cancelled->load(); }); }
+    NoteAudio note(uint8_t key, uint8_t velocity, uint64_t hold, float most_tail, const Heard& heard) override {
+        return played.note(key, velocity, hold, most_tail, [&](const float* l, const float* r, unsigned n) {
+            return (!heard || heard(l, r, n)) && !cancelled->load();
+        });
+    }
+    std::vector<float> notes(std::vector<ProbeNote> notes, uint64_t frames) override {
+        return played.notes(std::move(notes), frames, [&] { return !cancelled->load(); });
+    }
+    float silence() const override { return played.silence(); }
+    std::string about() const override {
+        char text[64];
+        std::snprintf(text, sizeof(text), "silence=%.0fdB delay=%.1fms", 20.0 * std::log10(double(played.silence())),
+                      1000.0 * played.latency() / double(dsp::sample_rate()));
+        return text;
+    }
+    std::string trouble() const override { return played.clipped() ? "the input clips: turn the instrument down" : std::string(); }
+};
+
+// The job's notes: its plug-in track's plug-in opened in a print host, or (a MIDI track) the instrument outside,
+// its input listened to and a note of `key` tried. `error` says why not.
+std::unique_ptr<NoteSource> open_notes(PrintEngine& engine, const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples,
+                                       uint8_t key, const std::atomic<bool>& cancelled, std::string& error) {
+    const unsigned t = job.track % track_count;
+    if (job.external) {
+        if (job.project->tracks[t].engine != EngineKind::Midi) { error = "not a MIDI track"; return nullptr; }
+        if (!job.input) { error = "no input"; return nullptr; }
+        auto made = std::make_unique<OutsideNotes>(engine, *job.input, t, &cancelled);
+        error = made->played.open(key, [&] { return !cancelled.load(); });
+        if (!error.empty()) return nullptr;
+        return made;
+    }
+    auto made = std::make_unique<PluginNotes>();
+    made->project = std::make_unique<Project>(*job.project);
+    made->bank = std::make_unique<PatternBank>(*job.bank);
+    print_project(*made->project, *made->bank, t, made->project->tracks[t].pattern % pattern_count);
+    const Track& track = made->project->tracks[t];
+    if (track.engine != EngineKind::Plugin) { error = "not a plug-in track"; return nullptr; }
+    made->opened = open_print_host(*made->project, *made->bank, track, samples, job.states, job.card_top, cancelled);
+    if (!made->opened.error.empty()) { error = made->opened.error; return nullptr; }
+    made->track = t;
+    made->tap = job.sampling.post_fx ? PrintTap::PostFx : PrintTap::PreFx;
+    made->cancelled = &cancelled;
+    made->opened.host->set_print_tap(t, made->tap == PrintTap::PostFx);
+    return made;
+}
+
 // A sample's name for a key: flats, so no "#" (Melodee's paths keep "#" for a program's pad), C4 = MIDI 60 as Melodee names it.
 std::string key_word(unsigned key) {
     static const char* names[] {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
@@ -634,38 +788,21 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         shown.autosample = true; shown.checking = true; shown.check_step = 0; shown.found = {};
         doing = "track=" + std::to_string(t + 1) + " autosample-check";
     }
-    auto project = std::make_unique<Project>(*job.project);
-    auto bank = std::make_unique<PatternBank>(*job.bank);
-    print_project(*project, *bank, t, project->tracks[t].pattern % pattern_count);
-    const Track& track = project->tracks[t];
-    if (track.engine != EngineKind::Plugin) { r.error = "not a plug-in track"; return r; }
-    PrintHost opened = open_print_host(*project, *bank, track, samples, job.states, job.card_top, cancelled);
-    if (!opened.error.empty()) { r.error = opened.error; return r; }
-    auto& host = *opened.host;
-    const PrintTap tap = set.post_fx ? PrintTap::PostFx : PrintTap::PreFx;
-    host.set_print_tap(t, tap == PrintTap::PostFx);
     const float rate = dsp::sample_rate();
-    std::vector<int32_t> out(EngineHost::block * 2);
+    // Its test notes in the range, but never outside C2-C5, where a pitch reads clearly (a range at the top of the
+    // keyboard is still a pitched instrument, not drums whose pitch could not be heard).
+    const int low = set.low, high = std::max<int>(set.low, set.high);
+    const uint8_t base = uint8_t(std::clamp(std::clamp(48, low, std::max(low, high - 12)), 36, 60));
+    auto source = open_notes(*this, job, samples, base, cancelled, r.error);
+    if (!source) return r;
     // Before each go: silence, until what is left of the last has died away (a second at most).
-    auto settle = [&] {
-        unsigned quiet = 0;
-        for (unsigned b = 0; b < unsigned(rate) / EngineHost::block && quiet < unsigned(0.05f * rate); ++b) {
-            host.render(out.data(), EngineHost::block, 1.0f);
-            const ProjectPack* done = nullptr;
-            while (host.take_done_pack(done)) delete done;
-            const float* l = host.print_left();
-            const float* rr = host.print_right();
-            bool loud = false;
-            for (unsigned f = 0; f < EngineHost::block; ++f) loud |= std::fabs(l[f]) >= 0.000316f || std::fabs(rr[f]) >= 0.000316f;
-            quiet = loud ? 0 : quiet + EngineHost::block;
-        }
-    };
+    auto settle = [&] { source->settle(1.0f, 0.05f); };
     auto at = [&](double seconds) { return uint64_t(seconds * rate); };
     bool stopped = false;
     auto play = [&](std::vector<ProbeNote> notes, double seconds) {
         if (stopped || cancelled.load()) { stopped = true; return std::vector<float> {}; }
         settle();
-        auto x = render_notes(host, t, std::move(notes), at(seconds), tap, [&] { return !cancelled.load(); });
+        auto x = source->notes(std::move(notes), at(seconds));
         if (x.empty()) stopped = true;
         return x;
     };
@@ -676,10 +813,6 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
     settle();
 
     // Type: five keys, their pitch read just past the attack.
-    const int low = set.low, high = std::max<int>(set.low, set.high);
-    // Its test notes in the range, but never outside C2-C5, where a pitch reads clearly (a range at the top of the
-    // keyboard is still a pitched instrument, not drums whose pitch could not be heard).
-    const uint8_t base = uint8_t(std::clamp(std::clamp(48, low, std::max(low, high - 12)), 36, 60));
     std::vector<uint8_t> keys;
     for (int k : {0, 1, 2, 5, 12}) keys.push_back(uint8_t(std::min(127, base + k)));
     std::vector<float> hz;
@@ -700,7 +833,7 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
             if (stopped) return stop();
             float peak = 0;
             for (float v : x) peak = std::max(peak, std::fabs(v));
-            if (peak < 0.001f) continue;
+            if (peak < std::max(0.001f, 2.0f * source->silence())) continue;
             found.keys[unsigned(k) / 64] |= uint64_t(1) << (unsigned(k) % 64);
             if (!any || std::abs(k - int(base)) < std::abs(int(loud_key) - int(base))) loud_key = uint8_t(k);
             any = true;
@@ -725,8 +858,9 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
             auto let_go = play({{0, true, a, 100}, {at(0.5), false, a, 100}}, 0.5 + tail);
             if (stopped) return stop();
             const size_t last = size_t(at(0.1));
-            const bool cut = let_go.size() > last && probe_db(let_go, let_go.size() - last, last) > -85.0f; // still sounding at the end
-            const ReleaseShape shape = release_shape(let_go, let_go, at(0.5), rate, cut);
+            const float quiet = job.external ? 20.0f * std::log10(source->silence()) : -100.0f; // an input's own noise
+            const bool cut = let_go.size() > last && probe_db(let_go, let_go.size() - last, last) > quiet + 15.0f; // still sounding at the end
+            const ReleaseShape shape = release_shape(let_go, let_go, at(0.5), rate, cut, quiet);
             if (!shape.db.empty()) {
                 const ReleaseModel fall = fit_release({shape});
                 found.release = fall.fast;
@@ -795,6 +929,7 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
             r.heard += one;
         }
     }
+    if (auto why = source->trouble(); !why.empty()) { r.error = why; return r; } // an input that clips: nothing good can be sampled
     found.heard = true;
     show(4);
     return r;
@@ -840,35 +975,16 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         if (!e && room.available < need)
             return fail("card full: " + std::to_string(need >> 20) + " MB needed, " + std::to_string(room.available >> 20) + " MB free");
     }
-    auto project = std::make_unique<Project>(*job.project);
-    auto bank = std::make_unique<PatternBank>(*job.bank);
-    print_project(*project, *bank, t, project->tracks[t].pattern % pattern_count);
-    const Track& track = project->tracks[t];
-    if (track.engine != EngineKind::Plugin) return fail("not a plug-in track");
-    PrintHost opened = open_print_host(*project, *bank, track, samples, job.states, job.card_top, cancelled);
-    if (!opened.error.empty()) return fail(opened.error);
-    auto& host = *opened.host;
+    std::string why_not;
+    auto source = open_notes(*this, job, samples, roots[roots.size() / 2], cancelled, why_not);
+    if (!source) return fail(why_not);
     fs::create_directories(parts, e);
     if (e) return fail("cannot make " + folder.filename().string());
 
-    const PrintTap tap = set.post_fx ? PrintTap::PostFx : PrintTap::PreFx;
     const uint64_t hold = uint64_t(std::max(0.05f, set.hold_seconds()) * rate);
-    std::vector<int32_t> out(EngineHost::block * 2);
+    const float silent = source->silence();
     // Between notes: silence until what is left of the last (a delay's repeats too, at Post FX) has died away, 4 s at most.
-    auto settle = [&] {
-        unsigned quiet = 0;
-        for (unsigned b = 0; b < unsigned(4 * rate) / EngineHost::block && quiet < unsigned(0.1f * rate); ++b) {
-            host.render(out.data(), EngineHost::block, 1.0f);
-            const ProjectPack* done = nullptr;
-            while (host.take_done_pack(done)) delete done;
-            const float* l = host.print_left();
-            const float* rr = host.print_right();
-            bool loud = false;
-            for (unsigned f = 0; f < EngineHost::block; ++f) loud |= std::fabs(l[f]) >= 0.000316f || std::fabs(rr[f]) >= 0.000316f;
-            quiet = loud ? 0 : quiet + EngineHost::block;
-        }
-    };
-    host.set_print_tap(t, tap == PrintTap::PostFx);
+    auto settle = [&] { source->settle(4.0f, 0.1f); };
     settle();
 
     XpmProgram program;
@@ -880,7 +996,6 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     }
     std::vector<ReleaseShape> falls; // each note's fall once its key was let go (engine/release_fit.h)
     float peak_all = 0;
-    unsigned blocks = 0;
     uint64_t rendered = 0;
     double rendering = 0;
     for (size_t k = 0; k < roots.size(); ++k) {
@@ -913,41 +1028,35 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 shown.wave_count = 0;
             }
             auto r0 = Clock::now();
-            NoteAudio audio = render_note(host, t, roots[k], velocity, hold, tap, set.tail, [&] {
-                if (blocks) { // the block rendered last, into its bar
-                    const float* l = host.print_left();
-                    const float* rr = host.print_right();
-                    for (unsigned f = 0; f < EngineHost::block; ++f) loudest = std::max({loudest, std::fabs(l[f]), std::fabs(rr[f])});
-                    into += EngineHost::block;
-                    while (into >= per) { wave.push_back(loudest); into -= per; loudest = 0; }
+            uint64_t heard = 0, shown_at = 0;
+            NoteAudio audio = source->note(roots[k], velocity, hold, set.tail, [&](const float* l, const float* rr, unsigned n) {
+                for (unsigned f = 0; f < n; ++f) { // each stretch as it is played, into its bars
+                    loudest = std::max({loudest, std::fabs(l[f]), std::fabs(rr[f])});
+                    if (++into < per) continue;
+                    wave.push_back(loudest); into = 0; loudest = 0;
                     if (wave.size() >= bars) { // a long release: each bar twice the time
                         for (size_t b = 0; b < bars / 2; ++b) wave[b] = std::max(wave[2 * b], wave[2 * b + 1]);
                         wave.resize(bars / 2);
                         per *= 2;
                     }
                 }
-                if (opened.streams) {
-                    double ahead = double(blocks) * EngineHost::block / rate - since(r0);
-                    if (ahead > 0) std::this_thread::sleep_for(std::chrono::duration<double>(ahead));
-                }
-                ++blocks;
-                if (opened.rack && (blocks & 63) == 1) idle_new_threads(opened.threads_before, opened.threads_idle);
-                if ((blocks & 15) == 0) {
+                heard += n;
+                if (heard - shown_at >= uint64_t(0.02f * rate)) { // the screen's, every 20 ms of it
+                    shown_at = heard;
                     show_wave();
                     std::lock_guard<std::mutex> held(lock);
-                    shown.fraction = std::min(0.95f, float(double(blocks) * EngineHost::block / (double(hold) + 0.5 * rate)));
+                    shown.fraction = std::min(0.95f, float(double(heard) / (double(hold) + 0.5 * rate)));
                 }
                 return !cancelled.load();
             });
             show_wave();
             rendering += since(r0);
             rendered += audio.left.size();
-            blocks = 0;
             if (!audio.error.empty()) return fail(audio.error == "stopped" ? "stopped" : audio.error);
-            if (drums) trim_silence(audio, rate); // a one shot: no silence kept for the time the key was held
+            if (drums) trim_silence(audio, rate, silent); // a one shot: no silence kept for the time the key was held
             if (remove_dc(audio.left, audio.right, audio.held, rate)) ++r.centred;
             settle();
-            if (opened.streams && host.streams().underruns()) return fail("the card's reads came late");
+            if (auto why = source->trouble(); !why.empty()) return fail(why);
             float peak = 0;
             for (size_t f = 0; f < audio.left.size(); ++f) peak = std::max({peak, std::fabs(audio.left[f]), std::fabs(audio.right[f])});
             {
@@ -958,10 +1067,11 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 shown.seconds_left = float(wall / shown.through * (shown.count - shown.through));
                 if (v + 1 == layers * takes) shown.done[roots[k] / 64 % shown.done.size()] |= uint64_t(1) << (roots[k] % 64);
             }
-            if (peak < 0.000316f) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
+            if (peak < silent) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
             // How it falls once its key is let go, against its level then: the program's release is fitted to these.
             if (!drums) falls.push_back(release_shape(audio.left, audio.right, audio.held, rate,
-                                                      audio.release + uint64_t(0.02f * rate) >= uint64_t(std::max(0.0f, set.tail) * rate)));
+                                                      audio.release + uint64_t(0.02f * rate) >= uint64_t(std::max(0.0f, set.tail) * rate),
+                                                      job.external ? 20.0f * std::log10(silent) : -100.0f)); // an input's noise
             XpmLayer layer;
             layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity)
                          + (takes > 1 ? "-T" + std::to_string(take + 1) : std::string());
@@ -1016,6 +1126,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     const size_t played = program.keygroups.size();
     if (!drums) {
         ReleaseModel fall = fit_release(falls, &r.release_note);
+        if (job.external) r.release_note += " " + source->about(); // the input's silence and the instrument's delay
         size_t told = 0;
         for (const auto& f : falls) told += !f.db.empty();
         if (!told && set.found.release > 0) { // held until they had died away: as the check heard it let go early

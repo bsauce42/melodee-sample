@@ -35,7 +35,7 @@ show is in [Light show](basics.md#light-show).
 | --- | --- | --- | --- |
 | 1 | Full Level | 9 | Fader |
 | 2 | Half Seq | 10 | Rec Quantize |
-| 3 | Double Seq | 11 | Resample (on a plug-in track: AUTO SAMPLE) |
+| 3 | Double Seq | 11 | Resample (on a plug-in or MIDI track: AUTO SAMPLE) |
 | 4 | Count-In | 12 | Song |
 | 5 | Compressor | 13 | Trim Sample |
 | 6 | Half Speed | 14 | Time Correct |

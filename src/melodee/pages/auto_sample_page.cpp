@@ -11,8 +11,10 @@
 // with a light running along it; B1 calls it off and its files go. The pads
 // play the plug-in to try it; Minus / Plus their octave. Shift + Pad 11 again
 // closes it. Done, it goes back and the new KEYGROUP track is in hand.
+#include "melodee/engine/midi_engine.h"
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
+#include "melodee/pages/input_meter.h"
 #include "melodee/pages/pages.h"
 #include <cmath>
 
@@ -43,7 +45,10 @@ void draw(Paint& p, const Snapshot& s) {
     const auto c = track_colour(t);
     const auto& job = s.print;
     const bool sampling = sheet.sampling, ours = sampling && job.busy && job.autosample && job.track == t;
-    const bool checking = sheet.checking && !sampling, busy = sampling || checking;
+    // The check: on its own as the sheet opens (a plug-in), or the first part of sampling (an instrument outside,
+    // heard only once SAMPLE asks for it).
+    const bool checking = sampling ? ours && job.checking : sheet.checking, busy = sampling || checking;
+    const bool outside = s.project.tracks[t].engine == EngineKind::Midi; // a MIDI track: over its MIDI, from its INPUT, in real time
     // What the check heard: on the sheet once it is done; while it runs, as far as it has got.
     const AutoFindings& found = checking ? job.found : a.found;
     const bool drums = found.kind == AutoKind::Drums;
@@ -52,9 +57,9 @@ void draw(Paint& p, const Snapshot& s) {
     const Icon kind_icon = !a.found.heard ? Icon::Keyboard : a.found.kind == AutoKind::Mono ? Icon::Slide : a.found.kind == AutoKind::Drums ? Icon::Pads : Icon::Keyboard;
 
     Header h = header_of(s);
-    if (sampling) h.left.push_back(pill(kind_icon, ours ? "SAMPLING " + juce::String(std::min<unsigned>(job.through + 1, job.count)) + "/" + juce::String(job.count)
-                                                       : juce::String("SAMPLING"), colour::ice));
-    else if (checking) h.left.push_back(chip(Icon::Clock, "CHECKING", colour::ice));
+    if (checking) h.left.push_back(chip(Icon::Clock, "CHECKING", colour::ice));
+    else if (sampling) h.left.push_back(pill(kind_icon, ours ? "SAMPLING " + juce::String(std::min<unsigned>(job.through + 1, job.count)) + "/" + juce::String(job.count)
+                                                            : juce::String("SAMPLING"), colour::ice));
     else h.left.push_back(chip(kind_icon, !a.found.heard ? "AUTO SAMPLE" : a.found.kind == AutoKind::Mono ? "MONO" : drums ? "DRUMS" : "KEYS", colour::ice));
     h.right.push_back(tag_of(s, t));
     SoftKeys keys {{busy ? "CANCEL" : "BACK", busy ? "" : rows[sheet.row % 3], busy ? "" : "SAMPLE"}, -1, c,
@@ -179,6 +184,24 @@ void draw(Paint& p, const Snapshot& s) {
         block(p, x0 + 2 * w, y, w, "CARD", juce::String::fromUTF8("\xe2\x89\xa4 ") + (mb >= 10 ? juce::String(int(std::lround(mb))) : juce::String(mb, 1)), "MB", colour::text);
         // What the check heard, under them: the glide, the layers split at the accent, the takes.
         const bool mono = a.found.kind == AutoKind::Mono, loops = a.looping();
+        if (outside && !a.found.heard) {
+            // An instrument outside, before it is sampled: its input's level, both sides (-60 to 0 dB; amber from
+            // -3 dB, where it is about to clip), or that the track has no INPUT yet.
+            const float sy = y + 42, sh = 20, sw = zone::width - 2.0f * zone::pad;
+            p.fill(x0, sy, sw, sh, colour::panel, 5);
+            const int input = s.project.tracks[t].params[midi_track::AudioIn];
+            icon(p, Icon::Jack, x0 + 6, sy + 4, 12, input ? c : colour::amber);
+            if (!input) p.text("NO INPUT", x0 + 22, sy, 120, sh, caps_text(colour::amber));
+            else {
+                const float lx = x0 + 22 + p.text("IN", x0 + 22, sy, 20, sh, caps_text(colour::mid)) + 6, lw = x0 + sw - 6 - lx;
+                for (int side = 0; side < 2; ++side) {
+                    const float db = db_of(side ? s.take.right : s.take.left), level = std::clamp((db + 60) / 60, 0.0f, 1.0f);
+                    const float by = sy + 6 + side * 5;
+                    p.fill(lx, by, lw, 3.5f, colour::line, 1.75f);
+                    if (level > 0) p.fill(lx, by, lw * level, 3.5f, db > -3 ? colour::amber : c, 1.75f);
+                }
+            }
+        }
         if (a.found.heard && (mono || a.found.accent || takes > 1 || loops)) {
             const float sy = y + 42, sh = 20, sw = zone::width - 2.0f * zone::pad;
             p.fill(x0, sy, sw, sh, colour::panel, 5);
@@ -221,8 +244,15 @@ void soft(Context& c, int key) {
 
 void push(Context& c) { c.auto_sheet_go(); }
 void wheel(Context& c, int delta) { if (delta) c.auto_sheet_row(delta > 0 ? 1 : -1); } // the wheel walks the rows too
+
+// The pads play the track to try it; not an instrument outside while it is sampled (it would be in the samples).
+void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
+    const auto& sheet = c.ui.auto_sheet;
+    if (sheet.sampling && c.project.tracks[sheet.track % track_count].engine == EngineKind::Midi) return;
+    play_pad(c, pad, velocity, down);
+}
 } // namespace
 
-const PageSpec auto_sample_page {draw, play_pad, wheel, push, soft, octave};
+const PageSpec auto_sample_page {draw, pad, wheel, push, soft, octave};
 
 } // namespace melodee

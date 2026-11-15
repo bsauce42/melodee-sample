@@ -30,6 +30,7 @@
 #include "melodee/shell/light_show.h"
 #include "melodee/shell/xpm_write.h"
 #include "melodee/engine/auto_probe.h"
+#include "melodee/engine/external_notes.h"
 #include "melodee/engine/release_fit.h"
 #include "melodee/model/card_folders.h"
 #include "melodee/shell/auto_sample.h"
@@ -7404,6 +7405,119 @@ void release_fitting() {
         const auto x = note(steady, [](double t) { return 0.5 * std::exp(-3 * t / 4.0); }, 1.0f);
         const auto model = fit_release({shape_of(x, true)});
         CHECK(model.fast > 2.8f && model.fast < 5.6f);
+    }
+}
+
+// The auto sampler on an instrument outside (engine/external_notes.h), with one made up: it answers 300 frames after a
+// note is sent, with a sine that stops over 50 ms once its key is let go, over a little noise. What is kept of a note
+// starts on its sound, its key's release where it was asked, its quiet end left out.
+struct MadeUpInstrument final : ExternalIo {
+    float rate = 48000;
+    uint64_t clock = 0;
+    uint32_t delay = 300;
+    float noise = 0.0005f, level = 0.5f, fall = 0.05f;
+    bool mute = false;
+    struct Voice { uint8_t key; float gain; double phase; uint64_t on, off; };
+    std::vector<Voice> voices;
+    std::vector<std::pair<uint64_t, Command>> posted;
+    std::vector<float> heard;
+    uint32_t seed = 9;
+    unsigned ons = 0, offs = 0, all_offs = 0;
+    uint64_t now() override { return clock; }
+    void post(const Command& c, uint64_t at) override { posted.push_back({at, c}); }
+    void forget() override { for (auto& p : posted) p.second.type = Command::Type::Reload; }
+    bool copy(uint64_t from, uint32_t frames, float* l, float* r) override {
+        if (from + frames > heard.size()) return false;
+        for (uint32_t f = 0; f < frames; ++f) l[f] = r[f] = heard[from + f];
+        return true;
+    }
+    void wait(unsigned ms) override {
+        const uint64_t until = clock + uint64_t(ms * rate / 1000);
+        for (; clock < until; ++clock) {
+            for (auto& p : posted) { // each command as its frame comes, heard `delay` frames on
+                if (p.first > clock || p.second.type == Command::Type::Reload) continue;
+                const auto& c = p.second;
+                if (c.type == Command::Type::NoteOn) { voices.push_back({uint8_t(c.index), level * float(c.value) / 100.0f, 0.0, clock + delay, UINT64_MAX}); ++ons; }
+                else if (c.type == Command::Type::NoteOff) { for (auto& v : voices) if (v.key == c.index && v.off == UINT64_MAX) v.off = clock + delay; ++offs; }
+                else if (c.type == Command::Type::AllNotesOff) { for (auto& v : voices) if (v.off == UINT64_MAX) v.off = clock + delay; ++all_offs; }
+                p.second.type = Command::Type::Reload; // done
+            }
+            seed = seed * 1664525u + 1013904223u;
+            double x = double(int32_t(seed)) / 2147483648.0 * noise;
+            for (auto& v : voices) {
+                if (clock < v.on || mute) continue;
+                const double since = double(clock - v.on) / rate, hz = 440.0 * std::pow(2.0, (v.key - 69) / 12.0);
+                double g = v.gain * std::min(1.0, since / 0.002);
+                if (clock >= v.off) g *= std::exp(-double(clock - v.off) / rate / fall);
+                v.phase += 2 * M_PI * hz / rate;
+                x += g * std::sin(v.phase);
+            }
+            heard.push_back(float(std::clamp(x, -1.0, 1.0)));
+        }
+    }
+};
+
+void external_notes() {
+    const float rate = 48000;
+    {
+        MadeUpInstrument io;
+        ExternalNotes notes(io, 3, rate);
+        CHECK(notes.open(60, {}).empty());
+        CHECK(notes.silence() > 0.0006f && notes.silence() < 0.002f); // its noise and a little more
+        CHECK(notes.latency() > 200 && notes.latency() <= 300);       // the 300 frames, a millisecond early
+        unsigned stretches = 0;
+        const uint64_t hold = uint64_t(0.5f * rate);
+        const NoteAudio a = notes.note(60, 100, hold, 2.0f, [&](const float*, const float*, unsigned n) { stretches += n; return true; });
+        CHECK(a.error.empty() && a.held == hold && stretches >= a.left.size());
+        size_t first = a.left.size();
+        for (size_t f = 0; f < a.left.size(); ++f) if (std::fabs(a.left[f]) > 0.05f) { first = f; break; }
+        CHECK(first < size_t(0.004f * rate));                           // it starts on its sound
+        CHECK(peak_of(a.left, size_t(hold) - 4800, size_t(hold)) > 0.4f); // held to its key's release
+        CHECK(a.release > uint64_t(0.15f * rate) && a.release < uint64_t(0.5f * rate) && !notes.clipped()); // the 50 ms fall, not the 2 s allowed
+        CHECK(std::fabs(probe_pitch(a.left, 4800, 4096, rate) - 261.6f) < 2.0f);
+        // a note that comes back later than open()'s did, and one sooner: each starts on its own sound, none of it lost
+        for (uint32_t delay : {700u, 60u}) {
+            io.delay = delay;
+            const NoteAudio b = notes.note(64, 100, hold, 2.0f, {});
+            size_t rise = b.left.size();
+            for (size_t f = 0; f < b.left.size(); ++f) if (std::fabs(b.left[f]) > 0.05f) { rise = f; break; }
+            CHECK(b.error.empty() && rise < size_t(0.004f * rate) && rise > 20 && std::fabs(b.left[0]) < 0.01f);
+            CHECK(peak_of(b.left, size_t(hold) - 4800, size_t(hold)) > 0.4f && peak_of(b.left, size_t(hold) + 14400, b.left.size()) < 0.01f);
+        }
+        io.delay = 300;
+        // a run of notes for the check: two keys, the second 0.3 s on
+        const auto x = notes.notes({{0, true, 60, 100}, {uint64_t(0.3f * rate), false, 60, 100}, {uint64_t(0.3f * rate), true, 67, 100},
+                                    {uint64_t(0.6f * rate), false, 67, 100}}, uint64_t(0.7f * rate), {});
+        CHECK(x.size() == size_t(0.7f * rate));
+        CHECK(std::fabs(probe_pitch(x, size_t(0.1f * rate), 4096, rate) - 261.6f) < 2.0f && std::fabs(probe_pitch(x, size_t(0.45f * rate), 4096, rate) - 392.0f) < 3.0f);
+        // stopped part way: the key is let go
+        const unsigned offs = io.offs, all = io.all_offs;
+        const NoteAudio cut = notes.note(60, 100, hold, 2.0f, [&](const float*, const float*, unsigned) { return false; });
+        io.wait(20);
+        CHECK(cut.error == "stopped" && io.offs > offs && io.all_offs > all);
+    }
+    { // a note still dying away as it opens: the silence is the input's once that has ended, not the note's end
+        MadeUpInstrument io;
+        io.fall = 0.15f;
+        io.post({Command::Type::NoteOn, 3, 0, 60, 100}, 0);
+        io.wait(100);
+        ExternalNotes notes(io, 3, rate);
+        CHECK(notes.open(60, {}).empty() && notes.silence() < 0.002f);
+    }
+    { // nothing comes back; an input that is not quiet; one that clips
+        MadeUpInstrument silent;
+        silent.mute = true;
+        CHECK(ExternalNotes(silent, 0, rate).open(60, {}) == "no sound at the input");
+        MadeUpInstrument noisy;
+        noisy.noise = 0.2f;
+        CHECK(ExternalNotes(noisy, 0, rate).open(60, {}) == "the input is not quiet");
+        MadeUpInstrument hot;
+        hot.level = 1.5f;
+        ExternalNotes loud(hot, 0, rate);
+        CHECK(loud.open(60, {}).empty() && loud.clipped());
+        std::string why;
+        MadeUpInstrument io;
+        CHECK(ExternalNotes(io, 0, rate).open(60, [] { return false; }) == "stopped");
     }
 }
 
@@ -15260,6 +15374,7 @@ int main() {
     xpm_writer();
     loop_finder();
     auto_probe();
+    external_notes();
     release_fitting();
     card_folders();
     exs_reader();

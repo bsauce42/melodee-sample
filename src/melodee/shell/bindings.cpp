@@ -902,8 +902,14 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
             return {Binding {Kind::AutoLow, 0, 0, 127, a.low}, Binding {Kind::AutoHigh, 0, 0, 127, a.high}, Binding {Kind::AutoStep, 0, 1, 12, a.step}};
         case 1: return {Binding {Kind::AutoLayers, 0, 1, 4, a.layers}, Binding {Kind::AutoHold, 0, 0, 100, a.hold_auto ? 0 : int(std::lround(a.hold * 10))},
                         Binding {Kind::AutoTail, 0, 0, 200, int(std::lround(a.tail * 10))}};
-        default: return {Binding {Kind::AutoTap, 0, 0, 1, int(a.post_fx)}, Binding {Kind::AutoLoop, 0, 0, 2, a.loop_auto ? 0 : a.loop ? 1 : 2},
-                         Binding {Kind::AutoLevel, 0, 0, 1, int(a.normalize)}};
+        default: { // a MIDI track: its INPUT (the Audio page's) where a plug-in's TAP is
+            const auto& from = project.tracks[sheet.track % track_count];
+            const Binding first = from.engine == EngineKind::Midi
+                ? Binding {Kind::Param, int16_t(midi_track::AudioIn), 0, midi_track::AudioCount - 1, from.params[midi_track::AudioIn]}
+                : Binding {Kind::AutoTap, 0, 0, 1, int(a.post_fx)};
+            return {first, Binding {Kind::AutoLoop, 0, 0, 2, a.loop_auto ? 0 : a.loop ? 1 : 2},
+                    Binding {Kind::AutoLevel, 0, 0, 1, int(a.normalize)}};
+        }
         }
     }
     case PageId::Print: { // freeze plan F2c: K1 TAP, K2 TAIL; K3 empty (no Song lane print yet); still while printing

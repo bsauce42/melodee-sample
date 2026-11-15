@@ -24,6 +24,19 @@ std::string file_word(const std::string& text) {
     while (!out.empty() && out.front() == ' ') out.erase(out.begin());
     return out.substr(0, 40);
 }
+
+// The input a MIDI track takes as its sound (its Audio page's INPUT), as the Record source that hears the same; false: none.
+bool midi_input(const Track& tr, InputSource& out) {
+    if (tr.engine != EngineKind::Midi) return false;
+    switch (tr.params[midi_track::AudioIn]) {
+    case midi_track::AudioRearL: out = InputSource::RearL; return true;
+    case midi_track::AudioRearR: out = InputSource::RearR; return true;
+    case midi_track::AudioRear: out = InputSource::Rear; return true;
+    case midi_track::AudioMic: out = InputSource::Mic; return true;
+    case midi_track::AudioUsb: out = InputSource::Usb; return true;
+    default: return false;
+    }
+}
 } // namespace
 
 std::string Context::autosample_name(unsigned track) const {
@@ -45,10 +58,22 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings, boo
     const unsigned t = track % track_count;
     const auto& tr = project.tracks[t];
     if (!printer) return;
-    if (tr.engine != EngineKind::Plugin) { notice("Auto sample: plug-in tracks"); printer->note("autosample: track " + std::to_string(t + 1) + " is not a plug-in track"); return; }
+    // A plug-in track's plug-in, or a MIDI track's instrument outside: played over its MIDI, heard at its INPUT.
+    const bool outside = tr.engine == EngineKind::Midi;
+    if (tr.engine != EngineKind::Plugin && !outside) {
+        notice("Auto sample: plug-in and MIDI tracks");
+        printer->note("autosample: track " + std::to_string(t + 1) + " is not a plug-in or MIDI track");
+        return;
+    }
     if (deep(t)) { notice("Track " + std::to_string(t + 1) + " is deep frozen"); return; }
     if (printer->busy()) { notice("A print is under way"); printer->note("busy: a print is under way"); return; }
     if (settings.low > settings.high) { notice("LOW is above HIGH"); return; }
+    InputSource source = InputSource::Rear;
+    if (outside) {
+        if (!midi_input(tr, source)) { notice("Auto sample: pick the INPUT"); printer->note("autosample: track " + std::to_string(t + 1) + " has no input"); return; }
+        if ((ui.midi_in_use >> t) & 1) { notice("The INPUT is in use"); return; }
+        if (host_recording()) { notice("A take is under way"); return; }
+    }
     const std::string root = library ? library->root() : std::string();
     if (root.empty()) { notice("No card"); return; }
     // Samples/Keygroups/<name>/, a number after the name when one is there already.
@@ -69,7 +94,17 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings, boo
     job.bank = std::make_unique<PatternBank>(patterns);
     if (plugins) job.states = plugins->states();
     job.card_top = fs::path(root).parent_path().string();
+    if (outside) { // in real time: nothing else may play the instrument, and the input's ring hears the track's input
+        if (host.playing()) stop();
+        job.external = true;
+        job.input = &host.recall();
+        job.probe_first = true; // its check and its samples in one go: it is heard only once it is asked for
+        autosample_source = int8_t(source);
+        host.send({Command::Type::RecordSource, uint8_t(source), 0, 0, 0});
+    }
     if (!printer->start(std::move(job))) { notice("A print is under way"); return; }
+    autosample_outside = outside;
+    autosample_playing_told = false;
     autosample_track = int8_t(t);
     auto_last = settings;
     auto_last.found = {}; // heard again for the next sheet
@@ -93,6 +128,24 @@ bool Context::autosample_check(unsigned track, const AutoSampleSettings& setting
 
 void Context::autosample_tick() {
     if (!printer) return;
+    // An instrument outside: its notes as their frames come (PrintEngine::post()); called off when the sequencer
+    // starts (it would play the instrument too). The input's ring and meter hear the MIDI track's input while its
+    // sheet is in view or its job runs, Input Config's own source otherwise.
+    Command note;
+    while (printer->due(host.recall().written(), note)) host.send(note);
+    const bool running = autosample_track >= 0 && autosample_outside;
+    if (running && host.playing() && !autosample_playing_told) { autosample_playing_told = true; printer->cancel(); }
+    {
+        int want = -1;
+        InputSource source = InputSource::Rear;
+        const auto& sheet = ui.auto_sheet;
+        if (running) want = autosample_source;
+        else if (ui.page == PageId::AutoSample && midi_input(project.tracks[sheet.track % track_count], source) && !host_recording()) want = int(source);
+        // While it is wanted Input Config leaves the engine's source alone (record_tick()), and takes it back after.
+        if (want >= 0 && (want != autosample_source || host.record_source() != unsigned(want)))
+            host.send({Command::Type::RecordSource, uint8_t(want), 0, 0, 0});
+        autosample_source = int8_t(want);
+    }
     AutoProbeResult heard;
     while (printer->take_probed(heard)) {
         auto& sheet = ui.auto_sheet;
@@ -104,6 +157,7 @@ void Context::autosample_tick() {
     AutoSampleResult r;
     while (printer->take_sampled(r)) {
         autosample_track = -1;
+        autosample_outside = false;
         auto& sheet = ui.auto_sheet;
         const bool shown = sheet.sampling && sheet.track == r.track;
         if (shown) sheet.sampling = false;
@@ -193,7 +247,8 @@ void Context::autosample_landed(const AutoSampleResult& r) {
 
 void Context::open_auto_sheet() {
     const unsigned t = ui.track % track_count;
-    if (project.tracks[t].engine != EngineKind::Plugin) { notice("Auto sample: plug-in tracks"); return; }
+    const EngineKind engine = project.tracks[t].engine;
+    if (engine != EngineKind::Plugin && engine != EngineKind::Midi) { notice("Auto sample: plug-in and MIDI tracks"); return; }
     auto& sheet = ui.auto_sheet;
     if (!(sheet.sampling && sheet.track == t)) { // one under way comes back as it is
         const uint8_t row = sheet.row;
@@ -202,9 +257,14 @@ void Context::open_auto_sheet() {
         sheet.settings = auto_last;
         sheet.settings.found = {};
         sheet.row = row;
-        // The check: what the plug-in is, heard from a few notes (shell/auto_sample.h AutoFindings).
-        sheet.checking = autosample_check(t, sheet.settings);
-        if (!sheet.checking && printer && printer->busy()) notice("A print is under way");
+        // The check: what the plug-in is, heard from a few notes (shell/auto_sample.h AutoFindings). An instrument
+        // outside is not played until SAMPLE asks for it: its check then runs first, in the same go.
+        sheet.checking = engine == EngineKind::Plugin && autosample_check(t, sheet.settings);
+        if (engine == EngineKind::Plugin && !sheet.checking && printer && printer->busy()) notice("A print is under way");
+        // A MIDI track with no INPUT yet takes the rear inputs, where an instrument is plugged in (its Audio page's
+        // INPUT; K1 on the sheet's SOUND row picks another).
+        if (engine == EngineKind::Midi && project.tracks[t].params[midi_track::AudioIn] == midi_track::AudioNone)
+            set_param(t, midi_track::AudioIn, midi_track::AudioRear);
     }
     open(PageId::AutoSample);
 }
@@ -212,7 +272,8 @@ void Context::open_auto_sheet() {
 void Context::auto_sheet_go() {
     auto& sheet = ui.auto_sheet;
     if (sheet.sampling || sheet.checking) return;
-    if (project.tracks[sheet.track % track_count].engine != EngineKind::Plugin) { notice("Auto sample: plug-in tracks"); return; }
+    const EngineKind engine = project.tracks[sheet.track % track_count].engine;
+    if (engine != EngineKind::Plugin && engine != EngineKind::Midi) { notice("Auto sample: plug-in and MIDI tracks"); return; }
     if (first_empty_track() < 0) notice("No empty track: the program is only saved");
     autosample(sheet.track, sheet.settings);
     sheet.sampling = autosample_track == int8_t(sheet.track);

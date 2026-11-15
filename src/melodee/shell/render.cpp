@@ -33,7 +33,7 @@ void Context::resample() {
     if (ui.rendering) { notice("Rendering already"); return; }
     if (ui.resample_pick) { ui.resample_pick = false; notice("Resample off"); return; }
     const bool song = ui.page == PageId::Song && project.song.length(); // roadmap P3: on Song, the song
-    if (track().engine == EngineKind::Plugin && !song) { // a plug-in track: AUTO SAMPLE, its keys into a keygroup program; again closes it
+    if ((track().engine == EngineKind::Plugin || track().engine == EngineKind::Midi) && !song) { // a plug-in or MIDI track: AUTO SAMPLE, its keys (the instrument outside's) into a keygroup program; again closes it
         if (ui.page == PageId::AutoSample) auto_sheet_cancel();
         else open_auto_sheet();
         return;
