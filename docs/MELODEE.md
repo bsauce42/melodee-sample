@@ -1094,9 +1094,10 @@ repeats closely (detuned unison saws, chorus) still loops: most of its
 held part from a third of the way in, the join an equal-power crossfade of
 up to 0.5 s (`find_loop(..., always)`). Each looped keygroup gets a
 release keygroup over the same keys (TriggerMode 1, Note Off): the same
-WAV from where the key was let go (SliceStart), faded in over 5 ms, while
-the looped note fades in 30 ms, so letting go plays the plug-in's own
-tail. MPC 3 exports carry release keygroups (triggerMode 1) and each
+WAV from where the key was let go (SliceStart), those frames scaled in the
+WAV so the tail starts at the loop's level (at most 6 dB either way), crossfaded with the
+looped note over 20 ms, so letting go plays the plug-in's own tail with
+no bump or drop. MPC 3 exports carry release keygroups (triggerMode 1) and each
 keygroup's own attack and release. The check's test notes stay
 in C2-C5 whatever the range, so a range at the keyboard's top or bottom is
 not taken for drums. Drums are one shots (TriggerMode 0), each cut where it

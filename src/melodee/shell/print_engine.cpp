@@ -935,7 +935,6 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 if (v + 1 == layers * takes) shown.done[roots[k] / 64 % shown.done.size()] |= uint64_t(1) << (roots[k] % 64);
             }
             if (peak < 0.000316f) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
-            peak_all = std::max(peak_all, peak);
             releases.push_back(double(audio.release) / rate);
             XpmLayer layer;
             layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity)
@@ -945,8 +944,28 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             layer.high_velocity = takes > 1 ? 127 : velocity;
             if (set.looping()) {
                 LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate, true); // it sustains: a loop however unlike its ends
-                if (loop.found()) { layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops; }
+                if (loop.found()) {
+                    layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops;
+                    // The tail's level: what the loop plays at against what sounded as the key was let go (a moving
+                    // patch's LFO wherever it happened to be then), so letting go neither drops nor jumps; at most 6 dB.
+                    auto power = [&](size_t from, size_t to) {
+                        double sum = 0;
+                        for (size_t f = from; f < to && f < audio.left.size(); ++f) {
+                            const double m = 0.5 * (double(audio.left[f]) + audio.right[f]);
+                            sum += m * m;
+                        }
+                        return to > from ? sum / double(to - from) : 0.0;
+                    };
+                    const size_t keyup = size_t(audio.held), before = std::min(keyup, size_t(0.05f * rate));
+                    const double looped = power(loop.start, loop.end), let_go = power(keyup - before, keyup);
+                    // Its frames from the key's release on are the tail's alone (the loop ends before them): scaled
+                    // there, in the file, so any MPC plays it so.
+                    const float tail_gain = looped > 0 && let_go > 0 ? float(std::clamp(std::sqrt(looped / let_go), 0.5, 2.0)) : 1.0f;
+                    for (size_t f = keyup; f < audio.left.size(); ++f) { audio.left[f] *= tail_gain; audio.right[f] *= tail_gain; }
+                }
             }
+            // The program's gain is set by the loudest sample as written: after a loop's levelling and its tail's level.
+            for (size_t f = 0; f < audio.left.size(); ++f) peak_all = std::max({peak_all, std::fabs(audio.left[f]), std::fabs(audio.right[f])});
             layer.frames = uint32_t(audio.left.size());
             layer.held = uint32_t(audio.held);
             // Kept as 32-bit float until the program's gain is known.
@@ -977,8 +996,8 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         g.layers.back().high_velocity = 127;
     }
     // A looped note's own tail, played when its key is let go: a keygroup over the same keys on its key's release,
-    // each layer the looped one's WAV from where its key was let go, faded in over 5 ms; the loop fades under it in
-    // 30 ms. A note too short to have a tail (under 20 ms), or a program with no room left (128), goes without.
+    // each layer the looped one's WAV from where its key was let go at the loop's level, crossfaded with the loop over
+    // 20 ms. A note too short to have a tail (under 20 ms), or a program with no room left (128), goes without.
     const size_t played = program.keygroups.size();
     for (size_t k = 0; k < played && program.keygroups.size() < 128; ++k) {
         auto& g = program.keygroups[k];
@@ -986,7 +1005,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         tail.low = g.low; tail.high = g.high;
         tail.on_release = true;
         tail.cycle = g.cycle;
-        tail.attack = 0.005;
+        tail.attack = 0.02; // a crossfade with the loop, which fades over the same 20 ms
         for (const auto& l : g.layers) {
             if (!l.looped() || l.frames < l.held + uint32_t(0.02f * rate)) continue;
             XpmLayer from = l;
@@ -995,7 +1014,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             tail.layers.push_back(from);
         }
         if (tail.layers.size() != g.layers.size()) continue; // every layer its tail, or none: velocities stay whole
-        g.release = 0.03;
+        g.release = 0.02;
         program.keygroups.push_back(std::move(tail));
         ++r.tails;
     }
