@@ -49,6 +49,9 @@ struct LoadedProject {
     std::vector<uint8_t> bytes;
     bool imported = false; // from an MPC project: the bytes are a Melodee project, with no file of its own yet
     std::string note;      // what the import did, or why it could not
+    // Freeze plan F3: an import's audio takes, copied beside the projects as "<audio_from without .mldp> Audio" (a
+    // hidden folder) until the project is first saved: Save copies them in as a Save As would ("" none).
+    std::string audio_from;
 };
 
 class ProjectStore {

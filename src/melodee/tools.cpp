@@ -2860,6 +2860,17 @@ static int mpc_import(const char* path) {
         if (!track.used()) continue;
         std::printf("track %u name=%s level=%u pan=%d mute=%d pattern=%u engine=%u\n", t, track.name, track.mix.level, track.mix.pan, track.mix.mute,
                     track.pattern, unsigned(track.engine));
+        if (track.is_audio()) { // freeze plan F3: each pattern's take, and the file it is copied from
+            for (unsigned p = 0; p < pattern_count; ++p) {
+                const auto& r = patterns->at[t][p].audio;
+                if (!r.used()) continue;
+                std::string file;
+                for (const auto& [take, source] : report.takes) if (take == r.take) file = std::filesystem::path(source).filename().string();
+                std::printf("take %u %u take=%u file=%s offset=%u frames=%u tempo=%u gain=%d warp=%d semi=%d\n", t, p, r.take, file.c_str(), r.offset,
+                            r.frames, r.tempo, r.gain, int(r.warp), int(r.semi));
+            }
+            std::printf("regions=%u regions_left_out=%u\n", report.regions, report.regions_left_out);
+        }
         for (unsigned n = 0; n < sampler_pads; ++n) {
             const auto& pad = track.pads[n];
             if (!pad.used()) continue;

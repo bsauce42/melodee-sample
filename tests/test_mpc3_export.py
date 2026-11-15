@@ -445,6 +445,19 @@ class Mpc3Export(unittest.TestCase):
         self.assertGreater(first["audio"]["tempo"], 0)  # the tempo it was recorded at
         self.assertEqual(first["audio"]["sliceEnd"], 100)  # the whole take (100 frames)
 
+    def test_audio_track_reads_back(self):
+        # Freeze plan F3: an exported audio track's take reads back as an audio track's take, from its file.
+        with tempfile.TemporaryDirectory() as folder:
+            takes = Path(folder) / "Song Audio"
+            takes.mkdir()
+            (takes / "Take 004.wav").write_bytes(wav(48000))
+            self.export(folder, f"A:3.0={takes}/Take 004.wav")
+            result = self.run_tool("--mpc-import", Path(folder) / "out" / "Beat.xpj")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        line = next(l for l in result.stdout.splitlines() if l.startswith("take "))
+        self.assertRegex(line, r"take \d+ 0 take=1 file=Take 004.wav offset=0 frames=92 tempo=\d+ gain=0 warp=0 semi=0")
+        self.assertIn("regions=1 regions_left_out=0", result.stdout)
+
     def test_print_loops_in_a_longer_sequence(self):
         # A one-bar print in a two-bar sequence (the kit's pattern is longer): the clip spans the sequence, the print
         # once each bar, as Melodee loops it.

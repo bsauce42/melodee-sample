@@ -329,6 +329,10 @@ public:
     int audio_take_track = -1;
     bool audio_began = false;
     bool audio_prune = false; // a project just opened: its folder's takes no pattern plays go (once it has a file)
+    // An imported MPC project's takes (shell/project_store.h LoadedProject::audio_from): where they wait until its first
+    // save copies them beside it. takes_folder(): where this project's takes are ("" none yet: save first).
+    std::string audio_staging_from;
+    std::string takes_folder() const;
     uint32_t audio_quiet_sent = 0;
     std::shared_ptr<const TakePeaks> audio_peaks; // a new map on each change, shared with the screen
     void add_peaks(TakePeaks&& more);

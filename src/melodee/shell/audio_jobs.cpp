@@ -37,7 +37,7 @@ void Context::sync_audio() {
         audio_tracks = std::make_shared<AudioTracks>(host);
         audio_tracks->set_pager(&host.streams());
     }
-    const std::string folder = audio_folder(project_path);
+    const std::string folder = takes_folder();
     const bool all = project_path != audio_sent_path;
     audio_sent_path = project_path;
     for (unsigned t = 0; t < track_count; ++t) {
@@ -75,7 +75,7 @@ void Context::audio_tick() {
         audio_prune = false;
         std::vector<unsigned> kept;
         for (const auto& track : patterns.at) for (const auto& p : track) if (p.audio.used()) kept.push_back(p.audio.take);
-        audio_tracks->prune_later(audio_folder(project_path), std::move(kept));
+        audio_tracks->prune_later(takes_folder(), std::move(kept));
     }
     AudioPack* done = nullptr;
     while (host.take_done_audio(done)) audio_tracks->discard(done);
@@ -100,7 +100,7 @@ void Context::audio_tick() {
             continue;
         }
         // Another project since (its file stays in the old one's folder), or the track is no longer an audio track.
-        if (take.pattern < 0 || take.job.folder != audio_folder(project_path) || !project.tracks[t].is_audio()) continue;
+        if (take.pattern < 0 || take.job.folder != takes_folder() || !project.tracks[t].is_audio()) continue;
         if (!take.peaks.empty()) { TakePeaks one; one[take.job.take] = std::move(take.peaks); add_peaks(std::move(one)); }
         AudioRegion r;
         r.take = uint16_t(take.job.take);
@@ -117,6 +117,11 @@ void Context::audio_tick() {
     }
 }
 
+std::string Context::takes_folder() const {
+    if (!project_path.empty()) return audio_folder(project_path);
+    return audio_staging_from.empty() ? std::string() : audio_folder(audio_staging_from);
+}
+
 void Context::add_peaks(TakePeaks&& more) {
     auto next = std::make_shared<TakePeaks>(audio_peaks ? *audio_peaks : TakePeaks {});
     for (auto& [take, peaks] : more) (*next)[take] = std::move(peaks);
@@ -127,11 +132,11 @@ bool Context::record_audio(unsigned track) {
     const unsigned t = track % track_count;
     if (!project.tracks[t].is_audio()) return false;
     if (!printer) { notice("Audio: no card"); return false; }
-    if (project_path.empty()) { notice("Audio: save the project first"); return false; }
+    if (takes_folder().empty()) { notice("Audio: save the project first"); return false; }
     sync_audio();
     if (audio_take_track >= 0 || audio_tracks->writing()) { notice("Audio: the last take is still being written"); return false; }
     AudioTakeJob job;
-    job.folder = audio_folder(project_path);
+    job.folder = takes_folder();
     job.take = last_take(patterns) + 1; // at least; the thread takes the next free number in the folder
     job.track = t;
     job.tempo = uint16_t(tempo_now());

@@ -265,7 +265,7 @@ void ProjectStore::service(Hardware& hardware) {
             scan();
             const auto& resume = !start.empty() && fs::exists(start, error) ? start : last;
             if (!started && !resume.empty() && fs::exists(resume, error)) {
-                auto* l = new LoadedProject {resume, {}, read_file(resume), false, {}};
+                auto* l = new LoadedProject {resume, {}, read_file(resume), false, {}, {}};
                 if (l->bytes.empty() || !loaded.push(l)) delete l;
             }
             started = true;
@@ -310,8 +310,21 @@ unsigned projects_in(const fs::path& dir, const char* extension) {
         count += !dot_name(inner.path()) && (inner.path().extension() == extension || is_mpc_project(inner.path().string()));
     return count;
 }
+// Freeze plan F3: the hidden folders an import's takes wait in until its project is first saved, all of them gone
+// before the next import fills its own.
+constexpr const char* import_prefix = ".Import ";
+void clear_import_takes(const fs::path& root) {
+    std::error_code error;
+    std::vector<fs::path> going;
+    for (const auto& entry : fs::directory_iterator(root, error)) {
+        const auto name = entry.path().filename().string();
+        if (!name.rfind(import_prefix, 0) && entry.is_directory(error)) going.push_back(entry.path());
+    }
+    for (const auto& path : going) { std::error_code e; fs::remove_all(path, e); }
+}
+
 // An MPC project read and turned into a Melodee project's bytes (on the service thread: it takes a moment).
-void import_mpc(LoadedProject& l) {
+void import_mpc(LoadedProject& l, const std::string& root) {
     auto project = std::make_unique<Project>();
     auto patterns = std::make_unique<PatternBank>();
     MpcImport report;
@@ -320,11 +333,24 @@ void import_mpc(LoadedProject& l) {
     l.bytes.clear();
     if (!l.error.empty()) { l.note = l.error; return; }
     layers_from_programs(*project); // roadmap P3: pads of two to four layers take them as their own where slots allow
+    if (!root.empty()) clear_import_takes(root);
+    if (!report.takes.empty() && !root.empty()) { // its Audio tracks' files, as takes, where the project will find them
+        const std::string stem = std::string(import_prefix) + fs::path(l.path).stem().string();
+        const fs::path from = fs::path(root) / (stem + ".mldp");
+        const fs::path folder = audio_folder(from.string());
+        std::error_code error;
+        fs::create_directories(folder, error);
+        for (const auto& [take, file] : report.takes) {
+            std::error_code e;
+            if (!fs::copy_file(file, folder / audio_take_name(take), fs::copy_options::overwrite_existing, e)) ++report.missing;
+        }
+        l.audio_from = from.string();
+    }
     l.bytes = save_project(*project, *patterns);
     l.imported = true;
     l.note = "Opened a copy of " + fs::path(l.path).stem().string();
     if (report.missing) l.note = std::to_string(report.missing) + " samples missing";
-    else if (report.over_limit) l.note += ", some left out";
+    else if (report.over_limit || report.regions_left_out) l.note += ", some left out";
 }
 void carry_loops(const fs::path& from, const fs::path& to, bool copy) {
     for (const char* tail : project_folders) {
@@ -381,9 +407,9 @@ void ProjectStore::run(Request& r) {
         start_export(r);
         return;
     case Request::Kind::Load: {
-        auto* l = new LoadedProject {r.path, {}, read_file(r.path), false, {}};
+        auto* l = new LoadedProject {r.path, {}, read_file(r.path), false, {}, {}};
         if (l->bytes.empty()) l->error = "Could not read";
-        else if (is_mpc_project(r.path) || is_drum_program(r.path)) import_mpc(*l);
+        else if (is_mpc_project(r.path) || is_drum_program(r.path)) import_mpc(*l, root);
         if (!loaded.push(l)) delete l;
         return;
     }

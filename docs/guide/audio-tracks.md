@@ -106,6 +106,13 @@ undid or recorded over) are deleted.
 When you [export to MPC 3](song.md#export), each audio track becomes an MPC 3
 Audio track, and each pattern's take an audio region in its sequence.
 
+When you open an MPC 3 project, each of its Audio tracks becomes an audio
+track: the region at the start of each sequence becomes that pattern's take,
+with its level, fades, warp and tune. A pattern plays one take from its top,
+so other regions are left out (the note after opening says so). Until you
+save the project, its takes wait in a hidden folder beside the projects;
+the first save copies them into the project's own Audio folder.
+
 ---
 
 Previous: [Instrument and MIDI tracks](instrument-and-midi-tracks.md) · [Contents](../GUIDE.md) · Next: [Sequencing](sequencing.md)

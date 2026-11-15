@@ -195,7 +195,12 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                 for (auto& t : project->tracks) upgrade_params(t.engine, version, t.params); // older files: pad expression at its defaults
                 if (!context_.kit_from.empty() && context_.kit_from == loaded->path) // Load Kit: only its kit, onto the selected track
                     context_.load_kit(*project, std::filesystem::path(loaded->path).stem().string());
-                else if (loaded->imported) { context_.switch_to(*project, *bank, {}); context_.dirty = true; context_.notice(loaded->note); } // not saved yet: the .xpj stays as it is
+                else if (loaded->imported) { // not saved yet: the .xpj stays as it is (its takes wait beside the projects)
+                    context_.switch_to(*project, *bank, {});
+                    context_.audio_staging_from = loaded->audio_from;
+                    context_.dirty = true;
+                    context_.notice(loaded->note);
+                }
                 else context_.switch_to(*project, *bank, loaded->path, &plugin_states, &prints);
             } else if (!loaded->note.empty()) context_.notice(loaded->note);
             if (context_.kit_from == loaded->path) context_.kit_from.clear();

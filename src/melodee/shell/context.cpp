@@ -71,7 +71,10 @@ void Context::save_project_to(const std::string& path) {
     free_unused_samples();        // and no slot nothing uses (roadmap P3)
     PluginStates states;
     if (plugins) states = plugins->states(); // each plug-in's state as it is now, beside the project
-    store->save(path, melodee::save_project(project, patterns, &states, &prints), project_path); // Save As: its prints copied (F2d)
+    // Save As: its prints copied (F2d); an imported project's first save: its takes copied in (F3)
+    const std::string from = project_path.empty() ? audio_staging_from : project_path;
+    store->save(path, melodee::save_project(project, patterns, &states, &prints), from);
+    if (project_path.empty() && !audio_staging_from.empty()) audio_sent_path = path; // its takes play on from where they are
     project_path = path;
     dirty = false;
 }
@@ -114,6 +117,7 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     audio_stale = 0xffff; // freeze plan F3: its audio tracks' regions mapped again (the audio thread lets the last go)
     audio_peaks.reset();  // and their takes' overviews read again (another folder's)
     audio_prune = true;   // and its takes no pattern plays removed (nothing in its history can bring them back)
+    audio_staging_from.clear(); // an import's own are set by its loader
     for (auto& serial : audio_serial) ++serial;
     if (plugins) plugins->set_states(plugin_states ? *plugin_states : PluginStates {});
     project = next;
