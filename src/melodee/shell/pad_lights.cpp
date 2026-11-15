@@ -13,6 +13,7 @@
 #include "melodee/model/pad_params.h"
 #include "melodee/model/scales.h"
 #include "melodee/shell/looper_jobs.h"
+#include "melodee/shell/menu.h"
 #include "melodee/shell/mute_mode.h"
 #include "melodee/shell/roll.h"
 #include "melodee/shell/track_copy.h"
@@ -725,6 +726,11 @@ Look sheet_look(const PadScene& s, unsigned pad) {
     using A = UiState::Ask;
     const auto& ui = s.ui;
     if (ui.exit_open) return {};
+    if (ui.menu && ui.ask == A::None) { // the MENU (shell/menu.h): GO's places in their four groups, the lit tile full; HERE dark
+        if (ui.menu != menu_go_view) return {};
+        static const unsigned group_track[4] {0, 2, 4, 1}; // sound, sequence, mix, project: as the screen colours them
+        return track(group_track[menu_places()[pad % 16].group % 4], pad == ui.menu_tile % 16u ? full : mid);
+    }
     bool about = false; // the pad the question is about
     switch (ui.ask) {
     case A::ClearPattern: case A::ClearTrack: about = int(pad) == ui.ask_target; break;

@@ -89,6 +89,7 @@
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/tap_hold.h"
 #include "melodee/shell/autosave.h"
+#include "melodee/shell/menu.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/sample_mode.h"
@@ -2214,6 +2215,27 @@ void button_remap() {
     // Opening a page already on the stack goes back to it instead of growing it.
     go(PageId::Sounds); go(PageId::Patterns); go(PageId::Sounds);
     CHECK(nav.back_depth == 1 && nav.back_stack[0] == PageId::Stage);
+    // The MENU (shell/menu.h): the encoder held opens it, a tap stays the page's Push; GO's tiles and HERE's cards.
+    {
+        EncoderHold e;
+        encoder_press(e, 1000);
+        CHECK(!encoder_tick(e, 1000 + menu_hold_ms - 1) && encoder_release(e)); // let go soon: a tap
+        encoder_press(e, 2000);
+        CHECK(encoder_tick(e, 2000 + menu_hold_ms) && !encoder_tick(e, 9000)); // held: the MENU, once
+        CHECK(!encoder_release(e) && !encoder_release(e)); // its release is no tap
+        CHECK(menu_tile_of(PageId::Tracks) == 8 && menu_tile_of(PageId::Scenes) == 4 && menu_tile_of(PageId::Master) == 10 && menu_tile_of(PageId::Edit) == 0);
+        CHECK(menu_tile_turn(12, 1) == 13 && menu_tile_turn(15, 1) == 8 && menu_tile_turn(8, -1) == 15); // across a row, then the row below
+        CHECK(menu_tile_turn(12, -1) == 12 && menu_tile_turn(3, 1) == 3 && menu_tile_turn(12, 15) == 3); // clamped at both ends
+        std::array<MenuItem, menu_here_max> items {};
+        UiState m; m.track = 0;
+        m.page = PageId::Scenes;
+        CHECK(menu_here(*project, m, items) == 5 && items[0].job == MenuJob::SequenceCapture && items[4].danger);
+        m.page = PageId::Tracks;
+        unsigned count = menu_here(*project, m, items);
+        CHECK(count >= 4 && items[0].job == MenuJob::TrackMove && items[count - 1].job == MenuJob::TrackClear);
+        m.page = PageId::Tempo;
+        CHECK(menu_here(*project, m, items) == 0 && std::string(menu_page_name(PageId::Tempo)).empty());
+    }
     // Background save (shell/autosave.h): a changed project, nothing running, the controls quiet for a moment.
     {
         AutosaveFacts f;

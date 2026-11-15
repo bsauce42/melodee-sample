@@ -104,6 +104,13 @@ struct UiState {
     // The wheel's highlight on screens that offer their keys as choices (shell/key_pick.h): the power sheet's
     // key (B1 STAY when it opens), a question's (B1 CANCEL when asked), Project's tiles (B1 SAVE).
     uint8_t exit_pick = 0, ask_pick = 0, project_pick = 0;
+    // The MENU (shell/menu.h), the encoder held: 0 closed, 1 HERE (the page's jobs as cards), 2 GO (the sixteen
+    // places as the pads sit); the tile the wheel is on (a pad's index) and the card.
+    uint8_t menu = 0, menu_tile = 0, menu_row = 0;
+    // A soft key that steps through several pages lists them by name for a moment after a press (pages/overlays.cpp):
+    // the key (0-2) and when it was pressed.
+    uint8_t key_list_key = 0;
+    uint32_t key_list_at = 0;
     bool rec_armed = false;        // Seq Record pressed while stopped: Play starts the take (its light flashes)
     uint8_t lead_pattern = 0;      // the pattern launched last: whose tempo plays with BPM per pattern on
     uint32_t locate = 0;           // Patterns: where Shift + Play carries on from, ticks (the wheel moves it)

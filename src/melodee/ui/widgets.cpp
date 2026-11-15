@@ -261,10 +261,15 @@ void card_sheet(Paint& p, const CardSheet& m) {
             auto word = caps_text(ink, type::body);
             auto lines = p.wrap(it.word, word, tw2, 2);
             auto sub = caps_text(it.off ? colour::dim : it.danger && lit ? colour::rec : it.on ? m.accent : lit ? colour::sec : colour::mid);
-            float line_h = word.size + 3, block = lines.size() * line_h + (it.sub.isNotEmpty() ? 2 + 13 : 0);
+            // The line under the word: over two lines where it is too long for one and the word left room (the
+            // MENU's shortcuts, "PAD BANK + ERASE + PAD").
+            juce::StringArray subs;
+            if (it.sub.isNotEmpty()) subs = lines.size() == 1 && p.width(it.sub, sub) > tw2 ? p.wrap(it.sub, sub, tw2, 2) : juce::StringArray {it.sub};
+            float line_h = word.size + 3, block = lines.size() * line_h + (subs.isEmpty() ? 0 : 2 + 13 * subs.size());
             float ty = cy + (card_h - block) / 2;
             for (const auto& line : lines) { p.text(line, tx, ty, tw2, line_h, word); ty += line_h; }
-            if (it.sub.isNotEmpty()) p.text(it.sub, tx, ty + 2, tw2, 13, p.fit(it.sub, sub, tw2, type::floor));
+            ty += 2;
+            for (const auto& line : subs) { p.text(line, tx, ty, tw2, 13, p.fit(line, sub, tw2, type::floor)); ty += 13; }
         }
     if (rows > card_sheet_rows) { // where the rows in view sit among all of them
         float bar_y = top_y, bar_h = card_sheet_rows * (card_h + gap) - gap;

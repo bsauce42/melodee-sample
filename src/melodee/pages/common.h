@@ -100,6 +100,9 @@ void octave(Context& c, int way);
 void no_wheel(Context&, int);
 void no_push(Context&);
 void play_soft(Context& c, int key); // B1-B3 open Stage on that section (Pads, Keys)
+// The pages under a soft key that steps through several (Stage's groups, the mixer's SENDS and FX, Seq's B1):
+// their names into `names`, the open one's place into `at`; 0 for a key of one page or of none.
+unsigned key_pages(const Snapshot& s, unsigned key, std::array<juce::String, 6>& names, unsigned& at);
 ui::SoftKeys mix_keys(const Snapshot& s); // the MIX hub's row (shell/mix_hub.h): TRACKS SENDS FX, the page's lit
 void mix_soft(Context& c, int key);       // and where its keys go
 void seq_hub_soft(Context& c, int key); // the SEQUENCE hub's row: B1-B3 open PATTERNS, ROLL, MOTION

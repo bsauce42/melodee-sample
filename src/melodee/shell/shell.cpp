@@ -218,7 +218,8 @@ void Shell::button(Button b, bool pressed) {
     }
     if (pressed && b != Button::Erase && b != Button::Shift && ui_.erase) ui_.erase_used = true; // Erase + a button: its release erases nothing
     // Erase's release is a press of its own (a tap erases the thing in focus): one undo step, as any page press.
-    if ((!pressed && b != Button::Erase) || b == Button::Shift || ((b == Button::Minus || b == Button::Plus) && ui_.shift)) { press(b, pressed); return; }
+    // The encoder's too: its tap acts when it is let go (held, it opens the MENU: shell/menu.h).
+    if ((!pressed && b != Button::Erase && b != Button::WheelPush) || b == Button::Shift || ((b == Button::Minus || b == Button::Plus) && ui_.shift)) { press(b, pressed); return; }
     PageEdit step(context_, b, false);
     press(b, pressed);
     step.finish();
@@ -234,6 +235,12 @@ void Shell::press(Button b, bool pressed) {
     }
     if (b == Button::Play && !pressed && ui.fill) context_.fill(false); // Fill lasts while Play is held
     if (b == Button::Sample && !pressed) { sample_button(context_, false); return; } // always heard, so Sample is never left held
+    if (b == Button::WheelPush && !pressed) { // the encoder let go: a tap is the page's Push; held, it opened the MENU
+        bool tap = encoder_release(enc);
+        if (tap && !ui.menu && ui.ask == UiState::Ask::None && !ui.name.open() && !ui.exit_open && !card_owns_controls(ui))
+            page_spec(ui.page).push(context_);
+        return;
+    }
     if (pressed && ask_button(context_, b)) return; // a question open (shell/ask.cpp): B1 Cancel, B3 Do it
     if (new_track_lock(context_, b, pressed)) return; // an empty track in hand: made or left first (shell/new_track.h)
     if (ui.name.open()) { // the Name sheet takes the controls it uses; Play and Stop still work
@@ -249,6 +256,9 @@ void Shell::press(Button b, bool pressed) {
         default: return;
         }
     }
+    // The MENU over the page (shell/menu.h): B1 back, B2 HERE, B3 GO, Push the lit card or tile; any other
+    // button closes it and does its own job.
+    if (pressed && ui.menu && !ui.exit_open && menu_button(context_, b)) return;
     if (b == Button::Seq && (!ui.exit_open || !pressed)) { seq_press(context_, pressed); return; } // tap, hold or Shift (shell/seq_layer.cpp)
     if (pressed && !ui.exit_open && seq_button(context_, b)) return; // Seq held: B1-B3, Minus / Plus, Seq Record, Push
     if (pressed && !ui.exit_open && (b == Button::TopLeft || b == Button::TopMiddle || b == Button::TopRight) &&
@@ -447,16 +457,19 @@ void Shell::press(Button b, bool pressed) {
         break;
     // The pads the tracks (Pad Bank held, a track move or copy): B2 MOVE, B3 COPY, B1 back (shell/pad_bank.h).
     // Note Repeat on: B1-B3 are its rate (Shift: triplets), except on Arp and Chord.
-    case Button::TopLeft: if (!track_soft(context_, 0) && !repeat_soft(context_, 0)) page.soft(context_, 0); break;
-    case Button::TopMiddle: if (!track_soft(context_, 1) && !repeat_soft(context_, 1)) page.soft(context_, 1); break;
-    case Button::TopRight: if (!track_soft(context_, 2) && !repeat_soft(context_, 2)) page.soft(context_, 2); break;
+    case Button::TopLeft: case Button::TopMiddle: case Button::TopRight: {
+        int key = b == Button::TopLeft ? 0 : b == Button::TopMiddle ? 1 : 2;
+        ui.key_list_key = uint8_t(key); ui.key_list_at = context_.now; // a key of several pages names them for a moment
+        if (!track_soft(context_, key) && !repeat_soft(context_, key)) page.soft(context_, key);
+        break;
+    }
     case Button::WheelPush:
         if (ui.shift && ui.page == PageId::Song) song_marker(context_);
         else if (ui.shift && ui.page == PageId::Project && ui.project_list && !ui.sheet_open && !ui.move_open && project_folder_up(context_)) {
             // up a folder, done
         }
         else if (ui.shift) context_.back();
-        else page.push(context_);
+        else encoder_press(enc, context_.now); // its job waits for the release: held, it opens the MENU (shell/menu.h)
         break;
     default: break;
     }
@@ -480,6 +493,7 @@ void Shell::check_pickup(unsigned n, const Binding& binding) {
 }
 
 void Shell::pot(unsigned n, int position, bool syncing) {
+    if (ui_.menu && !syncing) return; // the MENU is up: the cards under it wait
     auto bindings = page_bindings(*project_, ui_, context_.pattern());
     // A Trim or Chop handle's pot: that handle in focus, the view zoomed in round it (shell/zoom_view.h).
     if (!syncing && focus_handle(ui_, bindings[n])) bindings = page_bindings(*project_, ui_, context_.pattern());
@@ -531,6 +545,7 @@ void Shell::wheel(int delta) {
         if (ui_.shift) { ui_.shift_used = true; ui_.name.step_char(delta); } else ui_.name.move(delta);
         return;
     }
+    if (ui_.menu) { menu_wheel(context_, delta); return; } // the MENU: the wheel walks its cards or tiles
     if (tap.down) { // Tap Tempo held, as on the stock app: the tempo by a whole BPM, the Tempo page showing meanwhile
         if (tap_turn(tap, ui_.page == PageId::Tempo) == TapDo::Open) context_.open(PageId::Tempo);
         context_.set_tempo(int(context_.tempo_now()) + delta * 10);
@@ -595,6 +610,7 @@ void Shell::hit(unsigned pad, uint8_t velocity, bool down) {
         pad_job(ui_)(context_, pad, velocity, false);
         return;
     }
+    if (ui_.menu && !ui_.exit_open && ui_.ask == UiState::Ask::None) { menu_pad(context_, pad); return; } // the MENU: GO's pads open their places
     if (ui_.shift && new_track_locked(context_)) return; // Shift + pad's pages wait while an empty track is in hand
     // A press: what the pads are now, the same choice their lights make (shell/pad_context.h, shell/pad_lights.cpp).
     unsigned kit = context_.track().bank % sampler_banks * 16 + pad % 16;

@@ -23,15 +23,51 @@ the right edge. **K1** jumps through any list.
 
 | Control | Action |
 | --- | --- |
-| **B1**, **B2**, **B3** | Select the page or action named above each key. A lit key pressed again goes to its next page. |
+| **B1**, **B2**, **B3** | Select the page or action named above each key. A lit key pressed again goes to its next page. A key with several pages lists them by name for a moment after each press. |
 | **K1**, **K2**, **K3** | Set the value on the card above each knob. |
 | **SHIFT** + **K1**–**K3** | Set the second value of a card with an arrow. |
 | Encoder (turn) | Move through a list, or fine-tune the outlined card. |
-| Encoder (push) | Open the item under the cursor, or move to the next card. |
+| Encoder (push) | Open the item under the cursor, or move to the next card. It acts when you let go. |
+| Encoder (hold) | Open the **Menu** (see below). |
 | **SHIFT** + encoder push | Go back one page. |
 | The button that opened a page | On Fader, Rec Quantize, Time Correct, Compressor, Settings, Song, Project, Input Config and Step Edit, press it again to close the page. |
 | **−** / **+** | Change the octave on play pages, the bank on kit pages, or move through a list. |
 | **SHIFT** + **−** / **+** | Undo / redo. |
+
+![A key's pages, listed after a press](../images/screens/keylist.png)
+
+## The Menu
+
+Hold the encoder for a moment to open the **Menu** over any page. It has two
+halves. **B1** (**BACK**) closes it.
+
+**B2** (**HERE**) lists what the open page can do that no printed button
+says, as cards. Each card shows its shortcut under its name, so the Menu
+also teaches the shortcuts. Turn the encoder to pick a card and push it.
+
+![The Menu: HERE](../images/screens/menuhere.png)
+
+**B3** (**GO**) shows the 16 places, laid out as the pads. Press a pad to
+open its place, or turn the encoder and push. The pads light in four
+colours: sound, sequence, mix and project. The line at the foot shows how
+the lit place opens without the Menu.
+
+![The Menu: GO](../images/screens/menugo.png)
+
+| Pad | Place | Pad | Place |
+| --- | --- | --- | --- |
+| 1 | Stage | 9 | Mixer |
+| 2 | Browser | 10 | Sends |
+| 3 | Record | 11 | Effects |
+| 4 | Chop | 12 | Looper |
+| 5 | Patterns | 13 | Song |
+| 6 | Roll | 14 | Project |
+| 7 | Step Edit | 15 | Settings |
+| 8 | Motion | 16 | Tempo |
+
+The Menu opens on **HERE** when the page has something to list (Stage, the
+mixer, Patterns, Sequences, Roll, Motion and Step Edit), and on **GO**
+otherwise. Any other button closes the Menu and does its own job.
 
 ## Knob takeover
 

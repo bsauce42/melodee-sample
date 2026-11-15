@@ -826,6 +826,36 @@ void octave(Context& c, int way) {
 }
 void no_wheel(Context&, int) {}
 void no_push(Context&) {}
+unsigned key_pages(const Snapshot& s, unsigned key, std::array<juce::String, 6>& names, unsigned& at) {
+    key %= 3; at = 0;
+    unsigned n = 0;
+    const auto& t = s.track();
+    bool kit = t.engine == EngineKind::Sampler;
+    if (s.ui.page == PageId::Stage) { // the group's pages, as its key names them
+        if (!t.used()) return 0;
+        const auto& g = stage_groups(t.engine);
+        bool instrument = stage_instrument(s.project, t);
+        if (!stage_has(g, key) || stage_opens_edit(t, key)) return 0;
+        auto here = stage_at(s.ui, t, instrument);
+        for (unsigned sub = 0; sub < stage_count(g, key) && n < names.size(); ++sub) {
+            if (stage_skips(g, key, sub, instrument)) continue;
+            if (here.group == key && here.sub == sub) at = n;
+            names[n++] = g.groups[key].pages[sub].key;
+        }
+    } else if (mix_section(s.ui.page) != MixSection::None) { // SENDS: the tracks, a kit's pads; FX: along the signal
+        if (key == 1 && kit) { names[0] = "TRACKS"; names[1] = "PADS"; n = 2; at = mix_sends_pads(s.ui, kit) ? 1 : 0; }
+        if (key == 2) {
+            std::array<PageId, 4> fx {};
+            unsigned count = mix_fx_pages(kit, fx);
+            for (unsigned k = 0; k < count; ++k) names[n++] = fx[k] == PageId::Rack ? "TRACK" : fx[k] == PageId::Bus ? "BUS" : fx[k] == PageId::Master ? "MASTER" : "PAD";
+            at = mix_section(s.ui.page) == MixSection::Fx ? mix_fx_at(s.ui.page, kit) : 0;
+        }
+    } else if ((s.ui.page == PageId::Patterns || s.ui.page == PageId::Scenes) && key == 0) { // Seq's B1: its two pages
+        names[0] = "PATTERNS"; names[1] = "SEQUENCES"; n = 2; at = s.ui.page == PageId::Scenes ? 1 : 0;
+    }
+    return n > 1 ? n : 0;
+}
+
 ui::SoftKeys mix_keys(const Snapshot& s) {
     bool kit = s.track().engine == EngineKind::Sampler;
     auto here = mix_section(s.ui.page);

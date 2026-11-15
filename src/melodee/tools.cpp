@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/tools.h"
+#include "melodee/shell/menu.h"
 #include "melodee/shell/stage_map.h"
 #include "melodee/shell/expansion_install.h"
 #include "melodee/shell/mpc_program.h"
@@ -845,6 +846,23 @@ const Preview previews[] {
     {"stagepluginface", [](Shell&, Snapshot& s) { stage_plugin(s, StageKind::PluginSound, false); }}, // B1, a plug-in with none
     {"stagepluginedit", [](Shell&, Snapshot& s) { stage_plugin(s, StageKind::PluginEdit, true); }},   // B1 again: its parameters
     {"stagemix", [](Shell&, Snapshot& s) { on_stage(s, 0, StageKind::Mix); s.playing = true; }},
+    {"keylist", [](Shell&, Snapshot& s) { // B3 just pressed on a kit's Stage: its pages by name, FILTER open
+         on_stage(s, 3, StageKind::Filter); s.sample = break_sample(); s.playing = true;
+         auto& pad = s.project.tracks[3].pads[8]; pad.filter = PadFilter::Lpf4; pad.cutoff = 45; pad.resonance = 40;
+         s.ui.key_list_key = 2; s.ui.key_list_at = s.now;
+     }},
+    {"menuhere", [](Shell&, Snapshot& s) { // the encoder held on Sequences: HERE, the page's jobs as cards
+         s.ui.page = PageId::Scenes; s.ui.track = 2; s.ui.scene = 1; s.playing = true;
+         s.ui.menu = menu_here_view; s.ui.menu_row = 0;
+     }},
+    {"menugo", [](Shell&, Snapshot& s) { // B3 GO: the sixteen places as the pads sit, the wheel on MIXER
+         s.ui.page = PageId::Scenes; s.ui.track = 2; s.playing = true;
+         s.ui.menu = menu_go_view; s.ui.menu_tile = 8;
+     }},
+    {"menumixer", [](Shell&, Snapshot& s) { // HERE on the mixer: the track's jobs
+         s.ui.page = PageId::Tracks; s.ui.track = 2; s.playing = true;
+         s.ui.menu = menu_here_view; s.ui.menu_row = 0;
+     }},
     {"padbankheld", [](Shell&, Snapshot& s) { on_stage(s, 0, StageKind::Mix); s.playing = true; s.ui.pad_bank = true; }}, // Pad Bank held: TRACKS / MOVE / COPY over the page
     {"stagesends", [](Shell&, Snapshot& s) { on_stage(s, 0, StageKind::Sends); s.playing = true; s.ui.turning = 1; s.ui.turned_at = s.now; }}, // the four sends
     {"stagearp", [](Shell&, Snapshot& s) { on_stage(s, 0, 1, 0); s.playing = true; s.project.tracks[0].arp_octaves = 2; }},

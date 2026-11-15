@@ -74,6 +74,8 @@ void draw_overlays(Paint& p, const Snapshot& s) {
     if (!sheet && s.ui.ask != UiState::Ask::None) draw_ask_sheet(p, s); // B1 Cancel / B3 Do it before an erase
     if (!sheet && s.ui.ask == UiState::Ask::None && !tracks && !seq && !sound) draw_fader_header(p, s);
     draw_notice(p, s); // over the fader's line: a copy in hand or what an undo did comes first
+    if (!sheet && s.ui.menu && s.ui.ask == UiState::Ask::None) draw_menu(p, s); // the MENU over the page (shell/menu.h)
+    else if (!sheet && !tracks && !seq && !sound && s.ui.ask == UiState::Ask::None && !s.ui.shift && s.now - s.ui.key_list_at < key_list_ms) draw_key_list(p, s);
     if (s.ui.name.open()) draw_name_sheet(p, s);
     if (s.ui.exit_open) draw_exit_sheet(p, s);
     else if (s.ui.shift && !s.ui.shift_used && !s.ui.name.open()) draw_shift_layer(p, s);
@@ -138,6 +140,24 @@ void draw_fader_header(Paint& p, const Snapshot& s) {
 
 // Over the header: copying a pad (until it is done), or for a moment what
 // an undo, redo, delete or copy did.
+// A soft key that steps through several pages: their names under the key for a moment after a press, the open
+// one lit, so a press again is not a guess (the dots under the key only count them).
+void draw_key_list(Paint& p, const Snapshot& s) {
+    std::array<juce::String, 6> names {};
+    unsigned at = 0, key = s.ui.key_list_key % 3, n = key_pages(s, key, names, at);
+    if (!n) return;
+    constexpr float row = 15;
+    float column = zone::width / 3.0f, w = column - 8, x = key * column + 4, y = zone::header_y + 1, h = n * row + 6;
+    auto c = colour_of(s);
+    p.fill(x, y, w, h, colour::raised, 4);
+    p.ring(x, y, w, h, colour::dim, 4, 1);
+    for (unsigned k = 0; k < n; ++k) {
+        float ry = y + 3 + k * row;
+        if (k == at) p.fill(x + 2, ry, w - 4, row, c, 3);
+        p.text(names[k], x + 8, ry, w - 12, row, p.fit(names[k], caps_text(k == at ? colour::bg : colour::sec), w - 12, type::floor));
+    }
+}
+
 void draw_notice(Paint& p, const Snapshot& s) {
     juce::String text;
     bool copying = s.ui.copying != UiState::Copying::Off;

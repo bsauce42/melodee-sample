@@ -29,7 +29,6 @@ is different, and how to change your habits.
   **B2**; Mix, Filter and Filt Env on **B3**.
 - MPC kits keep their pad colours.
 - Hold **SAMPLE** and press a pad to select that pad without playing it.
-- Push the encoder to move to the next knob card.
 - **SEQ RECORD** and **PLAY** record a pattern. **ERASE** + pad erases a pad
   or its notes, as on the stock app. **ERASE** + **SEQ RECORD** erases the
   selected pad's notes, and asks first in the stock app's words.
@@ -38,6 +37,8 @@ is different, and how to change your habits.
   sends all notes off.
 - Hold **TAP TEMPO** and turn the encoder to set the tempo. Held without a
   turn, it opens the Tempo page.
+- Push the encoder to move to the next knob card. Melodee adds one thing to
+  the encoder: hold it to open the Menu (see [The Menu](basics.md#the-menu)).
 - The project saves in the background. **SHIFT** + **Pad 16**, **B1**
   (**SAVE AS**) saves it under a new name.
 - Knob FX, Pad FX, Flex Beat and the master compressor work as on the stock

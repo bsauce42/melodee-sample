@@ -292,6 +292,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (real && !chop.unwritten) chop = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
         ++context_.samples_to_load;
     }
+    if (encoder_tick(enc, now)) menu_open(context_); // the encoder held: the MENU (shell/menu.h)
     // Tap Tempo held half a second with nothing turned: the Tempo page; held on it, back to the page under it.
     switch (tap_tick(tap, now, ui_.page == PageId::Tempo)) {
     case TapDo::Open: context_.open(PageId::Tempo); break;

@@ -43,7 +43,7 @@ struct PadFacts {
 inline PadContext pad_context(const UiState& ui, const Track& track, const PadFacts& facts, unsigned pad) {
     using C = PadContext;
     if (facts.card) return C::Page;
-    if (ui.exit_open || ui.ask != UiState::Ask::None) return C::Sheet;
+    if (ui.exit_open || ui.ask != UiState::Ask::None || ui.menu) return C::Sheet; // the MENU too (shell/menu.h)
     if (tracks_on_pads(ui)) return C::Tracks;
     if (ui.name.open()) return C::Name;
     if (ui.loop_held && ui.page != PageId::Looper) return C::LoopHeld;
