@@ -63,7 +63,8 @@ void draw_menu(Paint& p, const Snapshot& s) {
         return;
     }
     p.fill(0, zone::header_y, zone::width, zone::height - zone::header_y, colour::bg);
-    Header h;
+    Header h = header_of(s); // the transport and the tempo as on every page; the MENU's own chips in place of the page's
+    h.left.clear(); h.right.clear(); h.lead = 0;
     h.left.push_back(chip("MENU", colour::text));
     h.left.push_back(pill("GO"));
     h.right.push_back(label(s.project.name));
