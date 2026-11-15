@@ -351,6 +351,10 @@ Press **B1** on Patterns to open **Scenes**. Press **B1** again to go back.
 - **−** / **+** select the track. The dots on the right are the tracks:
   bright in the scene, dim on another pattern, a red ring stopped by a
   follow action.
+- **SHIFT** + **B2** (**CAPTURE**), then a pad: the patterns playing now
+  become that scene. Each track's playing pattern is copied into its
+  pattern of that column, as one undo. If some of those patterns hold notes,
+  Melodee asks first. **B1** (**CANCEL**) stops before a pad.
 
 ## Tempo
 

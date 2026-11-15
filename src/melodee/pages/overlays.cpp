@@ -151,7 +151,9 @@ void draw_notice(Paint& p, const Snapshot& s) {
         header(p, h);
         return;
     }
-    if (s.ui.copying == UiState::Copying::Pads) {
+    if (s.ui.scene_capture && s.ui.page == PageId::Scenes) {
+        text = "Capture: pick a scene"; // Scenes' Shift + B2: a pad takes what plays
+    } else if (s.ui.copying == UiState::Copying::Pads) {
         char label[4]; pad_label(unsigned(std::max<int>(s.ui.copy_from, 0)), label);
         text = s.ui.copy_from < 0 ? juce::String("Copy: pick a pad") : "Copy " + juce::String(label) + ": pick where";
     } else if (s.ui.copying == UiState::Copying::Patterns) {

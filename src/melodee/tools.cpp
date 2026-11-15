@@ -2584,6 +2584,18 @@ const Preview previews[] {
          auto& f = shell.patterns().at[2][1].follow;
          f.action = uint8_t(FollowAction::Next); f.other = uint8_t(FollowAction::Any); f.chance = 75; f.count = 4;
      }},
+    {"scenescapture", [](Shell&, Snapshot& s) { // Scenes, Shift + B2 CAPTURE: a pad picks the scene what plays goes to
+         s.ui.page = PageId::Scenes; s.ui.track = 2; s.ui.scene = 1; s.playing = true;
+         s.project.scenes[0].set_name("INTRO"); s.project.scenes[1].set_name("VERSE"); s.project.scenes[2].set_name("DROP");
+         for (unsigned t = 0; t < track_count; ++t) s.playing_patterns[t] = uint8_t(t % 3);
+         s.ui.scene_capture = true;
+     }},
+    {"askcapture", [](Shell&, Snapshot& s) { // CAPTURE onto S5, where tracks 1 and 3 have notes
+         s.ui.page = PageId::Scenes; s.ui.track = 2; s.ui.scene = 1; s.playing = true;
+         for (unsigned t = 0; t < track_count; ++t) s.playing_patterns[t] = uint8_t(t % 3);
+         s.sketches[0][4].notes = true; s.sketches[2][4].notes = true;
+         s.ui.ask = UiState::Ask::CaptureScene; s.ui.ask_target = 4;
+     }},
     {"stepeditshift", [](Shell& shell, Snapshot& s) { // Shift held on Step Edit: PADS, TIE, INSERT; the pattern's length, Q, time signature
          step_edit_kit(shell, s);
          s.ui.shift = true;

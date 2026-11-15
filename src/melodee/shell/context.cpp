@@ -240,6 +240,7 @@ void Context::reload_tick() {
 }
 
 void Context::open(PageId page) {
+    if (page != PageId::Scenes) ui.scene_capture = false; // CAPTURE waits for a pad on Scenes only
     // A PLUGIN track's sounds are the plug-ins on the card (Sample Select, or Sounds from anywhere).
     if (page == PageId::Sounds && track().engine == EngineKind::Plugin && plugins) { open_plugin_picker(UiState::PluginTarget::Instrument); return; }
     if (page == PageId::Trim) { // Trim lives on Stage now: a kit's B1 TRIM (the sampler pages' B1 and Chop come here)

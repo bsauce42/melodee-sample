@@ -9,6 +9,7 @@
 // shell tells it which tracks play a chain (their follow actions wait) and
 // follows what it brought, so a track's pattern is the one playing.
 #include "melodee/shell/context.h"
+#include "melodee/shell/ask.h"
 #include "melodee/engine/engine_host.h"
 #include <algorithm>
 #include <string>
@@ -98,6 +99,35 @@ void Context::follow_to_column() {
     edits.push(std::move(edit));
     dirty = true;
     notice("Follow to " + std::to_string(count) + (count == 1 ? " track" : " tracks"));
+}
+
+// CAPTURE on Scenes (Shift + B2, then a pad): what plays becomes scene n, each used track's playing pattern copied
+// into its pattern n, one undo. Patterns with notes there would be replaced: asked first ("Replace 2 patterns in S5?").
+void Context::capture_scene(unsigned column, bool asked) {
+    column %= pattern_count;
+    ui.scene_capture = false;
+    Edit edit;
+    edit.what = "Capture S" + std::to_string(column + 1);
+    edit.track = ui.track;
+    edit.column = int16_t(column);
+    unsigned replaced = 0;
+    for (unsigned t = 0; t < track_count; ++t) {
+        if (!project.tracks[t].used()) continue;
+        unsigned from = host.pattern_of(t) % pattern_count;
+        if (from == column) continue; // it plays this column already
+        const auto& was = patterns.at[t][column];
+        if (!was.empty()) ++replaced;
+        edit.column_before.emplace_back(uint8_t(t), was);
+        edit.column_after.emplace_back(uint8_t(t), patterns.at[t][from]);
+    }
+    if (edit.column_after.empty()) { notice("S" + std::to_string(column + 1) + ": every track plays it already"); return; }
+    if (replaced && !asked) { ask(*this, UiState::Ask::CaptureScene, int(column)); return; }
+    for (const auto& [t, value] : edit.column_after) restore_pattern(t, column, value);
+    unsigned count = unsigned(edit.column_after.size());
+    edits.push(std::move(edit));
+    dirty = true;
+    ui.scene = uint8_t(column);
+    notice("S" + std::to_string(column + 1) + " captured: " + std::to_string(count) + (count == 1 ? " track" : " tracks"));
 }
 
 unsigned Context::tempo_now() const {

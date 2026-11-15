@@ -53,7 +53,8 @@ void draw(Paint& p, const Snapshot& s) {
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"SCENES", "ROLL", "MOTION"}, 0, c}; // B1's second page: B1 again goes back to Patterns
     keys.dots[0] = 2; keys.dot_at[0] = 1;
-    if (s.ui.shift) keys = SoftKeys {{"", "", "ALL"}, -1, c}; // Shift + B3: the follow onto every track's pattern
+    if (s.ui.shift) keys = SoftKeys {{"", "CAPTURE", "ALL"}, -1, c}; // Shift + B2: what plays into a scene; Shift + B3: the follow onto every track's pattern
+    if (s.ui.scene_capture) keys = SoftKeys {{"CANCEL", "CAPTURE", ""}, 1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}; // a pad picks the scene
     frame(p, s, keys, h);
 
     // The scenes as the pads sit: pads 13-16 along the top, 1-4 along the bottom.
@@ -113,6 +114,7 @@ void draw(Paint& p, const Snapshot& s) {
 
 void pad(Context& c, unsigned pad, uint8_t, bool down) {
     if (!down) return;
+    if (c.ui.scene_capture) { c.capture_scene(c.ui.pad_pattern(pad)); return; } // CAPTURE: this scene
     if (c.ui.erase) { c.clear_scene(c.ui.pad_pattern(pad)); return; } // Erase + pad: its name and tempo
     c.launch_scene(c.ui.pad_pattern(pad));
 }
@@ -127,7 +129,12 @@ void wheel(Context& c, int delta) {
 void push(Context& c) { c.name_scene(c.ui.scene); }
 
 void soft(Context& c, int key) {
-    if (c.ui.shift) { if (key == 2) { c.ui.shift_used = true; c.follow_to_column(); } return; } // ALL
+    if (c.ui.shift) { // CAPTURE, ALL
+        if (key == 1) { c.ui.shift_used = true; c.ui.scene_capture = true; }
+        if (key == 2) { c.ui.shift_used = true; c.follow_to_column(); }
+        return;
+    }
+    if (c.ui.scene_capture) { if (key == 0) c.ui.scene_capture = false; return; } // CANCEL
     if (key == 0) { c.open(PageId::Patterns); return; } // SCENES again: back to Patterns
     seq_hub_soft(c, key);                                  // ROLL, MOTION
 }

@@ -277,6 +277,7 @@ public:
     void clear_scene(unsigned scene);
     void set_follow(Binding::Kind kind, int value);   // the selected track's pattern's
     void follow_to_column();                          // and onto every track's pattern in its column, one undo
+    void capture_scene(unsigned column, bool asked = false); // CAPTURE: each track's playing pattern into the column, one undo
     void follow_tick();                               // MIDI thread, often: chains told, what came followed
     std::array<uint32_t, track_count> follows_seen {};
     std::array<bool, track_count> chained_sent {};
