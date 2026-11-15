@@ -1278,10 +1278,14 @@ the file holds, to the bit.
   outlined once Semi moved it, the filter); the other kit pages draw the map.
   Samples may be WAV, FLAC, Ogg or AIFF; a
   loop may come from the region, a WAV's `smpl` chunk or one kept in a FLAC.
-  The first load decodes each file once into `Melodee/Cache`; after that
-  opening is near instant and audio streams from the card (a third of a
-  second of each zone's start stays in memory, `engine/stream_pager.h` pins
-  the rest ahead of each voice, so the audio thread never waits on the card).
+  Audio streams from the card (a third of a second of each zone's start
+  stays in memory, `engine/stream_pager.h` makes the rest ready ahead of
+  each voice, so the audio thread never waits on the card). A WAV file is
+  streamed as it is, at its own rate: nothing is decoded first, the pager
+  turns each chunk of it to floats in memory as a voice nears it, and an
+  instrument of WAV files opens at once. FLAC, Ogg and AIFF files (and an
+  .sf2's sounds) are decoded once into `Melodee/Cache` on the first load
+  and stream from there.
   Chop, Trim Sample, Save Sample, Normalize and Warp refuse on it; Cloud stays
   in the held start. SD card access lets go of instruments and reloads them
   when the card comes back. An SFZ takes one of the project's 64 sample slots.
@@ -2252,9 +2256,10 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
 - `Samples/`: loaded from anywhere under it; Melodee writes `Recorded/`,
   `Edits/` and saved samples there, bank files in `Banks/`, and committed
   loops in `Looper/`.
-- `Melodee/Cache/*.f32`: SFZ samples decoded for streaming, named by the
-  source's name, size and date; the least lately played go past 4 GB. Safe to
-  delete: they are made again.
+- `Melodee/Cache/*.f32`: an instrument's FLAC, Ogg, AIFF and SoundFont
+  samples decoded for streaming (WAV files are streamed as they are), named
+  by the source's name, size and date; the least lately played go past
+  4 GB, and any not played for 30 days. Safe to delete: they are made again.
 - `Melodee/Projects/**/<project> Loops/Loop N.wav`: a project's loops.
   `Melodee/Mixdowns/` holds song mixdowns, `Melodee/Stems/` stems,
   `Melodee/MIDI/` MIDI files, `SysEx/` (at the card's top) a MIDI track's

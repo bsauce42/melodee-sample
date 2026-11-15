@@ -162,9 +162,10 @@ icon and its type at the right.
 
 ![Instruments in the browser](../images/screens/samplesinstruments.png)
 
-The first load decodes the instrument's files into `Melodee/Cache` on the
-card. This can take a while for a large library. After that the instrument
-opens at once and streams from the card.
+An instrument streams from the card. One made of WAV files opens at once:
+its files are played as they are. FLAC, Ogg, AIFF and SoundFont samples are
+decoded into `Melodee/Cache` on the card the first time, which can take a
+while for a large library. After that the instrument opens at once.
 
 On an instrument pad, Stage's **TRIM** page shows **ZONES**: the
 instrument's key and velocity zones over a keyboard. The key you play

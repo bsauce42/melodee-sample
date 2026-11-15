@@ -407,10 +407,23 @@ SampleLibrary::PartLanded SampleLibrary::land_part(const std::shared_ptr<Landing
     do {
         const fs::path source = l.sf2.empty() ? find_beside(l.folder, l.names[index]) : fs::path(l.sf2);
         if (source.empty()) { why = "Files missing"; break; }
-        const std::string file = l.sf2.empty() ? files.file_of(source.string()) : files.file_of(l.sf2, l.names[index]);
         LaidOut info;
-        if (file.empty()) { why = "Files missing"; break; }
-        if (!files.ready(file, info)) {
+        // A PCM WAV is read as it is on the card (engine/stream_pager.h's read_in_place()): nothing laid out, and its
+        // frames at their own rate. Any other kind (FLAC, Ogg, AIFF, MP3, an .sf2's sound) is laid out in the cache.
+        bool in_place = false;
+        if (l.sf2.empty()) {
+            WavReader wav;
+            WavInfo loop;
+            if (wav.open(source.string(), part_seconds, &loop).empty() && read_in_place(source.string(), wav.layout(), part)) {
+                info.frames = wav.frames(); info.channels = loop.channels; info.source_rate = wav.rate();
+                info.loop_start = loop.loop_start; info.loop_end = loop.loop_end;
+                in_place = true;
+            }
+        }
+        const std::string file = in_place ? std::string() : l.sf2.empty() ? files.file_of(source.string()) : files.file_of(l.sf2, l.names[index]);
+        if (in_place) {}
+        else if (file.empty()) { why = "Files missing"; break; }
+        else if (!files.ready(file, info)) {
             // A long file is held whole while it is laid out: one of those at a time, however many threads there are.
             std::error_code size_error;
             const auto source_bytes = fs::file_size(source, size_error);
@@ -428,10 +441,11 @@ SampleLibrary::PartLanded SampleLibrary::land_part(const std::shared_ptr<Landing
             if (!error.empty() || !files.ready(file, info)) { why = "Card full"; break; }
             out.laid_out = true;
         }
-        if (!SampleCache::map(file, info, part)) { why = "Cannot map"; break; }
+        if (!in_place && !SampleCache::map(file, info, part)) { why = "Cannot map"; break; }
+        if (!in_place) part.rate = float(dsp::model_rate);
         part.total = info.frames;
-        // The region's numbers are the source's frames: the audio was laid out at the project's rate.
-        const double ratio = info.source_rate ? double(dsp::model_rate) / info.source_rate : 1.0;
+        // The region's numbers are the source's frames: the audio laid out is at the project's rate, read in place at its own.
+        const double ratio = info.source_rate ? double(part.rate) / info.source_rate : 1.0;
         auto scaled = [&](int64_t frame) { return uint32_t(std::clamp<double>(std::llround(double(frame) * ratio), 0.0, double(info.frames))); };
         bool held = true;
         for (uint16_t n : l.zones[index]) {

@@ -46,8 +46,9 @@ plug-in that loads but cannot open shows **WON'T OPEN** or **MISSING
 LIBRARY** on its Edit page. If a 32-bit plug-in crashes, its page says
 **STOPPED**: pick it again to reopen it.
 
-**An instrument loads slowly.** The first load decodes its files into
-`Melodee/Cache`. Later loads are fast.
+**An instrument loads slowly.** FLAC, Ogg, AIFF and SoundFont samples are
+decoded into `Melodee/Cache` the first time. Later loads are fast. WAV
+samples need no decoding.
 
 When you report a problem, say what you pressed, what you saw, and the
 version (press **B3** on the **ABOUT** page).
