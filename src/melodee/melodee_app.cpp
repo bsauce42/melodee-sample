@@ -511,7 +511,7 @@ void MelodeeApp::service(Hardware& hardware) {
     card_update(hardware);
     web_service(hardware);
     // The card is Melodee's only while the base has it home: nothing reads or writes it meanwhile.
-    if (hardware.card.status().state == CardShareState::Home) {
+    if (hardware.card.status().state == CardShareState::Home && !warm_card(hardware)) {
         library.service(hardware);
         store.service(hardware);
     }
@@ -533,6 +533,25 @@ void MelodeeApp::service(Hardware& hardware) {
     }
 }
 
+// The card's folders read into memory before anything else walks them (shell/card_warm.h). On the MPC's card that
+// is a second or two, and it saves the minute the first walk of a plug-in's data folder otherwise costs every reader.
+bool MelodeeApp::warm_card(Hardware& hardware) {
+    const uint32_t now = now_ms();
+    if (!card_looked_at || now - card_looked_at >= 2000 || card_warmed.empty()) { // the mounts read every two seconds, at once after a return
+        if (card_warmed.empty() && card_looked_at && now - card_looked_at < 250) return false; // no card: looked for four times a second
+        card_looked_at = now ? now : 1;
+        std::string card;
+        for (const auto& space : hardware.platform.storage())
+            if (space.path.rfind("/media/", 0) == 0) { card = space.path; break; }
+        if (card != card_warmed) { // a card found, another one, or the same one back
+            card_warmed = card;
+            card_warm_at = now;
+            if (!card.empty()) card_warm.start(card);
+        }
+    }
+    return card_warm.running() && now - card_warm_at < card_warm_patience_ms;
+}
+
 // SD card access (shell/card_access.h): what the shell asked, done through the
 // base's CardShare, and what came of it copied back for the shell.
 void MelodeeApp::card_access(Hardware& hardware) {
@@ -543,6 +562,7 @@ void MelodeeApp::card_access(Hardware& hardware) {
     switch (CardRequest(link.request.exchange(0))) {
     case CardRequest::Lend:
         card_note = CardNote::None;
+        card_warm.stop(); // nothing of Melodee's reads the card's device while it is lent
         if (gadget_mirror_live()) card_note = CardNote::Camera; // nothing let go: the camera would be unplugged under the computer
         else if (library.busy()) card_note = CardNote::Writing; // a take or a render still writes to it
         else if (!library.release_instruments()) card_note = CardNote::Failed;
@@ -556,6 +576,8 @@ void MelodeeApp::card_access(Hardware& hardware) {
     if (now.state == CardShareState::Home && library.instruments_away()) library.restore_instruments(); // back, or never lent
     if (now.returns != card_returns) { // back: its projects and samples read again
         card_returns = now.returns;
+        card_warmed.clear(); // and its folders read ahead again: the cache went with the mount
+        card_looked_at = 0;
         library.rescan();
         store.rescan();
     }

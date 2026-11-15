@@ -4,6 +4,7 @@
 #include "melodee/engine/engine_host.h"
 #include "melodee/shell/input_route.h"
 #include "melodee/shell/project_store.h"
+#include "melodee/shell/card_warm.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/plugin/plugin_rack.h"
 #include "melodee/shell/print_engine.h"
@@ -102,6 +103,13 @@ private:
     std::atomic<bool> power_off_failed {false}; // it could not be asked (or this is not the MPC): leave for the stock app
     melodee::CardNote card_note = melodee::CardNote::None; // service thread: why the last lend did not start
     uint64_t card_returns = 0;
+    // The card's folders read ahead of the kernel's driver (shell/card_warm.h): once when the card is found and again
+    // when it comes back from being lent. Projects, samples and so the plug-ins wait for it, a few seconds at most.
+    melodee::CardWarm card_warm;
+    std::string card_warmed;  // service thread: the card it was last begun for ("" none)
+    uint32_t card_warm_at = 0, card_looked_at = 0; // when it was begun, and when the mounts were last read (ms)
+    static constexpr uint32_t card_warm_patience_ms = 5000;
+    bool warm_card(Hardware& hardware); // service thread: begins it when due; true while the card's readers should wait
     // Updates from the card (shell/update.h, base drivers/sd_update.h): service thread only.
     void card_update(Hardware& hardware);
     bool update_ready();                       // sd-update.sh is next to the binary and the key file is written
