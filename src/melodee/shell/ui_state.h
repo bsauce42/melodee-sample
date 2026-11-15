@@ -425,6 +425,9 @@ struct UiState {
         uint8_t row = 0;
         bool sampling = false;
         bool checking = false; // the check under way (settings.found its findings once heard)
+        // The check is still to start: once the track's plug-in is open and the print engine is free
+        // (Context::autosample_tick()).
+        bool check_wanted = false;
     };
     AutoSheet auto_sheet;
     // Seq held + Sample Record: each pattern pad freezes or thaws its pattern of the selected track until Seq is let

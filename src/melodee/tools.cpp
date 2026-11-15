@@ -1090,8 +1090,14 @@ const Preview previews[] {
          s.ui.auto_sheet = UiState::AutoSheet {};
          s.ui.auto_sheet.track = 2; s.ui.auto_sheet.checking = true;
          auto& job = s.print;
-         job.busy = true; job.autosample = true; job.checking = true; job.track = 2; job.check_step = 2;
+         job.busy = true; job.autosample = true; job.checking = true; job.opened = true; job.track = 2; job.check_step = 2;
          job.found.kind = AutoKind::Mono; job.found.glide = 0.06f;
+     }},
+    {"autosampleopening", [](Shell&, Snapshot& s) { // the check waits for the track's plug-in to open
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.checking = true; s.ui.auto_sheet.check_wanted = true;
      }},
     {"autosamplecheckmoves", [](Shell&, Snapshot& s) { // the check on a sound that moves while held
          print_scene(s);
@@ -1099,7 +1105,7 @@ const Preview previews[] {
          s.ui.auto_sheet = UiState::AutoSheet {};
          s.ui.auto_sheet.track = 2; s.ui.auto_sheet.checking = true;
          auto& job = s.print;
-         job.busy = true; job.autosample = true; job.checking = true; job.track = 2; job.check_step = 3;
+         job.busy = true; job.autosample = true; job.checking = true; job.opened = true; job.track = 2; job.check_step = 3;
          job.found.sustains = true; job.found.moves = true; job.found.hold = 8.0f;
      }},
     {"autosamplepad", [](Shell&, Snapshot& s) { // a pad that sustains: LOOP at Auto loops it

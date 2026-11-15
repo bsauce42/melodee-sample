@@ -37,6 +37,15 @@ bool midi_input(const Track& tr, InputSource& out) {
     default: return false;
     }
 }
+
+// The plug-in of track `t` on the live rack. Ready where there is none to wait for (a track with no plug-in, no rack:
+// the check then says so itself).
+PluginStatus plugin_status(const Context& c, unsigned t) {
+    const Track& tr = c.project.tracks[t % track_count];
+    if (!c.plugins || tr.engine != EngineKind::Plugin || tr.plugin >= max_plugins || !c.project.plugins[tr.plugin].used()) return PluginStatus::Ready;
+    const PluginStatus status = c.plugins->status(tr.plugin);
+    return status == PluginStatus::None ? PluginStatus::Loading : status; // not staged yet: opening
+}
 } // namespace
 
 std::string Context::autosample_name(unsigned track) const {
@@ -68,6 +77,11 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings, boo
     if (deep(t)) { notice("Track " + std::to_string(t + 1) + " is deep frozen"); return; }
     if (printer->busy()) { notice("A print is under way"); printer->note("busy: a print is under way"); return; }
     if (settings.low > settings.high) { notice("LOW is above HIGH"); return; }
+    if (!outside && plugin_status(*this, t) != PluginStatus::Ready) { // as the sheet's check waits for (autosample_tick())
+        notice("The plug-in is still opening");
+        printer->note("autosample: track " + std::to_string(t + 1) + "'s plug-in is not open yet");
+        return;
+    }
     InputSource source = InputSource::Rear;
     if (outside) {
         if (!midi_input(tr, source)) { notice("Auto sample: pick the INPUT"); printer->note("autosample: track " + std::to_string(t + 1) + " has no input"); return; }
@@ -149,10 +163,28 @@ void Context::autosample_tick() {
     AutoProbeResult heard;
     while (printer->take_probed(heard)) {
         auto& sheet = ui.auto_sheet;
-        if (!sheet.checking || sheet.track != heard.track) continue; // called off, or another's
+        if (!sheet.checking || sheet.check_wanted || sheet.track != heard.track) continue; // called off, an earlier one's, or another's
         sheet.checking = false;
         if (heard.error.empty()) sheet.settings.found = heard.found;
         else if (heard.error != "stopped") notice("Check: " + heard.error);
+    }
+    // The sheet's check, once the track's plug-in is open and the print engine is free. A plug-in such as Surge XT
+    // reads thousands of files from the card as it opens: the print host's own copy opened beside the live one would
+    // read them all again, slowly, at the same time; after it, they are in memory and it opens in seconds. A check
+    // called off still has the print engine until its plug-in has opened: the next waits for that too.
+    if (auto& sheet = ui.auto_sheet; sheet.check_wanted) {
+        const unsigned t = sheet.track % track_count;
+        if (ui.page != PageId::AutoSample || !sheet.checking) sheet.check_wanted = false; // the sheet was left
+        else {
+            const PluginStatus status = plugin_status(*this, t);
+            if (status == PluginStatus::Failed || status == PluginStatus::Crashed) {
+                sheet.check_wanted = sheet.checking = false;
+                notice("Check: the plug-in is not open");
+            } else if (status == PluginStatus::Ready && !printer->busy()) {
+                sheet.check_wanted = false;
+                sheet.checking = autosample_check(t, sheet.settings);
+            }
+        }
     }
     AutoSampleResult r;
     while (printer->take_sampled(r)) {
@@ -259,8 +291,8 @@ void Context::open_auto_sheet() {
         sheet.row = row;
         // The check: what the plug-in is, heard from a few notes (shell/auto_sample.h AutoFindings). An instrument
         // outside is not played until SAMPLE asks for it: its check then runs first, in the same go.
-        sheet.checking = engine == EngineKind::Plugin && autosample_check(t, sheet.settings);
-        if (engine == EngineKind::Plugin && !sheet.checking && printer && printer->busy()) notice("A print is under way");
+        // A plug-in's check starts once its plug-in is open and the print engine is free (autosample_tick()).
+        sheet.checking = sheet.check_wanted = engine == EngineKind::Plugin && printer && !deep(t);
         // A MIDI track with no INPUT yet takes the rear inputs, where an instrument is plugged in (its Audio page's
         // INPUT; K1 on the sheet's SOUND row picks another).
         if (engine == EngineKind::Midi && project.tracks[t].params[midi_track::AudioIn] == midi_track::AudioNone)
@@ -282,8 +314,9 @@ void Context::auto_sheet_go() {
 void Context::auto_sheet_cancel() {
     auto& sheet = ui.auto_sheet;
     if (sheet.checking) { // the check called off: its findings, when they come, are dropped
-        if (printer && printer->busy()) printer->cancel();
-        sheet.checking = false;
+        // Only its own check: one still waiting to start has none, and what the print engine is doing is another's.
+        if (!sheet.check_wanted && printer && printer->busy() && printer->progress().checking) printer->cancel();
+        sheet.checking = sheet.check_wanted = false;
         back();
         return;
     }

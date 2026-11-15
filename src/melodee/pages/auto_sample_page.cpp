@@ -57,7 +57,13 @@ void draw(Paint& p, const Snapshot& s) {
     const Icon kind_icon = !a.found.heard ? Icon::Keyboard : a.found.kind == AutoKind::Mono ? Icon::Slide : a.found.kind == AutoKind::Drums ? Icon::Pads : Icon::Keyboard;
 
     Header h = header_of(s);
-    if (checking) h.left.push_back(chip(Icon::Clock, "CHECKING", colour::ice));
+    // The check's chip: OPENING until its plug-in is open (the track's own, then the print host's copy; an earlier
+    // check called off, until its copy has opened), WAITING while the print engine has another job, then CHECKING.
+    const bool check_live = job.busy && job.checking && job.track == t;
+    const char* const check_word = sampling ? "CHECKING"
+                                 : sheet.check_wanted ? (job.busy && !job.checking ? "WAITING" : "OPENING")
+                                 : check_live && !job.opened ? "OPENING" : "CHECKING";
+    if (checking) h.left.push_back(chip(Icon::Clock, check_word, colour::ice));
     else if (sampling) h.left.push_back(pill(kind_icon, ours ? "SAMPLING " + juce::String(std::min<unsigned>(job.through + 1, job.count)) + "/" + juce::String(job.count)
                                                             : juce::String("SAMPLING"), colour::ice));
     else h.left.push_back(chip(kind_icon, !a.found.heard ? "AUTO SAMPLE" : a.found.kind == AutoKind::Mono ? "MONO" : drums ? "DRUMS" : "KEYS", colour::ice));

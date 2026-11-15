@@ -786,6 +786,7 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
     {
         std::lock_guard<std::mutex> held(lock);
         shown.autosample = true; shown.checking = true; shown.check_step = 0; shown.found = {};
+        shown.opened = job.external; // an instrument outside has nothing to open
         doing = "track=" + std::to_string(t + 1) + " autosample-check";
     }
     const float rate = dsp::sample_rate();
@@ -795,6 +796,10 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
     const uint8_t base = uint8_t(std::clamp(std::clamp(48, low, std::max(low, high - 12)), 36, 60));
     auto source = open_notes(*this, job, samples, base, cancelled, r.error);
     if (!source) return r;
+    {
+        std::lock_guard<std::mutex> held(lock);
+        shown.opened = true;
+    }
     // Before each go: silence, until what is left of the last has died away (a second at most).
     auto settle = [&] { source->settle(1.0f, 0.05f); };
     auto at = [&](double seconds) { return uint64_t(seconds * rate); };

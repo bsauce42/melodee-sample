@@ -109,6 +109,7 @@ struct PrintProgress {
     // The check under way (`checking`): how far it has got (0 type, 1 glide or sounds, 2 accent, 3 takes, 4 done) and
     // what it has heard so far.
     bool checking = false;
+    bool opened = false; // the check's plug-in is open in the print host: its notes play (before that it is opening)
     uint8_t check_step = 0;
     AutoFindings found;
     bool is_done(unsigned p) const { p %= pattern_count; return (done[p / 64] >> (p % 64)) & 1; }

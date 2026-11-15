@@ -1075,7 +1075,16 @@ SOUND (TAP, LOOP, LEVEL). Remote: `melodee-autosample TRACK [LOW-HIGH]
 `melodee-print status` reports it.
 
 The sheet first runs a check (`probe_track()`, `engine/auto_probe.h`):
-a few notes on the plug-in, nothing read from it. Five keys whose pitch
+a few notes on the plug-in, nothing read from it. It starts once the
+track's plug-in is open on the live rack and the print engine is free
+(`AutoSheet::check_wanted`, `autosample_tick()`): a plug-in that reads
+thousands of files as it opens (Surge XT) would be read twice at once
+otherwise, the print host's copy at idle priority, and a check called
+off holds the print engine until its copy has opened. The chip reads
+OPENING until the plug-in is open (the track's, then the print host's
+copy, `PrintProgress::opened`), WAITING while the print engine has
+another job, then CHECKING. SAMPLE and `melodee-autosample` are refused
+while the track's plug-in is opening. Five keys whose pitch
 does not follow the keys make it Drums: each key of the range that sounds
 is sampled once, its keygroup that key alone. Two keys pressed legato,
 against the first held alone, make it Mono when the first key's pitch

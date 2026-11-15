@@ -94,7 +94,9 @@ almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 1. Select the plug-in track and set the sound you want.
 2. Press **SHIFT** + **Pad 11** (Resample). **SHIFT** + **Pad 11** again closes the sheet.
 3. Wait for the check (**CHECKING**, a few seconds). It plays a few notes and
-   finds out what the plug-in is.
+   finds out what the plug-in is. While the plug-in is still opening, the
+   sheet shows **OPENING** and starts the check when it is ready; **WAITING**
+   means a print is under way.
 4. Set the cards. **B2** (or the encoder) shows the next row.
 5. Press **B3 SAMPLE** (or push the encoder).
 
