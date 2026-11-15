@@ -16,7 +16,7 @@ void Context::print(const PrintAsk& ask) {
     if (ask.mode == PrintAsk::Unfreeze) { unfreeze(ask.track); return; }
     if (ask.mode == PrintAsk::AutoSample) {
         if (ask.check) { if (!autosample_check(ask.track, ask.sampling)) notice("A print is under way"); }
-        else autosample(ask.track, ask.sampling);
+        else autosample(ask.track, ask.sampling, ask.probe_first);
         return;
     }
     if (!printer) return;

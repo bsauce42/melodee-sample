@@ -1087,7 +1087,11 @@ Three hits that differ in level envelope or brightness make three takes a
 key, played in turn (ZonePlay Cycle), when there is one layer. A key held
 1.2 s whose level at the end is within 4 dB of its start sustains
 (`probe_sustains()`): LOOP at Auto (the card's Auto, On, Off) then loops
-each note's held part; drums never loop at Auto. The sheet
+each note's held part; drums never loop at Auto. The check's test notes stay
+in C2-C5 whatever the range, so a range at the keyboard's top or bottom is
+not taken for drums. Drums are one shots (TriggerMode 0), each cut where it
+falls silent. A note off zero by more than 2 % of its peak (a plug-in's DC
+offset, an uneven pulse) goes through a 5 Hz DC blocker (`remove_dc()`). The sheet
 shows CHECKING with a row a finding, then the type on its chip and the
 glide, accent and takes under the blocks.
 

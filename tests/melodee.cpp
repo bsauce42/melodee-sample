@@ -7219,6 +7219,8 @@ void xpm_writer() {
     CHECK(has("<RootNote>37</RootNote>") && has("<RootNote>40</RootNote>")); // one past the MIDI note
     CHECK(has("<SampleName>Pad-C2-V63</SampleName>") && has("<VelEnd>63</VelEnd>") && has("<VelStart>64</VelStart>"));
     CHECK(has("<SliceEnd>47999</SliceEnd>") && has("<SliceEnd>44099</SliceEnd>") && has("<TriggerMode>2</TriggerMode>")); // the last frame
+    CHECK(!has("<TriggerMode>0</TriggerMode>"));
+    { XpmProgram kit = program; kit.keygroups[0].one_shot = true; CHECK(xpm_text(kit).find("<TriggerMode>0</TriggerMode>") != std::string::npos); }
     CHECK(has("<SliceLoop>1</SliceLoop>") && has("<SliceLoopStart>20000</SliceLoopStart>") && has("<SliceEnd>40000</SliceEnd>")); // the loop
     CHECK(has("<VelocitySensitivity>0.000000</VelocitySensitivity>")); // layered
     char release[64];
@@ -7347,6 +7349,14 @@ void auto_probe() {
         tone(b, 0, 19200, 220, 220, 0, 0.5f, p2);
         tone(c, 0, 19200, 220, 220, 0, 0.71f, p3);
         CHECK(!probe_varies({a, b}, rate) && probe_varies({a, c}, rate));
+        // a low saw at another start phase (an oscillator running free): the same
+        std::vector<float> s1(19200), s2(19200);
+        for (size_t f = 0; f < s1.size(); ++f) {
+            const double t = 65.4 * f / rate;
+            s1[f] = float(0.5 * (2 * (t - std::floor(t)) - 1));
+            s2[f] = float(0.5 * (2 * (t + 0.37 - std::floor(t + 0.37)) - 1));
+        }
+        CHECK(!probe_varies({s1, s2}, rate));
     }
 }
 
@@ -7363,6 +7373,32 @@ void loop_finder() {
     const double periods = double(loop.end - loop.start) * hz / rate;
     CHECK(std::fabs(periods - std::round(periods)) < 0.05);
     CHECK(std::fabs(l[loop.end - 1] - l[loop.start - 1]) < 0.02f); // the frame before the jump meets the one before the start
+    { // a drum cut where it falls silent, not at the end of the time its key was held
+        NoteAudio n;
+        n.left.assign(size_t(rate * 1.5), 0.0f);
+        for (size_t f = 0; f < size_t(0.2f * rate); ++f) n.left[f] = float(0.5 * std::sin(f * 0.1) * std::exp(-f / (0.03 * rate)));
+        n.right = n.left; n.held = uint64_t(rate * 1.5);
+        trim_silence(n, rate);
+        CHECK(n.left.size() < size_t(0.25f * rate) && n.held == n.left.size() && n.release == 0);
+    }
+    { // a DC offset taken out (a pulse wave off centre), the note still starting at silence; a clean note left alone
+        std::vector<float> a(static_cast<size_t>(rate)), b;
+        for (size_t f = 0; f < a.size(); ++f) a[f] = float(0.3 * std::sin(2 * M_PI * 65.4 * double(f) / rate) - 0.13 * std::min(1.0, f / (0.002 * rate)));
+        b = a;
+        CHECK(remove_dc(a, b, a.size(), rate));
+        double mean = 0;
+        for (size_t f = size_t(0.5f * rate); f < a.size(); ++f) mean += a[f];
+        CHECK(std::fabs(mean / (a.size() - size_t(0.5f * rate))) < 0.002 && std::fabs(a[0]) < 0.01f);
+        std::vector<float> clean(static_cast<size_t>(rate)), clean2;
+        for (size_t f = 0; f < clean.size(); ++f) clean[f] = float(0.3 * std::sin(2 * M_PI * 65.4 * double(f) / rate));
+        clean2 = clean;
+        const auto kept = clean;
+        CHECK(!remove_dc(clean, clean2, clean.size(), rate) && clean == kept);
+        for (auto& v : a) v = 0; // a quiet plug-in's offset: 0.004 under a peak of 0.07
+        for (size_t f = 0; f < a.size(); ++f) a[f] = float(0.06 * std::sin(2 * M_PI * 65.4 * double(f) / rate) - 0.004);
+        b = a;
+        CHECK(remove_dc(a, b, a.size(), rate));
+    }
     std::vector<float> quiet(size_t(rate), 0.0f), quiet2 = quiet;
     CHECK(!find_loop(quiet, quiet2, uint64_t(rate), rate).found());
     CHECK(!find_loop(l, r, uint64_t(0.2f * rate), rate).found());

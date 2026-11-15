@@ -41,7 +41,7 @@ std::string Context::autosample_name(unsigned track) const {
     return name.empty() ? "Keygroup" : name;
 }
 
-void Context::autosample(unsigned track, const AutoSampleSettings& settings) {
+void Context::autosample(unsigned track, const AutoSampleSettings& settings, bool probe_first) {
     const unsigned t = track % track_count;
     const auto& tr = project.tracks[t];
     if (!printer) return;
@@ -61,6 +61,7 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings) {
     job.project_path = project_path;
     job.track = t;
     job.autosample = true;
+    job.probe_first = probe_first;
     job.sampling = settings;
     job.sample_folder = (top / name).string();
     job.sample_name = name;

@@ -330,11 +330,25 @@ void PrintEngine::run() {
             continue;
         }
         if (job->autosample) { // the auto sampler: notes, not patterns
+            if (job->probe_first) { // as the sheet does: the check first, its findings sampled with
+                AutoProbeResult heard = probe_track(*job, samples);
+                if (heard.error.empty()) job->sampling.found = heard.found;
+                std::lock_guard<std::mutex> held(lock);
+                const auto& f = heard.found;
+                lines.push_back("autosample-check track=" + std::to_string(job->track + 1) + " kind=" +
+                                std::string(f.kind == AutoKind::Mono ? "mono" : f.kind == AutoKind::Drums ? "drums" : "keys") +
+                                " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato) +
+                                " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes) + " sustains=" + std::to_string(f.sustains) +
+                                " sounds=" + std::to_string(f.sounding()) + (heard.error.empty() ? std::string() : " error=" + heard.error) + heard.heard);
+                while (lines.size() > kept_lines) lines.pop_front();
+                shown.checking = false;
+            }
             AutoSampleResult made = sample_track(*job, samples);
             if (library) library->release_samples();
             std::lock_guard<std::mutex> held(lock);
             lines.push_back("autosample track=" + std::to_string(job->track + 1) + " " +
                             (made.error.empty() ? "made=" + made.program + " samples=" + std::to_string(made.samples)
+                                                      + " loops=" + std::to_string(made.loops) + " centred=" + std::to_string(made.centred)
                                                 : "error=" + made.error) +
                             " seconds=" + std::to_string(int(std::lround(made.seconds))));
             while (lines.size() > kept_lines) lines.pop_front();
@@ -658,7 +672,9 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
 
     // Type: five keys, their pitch read just past the attack.
     const int low = set.low, high = std::max<int>(set.low, set.high);
-    const uint8_t base = uint8_t(std::clamp(48, low, std::max(low, high - 12)));
+    // Its test notes in the range, but never outside C2-C5, where a pitch reads clearly (a range at the top of the
+    // keyboard is still a pitched instrument, not drums whose pitch could not be heard).
+    const uint8_t base = uint8_t(std::clamp(std::clamp(48, low, std::max(low, high - 12)), 36, 60));
     std::vector<uint8_t> keys;
     for (int k : {0, 1, 2, 5, 12}) keys.push_back(uint8_t(std::min(127, base + k)));
     std::vector<float> hz;
@@ -845,6 +861,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     for (size_t k = 0; k < roots.size(); ++k) {
         XpmKeygroup group;
         group.cycle = takes > 1;
+        group.one_shot = drums; // a drum plays out whole however short the tap
         for (unsigned v = 0; v < layers * takes; ++v) {
             const unsigned take = v % takes, layer_index = v / takes;
             const uint8_t velocity = set.velocity(layer_index);
@@ -902,6 +919,8 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             rendered += audio.left.size();
             blocks = 0;
             if (!audio.error.empty()) return fail(audio.error == "stopped" ? "stopped" : audio.error);
+            if (drums) trim_silence(audio, rate); // a one shot: no silence kept for the time the key was held
+            if (remove_dc(audio.left, audio.right, audio.held, rate)) ++r.centred;
             settle();
             if (opened.streams && host.streams().underruns()) return fail("the card's reads came late");
             float peak = 0;

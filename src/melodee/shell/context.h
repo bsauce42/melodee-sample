@@ -323,6 +323,7 @@ public:
         enum Mode : uint8_t { Print, Freeze, Unfreeze, AutoSample } mode = Print; // freeze plan F2b: the same ask freezes the track
         AutoSampleSettings sampling; // AutoSample: `melodee-autosample`
         bool check = false;          // AutoSample: the check alone, its findings in `melodee-print status`
+        bool probe_first = false;    // AutoSample: the check, then sampled as it heard (as the sheet does)
         bool deep = false; // freeze plan F2d: a deep freeze (every pattern with notes, Post FX)
     };
     void print(const PrintAsk& ask);
@@ -330,7 +331,7 @@ public:
     // The auto sampler (shell/auto_sample.h): a plug-in track sampled a key at a time into Samples/Keygroups/<name>/,
     // then played by a new KEYGROUP track. `autosample_track`: the track being sampled, -1 none.
     std::string autosample_name(unsigned track) const;
-    void autosample(unsigned track, const AutoSampleSettings& settings);
+    void autosample(unsigned track, const AutoSampleSettings& settings, bool probe_first = false);
     bool autosample_check(unsigned track, const AutoSampleSettings& settings); // the check alone (AutoFindings); false: not started
     void autosample_tick();
     void autosample_landed(const AutoSampleResult& result);

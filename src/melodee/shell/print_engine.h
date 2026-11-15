@@ -51,6 +51,7 @@ struct PrintJob {
     // and its WAVs, not its patterns printed.
     bool autosample = false;
     bool probing = false;                // the check alone (AutoFindings), nothing sampled
+    bool probe_first = false;            // autosample: the check, then sampled as it heard (`melodee-autosample ... auto`)
     AutoSampleSettings sampling;
     std::string sample_folder, sample_name;
 };

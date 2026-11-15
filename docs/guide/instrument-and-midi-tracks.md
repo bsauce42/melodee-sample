@@ -124,7 +124,7 @@ The check sets these for you; the sheet's chip shows the type:
 | --- | --- |
 | **KEYS** | Samples every **STEP** keys, as set. |
 | **MONO** | The program plays one note at a time and glides like the plug-in (**GLIDE** shows the time). |
-| **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. |
+| **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. Each drum plays whole however short the tap. |
 | **ACCENT** | The velocity layers split where the sound jumps (two layers at least). |
 | **TAKES ×3** | Each key is recorded three times and the program plays them in turn. |
 | **LOOPS** | The sound holds steady while a key is held, so each note loops and plays on for as long as you hold the pad. With **LOOP** at Auto this follows the check; set it to On or Off to choose yourself. |

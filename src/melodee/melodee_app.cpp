@@ -265,10 +265,10 @@ std::string MelodeeApp::command(const std::string& action, const std::string& ar
         for (unsigned t = 0; t < melodee::track_count; ++t) s += (t ? "," : "") + std::to_string(int(std::lround(host.track_load(t) * 1000)));
         return s + " | " + printer.status();
     }
-    if (action == "melodee-autosample") { // the auto sampler: melodee-autosample TRACK [LOW-HIGH] [step N] [layers N] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check]
+    if (action == "melodee-autosample") { // the auto sampler: melodee-autosample TRACK [LOW-HIGH] [step N] [layers N] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check|auto]
         std::istringstream words(argument);
         int track = 0;
-        const std::string usage = "ERR melodee-autosample TRACK [LOW-HIGH] [step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check]";
+        const std::string usage = "ERR melodee-autosample TRACK [LOW-HIGH] [step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check|auto]";
         if (!(words >> track) || track < 1 || track > int(melodee::track_count)) return usage;
         melodee::Context::PrintAsk ask;
         ask.track = uint8_t(track - 1);
@@ -282,6 +282,7 @@ std::string MelodeeApp::command(const std::string& action, const std::string& ar
             if (word == "loop" || word == "noloop") { set.loop_auto = false; set.loop = word == "loop"; continue; } // else Auto
             if (word == "raw") { set.normalize = false; continue; } // the level as played
             if (word == "check") { ask.check = true; continue; }    // the check alone: what the plug-in is (melodee-print status)
+            if (word == "auto") { ask.probe_first = true; continue; } // the check, then sampled as it heard
             std::string value;
             if (!(words >> value)) return usage;
             if (word == "step") set.step = uint8_t(std::clamp(std::atoi(value.c_str()), 1, 24));
