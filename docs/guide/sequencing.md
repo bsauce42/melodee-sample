@@ -12,8 +12,8 @@ pages, **SEQ** goes to Patterns. **SHIFT** + **SEQ** opens Step Edit (see
 
 **Patterns** shows the selected track's 16 patterns of the bank in view, laid
 out as the pads: pad 1 bottom left, pad 13 top left. Press a pad to launch
-the pattern in that cell. The header shows the bank and the scene in view
-(**S2**), with its name when it has one.
+the pattern in that cell. The header shows the bank and the sequence in view
+(**SEQ 2**), with its name when it has one.
 
 ![Patterns](../images/screens/patterns.png)
 
@@ -23,7 +23,7 @@ Each cell shows:
   is queued for the next bar.
 - A tint when the pattern has notes.
 - An arrow when the pattern has a follow action.
-- An amber dot when the scene has its own tempo.
+- An amber dot when the sequence has its own tempo.
 - A small dot for each other track in view: a ring when that track has notes
   in this pattern, filled when it plays it.
 
@@ -40,13 +40,13 @@ and a progress bar (– when nothing plays). The pads light as the cells.
 | **SHIFT** + pad | The printed **SHIFT** jobs. |
 | Encoder | Select the previous / next track. |
 | **SHIFT** + encoder | Move the playhead by one grid step. Stopped, this sets where **SHIFT** + **PLAY** continues from. |
-| Encoder push | Launch the scene of the selected track's pattern on every track. |
+| Encoder push | Launch the sequence of the selected track's pattern on every track. |
 | **PAD BANK** | Pattern bank A–H. The bank LEDs show it. |
 | **−** / **+** | Select the previous / next track. |
 | **K1** | Pattern length: 1, 2, 4 … 128 bars. **SHIFT**: any number of bars. |
 | **K2** | Grid (Q): 1/4 to 1/64, with triplets. **SHIFT**: time signature. |
 | **K3** | Swing (50–75 %). **SHIFT**: metronome level. |
-| **SHIFT** + **B1** | **SCENE**: the scene's tempo and name. |
+| **SHIFT** + **B1** | **SEQUENCE**: the sequence's tempo and name. |
 | **SHIFT** + **B2** | **FOLLOW**: the selected pattern's follow action. |
 | **SHIFT** + **B3** | **VARY**: the variation sheet. |
 
@@ -72,7 +72,7 @@ Hold **SEQ** on any page. The pads become the selected track's patterns:
 - Press a pad to launch that pattern at the next bar (at once when stopped).
 - Press more pads in the same hold to make a **pattern chain** (up to
   eight). Each pattern plays once, then the next.
-- **SHIFT** + pad launches that **scene**: the pattern on every track that
+- **SHIFT** + pad launches that **sequence**: the pattern on every track that
   has notes there.
 - Hold a pad and press another to copy the pattern.
 - **ERASE** + pad clears the pattern (asks first). **SHIFT** + **ERASE**
@@ -80,7 +80,7 @@ Hold **SEQ** on any page. The pads become the selected track's patterns:
 - **K1**–**K3** set the pattern's length, grid and swing. The encoder sets
   the tempo. Push it to switch between whole BPM and tenths.
 - **B1**–**B3** open Patterns, Roll and Motion. Press **B1** again for
-  Scenes. The dots under **B1** show which of the two pages is open.
+  Sequences. The dots under **B1** show which of the two pages is open.
 - **PAD BANK** steps the pattern bank A–H (**SHIFT**: back). Hold a pad,
   step the bank and press a pad to copy across banks.
 - **−** / **+** launch the previous / next pattern.
@@ -88,11 +88,11 @@ Hold **SEQ** on any page. The pads become the selected track's patterns:
 - **SAMPLE RECORD** freezes or thaws patterns. See
   [Freeze a track](tracks.md#freeze-a-track).
 
-After 0.3 seconds the **Sequence** sheet shows the patterns and the chain:
+After 0.3 seconds the **Patterns** sheet shows the selected track's patterns and the chain:
 what plays now, what plays next, what plays after that, and the tempo. A
 small number on a pad shows its place in the chain.
 
-![The Sequence sheet](../images/screens/seqchain.png)
+![SEQ held: the Patterns sheet](../images/screens/seqchain.png)
 
 ## Record
 
@@ -306,21 +306,21 @@ without moving the notes.
 **SHIFT** + **Pad 2** / **Pad 3** halve / double the pattern length.
 **SHIFT** + **Pad 6** / **Pad 7** play it at half / double speed.
 
-## Scenes and follow actions
+## Sequences and follow actions
 
-A scene is one column of patterns: scene 3 is pattern 3 on every track. On
-Patterns, cell n is also scene n.
+A sequence is one column of patterns: sequence 3 is pattern 3 on every track. On
+Patterns, cell n is also sequence n.
 
-- The scene in view is the column of the selected track's pattern. Push the
+- The sequence in view is the column of the selected track's pattern. Push the
   encoder to launch it at the next bar: pattern n plays on every track that
-  has notes there, at the scene's tempo. Tracks with no notes in that column
+  has notes there, at the sequence's tempo. Tracks with no notes in that column
   keep playing.
-- **SHIFT** + **B1** (**SCENE**): **K1** sets the scene's tempo
-  (below 30 is None). Push the encoder to name the scene. Press **ERASE**
-  to clear the scene's name and tempo. The header shows **S** and the scene
-  number, and its name.
+- **SHIFT** + **B1** (**SEQUENCE**): **K1** sets the sequence's tempo
+  (below 30 is None). Push the encoder to name the sequence. Press **ERASE**
+  to clear the sequence's name and tempo. The header shows **SEQ** and the
+  sequence's number, and its name.
 
-![SCENE](../images/screens/patternsscene.png)
+![SEQUENCE](../images/screens/patternsscene.png)
 
 **SHIFT** + **B2** (**FOLLOW**) sets the **follow action** of the selected
 pattern: what the pattern does after it has played for a while.
@@ -334,25 +334,25 @@ pattern: what the pattern does after it has played for a while.
 - Push the encoder to put the follow action on every track's pattern in
   that column.
 
-### Scenes page
+### Sequences page
 
-Press **B1** on Patterns to open **Scenes**. Press **B1** again to go back.
+Press **B1** on Patterns to open **Sequences**. Press **B1** again to go back.
 
-![Scenes](../images/screens/scenes.png)
+![Sequences](../images/screens/scenes.png)
 
-- The pads are the bank's 16 scenes, laid out as on Patterns. Press a pad
-  to launch its scene at the next bar. **ERASE** + pad clears the scene's
+- The pads are the bank's 16 sequences, laid out as on Patterns. Press a pad
+  to launch its sequence at the next bar. **ERASE** + pad clears the sequence's
   name and tempo. **PAD BANK** steps the bank.
-- The scene launched last is the scene in hand. The encoder sets its tempo
+- The sequence launched last is the sequence in hand. The encoder sets its tempo
   (below 30 is None). Push the encoder to name it. **ERASE** clears it.
 - **K1**–**K3** set the selected pattern's follow action, as on **FOLLOW**.
   **SHIFT** + **K1** sets the second action. **SHIFT** + **B3** (**ALL**)
   puts the follow action on every track's pattern in that column.
 - **−** / **+** select the track. The dots on the right are the tracks:
-  bright in the scene, dim on another pattern, a red ring stopped by a
+  bright in the sequence, dim on another pattern, a red ring stopped by a
   follow action.
 - **SHIFT** + **B2** (**CAPTURE**), then a pad: the patterns playing now
-  become that scene. Each track's playing pattern is copied into its
+  become that sequence. Each track's playing pattern is copied into its
   pattern of that column, as one undo. If some of those patterns hold notes,
   Melodee asks first. **B1** (**CANCEL**) stops before a pad.
 

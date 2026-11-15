@@ -283,7 +283,7 @@ void MidiIo::do_remote(Context& c, const RemoteJob& job) {
         break;
     case K::Scene:
         c.launch_scene(job.index);
-        c.notice("Scene " + print_pattern_name(job.index));
+        c.notice("Sequence " + print_pattern_name(job.index));
         break;
     default: break;
     }

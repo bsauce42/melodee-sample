@@ -255,7 +255,7 @@ When Melodee starts again, it opens the project you had open.
 
 - [Coming from the stock MPC Sample](guide/coming-from-the-stock-mpc-sample.md):
   what is the same and what is different.
-- [Sequencing](guide/sequencing.md): patterns, scenes, Roll, Step Edit and
+- [Sequencing](guide/sequencing.md): patterns, sequences, Roll, Step Edit and
   parameter locks.
 - [Song](guide/song.md): arrange patterns and export a mixdown.
 - [Looper](guide/looper.md): press **LOOP** and **16 LEVELS** together.

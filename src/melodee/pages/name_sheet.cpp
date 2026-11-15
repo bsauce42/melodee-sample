@@ -38,7 +38,7 @@ void draw_name_sheet(Paint& p, const Snapshot& s) {
         what = made[s.ui.export_kind % 6];
         break;
     }
-    case NameTarget::Scene: what = "SCENE " + juce::String(s.ui.scene % pattern_count + 1); break; // roadmap P5
+    case NameTarget::Scene: what = "SEQUENCE " + juce::String(s.ui.scene % pattern_count + 1); break; // roadmap P5
     case NameTarget::None: break;
     }
     Header h = header_of(s);

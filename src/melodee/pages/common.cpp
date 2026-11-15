@@ -287,7 +287,7 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::PrintTailPick: c.label = "TAIL"; c.value = b.value == 2 ? "Cut" : b.value == 1 ? "Ring" : "Loop"; break;
     case Kind::FollowAfter: c.label = "AFTER"; c.value = juce::String(b.value % 64 + 1); c.unit = b.value >= 64 ? (b.value == 64 ? "play" : "plays") : (b.value == 0 ? "bar" : "bars"); break;
     case Kind::FollowChance: c.label = "CHANCE"; c.value = juce::String(b.value); c.unit = "%"; break;
-    case Kind::SceneTempo: c.label = "S" + juce::String(b.id + 1) + " TEMPO"; c.value = b.value < 30 ? juce::String("None") : juce::String(b.value); c.unit = b.value < 30 ? "" : "BPM"; break;
+    case Kind::SceneTempo: c.label = "SEQ " + juce::String(b.id + 1) + " TEMPO"; c.label_mixed = "Seq " + juce::String(b.id + 1) + " tempo"; c.value = b.value < 30 ? juce::String("None") : juce::String(b.value); c.unit = b.value < 30 ? "" : "BPM"; break;
     case Kind::PatternProgram: { // the pattern in hand's own program, as PROGRAM shows one
         const auto& p = engine_info(EngineKind::Midi).params[midi_track::PatternProgram0];
         auto shown = show(p, b.value);

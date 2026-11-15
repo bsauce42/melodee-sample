@@ -164,9 +164,9 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
             if (s.sketches[t][column].notes || s.sketches[t][column].moves) ++replaced;
         }
         sheet.icon = Icon::Pattern;
-        sheet.title = "Replace " + count_of(replaced, "pattern", "patterns") + " in S" + juce::String(column + 1) + "?";
+        sheet.title = "Replace " + count_of(replaced, "pattern", "patterns") + " in SEQ " + juce::String(column + 1) + "?";
         sheet.lines = {"They get the patterns playing now.", undo_line};
-        sheet.chip = "S" + juce::String(column + 1);
+        sheet.chip = "SEQ " + juce::String(column + 1);
         sheet.chip_colour = colour_of(s);
         sheet.undo = true;
         verb = "REPLACE"; verb_glyph = Icon::Swap;

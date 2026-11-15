@@ -33,7 +33,7 @@ void Context::launch_scene(unsigned scene) {
         dirty = true;
     }
     ui.scene = uint8_t(scene);
-    std::string text = "S" + std::to_string(scene + 1);
+    std::string text = "SEQ " + std::to_string(scene + 1);
     if (s.name[0]) text += std::string(" ") + s.name;
     text += ": " + std::to_string(count) + (count == 1 ? " track" : " tracks");
     if (s.tempo) text += ", " + std::to_string(s.tempo / 10) + (s.tempo % 10 ? "." + std::to_string(s.tempo % 10) : "") + " BPM";
@@ -51,15 +51,15 @@ void Context::set_scene_tempo(unsigned scene, int tenths) {
 void Context::name_scene(unsigned scene) {
     name_scene_at = uint8_t(scene % pattern_count);
     const auto& s = project.scenes[name_scene_at];
-    open_name(NameTarget::Scene, s.name[0] ? std::string(s.name) : "S" + std::to_string(name_scene_at + 1), sizeof(Scene::name) - 1, true);
+    open_name(NameTarget::Scene, s.name[0] ? std::string(s.name) : "SEQ " + std::to_string(name_scene_at + 1), sizeof(Scene::name) - 1, true);
 }
 
 void Context::clear_scene(unsigned scene) {
     auto& s = project.scenes[scene % pattern_count];
-    if (s.plain()) { notice("S" + std::to_string(scene % pattern_count + 1) + " has no name or tempo"); return; }
+    if (s.plain()) { notice("SEQ " + std::to_string(scene % pattern_count + 1) + " has no name or tempo"); return; }
     s = Scene {};
     dirty = true;
-    notice("S" + std::to_string(scene % pattern_count + 1) + " cleared");
+    notice("SEQ " + std::to_string(scene % pattern_count + 1) + " cleared");
 }
 
 // The selected track's pattern's follow action, from its cards on SCENES (one undo a turn: the pattern's).
@@ -82,7 +82,7 @@ void Context::follow_to_column() {
     unsigned column = track().pattern % pattern_count;
     PatternFollow f = pattern().follow;
     Edit edit;
-    edit.what = "Follow to S" + std::to_string(column + 1);
+    edit.what = "Follow to SEQ " + std::to_string(column + 1);
     edit.track = ui.track;
     edit.column = int16_t(column);
     for (unsigned t = 0; t < track_count; ++t) {
@@ -93,7 +93,7 @@ void Context::follow_to_column() {
         edit.column_before.emplace_back(uint8_t(t), p);
         edit.column_after.emplace_back(uint8_t(t), std::move(after));
     }
-    if (edit.column_after.empty()) { notice("S" + std::to_string(column + 1) + ": nothing else to follow"); return; }
+    if (edit.column_after.empty()) { notice("SEQ " + std::to_string(column + 1) + ": nothing else to follow"); return; }
     for (const auto& [t, value] : edit.column_after) restore_pattern(t, column, value);
     unsigned count = unsigned(edit.column_after.size());
     edits.push(std::move(edit));
@@ -107,7 +107,7 @@ void Context::capture_scene(unsigned column, bool asked) {
     column %= pattern_count;
     ui.scene_capture = false;
     Edit edit;
-    edit.what = "Capture S" + std::to_string(column + 1);
+    edit.what = "Capture SEQ " + std::to_string(column + 1);
     edit.track = ui.track;
     edit.column = int16_t(column);
     unsigned replaced = 0;
@@ -120,14 +120,14 @@ void Context::capture_scene(unsigned column, bool asked) {
         edit.column_before.emplace_back(uint8_t(t), was);
         edit.column_after.emplace_back(uint8_t(t), patterns.at[t][from]);
     }
-    if (edit.column_after.empty()) { notice("S" + std::to_string(column + 1) + ": every track plays it already"); return; }
+    if (edit.column_after.empty()) { notice("SEQ " + std::to_string(column + 1) + ": every track plays it already"); return; }
     if (replaced && !asked) { ask(*this, UiState::Ask::CaptureScene, int(column)); return; }
     for (const auto& [t, value] : edit.column_after) restore_pattern(t, column, value);
     unsigned count = unsigned(edit.column_after.size());
     edits.push(std::move(edit));
     dirty = true;
     ui.scene = uint8_t(column);
-    notice("S" + std::to_string(column + 1) + " captured: " + std::to_string(count) + (count == 1 ? " track" : " tracks"));
+    notice("SEQ " + std::to_string(column + 1) + " captured: " + std::to_string(count) + (count == 1 ? " track" : " tracks"));
 }
 
 unsigned Context::tempo_now() const {

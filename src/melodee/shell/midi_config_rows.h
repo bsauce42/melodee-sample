@@ -22,7 +22,7 @@ inline const char* midi_row_name(unsigned row) {
     static const char* const names[] {"MIDI port", "MIDI in channel", "MIDI out channel", "Track channel", "Track MIDI in",
                                       "Pad MIDI in", "Pad MIDI out", "MIDI sync in", "MIDI sync out", "MIDI thru",
                                       "Receive program change", "Remote channel", "Remote track CC", "Remote pattern CC",
-                                      "Remote scene CC", "CV/sync out", "CV/sync base", "CV/sync division", "Parameter takeover",
+                                      "Remote sequence CC", "CV/sync out", "CV/sync base", "CV/sync division", "Parameter takeover",
                                       "Knob FX takeover", "Fader takeover", "MIDI panic", "Reset factory settings"};
     return names[row % MidiRows];
 }

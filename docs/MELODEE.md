@@ -622,7 +622,7 @@ hold to steer, Shift + Seq to zoom in**.
     again, a song for one track without Song (kept in the project, CHAN). A
     single tap, or a pattern launched any other way, ends it. Shift + pad
     launches that column on every track holding notes there (and on the
-    selected one): its **scene**, with the scene's tempo. Hold a pad
+    selected one): its **sequence**, with the sequence's tempo. Hold a pad
     and tap another to copy. Erase + pad asks,
     then clears that pattern (one undo). Shift + Erase starts a pattern
     copy: the pattern, then where (on this or another track; the pads stay
@@ -642,7 +642,7 @@ hold to steer, Shift + Seq to zoom in**.
   1 bottom left, pad 13 top left), so a cell is the pad that launches it.
   Each cell: the pattern number, ▶ while it plays, NEXT (a blinking ring)
   while it waits for the next bar, tinted when it has notes, an arrow for a
-  follow action, an amber dot for a scene with a tempo of its own, and a
+  follow action, an amber dot for a sequence with a tempo of its own, and a
   small dot for each other track in view (a ring: that track has notes in
   this pattern; filled: it plays it). Right: the eight tracks in view, each
   with ▶ and the pattern it plays and a progress bar (– when nothing
@@ -653,14 +653,14 @@ hold to steer, Shift + Seq to zoom in**.
   Seq held + Pad Bank. Minus / Plus move the track. K1 length (1, 2, 4 ..
   128 bars; Shift: any count), K2 Q (Shift: time signature, 1/4 .. 15/16),
   K3 swing (Shift: metronome level). The wheel selects the track; the
-  selected track's pattern is the scene in view (cell n is also scene n),
+  selected track's pattern is the sequence in view (cell n is also sequence n),
   and Push launches it.
   Shift + wheel moves the playhead by Q; stopped, that is where Shift +
-  Play continues. The header chip shows S<n> and the scene's name, then
+  Play continues. The header chip shows SEQ <n> and the sequence's name, then
   Rec Quantize when there is room. BPM per pattern (each
   pattern number its own tempo, the one launched last leading) or one for
-  the project: Push on the Tempo page. Shift + B1 SCENE and Shift + B2
-  FOLLOW turn the cards to the scene and the follow action; again (or B1
+  the project: Push on the Tempo page. Shift + B1 SEQUENCE and Shift + B2
+  FOLLOW turn the cards to the sequence and the follow action; again (or B1
   PATTERNS) back to the pattern cards. Shift + B3 VARY opens the
   variation sheet: Thinner (the weakest notes by where they fall in the
   bar and how hard), Busier (a kit: softer hits beside a lane's; a line:
@@ -668,14 +668,14 @@ hold to steer, Shift + Seq to zoom in**.
   down (not on a kit); the wheel picks, K1 the amount of the first three,
   B3 DO IT or Push makes it into the next empty pattern, which plays from
   the next bar (one undo); B1 BACK.
-- **Scenes** (on Patterns; roadmap P5): a scene is a column, pattern n of
+- **Sequences** (on Patterns; roadmap P5): a sequence is a column, pattern n of
   every track, with a name and a tempo of its own. Push on Patterns
-  launches the scene of the selected track's pattern: pattern n on every track holding notes
+  launches the sequence of the selected track's pattern: pattern n on every track holding notes
   there (and on the selected track) at the next bar (stopped, at once),
   tracks with nothing there playing on; its tempo takes over on that bar
-  (with BPM per pattern on, a pattern's own still leads). Shift + B1 SCENE:
-  K1 sets the scene's tempo (below 30 BPM: None), Push names it
-  (the ready names are the markers'). Files keep scenes in SCNE.
+  (with BPM per pattern on, a pattern's own still leads). Shift + B1 SEQUENCE:
+  K1 sets the sequence's tempo (below 30 BPM: None), Push names it
+  (the ready names are the markers'). Files keep sequences in SCNE.
 - **Follow actions** (Patterns' Shift + B2 FOLLOW cards): what the selected track's pattern
   does once it has played a while, as melodee-ios's clips. K1 FOLLOW Next,
   Previous (round the track's patterns with notes), Any (another at

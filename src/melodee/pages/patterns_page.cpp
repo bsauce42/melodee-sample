@@ -114,7 +114,7 @@ void draw(Paint& p, const Snapshot& s) {
         h.left.push_back(chip("T" + juce::String(s.ui.track + 1) + " P" + juce::String(s.track().pattern % pattern_count + 1), c));
     else
         {
-        juce::String id = "S" + juce::String(column + 1), name(scene.name);
+        juce::String id = "SEQ " + juce::String(column + 1), name(scene.name);
         h.left.push_back(chip(name.isEmpty() || name == id ? id : id + " " + name, colour::amber)); // a name of its own beside its number
     }
     // Rec Quantize's grid (Shift + Pad 10), after the scene: the header leaves it out when there is no room.
@@ -128,7 +128,7 @@ void draw(Paint& p, const Snapshot& s) {
     keys.dots[0] = 2; // B1's two pages: Patterns, Scenes
     if (s.ui.sheet_open) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (s.ui.shift) {
-        keys = SoftKeys {{"SCENE", "FOLLOW", "VARY"}, -1, c};
+        keys = SoftKeys {{"SEQUENCE", "FOLLOW", "VARY"}, -1, c};
         if (s.ui.patterns_cards == 1) keys.tints[0] = colour::amber;
         if (s.ui.patterns_cards == 2) keys.tints[1] = colour::amber;
     }

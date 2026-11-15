@@ -23,7 +23,7 @@ Previous: [Exit and troubleshooting](exit-and-troubleshooting.md) · [Contents](
 | **−** / **+** | Octave, bank, or list | Undo / redo |
 | **SAMPLE RECORD** | On a kit: record onto a pad. On a plug-in or MIDI track: the PRINT sheet. On an audio track: its **INPUT**. With **SEQ** held: freeze patterns. | Audio Recall |
 | **SEQ RECORD** | Arm or stop recording | Recall |
-| **STOP** | Stop | All notes off |
+| **STOP** | Stop. Again while stopped: all notes off. | All notes off |
 | **PLAY** | Play from the start (on Song, from the cursor). Held while playing: Fill. | Continue |
 
 Roll's marked notes are in [The pattern editors](sequencing.md#the-pattern-editors). The light

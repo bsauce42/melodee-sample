@@ -34,6 +34,8 @@ is different, and how to change your habits.
   or its notes, as on the stock app. **ERASE** + **SEQ RECORD** erases the
   selected pad's notes, and asks first in the stock app's words.
 - **SHIFT** + **Pad 12** opens Song. **SHIFT** + **Pad 16** opens Project.
+- Press **STOP** twice to stop all notes: the second press, while stopped,
+  sends all notes off.
 - Knob FX, Pad FX, Flex Beat and the master compressor work as on the stock
   app, with the stock effects in the stock order.
 
@@ -45,13 +47,12 @@ is different, and how to change your habits.
 | **PAD BANK** held + Pads 1–8 jumps to bank A–H. | **PAD BANK** held + pad selects track 1–16. To jump banks, hold **PAD BANK** and turn the encoder or press **−** / **+**. |
 | **SAMPLE** opens Sample mode. | **SAMPLE** opens **Stage**, the selected track's sound pages, from any page. On a kit, Stage has the Sample mode pages. On Stage, **SAMPLE** goes back to **B1**'s first page. Hold **SAMPLE** to see the track's pads: **Pads** on a kit, **Keys** on an instrument. |
 | In Sequence mode the pads select sequences. | **SEQ** opens **Patterns**, **Roll** or **Motion**. On Patterns the pads launch the selected track's patterns, laid out as the pads. You can also hold **SEQ** and press a pad on any page. |
-| A sequence plays every pad of the kit. | Each track has its own 128 patterns, in banks A–H. To change every track at once, launch a **scene**: hold **SEQ** + **SHIFT** and press a pad. |
+| A sequence plays every pad of the kit. | Each track has its own 128 patterns, in banks A–H. To change every track at once, launch a **sequence**: hold **SEQ** + **SHIFT** and press a pad. |
 | Song mode is a list of sequences. | **Song** is a timeline with a lane per track. You place pattern clips on it, add markers and tempo changes. |
 | The project saves in the background. | Save with **SHIFT** + **Pad 16**, then **B1** (**SAVE**). Leaving through the Exit screen also saves. |
 | Projects are on the internal drive. | Melodee's projects are on the card in `Melodee/Projects`. On the project list, **B2** (**INTERNAL**) shows the internal drive. Stock projects open as copies (see [MPC Sample projects](projects-and-files.md#mpc-sample-projects)). |
 | **SHIFT** + **KNOB FX** (FX Select) picks pad effects. | **SHIFT** + **KNOB FX** opens the effect chains: Track, Bus, Master and, on a kit, Pad. |
 | Hold **TAP TEMPO** and turn the encoder to set the tempo. | Hold **TAP TEMPO** to open the **Tempo** page. Or hold **SEQ** and turn the encoder. |
-| Press **STOP** twice to stop all sound. | Press **SHIFT** + **STOP** to stop all notes. |
 | **SHIFT** + **SEQ RECORD** brings the last loop into the sequence. | **SHIFT** + **SEQ RECORD** (Recall) puts the last phrase you played on every track into each track's next empty pattern. |
 | **SAMPLE RECORD** records a sample. | On a kit, the same. On a plug-in or MIDI track, **SAMPLE RECORD** opens the **PRINT** sheet, which freezes the track to audio (see [Freeze a track](tracks.md#freeze-a-track)). |
 | No looper. | Press **LOOP** and **16 LEVELS** together to open the **Looper**. |
@@ -75,7 +76,7 @@ These are the actions stock users look for first.
    **SEQ** turns the pads into the selected track's patterns, from any
    page. The pattern changes at the next bar, or at once when stopped.
 
-   ![SEQ held: the Sequence sheet](../images/screens/seqsheet.png)
+   ![SEQ held: the Patterns sheet](../images/screens/seqsheet.png)
 
 4. **Use SHIFT + encoder push to go back.** Melodee's pages open from each
    other. **SHIFT** + push goes back one page. **B1** is BACK or CANCEL on

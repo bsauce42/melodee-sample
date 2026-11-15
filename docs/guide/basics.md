@@ -65,7 +65,7 @@ creating a project clears the undo history.
 | --- | --- |
 | Roll | The selected note, or the marked notes |
 | Step Edit | The selected event. In STEPS mode: the caret's step |
-| Patterns | The pattern (asks first). On the **SCENE** cards: the scene's name and tempo |
+| Patterns | The pattern (asks first). On the **SEQUENCE** cards: the sequence's name and tempo |
 | Tracks | The track (asks first) |
 | Looper | The selected loop (asks first) |
 | Effect chains | The selected effect |

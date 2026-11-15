@@ -95,7 +95,7 @@ std::string ask_title(const Project& project, const UiState& ui) {
     case UiState::Ask::Unfreeze: return "Unfreeze track " + std::to_string(ui.ask_target % track_count + 1) + "?";
     case UiState::Ask::DeleteFile: return std::string("Delete ") + ui.ask_name.data() + "?";
     case UiState::Ask::ReplacePlugin: return std::string("Replace ") + ui.ask_name.data() + "?";
-    case UiState::Ask::CaptureScene: return "Capture into S" + std::to_string(ui.ask_target % pattern_count + 1) + "?";
+    case UiState::Ask::CaptureScene: return "Capture into SEQ " + std::to_string(ui.ask_target % pattern_count + 1) + "?";
     default: return {};
     }
 }

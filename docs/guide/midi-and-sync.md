@@ -24,7 +24,7 @@ back. The header lights **IN** and **OUT** as MIDI passes.
 | Remote channel | Off or 1–16: the channel of the Remote CCs |
 | Remote track CC | Selects a track. Value 0 is track 1. Default CC 102. |
 | Remote pattern CC | Launches a pattern on the selected track. Value 0 is A01. Default CC 103. |
-| Remote scene CC | Launches a scene. Value 0 is the first scene. Default CC 104. |
+| Remote sequence CC | Launches a sequence. Value 0 is the first sequence. Default CC 104. |
 | CV/sync out | On or off: clock pulses on the sync output. **CV/sync base** (1–8) and **CV/sync division** (1–24) set how many a quarter note. |
 | Takeover rows | Knob, Knob FX and fader takeover |
 | MIDI panic | Push: ends every note on every channel and port |
@@ -44,7 +44,7 @@ back. The header lights **IN** and **OUT** as MIDI passes.
     uses its Track MIDI in. Seq Record records every track that a channel
     plays, at once.
   - Remote CCs are heard from any port and are not passed on to the tracks.
-    A value past the last track, pattern or scene does nothing.
+    A value past the last track, pattern or sequence does nothing.
   - On **Step Edit** and **Roll**, keys write notes as the pads do. Step Edit
     writes at the caret and moves on when every key is let go. With a step
     held on Step Edit's pads, the keys played go into that step.
@@ -125,7 +125,7 @@ track set to **External** does not hear notes on its channel from the
 computer, and a track set to **USB** does not hear the jack. The selected
 track, sync, Thru and program change listen on **MIDI port** only.
 
-### Example 4: change tracks, patterns and scenes from the MiniLab 3
+### Example 4: change tracks, patterns and sequences from the MiniLab 3
 
 Make a User program in Arturia's MIDI Control Center and send it to the
 MiniLab 3. To select it, hold the MiniLab 3's Shift and press its pad 3: each
@@ -136,13 +136,13 @@ screen. Option names can differ between versions of MIDI Control Center.
 | --- | --- | --- |
 | Fader 1 | CC 102, channel 16, range 0–15 | Selects tracks 1–16 |
 | Pads 1–8, bank A | CC 103, channel 16, values 0–7 | Launches patterns A01–A08 on the selected track |
-| Pads 1–8, bank B | CC 104, channel 16, values 0–7 | Launches scenes 1–8 |
+| Pads 1–8, bank B | CC 104, channel 16, values 0–7 | Launches sequences 1–8 |
 
 1. In Melodee, set **Remote channel** to **16**. **Remote track CC**,
-   **Remote pattern CC** and **Remote scene CC** are 102, 103 and 104
+   **Remote pattern CC** and **Remote sequence CC** are 102, 103 and 104
    already.
 2. Move fader 1 to pick a track. Press a bank A pad to launch that track's
-   pattern, or a bank B pad to launch a scene. Both start at the next bar
+   pattern, or a bank B pad to launch a sequence. Both start at the next bar
    (at once when stopped).
 
 Use a channel for Remote that no track plays on. Remote CCs do not reach the

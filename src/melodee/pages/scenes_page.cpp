@@ -48,10 +48,10 @@ void draw(Paint& p, const Snapshot& s) {
     unsigned hand = s.ui.scene % pattern_count;
     const auto& scene = s.project.scenes[hand];
     Header h = header_of(s);
-    h.left.push_back(chip("SCENES", c));
+    h.left.push_back(chip("SEQUENCES", c)); // a scene on screen is a sequence, the panel's word (SEQ)
     h.left.push_back(bank_pill(s));
     h.right.push_back(tag_of(s, s.ui.track));
-    SoftKeys keys {{"SCENES", "ROLL", "MOTION"}, 0, c}; // B1's second page: B1 again goes back to Patterns
+    SoftKeys keys {{"SEQUENCES", "ROLL", "MOTION"}, 0, c}; // B1's second page: B1 again goes back to Patterns
     keys.dots[0] = 2; keys.dot_at[0] = 1;
     if (s.ui.shift) keys = SoftKeys {{"", "CAPTURE", "ALL"}, -1, c}; // Shift + B2: what plays into a scene; Shift + B3: the follow onto every track's pattern
     if (s.ui.scene_capture) keys = SoftKeys {{"CANCEL", "CAPTURE", ""}, 1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}; // a pad picks the scene
@@ -92,7 +92,7 @@ void draw(Paint& p, const Snapshot& s) {
 
     // Beside it: the scene in hand, its tempo, the follow action of the track's pattern, the tracks.
     float x = gx + grid_w + 10, w = zone::width - zone::pad - x, y = gy;
-    juce::String title = "S" + juce::String(hand + 1) + (scene.name[0] ? " " + juce::String(scene.name) : juce::String());
+    juce::String title = "SEQ " + juce::String(hand + 1) + (scene.name[0] ? " " + juce::String(scene.name) : juce::String());
     p.text(title, x, y, w, 18, p.fit(title, plain(colour::text, type::list, Weight::SemiBold), w, type::floor));
     icon(p, Icon::Metro, x, y + 21, 13, scene.tempo ? colour::amber : colour::dim, 1.3f);
     p.text(scene.tempo ? tempo_text(scene.tempo) + " BPM" : juce::String::fromUTF8("\xe2\x80\x94"), x + 17, y + 19, w - 17, 16,

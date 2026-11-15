@@ -43,7 +43,7 @@ void draw_seq_sheet(Paint& p, const Snapshot& s) {
     p.fill(0, zone::soft_y, zone::width, zone::soft_h + zone::header_h + zone::picture_h, colour::bg);
     soft_keys(p, {{"PATTERNS", "ROLL", "MOTION"}, -1, c});
     Header h = header_of(s);
-    h.left.push_back(chip("SEQUENCE", c));
+    h.left.push_back(chip("PATTERNS", c)); // the selected track's patterns (a sequence is a scene, pattern n of every track)
     const bool printing = s.ui.seq_print; // freeze plan F2c: Seq held + Sample Record, the pads freeze or thaw
     const auto& frozen = s.freeze[t];
     h.left.push_back(printing ? chip(Icon::Snow, "PRINT", colour::ice) : bank_pill(s));
