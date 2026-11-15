@@ -463,7 +463,11 @@ public:
     };
     Reloading reloading;
     uint32_t load_us = 0; // the last parked build's time, for status
+    // The sheet goes when everything is in, or when nothing has come in for loading_most_ms (a file that will not
+    // read must not hold the controls).
     static constexpr uint32_t park_patience_ms = 3000, park_stalled_ms = 250, loading_most_ms = 20000;
+    uint64_t loading_instruments = 0; // the project's sample slots that hold an instrument, a bit each (switch_to)
+    uint32_t loading_moved = 0;       // when something last came in (ms)
     unsigned samples_to_load = sample_slots; // next sample slot to (re)load after a switch
     std::vector<uint8_t> slots_waiting;      // slots sample_slot() named while the library's queue was full: asked for again each pass
     // Roadmap P4 (docs/MIDI_TRACKS.md M4-M5): SysEx files read for MIDI tracks, waiting for MidiIo to send them; the

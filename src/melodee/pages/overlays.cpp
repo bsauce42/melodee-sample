@@ -180,7 +180,8 @@ void draw_notice(Paint& p, const Snapshot& s) {
     header(p, h);
 }
 
-// A project loading (Context::send_reload): its name, and a bar of its samples as they come in.
+// A project loading (Context::send_reload): its name, a bar of what is in, a row for its samples and one for its
+// instruments' files with how many of each are in, and the name of the one being read.
 void draw_loading_sheet(Paint& p, const Snapshot& s) {
     p.fill(0, 0, zone::width, zone::height, colour::bg); // the knob strip too: K1-K3 set nothing while it loads
     Header h = header_of(s);
@@ -191,14 +192,27 @@ void draw_loading_sheet(Paint& p, const Snapshot& s) {
     juce::String name = juce::String::fromUTF8(s.project.name, int(strnlen(s.project.name, sizeof s.project.name)));
     if (name.isEmpty()) name = "NEW PROJECT";
     auto title = p.fit(name, plain(colour::text, type::title, Weight::SemiBold), w, type::body);
-    p.text(name, x, zone::picture_y + 28, w, 28, title, juce::Justification::centred);
-    unsigned total = s.ui.loading_total, in = total - std::min<unsigned>(s.ui.loading_left, total);
-    float fill = total ? float(in) / float(total) : 0.0f;
-    gauge(p, x, zone::picture_y + 78, w, fill, colour::amber, 4);
-    if (!total) return;
-    icon(p, Icon::Wav, x, zone::picture_y + 92, 14, colour::mid);
-    p.text(juce::String(in) + " / " + juce::String(total), x, zone::picture_y + 92, w, 14, caps_text(colour::sec),
-           juce::Justification::centredRight);
+    p.text(name, x, zone::picture_y + 8, w, 28, title, juce::Justification::centred);
+    const unsigned total = s.ui.loading_total;
+    gauge(p, x, zone::picture_y + 46, w, total ? float(s.ui.loading_bar) / 1000.0f : 0.0f, colour::amber, 6);
+    float y = zone::picture_y + 64;
+    auto row = [&](Icon glyph, const char* label, unsigned in, unsigned of) {
+        if (!of) return;
+        const bool done = in >= of;
+        icon(p, done ? Icon::Check : glyph, x, y + 2, 14, done ? colour::play : colour::mid);
+        p.text(label, x + 22, y, w - 22, 18, caps_text(colour::sec));
+        p.text(juce::String(std::min(in, of)) + " / " + juce::String(of), x, y, w, 18, caps_text(done ? colour::play : colour::text),
+               juce::Justification::centredRight);
+        y += 20;
+    };
+    row(Icon::Wav, "SAMPLES", s.ui.loading_samples_in, s.ui.loading_samples);
+    row(Icon::Keyboard, "INSTRUMENT FILES", s.ui.loading_files_in, s.ui.loading_files);
+    // The one being read now, by its name in the project.
+    if (s.ui.loading_slot >= 0 && s.ui.loading_left) {
+        const auto& ref = s.project.samples[unsigned(s.ui.loading_slot) % sample_slots];
+        juce::String reading = juce::String::fromUTF8(ref.name, int(strnlen(ref.name, sizeof ref.name))).toUpperCase();
+        if (reading.isNotEmpty()) p.text(reading, x, y + 6, w, 14, p.fit(reading, caps_text(colour::mid), w, type::floor), juce::Justification::centred);
+    }
 }
 
 void draw_exit_sheet(Paint& p, const Snapshot& s) {

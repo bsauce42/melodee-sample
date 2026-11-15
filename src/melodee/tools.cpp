@@ -2279,8 +2279,17 @@ const Preview previews[] {
          s.ui.update.phase = uint8_t(UpdatePhase::Failed); s.ui.update.error = uint8_t(UpdateError::CardFull);
          std::snprintf(s.ui.update.version, sizeof s.ui.update.version, "v0.2.0");
      }},
-    {"loading", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_total = s.ui.loading_left = 40; std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
-    {"loadingsamples", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_total = 40; s.ui.loading_left = 12; std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
+    {"loading", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_total = s.ui.loading_left = s.ui.loading_samples = 40; std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
+    {"loadingsamples", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_samples = s.ui.loading_total = 40; s.ui.loading_samples_in = 28; s.ui.loading_left = 12;
+         s.ui.loading_bar = 700; s.ui.loading_slot = 3; std::strncpy(s.project.samples[3].name, "KICK LONG", sizeof s.project.samples[3].name - 1);
+         std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
+    // A project with instruments: its samples in, its instruments' files landing, the one being read named.
+    {"loadinginstruments", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_samples = s.ui.loading_samples_in = 24; s.ui.loading_instruments = 3;
+         s.ui.loading_files = 108; s.ui.loading_files_in = 61; s.ui.loading_total = 132; s.ui.loading_left = 47; s.ui.loading_bar = 643;
+         s.ui.loading_slot = 5; std::strncpy(s.project.samples[5].name, "GRAND PIANO", sizeof s.project.samples[5].name - 1);
+         std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
     {"exitcard", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.exit_open = true; s.projects.root = "/media/card/Melodee/Projects"; s.project_path = "/media/card/Melodee/Projects/Song.mldp"; }},
     {"exitoff", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.exit_open = s.ui.exit_off = true; s.projects.root = "/media/card/Melodee/Projects"; }},
     {"exitsaved", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.exit_open = s.ui.exit_off = s.ui.exit_saved = true; s.projects.root = "/media/card/Melodee/Projects"; }},

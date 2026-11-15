@@ -1763,13 +1763,24 @@ while following.
   while the MIDI thread builds the whole project, so however many effects
   and tracks it has no block runs late; the sound fades back in on the new
   project, and the delay memory the last one left is cleared on the way.
-  The **Loading** sheet covers the screen (the project's name, a bar and
-  the samples in of those it plays) until its samples are read, 20 s at
-  most, then the heap the last project held is given back. While it shows,
+  The **Loading** sheet covers the screen (the project's name, a bar, a
+  row for its samples and one for its instruments' files with how many of
+  each are in, and the name of the one being read) until all of them are
+  in, or nothing has come in for 20 s; then the heap the last project held
+  is given back. Samples and instrument files are read on three threads
+  side by side (the journal's `load:` line times each load). While it shows,
   presses wait (their releases too); a pad or key held from before lets go
   as ever, K1-K3 and the fader only keep where they stand and the main
-  volume still turns. Status: `melodee_loading` (up / samples to come),
+  volume still turns. Status: `melodee_loading` (up / files to come),
   `melodee_parks`, `melodee_load_us` (the last build's time).
+- **The card's folders** are read into memory when the card is found,
+  when it comes back from SD card access and before each project is
+  loaded (`shell/card_warm.h`; the journal's `card:` line): the MPC's
+  exFAT driver reads a folder a 512-byte sector a request, 256 requests
+  the first time it touches one, so a plug-in walking thousands of files
+  held every other read of the card up for a minute after a start.
+  Projects and samples wait for it, 5 s at most (2.8 s for 800 folders,
+  0.1 s when they are still in memory).
 - **MPC Sample projects** (`.xpj`): listed beside Melodee's, wherever they
   sit under `Melodee/Projects`; the row **MPC Sample** at the top opens the
   stock app's own `MPC-Sample/Projects`. Their sheet has Load and Load kit

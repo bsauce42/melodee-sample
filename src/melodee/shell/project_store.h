@@ -61,6 +61,9 @@ public:
     // `from`: the file it was saved as before (Save As, freeze plan F2d): its Prints folder copied beside the new one.
     void save(const std::string& path, std::vector<uint8_t> bytes, const std::string& from = "");
     void load(const std::string& path);
+    // Any thread: how many loads have been asked for. The app reads the card's folders ahead before it serves each
+    // (shell/card_warm.h), so a project's plug-ins and samples never meet folders that have gone from memory.
+    unsigned loads_asked() const { return load_count.load(std::memory_order_acquire); }
     void duplicate(const std::string& path);
     void remove(const std::string& path);
     void new_folder();
@@ -140,6 +143,7 @@ private:
     mutable std::mutex lock;
     View known;
     std::atomic<unsigned> changes {0}, saved {0};
+    std::atomic<unsigned> load_count {0};
 };
 
 // The Project list's rows, the one count its list, K1's range and the shell agree on: SD card access at the

@@ -109,6 +109,7 @@ private:
     std::string card_warmed;  // service thread: the card it was last begun for ("" none)
     uint32_t card_warm_at = 0, card_looked_at = 0; // when it was begun, and when the mounts were last read (ms)
     static constexpr uint32_t card_warm_patience_ms = 5000;
+    unsigned card_loads_seen = 0; // service thread: the project loads asked for when it was last begun
     bool warm_card(Hardware& hardware); // service thread: begins it when due; true while the card's readers should wait
     // Updates from the card (shell/update.h, base drivers/sd_update.h): service thread only.
     void card_update(Hardware& hardware);

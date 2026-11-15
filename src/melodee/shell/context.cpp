@@ -129,10 +129,15 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     free_retired();
     send_reload(new ProjectPack(project, patterns), false);
     ui.loading = true; // the Loading sheet until it is built and its samples are in (reload_tick)
-    ui.loading_since = now;
-    ui.loading_total = 0;
-    for (const auto& ref : project.samples) ui.loading_total += ref.used() && ref.path[0] == '/';
-    ui.loading_left = ui.loading_total;
+    ui.loading_since = loading_moved = now;
+    loading_instruments = 0;
+    for (unsigned n = 0; n < sample_slots; ++n) {
+        const auto& ref = project.samples[n];
+        if (!ref.used() || ref.path[0] != '/') continue;
+        if (SampleLibrary::instrument_path(ref.path)) { loading_instruments |= uint64_t(1) << n; ++ui.loading_instruments; ++ui.loading_files; }
+        else ++ui.loading_samples;
+    }
+    ui.loading_total = ui.loading_left = uint16_t(ui.loading_samples + ui.loading_files);
     send_click(); // the metronome is Melodee's, and no take is running now
     send_repeat_velocity();
     project_path = path;
@@ -197,17 +202,32 @@ void Context::reload_tick() {
         }
     }
     if (!ui.loading) return;
-    // Built: the Loading sheet stays until every sample slot has been asked for again and read (or 20 s have gone).
+    // Built: the Loading sheet stays until every sample slot has been asked for again and read, its instruments'
+    // files landed with them (or nothing has come in for 20 s). What is in is counted for its rows and its bar.
     // (No library, no samples to wait for: the host tests' and the monkey's shells.)
     unsigned waiting = library ? library->loads_waiting() : 0;
     unsigned asked = library ? std::min<unsigned>(samples_to_load, sample_slots) : sample_slots;
     unsigned unasked = sample_slots - asked;
-    unsigned left = 0; // of the project's samples, those not asked for yet, and as many as are still being read
-    for (unsigned n = asked; n < sample_slots; ++n) left += project.samples[n].used() && project.samples[n].path[0] == '/';
-    left += std::min<unsigned>(waiting, ui.loading_total);
-    ui.loading_left = uint16_t(std::min<unsigned>(left, ui.loading_total));
+    unsigned samples_in = 0, files = 0, files_in = 0;
+    for (unsigned n = 0; n < sample_slots; ++n) {
+        const auto& ref = project.samples[n];
+        if (!ref.used() || ref.path[0] != '/') continue;
+        const SampleLibrary::SlotLoad load = library && n < asked ? library->slot_load(n) : SampleLibrary::SlotLoad {};
+        if (!((loading_instruments >> n) & 1)) { samples_in += load.settled; continue; }
+        if (load.parts) { files += load.parts; files_in += load.parts_in; } // its own file read: its files counted
+        else { files += 1; files_in += load.settled; }                      // not read yet, or it could not be
+    }
+    if (!library) { samples_in = ui.loading_samples; files_in = files; }
+    if (samples_in != ui.loading_samples_in || files_in != ui.loading_files_in || files != ui.loading_files) loading_moved = now;
+    ui.loading_samples_in = uint16_t(samples_in);
+    ui.loading_files = uint16_t(files);
+    ui.loading_files_in = uint16_t(files_in);
+    ui.loading_total = uint16_t(ui.loading_samples + files);
+    ui.loading_left = uint16_t(ui.loading_total - std::min<unsigned>(samples_in + files_in, ui.loading_total));
+    if (ui.loading_total) ui.loading_bar = std::max<uint16_t>(ui.loading_bar, uint16_t(1000u * (ui.loading_total - ui.loading_left) / ui.loading_total));
+    ui.loading_slot = library ? int8_t(library->loading_now()) : int8_t(-1);
     bool in = !reloading.pack && !unasked && slots_waiting.empty() && !waiting;
-    if (!in && now - ui.loading_since < loading_most_ms) return;
+    if (!in && now - loading_moved < loading_most_ms) return;
     ui.loading = false;
     ui.loading_left = 0;
 #if defined(__GLIBC__)

@@ -93,7 +93,10 @@ void ProjectStore::list(const std::string& f) { push(new Request {Request::Kind:
 void ProjectStore::save(const std::string& path, std::vector<uint8_t> bytes, const std::string& from) {
     push(new Request {Request::Kind::Save, path, std::move(bytes), from});
 }
-void ProjectStore::load(const std::string& path) { push(new Request {Request::Kind::Load, path, {}}); }
+void ProjectStore::load(const std::string& path) {
+    load_count.fetch_add(1, std::memory_order_release); // before the request: the app sees it no later than service() does
+    push(new Request {Request::Kind::Load, path, {}});
+}
 void ProjectStore::export_mpc3(const std::string& path, std::vector<uint8_t> bytes, const std::string& name) {
     push(new Request {Request::Kind::ExportMpc3, name, std::move(bytes), path});
 }

@@ -549,6 +549,12 @@ bool MelodeeApp::warm_card(Hardware& hardware) {
             if (!card.empty()) card_warm.start(card);
         }
     }
+    // And before each project is loaded: a tenth of a second when its folders are still in memory, and the whole
+    // read again when the system has let them go since (it does when memory runs short).
+    if (unsigned loads = store.loads_asked(); loads != card_loads_seen) {
+        card_loads_seen = loads;
+        if (!card_warmed.empty() && !card_warm.running()) { card_warm_at = now; card_warm.start(card_warmed); }
+    }
     return card_warm.running() && now - card_warm_at < card_warm_patience_ms;
 }
 

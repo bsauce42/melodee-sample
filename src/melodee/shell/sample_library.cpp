@@ -38,6 +38,7 @@ bool SampleLibrary::load(unsigned slot, const std::string& path) {
     r.slot = uint8_t(slot % sample_slots);
     std::strncpy(r.path, path.c_str(), sizeof(r.path) - 1);
     if (!requests.push(r)) return false;
+    slot_state[r.slot].store(0, std::memory_order_relaxed); // what it held is no longer how its load stands
     asked.fetch_add(1, std::memory_order_relaxed);
     return true;
 }
@@ -679,6 +680,8 @@ struct Lap {
     }
 };
 } // namespace
+
+bool SampleLibrary::instrument_path(const std::string& path) { return is_instrument(path); }
 
 SampleLibrary::SlotLoad SampleLibrary::slot_load(unsigned slot) const {
     const uint32_t packed = slot_state[slot % sample_slots].load(std::memory_order_relaxed);
