@@ -571,13 +571,16 @@ namespace {
 // The TRIG row of Steps (`step`: its step in hand's notes) and Roll (the note in focus), roadmap P1: K1 the ratchet's
 // hits, K2 its velocity ramp, K3 its trig condition (beside the chance, K3 of the main row).
 // 16 Levels held, on any page (sample_mode.h): K1 the type, K2 and K3 the two ends (pad 1's and pad 16's), or of
-// type Scale the key's root and scale; Zones only the type (− / + its pages).
+// type Scale the key's root and scale; Chords the progression's key and voicing; Zones only the type (− / + its pages).
 std::array<Binding, 3> levels_cards(const Project& project, const Track& track) {
-    std::array<LevelsKind, 5> types {};
+    std::array<LevelsKind, 6> types {};
     unsigned count = levels_types(project, track, types), at = 0;
     auto kind = LevelsKind(track.levels_kind % unsigned(LevelsKind::Count));
     for (unsigned n = 0; n < count; ++n) if (types[n] == kind) at = n;
-    if (kind == LevelsKind::Loop || (kind == LevelsKind::Filter && track.engine != EngineKind::Sampler)) return {};
+    if (kind == LevelsKind::Filter && track.engine != EngineKind::Sampler) return {};
+    if (kind == LevelsKind::Chords) // the progression's key and voicing, as Keys' Prog layout has them
+        return {Binding {Kind::LevelsType, 0, 0, int(count) - 1, int(at)}, Binding {Kind::ProgKey, 0, 0, 11, int(prog_key(track))},
+                Binding {Kind::ProgVoicing, 0, 0, int(ProgVoicing::Count) - 1, track.prog_voicing}};
     if (kind == LevelsKind::Zones) return {Binding {Kind::LevelsType, 0, 0, int(count) - 1, int(at)}};
     if (kind == LevelsKind::Scale) { // pad 1 the root, up the scale from there
         auto key = project_key(project);

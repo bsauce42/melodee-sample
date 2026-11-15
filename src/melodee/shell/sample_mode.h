@@ -49,12 +49,12 @@ void chop_button(Context& c);   // Chop opens Chop; Shift: Note On
 void levels_button(Context& c); // 16 Levels on and off (kit or synth); Shift: its type
 
 // 16 Levels held (there is no 16 Levels page): a tap turns it on or off in place, a hold puts its settings on
-// K1-K3 of any page (the type, then its two ends or the key's root and scale) and − / + move its octave or
-// Zones' page. Not of type Loop (that tap opens the Looper), nor on an empty track or the Looper.
+// K1-K3 of any page (the type, then its two ends, the key's root and scale, or Chords' key and voicing) and − / +
+// move its octave or Zones' page; of type Chords the encoder picks the progression. Not on an empty track or the Looper.
 constexpr uint32_t levels_hold_ms = 300;
 inline bool levels_held_cards(const Project& project, const UiState& ui) {
     const auto& t = project.tracks[ui.track % track_count];
-    return ui.levels_held && !ui.shift && t.used() && t.levels_kind != unsigned(LevelsKind::Loop) && ui.page != PageId::Looper &&
+    return ui.levels_held && !ui.shift && t.used() && ui.page != PageId::Looper &&
            !ui.name.open() && !ui.exit_open;
 }
 // − / + while 16 Levels is held: Scale and a kit's Tune an octave, Zones a page of sixteen keys.

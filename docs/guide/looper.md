@@ -6,7 +6,7 @@ The Looper records four audio loops, L1 to L4, that follow the tempo. Each
 loop is a track with its own mixer strip and effect chain.
 
 To open the Looper, press **LOOP** and **16 LEVELS** together, in either
-order, from any page. The first time, the Looper is off: press **B3** or
+order, from any page, or hold the encoder for the Menu and press pad 12. The first time, the Looper is off: press **B3** or
 push the encoder to turn it on. **SHIFT** + **LOOP** held for half a second
 turns the Looper on or off (off asks first while a loop holds audio).
 

@@ -546,6 +546,12 @@ void Shell::wheel(int delta) {
         return;
     }
     if (ui_.menu) { menu_wheel(context_, delta); return; } // the MENU: the wheel walks its cards or tiles
+    if (levels_held_cards(*project_, ui_) && LevelsKind(context_.track().levels_kind % unsigned(LevelsKind::Count)) == LevelsKind::Chords) {
+        ui_.levels_used = true; // 16 Levels held, of type Chords: the encoder picks the progression from the card, as on Keys' Prog layout
+        prog_wheel(context_, delta);
+        if (const auto& prog = context_.track().prog; prog.file[0]) context_.notice(std::string(prog.file).substr(0, 28)); // which one
+        return;
+    }
     if (tap.down) { // Tap Tempo held, as on the stock app: the tempo by a whole BPM, the Tempo page showing meanwhile
         if (tap_turn(tap, ui_.page == PageId::Tempo) == TapDo::Open) context_.open(PageId::Tempo);
         context_.set_tempo(int(context_.tempo_now()) + delta * 10);

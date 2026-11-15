@@ -342,12 +342,19 @@ to choose the type:
   With more than 16 keys, hold **16 LEVELS** and press **−** / **+** for the
   next 16. On an instrument with one sound per key, such as a drum kit, 16
   Levels opens in Zones when Scale or Tune was chosen.
-- **Loop** (**SHIFT** + **16 LEVELS** only): **16 LEVELS** opens the Looper.
+- **Chords**: each pad plays a chord of the track's chord progression, with
+  the pad's one sample at every note of the chord. Hold **16 LEVELS** and
+  turn the encoder to pick a progression from the card: Melodee's own in
+  `Melodee/Progressions`, and the `.progression` files of MPC expansions.
+  **K2** (**KEY**) moves the progression to another key and **K3**
+  (**VOICING**) sets how the notes are spread. A kit plays the first 16
+  chords; pads with no chord stay dark. On an instrument track the chords
+  are those of the bank in view, as on the Keys page's Prog layout.
 
 For Velocity, Filter and Tune, **K2** (**LOW**) sets pad 1's value and **K3**
 (**HIGH**) pad 16's. Hold **16 LEVELS** and press **−** / **+** to change the
-octave in Scale and Tune. Letting go after a hold does not turn 16 Levels on
-or off.
+octave in Scale, Tune and Chords. Letting go after a hold does not turn 16
+Levels on or off.
 
 While 16 Levels is on a kit pad, a MIDI keyboard plays that pad on every key.
 C4 (key 60) plays a sample as the pad plays it; an instrument plays at its

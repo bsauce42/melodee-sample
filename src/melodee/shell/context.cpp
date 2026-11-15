@@ -386,7 +386,18 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
         if (t.levels) { // 16 Levels: one kit pad, soft to loud, its filter swept, or in pitch
             auto level = levels_of(project, t, pad);
             ui.levels_hit = int8_t(pad); ui.levels_value = int16_t(level.shown);
-            if (level.none) return; // Zones: a pad past the instrument's last key
+            if (level.none) return; // Zones: a pad past the instrument's last key; Chords: a pad with no chord
+            if (LevelsKind(t.levels_kind % unsigned(LevelsKind::Count)) == LevelsKind::Chords && !drum_pads(t)) {
+                // Chords: the pad's sample at each note of the progression's chord, as so many notes of the pad
+                std::array<int, notes_per_step> chord {};
+                unsigned count = levels_chord(t, pad, chord);
+                for (unsigned n = 0; n < count; ++n) {
+                    pad_keys[pad][n] = pad_note(int(sampler_first_note + t.levels_pad), levels_chord_semitones(chord[n]));
+                    key(pad_keys[pad][n], velocity, true); // played, recorded and kept as any pad's note
+                }
+                follow_zone(t.levels_pad, level.semitones, velocity);
+                return;
+            }
             pad_keys[pad][0] = pad_note(int(sampler_first_note + t.levels_pad), level.semitones); // what it plays, so Seq Record keeps it
             int v = level.velocity ? level.velocity : velocity;
             if (t.repeat || t.arp) { // Note Repeat or the arp: the level repeats, its release lets go of it (a Note On pad too)
@@ -413,6 +424,16 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
     if (t.levels) { // 16 Levels on a synth: the last note on all sixteen, soft to loud or in pitch; Scale the key's notes
         auto level = levels_of(project, t, pad);
         ui.levels_hit = int8_t(pad); ui.levels_value = int16_t(level.shown);
+        if (level.none) return; // Chords: a pad with no chord
+        if (LevelsKind(t.levels_kind % unsigned(LevelsKind::Count)) == LevelsKind::Chords && !drum_pads(t)) { // the progression's chord
+            std::array<int, notes_per_step> chord {};
+            unsigned count = levels_chord(t, pad, chord);
+            for (unsigned n = 0; n < count; ++n) {
+                pad_keys[pad][n] = int16_t(std::clamp(chord[n], 0, 127));
+                key(pad_keys[pad][n], velocity, true);
+            }
+            return;
+        }
         pad_keys[pad][0] = int16_t(level.key >= 0 ? level.key : std::clamp(int(t.last_note) + level.semitones, 0, 127));
         key(pad_keys[pad][0], level.velocity ? level.velocity : velocity, true);
         return;
@@ -914,7 +935,7 @@ void Context::apply(const Binding& b, int value) {
     case Kind::ArpOn: set_arp(value != 0); break; // Shift + K2 on Stage's ARP
     case Kind::ChordOn: t.chord = value != 0; break; // Shift + K1 on Stage's CHORD
     case Kind::LevelsType: { // K1 on 16 Levels: Scale, Tune, Velocity (and Filter on a kit, Zones on an instrument's pad)
-        std::array<LevelsKind, 5> types {};
+        std::array<LevelsKind, 6> types {};
         unsigned count = levels_types(project, t, types);
         t.levels_kind = uint8_t(types[unsigned(std::clamp(value, 0, int(count) - 1))]);
         ui.levels_hit = -1;

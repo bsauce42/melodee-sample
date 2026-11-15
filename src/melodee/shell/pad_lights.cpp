@@ -206,6 +206,7 @@ Look levels_base(const PadScene& s, unsigned pad) {
     if (!t.levels || (kind == LevelsKind::Filter && t.engine != EngineKind::Sampler)) kind = LevelsKind::Velocity;
     auto lv = levels_of(s.project, t, pad);
     if (kind == LevelsKind::Zones && levels_instrument(s.project, t)) return lv.none ? Look {} : track(at, full); // a pad a key, the rest dark
+    if (kind == LevelsKind::Chords) return lv.none ? Look {} : track(at, full); // a pad a chord of the progression, the rest dark
     if (kind == LevelsKind::Zones) kind = LevelsKind::Scale; // its pad no instrument: played as Scale
     if (kind == LevelsKind::Tune || kind == LevelsKind::Scale) { // notes: the key's roots in the track's colour, its other notes white
         // Scale goes up the key from its root on pad 1. Tune: a synth's pad plays its last note moved; a kit's sample
@@ -238,7 +239,7 @@ float levels_pattern(const PadScene& s, unsigned pad) {
     if (!p.length) return 0;
     const bool kit = t.engine == EngineKind::Sampler;
     auto kind = LevelsKind(t.levels_kind % unsigned(LevelsKind::Count));
-    if (!t.levels || kind == LevelsKind::Loop || drum_pads(t) || (kind == LevelsKind::Filter && !kit)) kind = LevelsKind::Velocity;
+    if (!t.levels || drum_pads(t) || (kind == LevelsKind::Filter && !kit)) kind = LevelsKind::Velocity;
     if (kind == LevelsKind::Zones && !levels_instrument(s.project, t)) kind = LevelsKind::Scale;
     auto lv = levels_of(s.project, t, pad);
     if (lv.none) return 0;

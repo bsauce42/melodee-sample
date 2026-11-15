@@ -5321,8 +5321,9 @@ void projects_and_polish() {
         p->tracks[0].levels_kind = uint8_t(LevelsKind::Tune);
         levels = page_bindings(*p, ui, pattern, false);
         CHECK(levels[1].kind == K::LevelsLow && levels[2].kind == K::LevelsHigh && levels[2].value == 12);
-        p->tracks[0].levels_kind = uint8_t(LevelsKind::Loop);
-        CHECK(page_bindings(*p, ui, pattern, false)[0].kind != K::LevelsType);
+        p->tracks[0].levels_kind = uint8_t(LevelsKind::Chords); // the progression's key and voicing
+        levels = page_bindings(*p, ui, pattern, false);
+        CHECK(levels[0].kind == K::LevelsType && levels[1].kind == K::ProgKey && levels[2].kind == K::ProgVoicing);
         p->tracks[0].levels_kind = uint8_t(LevelsKind::Tune);
         ui.levels_held = false;
         CHECK(page_bindings(*p, ui, pattern, false)[0].kind != K::LevelsType);
@@ -11415,12 +11416,25 @@ void drum_layout() {
     // 16 Levels: Velocity alone, whatever type the track kept (another pitch is another drum).
     t.levels_kind = uint8_t(LevelsKind::Scale);
     use_drum_pads(t); CHECK(t.levels_kind == uint8_t(LevelsKind::Velocity));
-    t.levels_kind = uint8_t(LevelsKind::Loop); use_drum_pads(t); CHECK(t.levels_kind == uint8_t(LevelsKind::Loop));
+    t.levels_kind = uint8_t(LevelsKind::Chords); use_drum_pads(t); CHECK(t.levels_kind == uint8_t(LevelsKind::Velocity));
     t.levels_kind = uint8_t(LevelsKind::Tune);
     auto level = levels_of(*project, t, 15);
     CHECK(level.key < 0 && level.semitones == 0 && level.velocity > 0);
-    std::array<LevelsKind, 4> types {};
-    CHECK(levels_types(t, types) == 1 && types[0] == LevelsKind::Velocity && levels_types(synth, types) == 3);
+    std::array<LevelsKind, 5> types {};
+    CHECK(levels_types(t, types) == 1 && types[0] == LevelsKind::Velocity && levels_types(synth, types) == 4 && types[3] == LevelsKind::Chords);
+    { // 16 Levels Chords: a pad plays the chord of the track's progression there, a kit its one sample at each note.
+        Track chords = synth;
+        chords.layout = PadLayout::Scale; chords.levels = true; chords.levels_kind = uint8_t(LevelsKind::Chords);
+        chords.prog.chords[0].count = 3; chords.prog.chords[0].notes[0] = 60; chords.prog.chords[0].notes[1] = 64; chords.prog.chords[0].notes[2] = 67;
+        std::array<int, notes_per_step> keys {};
+        CHECK(levels_chord(chords, 0, keys) == 3 && keys[1] - keys[0] == 4 && keys[2] - keys[0] == 7);
+        CHECK(levels_of(*project, chords, 0).key == keys[0] && !levels_of(*project, chords, 0).none);
+        CHECK(levels_chord(chords, 1, keys) == 0 && levels_of(*project, chords, 1).none); // no chord on pad 2
+        Track one = kit; one.layout = PadLayout::Scale; one.levels = true; one.levels_kind = uint8_t(LevelsKind::Chords); one.prog = chords.prog;
+        one.octave = kit_level_octave; one.bank = 3; // a kit's bank is its pads': the first sixteen chords whatever it is
+        CHECK(levels_chord(one, 0, keys) == 3 && levels_of(*project, one, 0).semitones == levels_chord_semitones(keys[0]));
+        CHECK(levels_chord_semitones(60) == 0 && levels_chord_semitones(67) == 7 && levels_chord_semitones(200) == 63);
+    }
     // K3 on Keys reaches Drums (and Prog after it).
     UiState ui; ui.page = PageId::Keys; ui.track = 0;
     Pattern pattern;
@@ -13195,8 +13209,8 @@ void instrument_formats_p3() {
         auto first = levels_of(*project, t, 0);
         CHECK(!first.none && first.shown == 60 && first.semitones == -2); // a hit plays 60 + the pad's Semi + these
         CHECK(levels_of(*project, t, 2).shown == 65 && levels_of(*project, t, 3).shown == 70 && levels_of(*project, t, 15).shown == 82);
-        std::array<LevelsKind, 5> types {};
-        CHECK(levels_types(*project, t, types) == 5 && types[2] == LevelsKind::Zones);
+        std::array<LevelsKind, 6> types {};
+        CHECK(levels_types(*project, t, types) == 6 && types[2] == LevelsKind::Zones && types[5] == LevelsKind::Chords);
         CHECK(zone_key_count(ref) == 23 && zone_pages(ref) == 2);
         t.octave = kit_level_octave + 1; // − / +: the next page
         CHECK(levels_of(*project, t, 0).shown == 83 && levels_of(*project, t, 6).shown == 89 && levels_of(*project, t, 7).none);
@@ -13211,7 +13225,7 @@ void instrument_formats_p3() {
         // a plain sample's pad has no Zones: it plays as Scale
         std::snprintf(project->samples[6].path, sizeof(project->samples[6].path), "/media/card/Samples/Hit.wav");
         t.pads[4].sample = 6; t.levels_pad = 4;
-        CHECK(!levels_of(*project, t, 0).none && levels_types(*project, t, types) == 4 && levels_opening(*project, t) == LevelsKind::Scale);
+        CHECK(!levels_of(*project, t, 0).none && levels_types(*project, t, types) == 5 && levels_opening(*project, t) == LevelsKind::Scale);
     }
 }
 

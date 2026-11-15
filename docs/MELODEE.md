@@ -511,7 +511,7 @@ the Looper is on ([LOOPER.md](LOOPER.md) has the design). Each loop track has
 a mix strip (level, pan, mute, solo, send and bus) and a chain of six.
 
 - **Looper** (Loop and 16 Levels pressed together, in
-  either order, from any page; 16 Levels of type Loop): off, it asks first
+  either order, from any page, or the MENU's pad 12): off, it asks first
   (B3 or Push turns it on: 45 MB a loop, made in the background). **B1 LOOPS**:
   four rings, a loop each: its waveform bent round from twelve o'clock, a
   hand sweeping where it plays (in sync, the hands point the same way); red

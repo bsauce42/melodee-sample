@@ -40,7 +40,7 @@ bool load(Context& c, size_t at) {
     auto& t = c.track();
     t.prog = prog;
     t.prog_shift = 0;
-    t.bank = 0;
+    if (t.engine != EngineKind::Sampler) t.bank = 0; // its first sixteen chords (a kit's bank is its pads': 16 Levels Chords leaves it)
     c.dirty = true;
     return true;
 }

@@ -102,23 +102,18 @@ void levels_button(Context& c) {
     auto& t = c.track();
     auto& ui = c.ui;
     bool kit = t.engine == EngineKind::Sampler;
-    // Loop (docs/LOOPER.md): 16 Levels opens the Looper, its pads the loop grid; again goes back.
-    if (!ui.shift && t.levels_kind == unsigned(LevelsKind::Loop)) {
-        if (ui.page == PageId::Looper) c.back(); else c.open(PageId::Looper);
-        return;
-    }
     if (!t.used() && !ui.shift) { c.notice("16 Levels: an empty track"); return; }
-    if (ui.shift) { // the type: Melodee's Scale first (the most played), Tune, Zones (an instrument's pad), Velocity, Filter (kit pads), the Looper's Loop
-        static const LevelsKind kit_order[] {LevelsKind::Scale, LevelsKind::Tune, LevelsKind::Velocity, LevelsKind::Filter, LevelsKind::Loop};
-        static const LevelsKind instrument_order[] {LevelsKind::Scale, LevelsKind::Tune, LevelsKind::Zones, LevelsKind::Velocity, LevelsKind::Filter, LevelsKind::Loop};
-        static const LevelsKind synth_order[] {LevelsKind::Scale, LevelsKind::Tune, LevelsKind::Velocity, LevelsKind::Loop};
-        static const LevelsKind empty_order[] {LevelsKind::Scale, LevelsKind::Loop};
-        static const LevelsKind drum_order[] {LevelsKind::Velocity, LevelsKind::Loop}; // Drums pads: another pitch is another drum
+    if (ui.shift) { // the type: Melodee's Scale first (the most played), Tune, Zones (an instrument's pad), Velocity, Filter (kit pads), Chords
+        static const LevelsKind kit_order[] {LevelsKind::Scale, LevelsKind::Tune, LevelsKind::Velocity, LevelsKind::Filter, LevelsKind::Chords};
+        static const LevelsKind instrument_order[] {LevelsKind::Scale, LevelsKind::Tune, LevelsKind::Zones, LevelsKind::Velocity, LevelsKind::Filter, LevelsKind::Chords};
+        static const LevelsKind synth_order[] {LevelsKind::Scale, LevelsKind::Tune, LevelsKind::Velocity, LevelsKind::Chords};
+        static const LevelsKind empty_order[] {LevelsKind::Scale};
+        static const LevelsKind drum_order[] {LevelsKind::Velocity}; // Drums pads: another pitch is another drum
         bool drums = drum_pads(t);
         if (kit && !t.levels) t.levels_pad = t.last_pad; // the pad 16 Levels opens on decides Zones
         bool instrument = kit && levels_instrument(c.project, t);
         const LevelsKind* order = !t.used() ? empty_order : instrument ? instrument_order : kit ? kit_order : drums ? drum_order : synth_order;
-        unsigned count = !t.used() ? 2 : instrument ? 6 : kit ? 5 : drums ? 2 : 4, at = 0;
+        unsigned count = !t.used() ? 1 : instrument ? 6 : kit ? 5 : drums ? 1 : 4, at = 0;
         for (unsigned n = 0; n < count; ++n) if (unsigned(order[n]) == t.levels_kind) at = n;
         t.levels_kind = uint8_t(order[(at + 1) % count]);
         ui.levels_hit = -1;
@@ -129,10 +124,11 @@ void levels_button(Context& c) {
     if (t.levels) { t.levels = false; c.notice("16 Levels off"); return; } // the page stays as it is
     // A kit: its last pad on all sixteen; a synth: its last note.
     if (!kit && t.levels_kind == unsigned(LevelsKind::Filter)) t.levels_kind = uint8_t(LevelsKind::Velocity);
-    if (drum_pads(t)) t.levels_kind = uint8_t(LevelsKind::Velocity); // Loop went to the Looper above
+    if (drum_pads(t)) t.levels_kind = uint8_t(LevelsKind::Velocity);
     t.levels = true;
     if (kit) t.levels_pad = t.last_pad;
     if (kit) t.levels_kind = uint8_t(levels_opening(c.project, t)); // a drum instrument's pad in Zones, a plain one's not
+    if (t.levels_kind == unsigned(LevelsKind::Chords) && t.prog.empty()) c.notice("Chords: no progression"); // held + the encoder picks one
     c.notice(std::string("16 Levels: ") + levels_kind_name(LevelsKind(t.levels_kind)));
 }
 
@@ -151,6 +147,12 @@ void levels_nudge(Context& c, int way) {
         for (unsigned n = 0; n < 16; ++n) if (!levels_of(c.project, t, n).none) last = levels_of(c.project, t, n).shown;
         std::string keys = last >= 0 ? note_name(levels_of(c.project, t, 0).shown) + "\xe2\x80\x93" + note_name(last) : std::string("none");
         c.notice(std::string("Pads ") + keys + (pages > 1 ? " (" + std::to_string(page + 1) + "/" + std::to_string(pages) + ")" : std::string()));
+        return;
+    }
+    if (kind == LevelsKind::Chords) { // the chords an octave down or up (a kit's sample, a synth's notes)
+        t.octave = int8_t(std::clamp(t.octave + way, kit ? kit_lowest_octave : 0, 7));
+        const int octave = t.octave - 2; // 2: the progression as its file has it
+        c.notice(octave ? std::string("Octave ") + (octave > 0 ? "+" : "") + std::to_string(octave) : std::string("Octave 0, as it is"));
         return;
     }
     if (!kit && kind == LevelsKind::Scale) { // a synth: the track's octave, and the notes the pads now play
