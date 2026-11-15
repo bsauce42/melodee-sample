@@ -138,7 +138,7 @@ creating a project clears the undo history.
 | Where | SHIFT + ERASE |
 | --- | --- |
 | **PAD BANK** held, or Tracks | Tracks |
-| **SEQ** held, or Patterns | Patterns |
+| **SEQ** held, or Patterns | The selected track's patterns |
 | Step Edit in STEPS mode | A step to another step |
 | Roll with marked notes | The marked notes: push the encoder to paste them at the cursor |
 | Roll, Step Edit in PLAY mode, a synth's play pages | A key's notes to another key |

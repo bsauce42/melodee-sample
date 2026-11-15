@@ -7,7 +7,7 @@ Previous: [Exit and troubleshooting](exit-and-troubleshooting.md) · [Contents](
 | Button | Press | With **SHIFT** |
 | --- | --- | --- |
 | **SAMPLE** | Stage, the track's sound pages; on Stage, its first page. Held: Pads or Keys, and **B1**–**B3** open Stage's sections; + pad: select a kit pad without playing it. + **MUTE**: light show on or off; + **−** / **+**: its style. | Input Config |
-| **SEQ** | Patterns, Roll or Motion, the last open on the track; on one of them, Patterns. Held: the pads launch patterns, the encoder sets the tempo, **B1**–**B3** open Patterns, Roll and Motion. | Step Edit; again, back |
+| **SEQ** | Sequences, Roll or Motion, the last open on the track; on one of them, Sequences. Held: the pads launch sequences on every track, the encoder sets the tempo, **B1**–**B3** open Sequences, Roll and Motion. | Step Edit; again, back |
 | **PAD FX** | Pad FX. With **KNOB FX**: the mixer (Tracks). | Flex Beat |
 | **KNOB FX** | Knob FX mode on or off. With **PAD FX**: the mixer (Tracks). | Effect chains, from the track's; again, the next along |
 | **PAD BANK** | Tap: next bank. A hold never changes the bank. Held + pad: select a track; **K1**–**K3**: its level, pan and send A. Held + **B1**: Tracks. Held + **B2** / **B3**: move or copy a track. Held + **ERASE** + pad: clear a track. | Previous bank |

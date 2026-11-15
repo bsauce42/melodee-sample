@@ -6,6 +6,7 @@
 #include "melodee/shell/context.h"
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/roll.h"
+#include "melodee/shell/sequences.h"
 #include <algorithm>
 #include <string>
 
@@ -93,10 +94,15 @@ bool seq_pad(Context& c, unsigned pad, bool down) {
     if (!down) { // a pattern pad let go: a tap launches it, unless it was copied from (the bank may have moved meanwhile)
         if (ui.pattern_held < 0 || unsigned(ui.pattern_held) % pattern_pads != pad % pattern_pads) return false;
         pad = unsigned(ui.pattern_held);
-        if (!ui.pattern_copied && ui.seq_held && ui.chain_building) c.chain_add(pad); // seq-sheet2 B: after the first, a chain
-        else if (!ui.pattern_copied) {
-            launch_one(c, pad);
-            if (ui.seq_held) { c.chain_start(pad); ui.chain_building = true; }
+        bool every = sequences_on_pads(ui); // off the Patterns page Seq held launches the sequence: every track
+        if (!ui.pattern_copied && ui.seq_held && ui.chain_building) { // seq-sheet2 B: after the first, a chain
+            if (every) c.chain_sequence(pad, false); else c.chain_add(pad);
+        } else if (!ui.pattern_copied) {
+            if (every) c.launch_scene(pad); else launch_one(c, pad);
+            if (ui.seq_held) {
+                if (every) c.chain_sequence(pad, true); else c.chain_start(pad);
+                ui.chain_building = true;
+            }
         }
         ui.pattern_held = -1;
         return true;
@@ -131,7 +137,7 @@ bool seq_button(Context& c, SurfaceButton button) {
     ui.seq_used = true; // whatever it does, letting go of Seq then goes nowhere
     switch (button) {
     case B::TopLeft: case B::TopMiddle: case B::TopRight: {
-        static const PageId editors[] {PageId::Patterns, PageId::Roll, PageId::Motion};
+        static const PageId editors[] {seq_home, PageId::Roll, PageId::Motion};
         ui.seq_left = true; // the sheet stays away: the editor is what was asked for
         c.open(editors[button == B::TopLeft ? 0 : button == B::TopMiddle ? 1 : 2]);
         return true;
@@ -140,8 +146,10 @@ bool seq_button(Context& c, SurfaceButton button) {
         if (ui.shift) return false; // undo / redo, as printed
         int from = int(c.track().pattern % pattern_count), way = button == B::Plus ? 1 : -1;
         int to = std::clamp(from + way, 0, int(pattern_count) - 1);
-        if (to == from) { c.notice(way > 0 ? "P" + std::to_string(pattern_count) + " is the last" : "P1 is the first"); return true; }
-        launch_one(c, unsigned(to));
+        bool every = sequences_on_pads(ui);
+        if (to == from) { c.notice(std::string(every ? "SEQ " : "P") + (way > 0 ? std::to_string(pattern_count) + " is the last" : "1 is the first")); return true; }
+        if (every) { c.launch_scene(unsigned(to)); ui.pattern_bank = uint8_t(unsigned(to) / pattern_pads); } // its bank in view
+        else launch_one(c, unsigned(to));
         return true;
     }
     case B::SeqRecord:

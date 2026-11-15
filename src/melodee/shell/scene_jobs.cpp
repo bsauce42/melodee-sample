@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // Roadmap P5: scenes and follow actions. A scene is a column of patterns
-// across the tracks (pattern n of each), with a name and a tempo of its own:
-// launching it queues pattern n on every track holding notes there (and on
-// the selected track) for the next bar, as Seq held + Shift + pad always
-// launched a column, and its tempo takes over on that bar. A pattern's follow
+// across the tracks (pattern n of each), with a name and a tempo of its own;
+// on screen it is a sequence (shell/sequences.h). Launching it queues pattern
+// n on every used track for the next bar, as a sequence on the stock app: a
+// track with no notes there goes silent, its empty pattern as long as the
+// sequence. Its tempo takes over on that bar. A pattern's follow
 // action (model/follow.h) is the audio thread's (EngineHost::follow); here the
 // shell tells it which tracks play a chain (their follow actions wait) and
 // follows what it brought, so a track's pattern is the one playing.
 #include "melodee/shell/context.h"
 #include "melodee/shell/ask.h"
+#include "melodee/shell/sequences.h"
 #include "melodee/engine/engine_host.h"
 #include <algorithm>
 #include <string>
@@ -17,14 +19,17 @@
 namespace melodee {
 using Type = Command::Type;
 
-void Context::launch_scene(unsigned scene) {
+void Context::launch_scene(unsigned scene, bool quiet) {
     scene %= pattern_count;
-    unsigned count = 0;
+    unsigned count = 0, selected = ui.track % track_count;
+    unsigned playing = host.playing() ? unsigned(host.pattern_of(selected)) % pattern_count : track().pattern % pattern_count;
+    uint32_t length = sequence_length(project, patterns, selected, scene, patterns.at[selected][playing].length);
     for (unsigned t = 0; t < track_count; ++t) {
-        if (!project.tracks[t].used()) continue;
-        if (t != ui.track % track_count && patterns.at[t][scene].empty()) continue; // nothing there: it plays on
+        if (!sequence_takes(project.tracks[t]) && t != selected) continue;
+        auto& target = patterns.at[t][scene];
+        if (target.empty() && length && target.length != length) { target.length = length; sync_pattern(t, scene); } // silent, as long as the sequence
         launch(t, scene);
-        ++count;
+        count += !target.empty();
     }
     const auto& s = project.scenes[scene];
     if (s.tempo) { // on the bar the patterns take over on (stopped, at once)
@@ -33,6 +38,7 @@ void Context::launch_scene(unsigned scene) {
         dirty = true;
     }
     ui.scene = uint8_t(scene);
+    if (quiet) return;
     std::string text = "SEQ " + std::to_string(scene + 1);
     if (s.name[0]) text += std::string(" ") + s.name;
     text += ": " + std::to_string(count) + (count == 1 ? " track" : " tracks");

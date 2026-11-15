@@ -45,7 +45,7 @@ inline const std::array<MenuPlace, 16>& menu_places() {
     static const std::array<MenuPlace, 16> places {{
         {"STAGE", "SAMPLE", 0, PageId::Stage}, {"BROWSER", "SAMPLE SELECT", 0, PageId::Samples},
         {"RECORD", "SAMPLE RECORD", 0, PageId::Record}, {"CHOP", "CHOP", 0, PageId::Chop},
-        {"PATTERNS", "SEQ", 1, PageId::Patterns}, {"ROLL", "SEQ, B2", 1, PageId::Roll},
+        {"SEQUENCES", "SEQ", 1, PageId::Scenes}, {"ROLL", "SEQ, B2", 1, PageId::Roll},
         {"STEP EDIT", "SHIFT + SEQ", 1, PageId::StepEdit}, {"MOTION", "SEQ, B3", 1, PageId::Motion},
         {"MIXER", "PAD FX + KNOB FX", 2, PageId::Tracks}, {"SENDS", "PAD FX + KNOB FX, B2", 2, PageId::Sends},
         {"EFFECTS", "SHIFT + KNOB FX", 2, PageId::Rack}, {"LOOPER", "LOOP + 16 LEVELS", 2, PageId::Looper},
@@ -56,7 +56,7 @@ inline const std::array<MenuPlace, 16>& menu_places() {
 }
 // The tile the cursor starts on: the open page's place, else STAGE.
 inline unsigned menu_tile_of(PageId page) {
-    if (page == PageId::Scenes) return 4;                                                    // Patterns' second page
+    if (page == PageId::Patterns) return 4;                                                  // Sequences' second page
     if (page == PageId::Bus || page == PageId::Master || page == PageId::PadFx) return 10;   // the other chains
     if (page == PageId::Sounds || page == PageId::Plugins) return 1;                         // the other browsers
     const auto& places = menu_places();

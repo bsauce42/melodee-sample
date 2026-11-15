@@ -147,6 +147,7 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     ui.settings = settings;
     for (auto& pot : ui.pots) pot.bound = 0; // pick the new values up again
     edits.clear();                            // its edits were made to another project
+    chain_lead = -1;                          // and its chain of sequences
     take_edit.reset(); take_track = -1;
     for (auto& h : held_notes) h.key = -1;
     ui.lead_pattern = project.tracks[0].pattern; // as the audio thread starts it
@@ -1244,7 +1245,10 @@ void Context::clear_lane(int lane) {
 
 void Context::launch(unsigned t, unsigned p) {
     auto& tr = project.tracks[t % track_count];
-    if (!chaining) { tr.chain_count = 0; chain_queued[t % track_count] = false; } // a pattern launched by hand: the chain ends
+    if (!chaining) { // a pattern launched by hand: the chain ends
+        tr.chain_count = 0; chain_queued[t % track_count] = false;
+        if (chain_lead == int(t % track_count)) chain_lead = -1;
+    }
     tr.pattern = uint8_t(p % pattern_count);
     ui.lead_pattern = tr.pattern; // BPM per pattern: the one launched last leads
     send({Type::Pattern, uint8_t(t), 0, 0, int16_t(tr.pattern)});

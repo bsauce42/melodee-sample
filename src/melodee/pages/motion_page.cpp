@@ -30,7 +30,7 @@ void draw(Paint& p, const Snapshot& s) {
     h.left.push_back(edit_pattern_chip(s));
     h.left.push_back(pill(Icon::Motion, juce::String(unsigned(motion.size()))));
     h.right.push_back(tag_of(s, s.ui.track));
-    frame(p, s, {{"PATTERNS", "ROLL", "MOTION"}, 2, c}, h);
+    frame(p, s, {{"SEQUENCES", "ROLL", "MOTION"}, 2, c}, h);
 
     // One graph: the pattern across, bars and beats marked, quarters of the range up.
     constexpr float x = zone::pad, y = zone::picture_y + 4, w = zone::width - 2 * zone::pad, gh = zone::picture_h - 8;

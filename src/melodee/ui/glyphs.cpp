@@ -151,6 +151,7 @@ Shape make(Icon icon) {
     case Icon::Wheel: s = circle(12, 12, 8.5f); f = circle(12, 6.6f, 1.6f); break;
     case Icon::ArrowLeft: s = "M20 12 H5 M11 6 L5 12 L11 18"; break;
     case Icon::SpaceBar: s = "M4 9 V15 H20 V9"; break;
+    case Icon::NotEqual: s = "M5 9 H19 M5 15 H19 M16 4 L8 20"; break;
     case Icon::Snow: // six arms of 9.6 from the middle, each with two barbs at 0.62 of its length
         for (int k = 0; k < 6; ++k) {
             float a = -juce::MathConstants<float>::halfPi + k * juce::MathConstants<float>::pi / 3;

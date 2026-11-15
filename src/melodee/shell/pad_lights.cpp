@@ -16,6 +16,7 @@
 #include "melodee/shell/menu.h"
 #include "melodee/shell/mute_mode.h"
 #include "melodee/shell/roll.h"
+#include "melodee/shell/sequences.h"
 #include "melodee/shell/track_copy.h"
 #include "melodee/shell/shift_pad_jobs.h"
 #include "melodee/shell/stage_map.h"
@@ -763,8 +764,8 @@ void pad_looks(const PadScene& s, std::array<Look, 16>& out) {
         case PadContext::Name: look = name_look(s, pad); break;
         case PadContext::LoopHeld:
         case PadContext::LoopNow: look = loop_look(s, pad, false); break;
-        case PadContext::PatternCopy:
-        case PadContext::SeqLayer: look = seq_look(s, pad); break;
+        case PadContext::PatternCopy: look = seq_look(s, pad); break;
+        case PadContext::SeqLayer: look = sequences_lit(ui) && ui.pattern_held < 0 ? scenes_look(s, pad) : seq_look(s, pad); break; // Seq held off Patterns: the sequences
         case PadContext::RecordKeys: look = record_keys_look(s, pad); break;
         case PadContext::Mute:
             if (ui.page == PageId::Looper) { look = loop_look(s, pad, true); break; }

@@ -4,18 +4,19 @@
 #include "melodee/shell/ui_state.h"
 #include "surface/controls.h"
 
-// Seq (docs/MELODEE.md, Sequencing): tap to open the SEQUENCE hub (Patterns, Roll, Motion: the one last open;
-// inside it home, Patterns; on Step Edit back to the page under it, shell/page_stack.h), hold to steer, Shift +
-// Seq for Step Edit. Patterns' pads are this layer's pads without Seq held. Held, on any page, the Sequence layer:
-//   pad              launches that pattern of the selected track (next bar; stopped,
-//                    at once); an empty one starts as long as the one playing
-//   Shift + pad      that column on every track holding notes there (and the selected one)
-//   pad held + pad   copies the first onto the second
-//   Erase + pad      clears that pattern, asked first
-//   Minus / Plus     the previous / next pattern
+// Seq (docs/MELODEE.md, Sequencing): tap to open the SEQUENCE hub (Sequences, Patterns, Roll, Motion: the one last
+// open; inside it home, Sequences; on Step Edit back to the page under it, shell/page_stack.h), hold to steer,
+// Shift + Seq for Step Edit. Held, on any page but Patterns, the Sequence layer (shell/sequences.h):
+//   pad              launches that sequence: its pattern on every used track (next bar; stopped, at once), as
+//                    on the stock app; pads tapped after the first in one hold chain the sequences
+//   pad held + pad   copies the selected track's first pattern onto the second
+//   Erase + pad      clears that pattern of the selected track, asked first
+//   Minus / Plus     the previous / next sequence
 //   wheel            the tempo (Push: whole BPM or tenths)
-//   K1-K3            length, Q, swing of the pattern (shell/bindings.cpp; Shift as on Patterns)
-//   B1-B3            Patterns, Roll, Motion
+//   K1-K3            length, Q, swing of the selected track's pattern (shell/bindings.cpp; Shift as on Patterns)
+//   B1-B3            Sequences, Roll, Motion
+// On the Patterns page the pads are the selected track's patterns, held or not: a pad launches that track only
+// (an empty one starts as long as the one playing), Shift + pad the whole sequence, a chain is that track's.
 //   Seq Record       a new take: the next empty pattern, armed (recording at once while playing)
 // After seq_sheet_ms the screen shows the Sequence sheet (pages/seq_sheet.cpp); a release
 // that quick with nothing touched is a tap. Shift + Seq: Step Edit. MIDI thread.

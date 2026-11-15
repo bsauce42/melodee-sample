@@ -266,12 +266,14 @@ public:
     // each frame, queues a chained track's next pattern in the last bar of the one playing, so it begins as that ends.
     void chain_start(unsigned pattern);
     void chain_add(unsigned pattern);
+    void chain_sequence(unsigned pattern, bool first); // a chain of sequences: the selected track's chain, every track following it
+    int8_t chain_lead = -1;                            // the track whose chain launches sequences (-1: chains are one track's)
     void chain_tick();
     std::array<bool, track_count> chain_queued {}; // the next of the chain is queued for the bar line
     bool chaining = false;                         // chain_tick() launching: the chain stays
     // Roadmap P5 (shell/scene_jobs.cpp): scenes, a column of patterns with a name and tempo of its own (Seq held +
     // Shift + pad, or a pad on SCENES), and patterns' follow actions (model/follow.h; the audio thread brings them).
-    void launch_scene(unsigned scene);                // pattern `scene` on every track with notes there and the selected one
+    void launch_scene(unsigned scene, bool quiet = false); // pattern `scene` on every used track: a sequence (shell/sequences.h); quiet: no notice (the chain)
     void set_scene_tempo(unsigned scene, int tenths); // below 30 BPM: none of its own
     void name_scene(unsigned scene);                  // the Name sheet
     void clear_scene(unsigned scene);

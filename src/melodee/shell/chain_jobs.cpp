@@ -7,7 +7,10 @@
 // tap after it in the same hold adds a pattern. The chain is queued a
 // pattern at a time: in the last bar of the one playing the next is launched
 // for the bar line, where it begins as this one ends. A pattern launched by
-// hand, a single tap, ends it; the song playing leaves it be.
+// hand, a single tap, ends it; the song playing leaves it be. Off the Patterns
+// page the pads tapped are sequences (shell/sequences.h): the chain is still
+// the selected track's, and as each of its patterns comes up the sequence of
+// that number is launched on every track (chain_lead).
 #include "melodee/shell/context.h"
 #include "melodee/engine/engine_host.h"
 #include <string>
@@ -28,11 +31,18 @@ void Context::chain_add(unsigned pattern) {
     if (tr.chain_count >= max_chain) { notice("Chain full"); return; }
     if (!tr.chain_count) { chain_start(pattern); return; }
     tr.chain[tr.chain_count++] = uint8_t(pattern % pattern_count);
-    std::string shown;
-    for (unsigned n = 0; n < tr.chain_count && n < 4; ++n) shown += (n ? " > " : "") + std::string("P") + std::to_string(tr.chain[n] + 1);
+    bool sequences = chain_lead == int(ui.track % track_count);
+    std::string shown = sequences ? "SEQ " : "";
+    for (unsigned n = 0; n < tr.chain_count && n < 4; ++n) shown += (n ? " > " : "") + std::string(sequences ? "" : "P") + std::to_string(tr.chain[n] + 1);
     if (tr.chain_count > 4) shown += " +" + std::to_string(tr.chain_count - 4);
     notice("Chain " + shown);
     dirty = true;
+}
+
+void Context::chain_sequence(unsigned pattern, bool first) {
+    if (!first && chain_lead == int(ui.track % track_count)) { chain_add(pattern); return; }
+    chain_start(pattern); // after launch_scene(), which ended every chain
+    chain_lead = int8_t(ui.track % track_count);
 }
 
 void Context::chain_tick() {
@@ -50,7 +60,8 @@ void Context::chain_tick() {
         }
         if (chain_queued[t] || !chain_due(host.position_of(t), patterns.at[t][playing].length, bar)) continue;
         chaining = true;
-        launch(t, tr.chain_ahead(1)); // for the bar line: it begins as this one ends
+        if (chain_lead == int(t)) launch_scene(tr.chain_ahead(1), true); // a chain of sequences: every track, its tempo with it
+        else launch(t, tr.chain_ahead(1)); // for the bar line: it begins as this one ends
         chaining = false;
         chain_queued[t] = true;
     }

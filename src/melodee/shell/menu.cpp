@@ -41,7 +41,7 @@ void go(Context& c, unsigned tile) {
         else if (ui.page != PageId::Record) c.open(PageId::Record);
         break;
     case 3: if (ui.page != PageId::Chop) chop_button(c); break; // Chop on the last pad's sample (it says why not)
-    case 4: c.open(PageId::Patterns); break;
+    case 4: if (ui.page != seq_home) c.open(seq_home); break; // Sequences, as Seq
     case 5: c.open(PageId::Roll); break;
     case 6: // Step Edit, as Shift + Seq
         if (ui.page == PageId::StepEdit) break;

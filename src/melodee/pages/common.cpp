@@ -855,7 +855,7 @@ unsigned key_pages(const Snapshot& s, unsigned key, std::array<juce::String, 6>&
             at = mix_section(s.ui.page) == MixSection::Fx ? mix_fx_at(s.ui.page, kit) : 0;
         }
     } else if ((s.ui.page == PageId::Patterns || s.ui.page == PageId::Scenes) && key == 0) { // Seq's B1: its two pages
-        names[0] = "PATTERNS"; names[1] = "SEQUENCES"; n = 2; at = s.ui.page == PageId::Scenes ? 1 : 0;
+        names[0] = "SEQUENCES"; names[1] = "PATTERNS"; n = 2; at = s.ui.page == PageId::Patterns ? 1 : 0;
     }
     return n > 1 ? n : 0;
 }
@@ -880,7 +880,7 @@ void mix_soft(Context& c, int key) {
 }
 
 void seq_hub_soft(Context& c, int key) {
-    static const PageId pages[] {PageId::Patterns, PageId::Roll, PageId::Motion};
+    static const PageId pages[] {seq_home, PageId::Roll, PageId::Motion}; // B1: Sequences (again there: Patterns)
     if (pages[unsigned(key) % 3] != c.ui.page) c.open(pages[unsigned(key) % 3]);
 }
 

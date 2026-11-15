@@ -27,6 +27,7 @@ enum class Icon : uint8_t {
     Snow, // freeze plan F2c: a frozen track or pattern, a print
     DeepSnow, // freeze plan F2d: a deep-frozen track, the snowflake cut out of a filled tile
     Bulb, // Settings' LIGHTS
+    NotEqual, // Patterns' track list: a track on a pattern of its own, off the sequence in view
     Count
 };
 

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
-// PATTERNS (the SEQUENCE hub's B1, SEQ's home): the selected track's sixteen patterns of the bank in view, drawn
+// PATTERNS (the SEQUENCE hub's B1 pressed again, after Sequences): the selected track's sixteen patterns of the bank in view, drawn
 // as the pads sit (pad 1 bottom left, 13 top left), so a cell is the pad that launches it. The pads launch them
 // as Seq held does (shell/seq_layer.h): at the next bar (stopped, at once), hold one and tap another to copy,
 // Erase + pad clears (asked first); they light as the cells. Pad Bank steps the bank (A-H), as Seq held + Pad Bank.
 // In each cell: the number, ▶ playing, NEXT queued, a tinted cell for notes, a dot a track in view for the other
 // tracks (a ring: notes there; filled: playing it), an arrow for a follow action, an amber dot for a scene tempo.
-// Right: the eight tracks in view, each with the pattern it plays and how far along it is.
+// Right: the eight tracks in view, each with the pattern it plays and how far along it is; a track on another
+// number than the selected track's, a pattern of its own, carries a not-equal mark (shell/sequences.h).
 // The wheel selects the track (the list on the right follows it, eight at a time). The selected track's pattern
 // in hand is the scene in view: cell n is scene n too, and Push launches it on every track; Shift + wheel moves the playhead by Q (stopped: where Shift + Play carries on from). Minus / Plus move the track. K1-K3: the pattern's length, Q, swing (Shift: any bars, time signature,
 // the metronome's level). B1-B3 PATTERNS / ROLL / MOTION (B1 again: SCENES); Shift + B1 SCENE (K1 the scene's tempo, Push
@@ -15,6 +16,7 @@
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/model/generators.h"
+#include "melodee/shell/sequences.h"
 #include "melodee/shell/step_lane.h"
 #include "melodee/ui/widgets.h"
 #include <algorithm>
@@ -95,8 +97,10 @@ void draw_tracks(Paint& p, const Snapshot& s, unsigned first) {
             continue;
         }
         icon(p, Icon::Play, list_x + 21, cy - 3.5f, 7, c, 1.2f);
-        p.text(juce::String(live + 1), list_x + 31, y, 22, rh, plain(colour::text, type::small, Weight::SemiBold));
-        float bx = list_x + 54, bw = list_w - 58;
+        float nw = p.text(juce::String(live + 1), list_x + 31, y, 22, rh, plain(colour::text, type::small, Weight::SemiBold));
+        bool own = own_pattern(s.project, s.ui, t); // off the sequence in view, on a pattern of its own
+        if (own) icon(p, Icon::NotEqual, list_x + 33 + nw, cy - 4.5f, 9, colour::text, 1.3f);
+        float bx = list_x + (own ? 66 : 54), bw = list_w - (own ? 70 : 58);
         p.fill(bx, cy - 1, bw, 2, colour::line, 1);
         uint32_t length = std::max<uint32_t>(s.sketches[t][live].length, 1);
         float done = s.playing && s.positions[t] >= 0 ? float(uint32_t(s.positions[t]) % length) / length : 0;
@@ -127,7 +131,7 @@ void draw(Paint& p, const Snapshot& s) {
         h.right.push_back(pill(juce::String::fromUTF8(speed_name(s.track().speed)), c));
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"PATTERNS", "ROLL", "MOTION"}, 0, c};
-    keys.dots[0] = 2; // B1's two pages: Patterns, Scenes
+    keys.dots[0] = 2; keys.dot_at[0] = 1; // B1's two pages: Sequences, Patterns
     if (s.ui.sheet_open) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (s.ui.shift) {
         keys = SoftKeys {{"SEQUENCE", "FOLLOW", "VARY"}, -1, c};
@@ -197,7 +201,7 @@ void soft(Context& c, int key) {
         if (key == 2) { ui.patterns_cards = 0; ui.sheet_open = true; }
         return;
     }
-    if (key == 0) { ui.patterns_cards = 0; c.open(PageId::Scenes); return; } // PATTERNS again: B1's second page, Scenes
+    if (key == 0) { ui.patterns_cards = 0; c.open(PageId::Scenes); return; } // B1 again: round to its first page, Sequences
     seq_hub_soft(c, key);
 }
 } // namespace

@@ -15,15 +15,17 @@ namespace melodee {
 void push_back_stack(UiState& ui, PageId page);
 // Where Back goes from here: the top of the stack, or Stage when it is empty.
 PageId back_target(const UiState& ui);
-// The SEQUENCE hub (shell/seq_layer.h): Patterns, Roll and Motion (one remembered per track), and Step Edit
-// (Shift + Seq) over them.
-bool seq_editor(PageId page); // Patterns, Roll or Motion
-// The selected track's hub page: the one last open on it, else Patterns.
+// The SEQUENCE hub (shell/seq_layer.h): Sequences, Patterns, Roll and Motion (one remembered per track), and Step
+// Edit (Shift + Seq) over them. Its home, B1's first page, is Sequences: the pads launch every track, as on the
+// stock app; B1 again is Patterns, one track's.
+constexpr PageId seq_home = PageId::Scenes;
+bool seq_editor(PageId page); // Sequences, Patterns, Roll or Motion
+// The selected track's hub page: the one last open on it, else Sequences.
 PageId seq_editor_page(const UiState& ui);
 // An editor opened: remembered for the selected track.
 void remember_editor(UiState& ui, PageId page);
-// A tap of Seq from ui.page (the SEQUENCE hub, docs/HUBS_PLAN.md): the hub's page last open (Patterns, Roll or
-// Motion) from anywhere; inside the hub home, Patterns (B1's page); on Step Edit back to the page it sits over.
+// A tap of Seq from ui.page (the SEQUENCE hub, docs/HUBS_PLAN.md): the hub's page last open (Sequences, Patterns,
+// Roll or Motion) from anywhere; inside the hub home, Sequences (B1's page); on Step Edit back to the page it sits over.
 PageId seq_tap_page(const UiState& ui);
 
 } // namespace melodee

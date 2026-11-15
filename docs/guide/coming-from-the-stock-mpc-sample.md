@@ -51,8 +51,8 @@ is different, and how to change your habits.
 | A project is one kit. | A project has 16 tracks. Track 1 starts as a kit. The other tracks can be kits, plug-in instruments or MIDI tracks. |
 | **PAD BANK** held + Pads 1–8 jumps to bank A–H. | **PAD BANK** held + pad selects track 1–16. To jump banks, hold **PAD BANK** and turn the encoder or press **−** / **+**. |
 | **SAMPLE** opens Sample mode. | **SAMPLE** opens **Stage**, the selected track's sound pages, from any page. On a kit, Stage has the Sample mode pages. On Stage, **SAMPLE** goes back to **B1**'s first page. Hold **SAMPLE** to see the track's pads: **Pads** on a kit, **Keys** on an instrument. |
-| In Sequence mode the pads select sequences. | **SEQ** opens **Patterns**, **Roll** or **Motion**. On Patterns the pads launch the selected track's patterns, laid out as the pads. You can also hold **SEQ** and press a pad on any page. |
-| A sequence plays every pad of the kit. | Each track has its own 128 patterns, in banks A–H. To change every track at once, launch a **sequence**: hold **SEQ** + **SHIFT** and press a pad. |
+| In Sequence mode the pads select sequences. | The same: **SEQ** opens **Sequences**, and the pads launch a sequence on every track. You can also hold **SEQ** and press a pad on any page. **B2** and **B3** open **Roll** and **Motion**. |
+| A sequence plays every pad of the kit. | A sequence is one number on every track. Each track has its own 128 patterns, in banks A–H. To put one track on a different pattern, press **B1** again for **Patterns**. |
 | Song mode is a list of sequences. | **Song** is a timeline with a lane per track. You place pattern clips on it, add markers and tempo changes. |
 | Projects are on the internal drive. | Melodee's projects are on the card in `Melodee/Projects`. On the project list, **B2** (**INTERNAL**) shows the internal drive. Stock projects open as copies (see [MPC Sample projects](projects-and-files.md#mpc-sample-projects)). |
 | **SHIFT** + **KNOB FX** (FX Select) picks pad effects. | **SHIFT** + **KNOB FX** opens the effect chains: Track, Bus, Master and, on a kit, Pad. |
@@ -74,12 +74,12 @@ These are the actions stock users look for first.
 2. **Use the kit as before.** Track 1 is a kit. **SAMPLE SELECT**, **SAMPLE**,
    **CHOP**, **SAMPLE RECORD** and **16 LEVELS** work on the kit as on the
    stock app.
-3. **Hold SEQ to change patterns.** A tap of **SEQ** opens **Patterns** (or
+3. **Hold SEQ to change sequences.** A tap of **SEQ** opens **Sequences** (or
    Roll or Motion, if one of them was open last on the track). Holding
-   **SEQ** turns the pads into the selected track's patterns, from any
-   page. The pattern changes at the next bar, or at once when stopped.
+   **SEQ** turns the pads into the sequences, from any page. Every track
+   changes at the next bar, or at once when stopped.
 
-   ![SEQ held: the Patterns sheet](../images/screens/seqsheet.png)
+   ![SEQ held: the sheet](../images/screens/seqsheet.png)
 
 4. **Use SHIFT + encoder push to go back.** Melodee's pages open from each
    other. **SHIFT** + push goes back one page. **B1** is BACK or CANCEL on

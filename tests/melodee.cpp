@@ -2232,10 +2232,44 @@ void button_remap() {
         j.page = PageId::Tracks; CHECK(job() == "TRACKS");
         j.page = PageId::Scenes; CHECK(job() == "SEQUENCES");
         j.page = PageId::StepEdit; CHECK(job().empty()); j.step_pads = true; CHECK(job() == "STEPS"); j.step_pads = false;
-        j.page = PageId::Roll; j.seq_held = true; CHECK(job() == "PATTERNS");
+        j.page = PageId::Roll; j.seq_held = true; CHECK(job() == "SEQUENCES"); // Seq held: the sequences, every track
+        j.erase = true; CHECK(job() == "PATTERNS"); j.erase = false;            // Erase + pad clears the track's pattern
+        j.seq_print = true; CHECK(job() == "PATTERNS"); j.seq_print = false;    // freezing: the track's patterns
+        j.page = PageId::Patterns; CHECK(job() == "PATTERNS");                  // on Patterns the pads stay the track's
+        j.page = PageId::Roll;
         j.pad_bank = true; CHECK(job() == "TRACKS"); // Pad Bank held wins
         j.menu = menu_go_view; CHECK(job().empty()); // a sheet draws its own pads
         j.menu = menu_closed; j.copying = UiState::Copying::Tracks; CHECK(job().empty()); // a move's prompt has the header
+    }
+    // Sequences first (shell/sequences.h): Seq held's pads are sequences off the Patterns page; a launch takes every
+    // used track; an empty pattern takes the sequence's length; a track on another number has a pattern of its own.
+    {
+        UiState q; q.track = 0; q.page = PageId::Stage;
+        CHECK(!sequences_on_pads(q));
+        q.seq_held = true; CHECK(sequences_on_pads(q) && sequences_lit(q));
+        q.erase = true; CHECK(sequences_on_pads(q) && !sequences_lit(q)); q.erase = false;
+        q.seq_print = true; CHECK(!sequences_on_pads(q)); q.seq_print = false;
+        q.copying = UiState::Copying::Patterns; CHECK(!sequences_on_pads(q)); q.copying = UiState::Copying::Off;
+        q.page = PageId::Patterns; CHECK(!sequences_on_pads(q)); q.page = PageId::Stage;
+        auto p = std::make_unique<Project>();
+        auto b = std::make_unique<PatternBank>();
+        Track used = project->tracks[0]; // a track with a sound
+        CHECK(used.used() && sequence_takes(used) && !sequence_takes(Track {}));
+        p->tracks[0] = used; p->tracks[1] = used; p->tracks[2] = used;
+        p->tracks[0].pattern = 3; p->tracks[1].pattern = 3; p->tracks[2].pattern = 5;
+        CHECK(sequence_in_view(*p, q) == 3 && !own_pattern(*p, q, 0) && !own_pattern(*p, q, 1) && own_pattern(*p, q, 2) && !own_pattern(*p, q, 7));
+        int first = -1;
+        CHECK(own_patterns(*p, q, first) == 1 && first == 2);
+        p->tracks[2].pattern = 3; CHECK(own_patterns(*p, q, first) == 0 && first == -1);
+        // The length: the selected track's pattern there, else the longest with notes in the column, else the fallback.
+        CHECK(sequence_length(*p, *b, 0, 4, 1920) == 1920);
+        b->at[1][4].length = 960; b->at[1][4].add({0, 60, 100, 120});
+        b->at[2][4].length = 3840; b->at[2][4].add({0, 62, 100, 120});
+        CHECK(!b->at[1][4].empty() && sequence_length(*p, *b, 0, 4, 1920) == 3840);
+        b->at[0][4].length = 480; b->at[0][4].add({0, 64, 100, 120});
+        CHECK(sequence_length(*p, *b, 0, 4, 1920) == 480);
+        p->tracks[2] = Track {}; b->at[0][4] = Pattern {}; // an unused track's pattern does not count
+        CHECK(sequence_length(*p, *b, 0, 4, 1920) == 960);
     }
     // The MENU (shell/menu.h): the encoder held opens it, a tap stays the page's Push; GO's tiles and HERE's cards.
     {
@@ -2246,6 +2280,7 @@ void button_remap() {
         CHECK(encoder_tick(e, 2000 + menu_hold_ms) && !encoder_tick(e, 9000)); // held: the MENU, once
         CHECK(!encoder_release(e) && !encoder_release(e)); // its release is no tap
         CHECK(menu_tile_of(PageId::Tracks) == 8 && menu_tile_of(PageId::Scenes) == 4 && menu_tile_of(PageId::Master) == 10 && menu_tile_of(PageId::Edit) == 0);
+        CHECK(menu_tile_of(PageId::Patterns) == 4 && menu_places()[4].page == PageId::Scenes && std::string(menu_places()[4].name) == "SEQUENCES"); // Seq's home
         CHECK(menu_tile_turn(12, 1) == 13 && menu_tile_turn(15, 1) == 8 && menu_tile_turn(8, -1) == 15); // across a row, then the row below
         CHECK(menu_tile_turn(12, -1) == 12 && menu_tile_turn(3, 1) == 3 && menu_tile_turn(12, 15) == 3); // clamped at both ends
         std::array<MenuItem, menu_here_max> items {};
@@ -2308,14 +2343,14 @@ void button_remap() {
     // another is), per track; inside the hub home, Patterns; Step Edit goes back to the page under it.
     {
         UiState q; q.track = 0;
-        q.page = PageId::Stage; CHECK(seq_tap_page(q) == PageId::Patterns);
-        q.page = PageId::Song; CHECK(seq_tap_page(q) == PageId::Patterns);
+        q.page = PageId::Stage; CHECK(seq_tap_page(q) == PageId::Scenes); // Seq's home: Sequences, every track
+        q.page = PageId::Song; CHECK(seq_tap_page(q) == PageId::Scenes);
         remember_editor(q, PageId::Motion);
         q.page = PageId::Stage; CHECK(seq_tap_page(q) == PageId::Motion);
-        q.track = 1; CHECK(seq_tap_page(q) == PageId::Patterns); // each track its own
+        q.track = 1; CHECK(seq_tap_page(q) == PageId::Scenes); // each track its own
         q.track = 0; remember_editor(q, PageId::Stage); CHECK(seq_editor_page(q) == PageId::Motion); // only the hub's pages count
-        q.page = PageId::Motion; CHECK(seq_tap_page(q) == PageId::Patterns); // home
-        q.page = PageId::Patterns; CHECK(seq_tap_page(q) == PageId::Patterns);
+        q.page = PageId::Motion; CHECK(seq_tap_page(q) == PageId::Scenes); // home
+        q.page = PageId::Patterns; CHECK(seq_tap_page(q) == PageId::Scenes && seq_home == PageId::Scenes);
         q.page = PageId::StepEdit; CHECK(seq_tap_page(q) == PageId::Motion);
         CHECK(seq_editor(PageId::Roll) && !seq_editor(PageId::StepEdit) && seq_editor(PageId::Patterns));
     }
@@ -11005,13 +11040,18 @@ void pad_lights() {
     ui.page = PageId::Song; project->song.clips[0].track = 0; project->song.clips[0].bars = 2; project->song.count = 1; light({});
     CHECK(is(1, Hue::Track, 4) && is(0, Hue::Track, 3) && is(5, Hue::Track, 1));
 
-    // Seq held: the pattern in play Full, with notes Dim, empty dark; + Erase red; + Shift a column; a copy.
+    // Seq held: the sequences, white (shell/sequences.h): the one every track with notes there plays Full, one with
+    // notes on a track Faint, empty dark. On Patterns the selected track's patterns: the one in play Full, with
+    // notes Dim; + Erase red; + Shift a column; a copy.
     auto& p = bank->at[1][0];
     put(p, 0, uint8_t(sampler_first_note + 1), 127);
     put(p, 2, uint8_t(sampler_first_note), 100);
     put(bank->at[1][2], 0, uint8_t(sampler_first_note), 100);
     ui.page = PageId::Stage; ui.seq_held = true; light(plays);
+    CHECK(is(0, Hue::White, 4) && is(2, Hue::White, 1) && is(5, Hue::None, 0));
+    ui.page = PageId::Patterns; light(plays);
     CHECK(is(0, Hue::Track, 4) && is(2, Hue::Track, 2) && is(5, Hue::None, 0));
+    ui.page = PageId::Stage;
     ui.erase = true; light(plays);
     CHECK(is(0, Hue::Red, 3) && is(2, Hue::Red, 2) && is(5, Hue::None, 0));
     ui.erase = false; ui.shift = true; light(plays);

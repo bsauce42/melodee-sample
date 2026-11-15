@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
-// SCENES (roadmap P5; B1 again on Patterns, B1 here back to it): the bank's sixteen scenes laid out
+// SEQUENCES (roadmap P5's scenes; Seq's home, B1's first page, B1 again: Patterns): the bank's sixteen sequences laid out
 // as the pads sit (pad 1 bottom left; Pad Bank another bank of
-// them), each a column of patterns, pattern n of every track. A pad launches its scene: pattern n on each track holding notes
-// there (and on the selected track) at the next bar, the scene's tempo with
+// them), each a column of patterns, pattern n of every track. A pad launches its sequence: pattern n on every used
+// track at the next bar (a track with no notes there goes silent, shell/sequences.h), the scene's tempo with
 // it; Erase + pad clears its name and tempo. Push names the scene in hand,
 // the wheel sets its tempo (below 30 BPM: none of its own). The cards are the
 // selected track's pattern's follow action (model/follow.h): K1 FOLLOW, K2
@@ -51,8 +51,8 @@ void draw(Paint& p, const Snapshot& s) {
     // the pads chip names the page: SEQUENCES (a scene on screen is a sequence, the panel's word; shell/pad_job.h)
     h.left.push_back(bank_pill(s));
     h.right.push_back(tag_of(s, s.ui.track));
-    SoftKeys keys {{"SEQUENCES", "ROLL", "MOTION"}, 0, c}; // B1's second page: B1 again goes back to Patterns
-    keys.dots[0] = 2; keys.dot_at[0] = 1;
+    SoftKeys keys {{"SEQUENCES", "ROLL", "MOTION"}, 0, c}; // B1's first page, Seq's home: B1 again is Patterns
+    keys.dots[0] = 2; keys.dot_at[0] = 0;
     if (s.ui.shift) keys = SoftKeys {{"", "CAPTURE", "ALL"}, -1, c}; // Shift + B2: what plays into a scene; Shift + B3: the follow onto every track's pattern
     if (s.ui.scene_capture) keys = SoftKeys {{"CANCEL", "CAPTURE", ""}, 1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}; // a pad picks the scene
     frame(p, s, keys, h);
@@ -135,7 +135,7 @@ void soft(Context& c, int key) {
         return;
     }
     if (c.ui.scene_capture) { if (key == 0) c.ui.scene_capture = false; return; } // CANCEL
-    if (key == 0) { c.open(PageId::Patterns); return; } // SCENES again: back to Patterns
+    if (key == 0) { c.open(PageId::Patterns); return; } // B1 again: its second page, Patterns
     seq_hub_soft(c, key);                                  // ROLL, MOTION
 }
 
