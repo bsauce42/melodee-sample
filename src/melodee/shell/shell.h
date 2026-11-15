@@ -3,6 +3,7 @@
 #pragma once
 #include "melodee/engine/voice_tap.h"
 #include "melodee/model/project.h"
+#include "melodee/shell/tap_hold.h"
 #include "melodee/shell/card_access.h"
 #include "melodee/shell/update.h"
 #include "melodee/shell/context.h"
@@ -159,8 +160,7 @@ private:
     SampleLibrary* library_ = nullptr;
     unsigned library_seen = ~0u;
     unsigned format_seen = 0; // the engine's format_changes() the project was last sent again for
-    uint32_t tap_down = 0;
-    bool tap_held = false;
+    TapHold tap; // Tap Tempo held: the tempo on the encoder, or the Tempo page (shell/tap_hold.h)
     ProjectStore* store_ = nullptr;
     InputRoute* input_ = nullptr;
     CardLink card_link;

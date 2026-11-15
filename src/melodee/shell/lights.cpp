@@ -267,8 +267,12 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (real && !chop.unwritten) chop = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
         ++context_.samples_to_load;
     }
-    // Tap Tempo held half a second: the Tempo page; held on it, back to the page under it (its opener closes it).
-    if (tap_held && now - tap_down > 500) { tap_held = false; if (ui_.page == PageId::Tempo) context_.back(); else context_.open(PageId::Tempo); }
+    // Tap Tempo held half a second with nothing turned: the Tempo page; held on it, back to the page under it.
+    switch (tap_tick(tap, now, ui_.page == PageId::Tempo)) {
+    case TapDo::Open: context_.open(PageId::Tempo); break;
+    case TapDo::Close: context_.back(); break;
+    default: break;
+    }
     context_.now = now;
     looper_tick(context_, now); // Loop held, a clear pad held, refusals, the metronome (shell/looper_jobs.cpp)
     unsigned presses = power.load(std::memory_order_relaxed);

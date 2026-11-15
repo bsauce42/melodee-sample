@@ -87,6 +87,7 @@
 #include "melodee/ui/card_rows.h"
 #include "melodee/shell/button_jobs.h"
 #include "melodee/shell/page_stack.h"
+#include "melodee/shell/tap_hold.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/sample_mode.h"
@@ -2212,6 +2213,25 @@ void button_remap() {
     // Opening a page already on the stack goes back to it instead of growing it.
     go(PageId::Sounds); go(PageId::Patterns); go(PageId::Sounds);
     CHECK(nav.back_depth == 1 && nav.back_stack[0] == PageId::Stage);
+    // Tap Tempo held (shell/tap_hold.h): a turn of the encoder shows the Tempo page until it is let go; held alone,
+    // the page opens to stay; held on the page, it closes.
+    {
+        TapHold tap;
+        tap_press(tap, 1000);
+        CHECK(tap_tick(tap, 1000 + tap_hold_ms, false) == TapDo::Nothing); // not yet
+        CHECK(tap_turn(tap, false) == TapDo::Open && tap_turn(tap, true) == TapDo::Nothing); // the first turn opens it
+        CHECK(tap_tick(tap, 5000, true) == TapDo::Nothing); // a turn under way never closes it
+        CHECK(tap_release(tap, true) == TapDo::Close && !tap.down);
+        tap_press(tap, 2000);
+        CHECK(tap_tick(tap, 2000 + tap_hold_ms + 1, false) == TapDo::Open && tap_tick(tap, 9000, true) == TapDo::Nothing);
+        CHECK(tap_release(tap, true) == TapDo::Nothing); // opened by holding alone: it stays
+        tap_press(tap, 3000);
+        CHECK(tap_tick(tap, 3000 + tap_hold_ms + 1, true) == TapDo::Close); // its opener closes it
+        CHECK(tap_release(tap, false) == TapDo::Nothing);
+        tap_press(tap, 4000);
+        CHECK(tap_turn(tap, true) == TapDo::Nothing && tap_release(tap, true) == TapDo::Nothing); // on the page already: it stays
+        CHECK(tap_turn(tap, false) == TapDo::Nothing); // not down: the encoder is the page's
+    }
     // Tracks is the mixer's: Tracks -> Stage, Back lands on Tracks; Tracks -> Sends -> Rack is one stop.
     {
         UiState m; m.page = PageId::Patterns;

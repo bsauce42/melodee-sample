@@ -18,7 +18,7 @@ Previous: [Exit and troubleshooting](exit-and-troubleshooting.md) · [Contents](
 | **LOOP** | Loop the last pad. On Roll and Step Edit: loop the bars in view. On Song: loop the clip's bars. Held: the pads control the Looper. With **16 LEVELS**: open the Looper. | Reverse (on Roll and Step Edit, the notes). Hold 0.5 s: Looper on or off. |
 | **16 LEVELS** | 16 Levels on or off. Held: **K1**–**K3** its settings, **−** / **+** its octave. | 16 Levels type |
 | **SAMPLE SELECT** | Sample browser on a kit, plug-in picker on a plug-in track, sounds on a MIDI track. Again: closes it. | Save Sample. On the browser: Save Bank. On a MIDI track: Save sound. |
-| **TAP TEMPO** | Tap tempo. Hold: Tempo page; hold again: closes it. | Metronome Off, On, Rec |
+| **TAP TEMPO** | Tap tempo. Held + encoder: the tempo. Held alone: Tempo page; held again there: closes it. | Metronome Off, On, Rec |
 | Encoder push | Open, or next card | Back |
 | **−** / **+** | Octave, bank, or list | Undo / redo |
 | **SAMPLE RECORD** | On a kit: record onto a pad. On a plug-in or MIDI track: the PRINT sheet. On an audio track: its **INPUT**. With **SEQ** held: freeze patterns. | Audio Recall |

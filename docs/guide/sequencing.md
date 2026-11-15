@@ -358,8 +358,12 @@ Press **B1** on Patterns to open **Sequences**. Press **B1** again to go back.
 
 ## Tempo
 
-Hold **TAP TEMPO** for half a second to open the **Tempo** page. Tap **TAP
-TEMPO** to set the tempo by tapping.
+Tap **TAP TEMPO** to set the tempo by tapping. Hold **TAP TEMPO** and turn
+the encoder to set it by a whole BPM, as on the stock app: the **Tempo** page
+shows while you hold, and goes back when you let go.
+
+Hold **TAP TEMPO** for half a second without turning to open the Tempo page
+and keep it open. Hold **TAP TEMPO** again there to close it.
 
 ![Tempo](../images/screens/tempo.png)
 

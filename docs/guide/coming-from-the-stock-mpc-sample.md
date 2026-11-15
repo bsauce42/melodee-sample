@@ -36,6 +36,8 @@ is different, and how to change your habits.
 - **SHIFT** + **Pad 12** opens Song. **SHIFT** + **Pad 16** opens Project.
 - Press **STOP** twice to stop all notes: the second press, while stopped,
   sends all notes off.
+- Hold **TAP TEMPO** and turn the encoder to set the tempo. Held without a
+  turn, it opens the Tempo page.
 - Knob FX, Pad FX, Flex Beat and the master compressor work as on the stock
   app, with the stock effects in the stock order.
 
@@ -52,7 +54,6 @@ is different, and how to change your habits.
 | The project saves in the background. | Save with **SHIFT** + **Pad 16**, then **B1** (**SAVE**). Leaving through the Exit screen also saves. |
 | Projects are on the internal drive. | Melodee's projects are on the card in `Melodee/Projects`. On the project list, **B2** (**INTERNAL**) shows the internal drive. Stock projects open as copies (see [MPC Sample projects](projects-and-files.md#mpc-sample-projects)). |
 | **SHIFT** + **KNOB FX** (FX Select) picks pad effects. | **SHIFT** + **KNOB FX** opens the effect chains: Track, Bus, Master and, on a kit, Pad. |
-| Hold **TAP TEMPO** and turn the encoder to set the tempo. | Hold **TAP TEMPO** to open the **Tempo** page. Or hold **SEQ** and turn the encoder. |
 | **SHIFT** + **SEQ RECORD** brings the last loop into the sequence. | **SHIFT** + **SEQ RECORD** (Recall) puts the last phrase you played on every track into each track's next empty pattern. |
 | **SAMPLE RECORD** records a sample. | On a kit, the same. On a plug-in or MIDI track, **SAMPLE RECORD** opens the **PRINT** sheet, which freezes the track to audio (see [Freeze a track](tracks.md#freeze-a-track)). |
 | No looper. | Press **LOOP** and **16 LEVELS** together to open the **Looper**. |

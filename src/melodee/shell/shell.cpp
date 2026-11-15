@@ -203,7 +203,7 @@ void Shell::button(Button b, bool pressed) {
     if (card_owns_controls(ui_)) { // SD card access (shell/card_access.h): B1, the question's B3, Play and Stop
         if (!pressed) { // a button held as the card went away lets go, doing nothing
             if (b == Button::Shift) ui_.shift = false;
-            if (b == Button::TapTempo) tap_held = false;
+            if (b == Button::TapTempo) tap.down = false;
             if (b == Button::Play || b == Button::Stop) press(b, pressed);
             else let_go(context_, b);
             return;
@@ -235,7 +235,7 @@ void Shell::press(Button b, bool pressed) {
     if (pressed && ask_button(context_, b)) return; // a question open (shell/ask.cpp): B1 Cancel, B3 Do it
     if (new_track_lock(context_, b, pressed)) return; // an empty track in hand: made or left first (shell/new_track.h)
     if (ui.name.open()) { // the Name sheet takes the controls it uses; Play and Stop still work
-        if (!pressed) { if (b == Button::TapTempo) tap_held = false; let_go(context_, b); return; }
+        if (!pressed) { if (b == Button::TapTempo) tap.down = false; let_go(context_, b); return; }
         switch (b) {
         case Button::TopLeft: context_.cancel_name(); return;
         case Button::TopMiddle: if (!ui.name.caps_only) ui.name.lower = !ui.name.lower; return;
@@ -325,7 +325,8 @@ void Shell::press(Button b, bool pressed) {
         return;
     }
     if (!pressed) {
-        if (b == Button::TapTempo) tap_held = false;
+        // Tap Tempo let go: the Tempo page it showed for a turn of the encoder goes back (shell/tap_hold.h)
+        if (b == Button::TapTempo && tap_release(tap, ui.page == PageId::Tempo) == TapDo::Close) context_.back();
         return;
     }
     if (ui.shift) ui.shift_used = true;
@@ -424,7 +425,7 @@ void Shell::press(Button b, bool pressed) {
             break;
         }
         context_.tap_tempo();
-        tap_down = context_.now; tap_held = true; // held, it opens the Tempo page
+        tap_press(tap, context_.now); // held: the tempo on the encoder, or the Tempo page (shell/tap_hold.h)
         break;
     // Shift + Minus / Plus: undo and redo, as printed, on every page.
     // Pad Bank held: Minus / Plus jump banks.
@@ -526,6 +527,11 @@ void Shell::wheel(int delta) {
     if (ui_.ask != UiState::Ask::None) { ui_.ask_pick = key_pick_turn(ui_.ask_pick, delta, 0b101); return; } // CANCEL or the verb
     if (ui_.name.open()) { // Shift: the character under the cursor; else the cursor
         if (ui_.shift) { ui_.shift_used = true; ui_.name.step_char(delta); } else ui_.name.move(delta);
+        return;
+    }
+    if (tap.down) { // Tap Tempo held, as on the stock app: the tempo by a whole BPM, the Tempo page showing meanwhile
+        if (tap_turn(tap, ui_.page == PageId::Tempo) == TapDo::Open) context_.open(PageId::Tempo);
+        context_.set_tempo(int(context_.tempo_now()) + delta * 10);
         return;
     }
     if (seq_wheel(context_, delta)) return;     // Seq held: the tempo
