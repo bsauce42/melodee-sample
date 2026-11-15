@@ -15,6 +15,12 @@ stop square, a red dot while recording, a red ring while recording is
 armed. The **place bar** under the soft keys shows where playback is: green
 while playing, red while recording, amber while waiting for a bar to start.
 
+When the pads do not play the selected track, the first chip in the header
+says what they do: **TRACKS**, **PATTERNS**, **SEQUENCES**, **STEPS**,
+**PAD FX**, **LOOPS** or **LEVELS**. The button of that job is bright; on
+the mixer's Tracks page that is **PAD BANK**. Press **SAMPLE** to open the
+sound's page, where the pads play again.
+
 Lists work the same way on every page: the symbol before a name shows what
 the row is (folder, sample, instrument, plug-in), and facts about it are at
 the right edge. **K1** jumps through any list.

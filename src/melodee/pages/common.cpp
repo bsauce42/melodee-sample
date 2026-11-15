@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/pad_bank.h"
+#include "melodee/shell/pad_job.h"
 #include "melodee/pages/common.h"
 #include "melodee/shell/undo_scope.h"
 #include "melodee/shell/midi_ports.h"
@@ -68,6 +69,9 @@ ui::Header header_of(const Snapshot& s) {
         }
         h.left.insert(h.left.begin(), ui::chip(what.isEmpty() ? juce::String("HELD") : "HELD " + what, colour_of(s)));
     }
+    // The pads chip (shell/pad_job.h): what the pads do when they do not play the track, first among a page's chips.
+    if (const char* job = pad_job(s.project, s.ui); *job) h.left.push_back(ui::chip(ui::Icon::Pads, job, ui::colour::text));
+    h.lead = unsigned(h.left.size());
     return h;
 }
 
@@ -806,7 +810,7 @@ void frame(ui::Paint& p, const Snapshot& s, const ui::SoftKeys& keys, const ui::
     if (knob_fx && s.ui.page != PageId::KnobFx) { // the pots are Knob FX's: the header names its effect first
         auto shown = header;
         auto name = juce::String(knob_fx_entry(s.project.knob_fx.choice).name).toUpperCase();
-        shown.left.insert(shown.left.begin(), ui::chip(ui::Icon::Knob, name, ui::colour::text));
+        shown.left.insert(shown.left.begin() + std::min<size_t>(shown.lead, shown.left.size()), ui::chip(ui::Icon::Knob, name, ui::colour::text)); // after the states and the pads chip
         ui::header(p, shown);
     } else {
         ui::header(p, header);

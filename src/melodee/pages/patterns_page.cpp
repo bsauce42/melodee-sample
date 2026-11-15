@@ -108,7 +108,8 @@ void draw(Paint& p, const Snapshot& s) {
     unsigned first = s.ui.track / 8 * 8, column = scene_of(s.project, s.ui);
     auto c = colour_of(s);
     Header h = header_of(s);
-    h.left.push_back(bank_pill(s));
+    // After the pads chip (PATTERNS) the header has room for one more: the sequence in view (FOLLOW: the pattern in
+    // hand). The bank follows and shows only where there is room; the cells' numbers say it too (1-16 is bank A).
     const auto& scene = s.project.scenes[column];
     if (s.ui.patterns_cards == 2) // FOLLOW: the pattern in hand's
         h.left.push_back(chip("T" + juce::String(s.ui.track + 1) + " P" + juce::String(s.track().pattern % pattern_count + 1), c));
@@ -117,6 +118,7 @@ void draw(Paint& p, const Snapshot& s) {
         juce::String id = "SEQ " + juce::String(column + 1), name(scene.name);
         h.left.push_back(chip(name.isEmpty() || name == id ? id : id + " " + name, colour::amber)); // a name of its own beside its number
     }
+    h.left.push_back(bank_pill(s));
     // Rec Quantize's grid (Shift + Pad 10), after the scene: the header leaves it out when there is no room.
     h.left.push_back(pill(Icon::Magnet, s.ui.settings.rec_quantize ? juce::String(division_name(grid_division(s.ui.settings.rec_grid, s.pattern.division)))
                                                                  : juce::String("OFF"),

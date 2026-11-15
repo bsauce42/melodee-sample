@@ -48,7 +48,7 @@ void draw(Paint& p, const Snapshot& s) {
     unsigned hand = s.ui.scene % pattern_count;
     const auto& scene = s.project.scenes[hand];
     Header h = header_of(s);
-    h.left.push_back(chip("SEQUENCES", c)); // a scene on screen is a sequence, the panel's word (SEQ)
+    // the pads chip names the page: SEQUENCES (a scene on screen is a sequence, the panel's word; shell/pad_job.h)
     h.left.push_back(bank_pill(s));
     h.right.push_back(tag_of(s, s.ui.track));
     SoftKeys keys {{"SEQUENCES", "ROLL", "MOTION"}, 0, c}; // B1's second page: B1 again goes back to Patterns

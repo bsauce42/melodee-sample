@@ -90,6 +90,7 @@
 #include "melodee/shell/tap_hold.h"
 #include "melodee/shell/autosave.h"
 #include "melodee/shell/menu.h"
+#include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/sample_mode.h"
@@ -2223,6 +2224,19 @@ void button_remap() {
     // Opening a page already on the stack goes back to it instead of growing it.
     go(PageId::Sounds); go(PageId::Patterns); go(PageId::Sounds);
     CHECK(nav.back_depth == 1 && nav.back_stack[0] == PageId::Stage);
+    // The pads chip (shell/pad_job.h): what the pads do when they do not play the track; "" while they play.
+    {
+        UiState j; j.track = 0;
+        auto job = [&] { return std::string(pad_job(*project, j)); };
+        j.page = PageId::Stage; CHECK(job().empty());
+        j.page = PageId::Tracks; CHECK(job() == "TRACKS");
+        j.page = PageId::Scenes; CHECK(job() == "SEQUENCES");
+        j.page = PageId::StepEdit; CHECK(job().empty()); j.step_pads = true; CHECK(job() == "STEPS"); j.step_pads = false;
+        j.page = PageId::Roll; j.seq_held = true; CHECK(job() == "PATTERNS");
+        j.pad_bank = true; CHECK(job() == "TRACKS"); // Pad Bank held wins
+        j.menu = menu_go_view; CHECK(job().empty()); // a sheet draws its own pads
+        j.menu = menu_closed; j.copying = UiState::Copying::Tracks; CHECK(job().empty()); // a move's prompt has the header
+    }
     // The MENU (shell/menu.h): the encoder held opens it, a tap stays the page's Push; GO's tiles and HERE's cards.
     {
         EncoderHold e;
