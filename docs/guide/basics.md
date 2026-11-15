@@ -36,6 +36,21 @@ the right edge. **K1** jumps through any list.
 
 ![A key's pages, listed after a press](../images/screens/keylist.png)
 
+## Held keys
+
+Three keys work the same way when you hold them, on any page: the pads pick
+something and **K1**–**K3** set it. Let go and the page's own cards are
+back. A held key's cards also take over from Knob FX.
+
+| Hold | The pads pick | K1–K3 set |
+| --- | --- | --- |
+| **SAMPLE** | A kit pad, without playing it | Its pitch, volume and pan |
+| **SEQ** | A pattern of the selected track | Its length, Q and swing |
+| **PAD BANK** | A track | Its level, pan and send to bus A |
+
+On an instrument track, **SAMPLE** held shows the keys and their root, scale
+and layout instead.
+
 ## The Menu
 
 Hold the encoder for a moment to open the **Menu** over any page. It has two

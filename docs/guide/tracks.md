@@ -10,6 +10,8 @@ To see all 16 tracks, open the [Tracks page](#the-tracks-page).
 While **PAD BANK** is held the pads are the tracks, and the screen stays on
 the page you are on. Only the keys change: **TRACKS**, **MOVE** and
 **COPY**. Holding **PAD BANK** never changes the bank; only a tap does.
+**K1**–**K3** set the selected track's level, pan and send to bus A while
+it is held, on any page.
 
 - Press **B1** (**TRACKS**) to open the Tracks page.
 - Press **B2** (**MOVE**), then a track, then a pad to move the track there.

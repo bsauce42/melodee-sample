@@ -269,6 +269,14 @@ void bindings() {
     auto mix = page_bindings(project, ui, pattern);
     CHECK(mix[0].kind == Binding::Kind::Level && mix[2].kind == Binding::Kind::Send && mix[2].id == 0);
     CHECK(mix[1].kind == Binding::Kind::Pan && mix[1].at(0) == -50 && mix[1].at(127) == 50);
+    { // Held keys: Pad Bank held puts the selected track's strip on K1-K3 on any page, over Knob FX too.
+        UiState held = ui; held.page = PageId::Roll; held.pad_bank = true;
+        auto strip = page_bindings(project, held, pattern);
+        CHECK(strip[0].kind == Binding::Kind::Level && strip[1].kind == Binding::Kind::Pan && strip[2].kind == Binding::Kind::Send && strip[2].id == 0);
+        CHECK(!shift_bindings(project, held, pattern)[0].bound()); // one row
+        held.pad_bank = false; held.copying = UiState::Copying::Tracks; // a track move picking its tracks: the same
+        CHECK(page_bindings(project, held, pattern)[0].kind == Binding::Kind::Level);
+    }
     ui.page = PageId::StepEdit; ui.step_pads = true; // Step Edit's pads on the steps
     CHECK(!page_bindings(project, ui, pattern)[0].bound()); // an empty step has nothing on the cards
     put(pattern, 0, 50, 90);

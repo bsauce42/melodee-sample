@@ -614,6 +614,7 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
     const auto& track = project.tracks[ui.track % track_count];
     if (ui.name.open()) return {};
     if (ui.seq_held) return pattern_shift_cards(project, ui, pattern); // Seq held: the pattern's, on any page
+    if (ui.pad_bank || ui.copying == UiState::Copying::Tracks) return {}; // Pad Bank held (or a track move): the track's strip has one row
     if (ui.levels_held) return {}; // 16 Levels held: its cards have no Shift row
     if (auto pads = sample_held_page(project, ui); pads != PageId::Count) { // Sample held: its pads' (Pads, Keys)
         UiState on = ui; on.page = pads; on.sample_held = false;
@@ -744,7 +745,9 @@ std::array<Binding, 3> page_bindings(const Project& project, const UiState& ui, 
     // SD card access: the card is away, every mode waits (shell/card_access.h).
     if (ui.page == PageId::CardAccess || ui.card.state != 0) return {};
     // Knob FX on: the pots are its, on every page (as on the MPC), but for the Name sheet and Seq held.
-    if (knob_owns(project, ui) && !(ui.seq_held && !ui.name.open())) return knob_bindings(project, shift);
+    // A held key's cards win as well: Seq held (the pattern's), Pad Bank held (the track's strip), Sample held (the pad's).
+    bool held_key = ui.seq_held || ui.pad_bank || ui.copying == UiState::Copying::Tracks || sample_held_page(project, ui) != PageId::Count;
+    if (knob_owns(project, ui) && !(held_key && !ui.name.open())) return knob_bindings(project, shift);
     auto cards = base_bindings(project, ui, pattern);
     if (!shift) return cards;
     auto second = shift_bindings(project, ui, pattern);
@@ -765,6 +768,11 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
                 Binding {Kind::NameChar, 0, 0, int(NameEntry::charset_size()) - 1, int(ui.name.char_at())}, Binding {}};
     }
     if (ui.seq_held) return pattern_cards(project, pattern); // Seq held: the pattern's, on any page
+    if (ui.pad_bank || ui.copying == UiState::Copying::Tracks) { // Pad Bank held, or a track move or copy picking its tracks:
+        if (!track.used()) return {};                             // the selected track's strip, as the mixer's Tracks and Stage MIX
+        return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
+                Binding {Kind::Send, 0, 0, 100, track.mix.sends[0]}};
+    }
     if (auto pads = sample_held_page(project, ui); pads != PageId::Count) { // Sample held: its pads' (Pads, Keys)
         UiState on = ui; on.page = pads; on.sample_held = false;
         return base_bindings(project, on, pattern);
