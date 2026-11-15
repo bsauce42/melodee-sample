@@ -753,6 +753,7 @@ void wave_picture(Paint& p, const Snapshot& s, const StagePage& page) {
         juce::String now = seconds(uint32_t(std::clamp(into, 0.0, double(end - start))));
         if ((heard->flags & tap::Loop) && heard->pass) two_part("PASS " + juce::String(heard->pass + 1), dot + now);
         else two_part(now, " OF " + seconds(end - start));
+        if (heard->slot != pad.sample) into = double(head_through(*heard)) * double(end - start); // another layer's voice: as far through as it is
         return;
     }
     if (page.kind == StageKind::Cloud) { // where the grains come from (or are now), at the line; the file's length dim

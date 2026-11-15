@@ -10205,6 +10205,23 @@ void voice_heads() {
         t.track = 3; t.count = 1; t.stamp = 10000;
         voice(t.voice[0], 5, 20000, 0.8f);
         trail.update(t, -500, 1000);
+        // A pad with layers: the voice of any layer's sample is the pad's (the picture shows its first layer); a
+        // pad without layers keeps to its own sample.
+        {
+            HeadTrail layered;
+            TrackTaps lt;
+            lt.track = 3; lt.count = 1;
+            auto& lv = lt.voice[0];
+            lv.serial = 9; lv.pad = 8; lv.slot = 28; lv.from = 0; lv.to = 20000; lv.at = 10000; lv.step = 1; lv.level = 1; lv.age = 10000;
+            layered.update(lt, 0, 5000);
+            PadSound two; two.sample = 27; two.layers[0].sample = 28;
+            PadSound one; one.sample = 27;
+            auto heads = layered.heads();
+            CHECK(pad_voices(heads, 8, uint16_t(27)).count == 0);          // by its first sample alone: nothing
+            auto both = pad_voices(heads, 8, two);
+            CHECK(both.count == 1 && both.sounding == 1 && both.head[0]->slot == 28 && std::abs(head_through(*both.head[0]) - 0.5f) < 0.01f);
+            CHECK(pad_voices(heads, 8, one).count == 0 && pad_voices(heads, 9, two).count == 0);
+        }
         CHECK(!trail.heads()[0].cut && trail.heads()[0].sounding());
         t.count = 0; t.stamp = 10480; // the next block, the voice gone
         trail.update(t, -500, 1010);

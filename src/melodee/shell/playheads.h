@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
 #include "melodee/engine/voice_tap.h"
+#include "melodee/model/sampler.h"
 #include "melodee/shell/chop.h"
 #include <algorithm>
 #include <array>
@@ -268,6 +269,18 @@ inline PadVoices pad_voices(const std::array<PlayHead, HeadTrail::size>& heads, 
     PadVoices out;
     for (const auto& h : heads) { // newest first
         if (!h.shown() || h.pad != pad || h.slot != slot || (h.flags & tap::Cloud)) continue;
+        if (h.sounding()) ++out.sounding;
+        if (out.count < PadVoices::cap) out.head[out.count++] = &h;
+    }
+    return out;
+}
+// The same for a pad with layers (roadmap P3): the voices of any of its layers' samples. A layered pad plays a
+// different sample from hit to hit (Cycle, Random) or by velocity; the picture shows its first layer, and a voice
+// on another layer draws its head as far through the region as it is through its own (head_through()).
+inline PadVoices pad_voices(const std::array<PlayHead, HeadTrail::size>& heads, int pad, const PadSound& sound) {
+    PadVoices out;
+    for (const auto& h : heads) { // newest first
+        if (!h.shown() || h.pad != pad || !sound.plays(h.slot) || (h.flags & tap::Cloud)) continue;
         if (h.sounding()) ++out.sounding;
         if (out.count < PadVoices::cap) out.head[out.count++] = &h;
     }

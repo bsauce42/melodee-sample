@@ -251,19 +251,24 @@ const PlayHead* pad_head(const Snapshot& s, unsigned pad, const PadSound& sound,
 StageHeads stage_heads(const Snapshot& s, unsigned pad, const PadSound& sound, uint32_t frames) {
     StageHeads out;
     if (!frames) return out;
-    PadVoices voices = pad_voices(s.heads, int(pad), sound.sample);
+    PadVoices voices = pad_voices(s.heads, int(pad), sound); // any of its layers' voices: a layered pad plays another sample each hit
     out.sounding = voices.sounding;
+    // The region the picture shows: the pad's own (its first layer's).
+    const uint32_t shown_to = sound.end ? std::min(sound.end, frames) : frames, shown_from = std::min(sound.start, shown_to);
     for (unsigned n = 0; n < voices.count; ++n) {
         const PlayHead& head = *voices.head[n];
         auto& wave = out.wave[out.count++];
-        wave.at = float(head.at / frames);
+        const bool other = head.slot != sound.sample; // a voice on another layer's sample: as far through the region shown as through its own
+        const float lo = float(shown_from) / float(frames), hi = float(shown_to) / float(frames);
+        wave.at = other ? (head.reverse() ? hi - head_through(head) * (hi - lo) : lo + head_through(head) * (hi - lo)) : float(head.at / frames);
         wave.strength = voice_strength(head, n == 0);
         wave.wake_from = wave.at;
         if (n) continue; // older voices: a head, no wake
         out.newest = &head;
+        wave.wake = head.wake;
+        if (other) { wave.wake_from = head.reverse() ? hi : lo; continue; }
         bool round = head.pass && (head.flags & tap::Loop);
         wave.wake_from = float(head.reverse() ? head.to : round ? head.loop_at : head.from) / float(frames);
-        wave.wake = head.wake;
         if (round && !head.reverse() && head.loop_at > head.from) // the first pass's part before the loop point
             out.wave[out.count++] = {float(head.loop_at) / float(frames), float(head.from) / float(frames), 0, head.wake * 0.5f};
     }
