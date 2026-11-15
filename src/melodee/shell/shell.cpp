@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/shell.h"
+#include "melodee/shell/features.h"
 #include "melodee/crash_log.h"
 #include "melodee/shell/erase_copy.h"
 #include "melodee/shell/key_pick.h"
@@ -301,7 +302,10 @@ void Shell::press(Button b, bool pressed) {
         }
         if (b == Button::SixteenLevels && !pressed && ui.levels_held && context_.now - ui.levels_down >= levels_hold_ms) ui.levels_used = true;
         switch (looper_chord(ui, b, pressed)) {
-        case ChordAct::Looper: if (ui.shift) ui.shift_used = true; context_.open(PageId::Looper); end_copy_away(); return;
+        case ChordAct::Looper: // Loop + 16 Levels: the Looper (Full's, shell/features.h; Basic: nothing)
+            if (ui.shift) ui.shift_used = true;
+            if (looper_shown(ui)) { context_.open(PageId::Looper); end_copy_away(); }
+            return;
         case ChordAct::Levels:
             if (ui.shift) ui.shift_used = true;
             if (!pressed && (ui.exit_open || ui.ask != UiState::Ask::None)) return; // let go under a sheet: nothing
@@ -758,7 +762,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
         // Trim and Chop zoomed in: the view's own peaks, from the audio (the overview's 512 are too few that close).
         FrameView view;
         if (ui_.page == PageId::Chop && ui_.chop_zoom) view = chop_view(*project_, ui_);
-        if (ui_.page == PageId::Stage && ui_.trim_zoom && stage_page_now(ui_, t, stage_instrument(*project_, t)).kind == StageKind::Trim) view = trim_view(*project_, ui_);
+        if (ui_.page == PageId::Stage && ui_.trim_zoom && stage_page_now(ui_, t, stage_skip(*project_, ui_, t)).kind == StageKind::Trim) view = trim_view(*project_, ui_);
         out.detail_from = out.detail_to = 0;
         uint8_t* const sides[2] = {out.detail_sides[0].data(), out.detail_sides[1].data()};
         if (view.width() && slot < sample_slots && library_->detail(slot, view.from, view.to, out.detail.data(), unsigned(out.detail.size()), sides)) {

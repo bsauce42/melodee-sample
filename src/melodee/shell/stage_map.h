@@ -31,29 +31,37 @@ inline bool stage_instrument(const Project& p, const Track& t) {
     const auto& pad = t.pads[t.last_pad % sampler_pads];
     return pad.used() && p.samples[pad.sample % sample_slots].instrument();
 }
-// Whether Stage passes over a page: LAYERS on an instrument pad.
-inline bool stage_skips(const StageGroups& g, unsigned group, unsigned sub, bool instrument) {
-    return instrument && g.groups[group % 3].pages[sub % stage_count(g, group)].kind == StageKind::Layers;
+// What Stage passes over: LAYERS on an instrument pad, and the kinds of page Basic leaves out (a bit a StageKind,
+// shell/features.h, stage_skip()). A plain bool is the instrument alone.
+struct StageSkip {
+    bool instrument = false;
+    uint64_t kinds = 0;
+    StageSkip(bool instrument = false, uint64_t kinds = 0) : instrument(instrument), kinds(kinds) {}
+};
+// Whether Stage passes over a page.
+inline bool stage_skips(const StageGroups& g, unsigned group, unsigned sub, StageSkip skip) {
+    StageKind kind = g.groups[group % 3].pages[sub % stage_count(g, group)].kind;
+    return (skip.instrument && kind == StageKind::Layers) || (skip.kinds >> unsigned(kind) & 1);
 }
 // A button's pages as its dots count them, and a page's place among them (a page passed over is not one).
-inline unsigned stage_shown(const StageGroups& g, unsigned group, bool instrument) {
+inline unsigned stage_shown(const StageGroups& g, unsigned group, StageSkip instrument) {
     unsigned n = 0;
     for (unsigned sub = 0; sub < stage_count(g, group); ++sub) n += !stage_skips(g, group, sub, instrument);
     return n;
 }
-inline unsigned stage_shown_at(const StageGroups& g, unsigned group, unsigned sub, bool instrument) {
+inline unsigned stage_shown_at(const StageGroups& g, unsigned group, unsigned sub, StageSkip instrument) {
     unsigned n = 0;
     for (unsigned k = 0; k < sub; ++k) n += !stage_skips(g, group, k, instrument);
     return n;
 }
 
-// `instrument`: stage_instrument() for the track.
-inline StageAt stage_at(const UiState& ui, const Track& t, bool instrument) {
+// `instrument`: stage_skip() for the track (shell/features.h), or stage_instrument() alone.
+inline StageAt stage_at(const UiState& ui, const Track& t, StageSkip instrument) {
     const auto& g = stage_groups(t.engine);
     unsigned track = ui.track % track_count, group = ui.stage_group[track] % 3;
     if (!stage_has(g, group) || stage_opens_edit(t, group)) group = 0; // left on a button with no Stage pages under it
     unsigned sub = ui.stage_sub[track] % stage_count(g, group);
-    if (stage_skips(g, group, sub, instrument)) sub = 0; // left on LAYERS: an instrument pad shows ZONES, a sample pad LAYERS again
+    if (stage_skips(g, group, sub, instrument)) sub = 0; // left on LAYERS: an instrument pad shows ZONES, a sample pad LAYERS again (or on a page Basic leaves out)
     return {group, sub};
 }
 
@@ -72,13 +80,13 @@ inline const StagePage& stage_page_at(const Track& t, unsigned group, unsigned s
     return g.groups[group % 3].pages[sub % stage_count(g, group)];
 }
 
-inline const StagePage& stage_page_now(const UiState& ui, const Track& t, bool instrument) {
+inline const StagePage& stage_page_now(const UiState& ui, const Track& t, StageSkip instrument) {
     auto at = stage_at(ui, t, instrument);
     return stage_page_at(t, at.group, at.sub);
 }
 
 // B1-B3 (`key` 0-2) on Stage.
-inline void stage_press(UiState& ui, const Track& t, unsigned key, bool instrument) {
+inline void stage_press(UiState& ui, const Track& t, unsigned key, StageSkip instrument) {
     const auto& g = stage_groups(t.engine);
     unsigned track = ui.track % track_count;
     auto at = stage_at(ui, t, instrument);

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
-// MOD (roadmap P4; MOTION again on Motion): the project's modulators and
-// macros (model/modulators.h). B1 MOD, B2 MACRO; B3 ADD puts the lane last
-// turned anywhere (a pot on Stage, Edit, a chain, Tracks' strip) on the one
-// in hand. Modulators: K1 which (1-8), K2 its rate (a follower's rise), K3
+// MOD and MACRO (roadmap P4): the project's modulators and macros
+// (model/modulators.h), the second and third page of Seq's B3 after MOTION.
+// The SEQUENCE hub's row stays: B1 SEQUENCES, B2 ROLL, and B3, lit, steps on
+// MOTION, MOD, MACRO and round again (its dots count them). Shift + B3 ADD
+// puts the lane last turned anywhere (a pot on Stage, Edit, a chain, Tracks'
+// strip) on the one in hand. Modulators: K1 which (1-8), K2 its rate (a follower's rise), K3
 // the target in hand's depth; Shift + K1 its kind (Off, LFO, Follow), Shift +
 // K2 an LFO's shape or a follower's source, Shift + K3 an LFO's clock or a
 // follower's fall. Macros: K1 which, K2 its value (every target with it), K3
@@ -134,8 +136,12 @@ void draw(Paint& p, const Snapshot& s) {
         h.left.push_back(pill(mod_kind_name(m.kind), m.kind == ModKind::Off ? colour::dim : c));
     }
     h.right.push_back(tag_of(s, s.ui.track));
-    SoftKeys keys {{"MOD", "MACRO", "ADD"}, macros ? 1 : 0, c, {KeyIcon::None, KeyIcon::None, KeyIcon::None}};
-    keys.glyphs = {Icon::Modulation, Icon::Sliders, Icon::Plus};
+    SoftKeys keys {{"SEQUENCES", "ROLL", macros ? "MACRO" : "MOD"}, 2, c}; // the hub's row: B3's cycle is MOTION, MOD, MACRO
+    keys.dots[2] = 3; keys.dot_at[2] = macros ? 2 : 1;
+    if (s.ui.shift) { // Shift + B3: the lane last turned onto the one in hand
+        keys = SoftKeys {{"", "", "ADD"}, -1, c};
+        keys.glyphs = {Icon::None, Icon::None, Icon::Plus};
+    }
     frame(p, s, keys, h);
     if (macros) draw_macros(p, s, c);
     else draw_mods(p, s, c);
@@ -150,9 +156,18 @@ void wheel(Context& c, int delta) { // the target in hand
 void push(Context& c) { mod_remove(c); }
 
 void soft(Context& c, int key) {
-    if (key == 0) c.ui.mod_view = 0;
-    else if (key == 1) c.ui.mod_view = 1;
-    else mod_add(c);
+    auto& ui = c.ui;
+    if (ui.shift) { // ADD
+        if (key == 2) { ui.shift_used = true; mod_add(c); }
+        return;
+    }
+    if (key == 2) { // the lit key steps on: MOD, MACRO, then round to MOTION
+        if (ui.mod_view == 0) { ui.mod_view = 1; return; }
+        ui.mod_view = 0;
+        c.open(PageId::Motion);
+        return;
+    }
+    seq_hub_soft(c, key); // SEQUENCES, ROLL
 }
 
 void nudge(Context& c, int way) { // the modulator or macro in hand

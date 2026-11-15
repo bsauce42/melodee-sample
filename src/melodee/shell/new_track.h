@@ -29,6 +29,9 @@ constexpr unsigned new_choice_count = unsigned(NewChoice::Count);
 // a type with one source makes it at once).
 enum class NewType : uint8_t { Drum, Keygroup, Plugin, Midi, Audio, Count };
 constexpr unsigned new_type_count = unsigned(NewType::Count);
+// The types offered: all five, or in Basic the first three (MIDI and Audio tracks are Full's, shell/features.h).
+constexpr unsigned basic_type_count = unsigned(NewType::Midi);
+inline unsigned new_types_shown(const UiState& ui) { return ui.settings.full_features ? new_type_count : basic_type_count; }
 struct NewSources { NewChoice items[3]; uint8_t count, first; };
 constexpr NewSources type_sources(NewType type) {
     switch (type) {
@@ -42,7 +45,7 @@ constexpr NewSources type_sources(NewType type) {
 }
 // The cards on the carousel now: the types, or the sources of the type opened.
 inline unsigned new_pick_count(const UiState& ui) {
-    return ui.new_sources ? type_sources(NewType(ui.new_type % new_type_count)).count : new_type_count;
+    return ui.new_sources ? type_sources(NewType(ui.new_type % new_type_count)).count : new_types_shown(ui);
 }
 // The source in the middle (the types: none, Count).
 inline NewChoice new_pick_choice(const UiState& ui) {

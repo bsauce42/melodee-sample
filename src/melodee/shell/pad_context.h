@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
 #include "melodee/model/project.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/seq_layer.h"
 #include "melodee/shell/ui_state.h"
@@ -46,7 +47,7 @@ inline PadContext pad_context(const UiState& ui, const Track& track, const PadFa
     if (ui.exit_open || ui.ask != UiState::Ask::None || ui.menu) return C::Sheet; // the MENU too (shell/menu.h)
     if (tracks_on_pads(ui)) return C::Tracks;
     if (ui.name.open()) return C::Name;
-    if (ui.loop_held && ui.page != PageId::Looper) return C::LoopHeld;
+    if (loop_grid_held(ui)) return C::LoopHeld; // Full's (shell/features.h)
     if (ui.copying == UiState::Copying::Patterns) return C::PatternCopy;
     if (ui.seq_held) return C::SeqLayer;
     if (facts.record_keys && !ui.shift) return C::RecordKeys; // Shift + pad jobs stay

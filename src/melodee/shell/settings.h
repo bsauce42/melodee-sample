@@ -38,6 +38,10 @@ struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
                          AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, Rows };
+    // FEATURES (shell/features.h; Settings' K1): Full shows every page, Basic the stock app's pages plus tracks,
+    // plug-ins, the mixer and Song. A first install (no settings file) starts on Basic; a file from before this
+    // row stays on Full, as it was (read()).
+    bool full_features = true;
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
@@ -104,11 +108,14 @@ struct Settings {
     bool favourite(unsigned engine, unsigned sound) const { return engine < engines && sound < sounds && favourites[engine][sound]; }
     void toggle_favourite(unsigned engine, unsigned sound) { if (engine < engines && sound < sounds) favourites[engine].flip(sound); }
 
-    // MIDI Config's Reset Factory Settings: every setting back to how Melodee comes, the starred sounds kept.
+    // MIDI Config's Reset Factory Settings: every setting back to how Melodee comes, the starred sounds and
+    // FEATURES kept.
     void reset_factory() {
         auto kept = favourites;
+        bool full = full_features;
         *this = Settings {};
         favourites = kept;
+        full_features = full;
     }
 
     static const char* row_name(unsigned row) {
@@ -225,7 +232,7 @@ struct Settings {
     std::string text() const {
         std::ostringstream out;
         // pickup= stays for the builds before parity phase 8, which know only that.
-        out << "pad_response=" << int(pad_response) << "\npad_lights=" << int(pad_lights) << "\npad_fade=" << int(pad_fade) << "\ntap_light=" << int(tap_light)
+        out << "features=" << int(full_features) << "\npad_response=" << int(pad_response) << "\npad_lights=" << int(pad_lights) << "\npad_fade=" << int(pad_fade) << "\ntap_light=" << int(tap_light)
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
@@ -256,13 +263,16 @@ struct Settings {
         std::string line;
         int pickup = -1;          // the old row, read only when the file has none of the new ones
         bool takeovers = false;
+        bool any = false, features = false; // FEATURES: no row in a file with others, Full; no file, Basic
         auto takeover = [&](int value) { takeovers = true; return Takeover(std::clamp(value, 0, int(Takeover::Count) - 1)); };
         while (std::getline(in, line)) {
             auto eq = line.find('=');
             if (eq == std::string::npos) continue;
             std::string key = line.substr(0, eq);
             int value = std::atoi(line.c_str() + eq + 1);
-            if (key == "pad_response") pad_response = uint8_t(std::clamp(value, 0, 3));
+            any = true;
+            if (key == "features") { full_features = value != 0; features = true; }
+            else if (key == "pad_response") pad_response = uint8_t(std::clamp(value, 0, 3));
             else if (key == "pad_lights") pad_lights = uint8_t(std::clamp(value, 0, 2));
             else if (key == "pad_fade") pad_fade = uint8_t(std::clamp(value, 0, int(fades.size()) - 1));
             else if (key == "tap_light") tap_light = value != 0;
@@ -318,6 +328,7 @@ struct Settings {
                     if (!item.empty()) { int s = std::atoi(item.c_str()); if (s >= 0 && unsigned(s) < sounds) favourites[e].set(unsigned(s)); }
             }
         }
+        if (!features) full_features = any; // a file from before the row: Full, as it was; nothing read: a first install, Basic
         if (!takeovers && pickup == 0) knob_takeover = knob_fx_takeover = fader_takeover = Takeover::Instant; // "Knob pickup Off"
     }
 };

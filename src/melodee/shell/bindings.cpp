@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/bindings.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/model/note_edits.h"
 #include "melodee/shell/midi_ports.h"
@@ -466,7 +467,7 @@ unsigned new_engines(std::array<EngineKind, size_t(EngineKind::Count)>& out) {
 
 std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui, const Pattern& pattern, bool shift_row) {
     const auto& track = project.tracks[ui.track % track_count];
-    const auto& page = stage_page_now(ui, track, stage_instrument(project, track));
+    const auto& page = stage_page_now(ui, track, stage_skip(project, ui, track));
     using SK = StageKind;
     if (PageId kit = stage_kit_page(page.kind); kit != PageId::Count) {
         if (shift_row) return page.kind == SK::PadMix ? std::array<Binding, 3> {} : pad_page_shift(project, track, ui, kit);
@@ -643,11 +644,12 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
     }
     case PageId::Patterns: // FOLLOW: Shift + K1 the follow action's second, on the odds the first leaves; SCENE none
         if (ui.sheet_open || ui.patterns_cards == 1) return {};
-        if (ui.patterns_cards == 2)
+        if (ui.patterns_cards == 2 && follow_shown(ui))
             return track.used() ? std::array<Binding, 3> {Binding {Kind::FollowOther, 0, 0, int(FollowAction::Count) - 1, pattern.follow.other}, Binding {}, Binding {}}
                                 : std::array<Binding, 3> {};
         return pattern_shift_cards(project, ui, pattern);
     case PageId::Scenes: // roadmap P5: Shift + K1 the follow action's second, on the odds the first leaves
+        if (!follow_shown(ui)) return pattern_shift_cards(project, ui, pattern); // Basic: as Patterns' Shift row
         if (!track.used()) return {};
         return {Binding {Kind::FollowOther, 0, 0, int(FollowAction::Count) - 1, pattern.follow.other}, Binding {}, Binding {}};
     case PageId::Song: { // roadmap P5: the tempo lane at the cursor's bar: its tempo, and (a point there) its shape
@@ -864,6 +866,7 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         return pattern_cards(project, pattern);
     }
     case PageId::Scenes: { // roadmap P5: the selected track's pattern's follow action, after how long, on what odds
+        if (!follow_shown(ui)) return pattern_cards(project, pattern); // Basic: the pattern's length, Q and swing, as on Patterns
         if (!track.used()) return {};
         const auto& f = pattern.follow;
         return {Binding {Kind::FollowAction, 0, 0, int(FollowAction::Count) - 1, f.action}, Binding {Kind::FollowAfter, 0, 0, 127, follow_after_card(f)},
@@ -1069,7 +1072,10 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     case PageId::Stage: return stage_bindings(project, ui, pattern, false);
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader
     // page keeps the favourites (fader C): a pot turned there is what the fader learns.
-    case PageId::SettingsPage: case PageId::About: case PageId::MidiConfig: return {};
+    case PageId::SettingsPage: // on the doors K1 is FEATURES, Basic or Full (shell/features.h); behind a door the rows take the wheel
+        if (!ui.settings_in) return {Binding {Kind::Features, 0, 0, 1, int(ui.settings.full_features)}, Binding {}, Binding {}};
+        return {};
+    case PageId::About: case PageId::MidiConfig: return {};
     case PageId::Tracks: // the strip in hand, as Stage's MIX: K1 its level, K2 its pan, K3 its send into bus A (pads and the wheel pick the track)
         return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
                 Binding {Kind::Send, 0, 0, 100, track.mix.sends[0]}};

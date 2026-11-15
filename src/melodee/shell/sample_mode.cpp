@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/sample_mode.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/progression_jobs.h"
 #include "melodee/engine/sampler.h"
 #include "melodee/model/scales.h"
@@ -56,10 +57,10 @@ bool sample_key(Context& c, unsigned key) {
     if (!stage_has(stage_groups(t.engine), key)) return true;
     if (ui.page != PageId::Stage) {
         c.open(PageId::Stage);
-        if (stage_at(ui, t, stage_instrument(c.project, t)).group != key % 3) stage_go(ui, key % 3, 0); // the section's first page; its own, kept, when it was the one open
+        if (stage_at(ui, t, stage_skip(c.project, ui, t)).group != key % 3) stage_go(ui, key % 3, 0); // the section's first page; its own, kept, when it was the one open
         return true;
     }
-    stage_press(ui, t, key, stage_instrument(c.project, t));
+    stage_press(ui, t, key, stage_skip(c.project, ui, t));
     return true;
 }
 

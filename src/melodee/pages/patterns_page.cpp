@@ -16,6 +16,7 @@
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/model/generators.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/step_lane.h"
 #include "melodee/ui/widgets.h"
@@ -130,11 +131,11 @@ void draw(Paint& p, const Snapshot& s) {
     if (s.track().speed != speed_normal) // the track plays its patterns at a speed (Tracks, Shift + K1)
         h.right.push_back(pill(juce::String::fromUTF8(speed_name(s.track().speed)), c));
     h.right.push_back(tag_of(s, s.ui.track));
-    SoftKeys keys {{"PATTERNS", "ROLL", "MOTION"}, 0, c};
+    SoftKeys keys {{"PATTERNS", "ROLL", motion_key(s)}, 0, c};
     keys.dots[0] = 2; keys.dot_at[0] = 1; // B1's two pages: Sequences, Patterns
     if (s.ui.sheet_open) keys = SoftKeys {{"BACK", "", "DO IT"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
     else if (s.ui.shift) {
-        keys = SoftKeys {{"SEQUENCE", "FOLLOW", "VARY"}, -1, c};
+        keys = SoftKeys {{"SEQUENCE", follow_shown(s.ui) ? "FOLLOW" : "", vary_shown(s.ui) ? "VARY" : ""}, -1, c}; // FOLLOW and VARY are Full's
         if (s.ui.patterns_cards == 1) keys.tints[0] = colour::amber;
         if (s.ui.patterns_cards == 2) keys.tints[1] = colour::amber;
     }
@@ -197,8 +198,8 @@ void soft(Context& c, int key) {
     if (ui.shift) { // SCENE, FOLLOW: their cards (again: the pattern's); VARY: its sheet
         ui.shift_used = true;
         if (key == 0) ui.patterns_cards = ui.patterns_cards == 1 ? 0 : 1;
-        if (key == 1) ui.patterns_cards = ui.patterns_cards == 2 ? 0 : 2;
-        if (key == 2) { ui.patterns_cards = 0; ui.sheet_open = true; }
+        if (key == 1 && follow_shown(ui)) ui.patterns_cards = ui.patterns_cards == 2 ? 0 : 2;
+        if (key == 2 && vary_shown(ui)) { ui.patterns_cards = 0; ui.sheet_open = true; }
         return;
     }
     if (key == 0) { ui.patterns_cards = 0; c.open(PageId::Scenes); return; } // B1 again: round to its first page, Sequences

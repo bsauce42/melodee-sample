@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
-// MOTION (B3 on a sequence page, or Seq held + B3): pot moves recorded over the pattern, one lane per
+// MOTION (B3 on a sequence page, or Seq held + B3; B3 again: MOD, then MACRO, pages/mod_page.cpp): pot moves recorded over the pattern, one lane per
 // pot. Seq Record + turn a pot records (here or on any page); Erase + turn a
 // pot asks, then (B3) clears that lane. The lanes are the parameters holding
 // motion on the track's pattern (its engine's, its effects', or on a kit the
@@ -16,6 +16,7 @@
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/bindings.h"
+#include "melodee/shell/features.h"
 #include <algorithm>
 
 namespace melodee {
@@ -30,7 +31,9 @@ void draw(Paint& p, const Snapshot& s) {
     h.left.push_back(edit_pattern_chip(s));
     h.left.push_back(pill(Icon::Motion, juce::String(unsigned(motion.size()))));
     h.right.push_back(tag_of(s, s.ui.track));
-    frame(p, s, {{"SEQUENCES", "ROLL", "MOTION"}, 2, c}, h);
+    SoftKeys keys {{"SEQUENCES", "ROLL", "MOTION"}, 2, c};
+    if (mod_shown(s.ui)) { keys.dots[2] = 3; keys.dot_at[2] = 0; } // B3's cycle: MOTION, MOD, MACRO (pages/mod_page.cpp)
+    frame(p, s, keys, h);
 
     // One graph: the pattern across, bars and beats marked, quarters of the range up.
     constexpr float x = zone::pad, y = zone::picture_y + 4, w = zone::width - 2 * zone::pad, gh = zone::picture_h - 8;
@@ -89,7 +92,10 @@ void draw(Paint& p, const Snapshot& s) {
 }
 
 void soft(Context& c, int key) {
-    if (key == 2) { c.open(PageId::ModPage); return; } // MOTION again, lit: the modulators and macros (roadmap P4)
+    if (key == 2) { // MOTION again, lit: its next page, MOD (the modulators, then MACRO; Full's, shell/features.h)
+        if (mod_shown(c.ui)) { c.ui.mod_view = 0; c.open(PageId::ModPage); }
+        return;
+    }
     seq_hub_soft(c, key);
 }
 } // namespace

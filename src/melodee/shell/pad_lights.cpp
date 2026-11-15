@@ -6,6 +6,7 @@
 // for a loss or a recording; Faint, Dim, Mid and Full for how much; a blink
 // for a wait, a flare for a sound, a pulse for the count.
 #include "melodee/shell/pad_lights.h"
+#include "melodee/shell/features.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/pad_fx_info.h"
 #include "melodee/engine/voice_tap.h"
@@ -292,7 +293,7 @@ bool sends_lit(const PadScene& s) {
     const auto& t = selected(s);
     if (t.engine != EngineKind::Sampler || levels_on(t)) return false;
     if (mix_sends_pads(s.ui, true)) return true; // the MIX hub's SENDS, on the kit's pads
-    return s.ui.page == PageId::Stage && stage_page_now(s.ui, t, stage_instrument(s.project, t)).kind == StageKind::Sends;
+    return s.ui.page == PageId::Stage && stage_page_now(s.ui, t, stage_skip(s.project, s.ui, t)).kind == StageKind::Sends;
 }
 Look sends_look(const PadScene& s, const Heard& snd, unsigned pad) {
     const auto& t = selected(s);
@@ -731,6 +732,7 @@ Look sheet_look(const PadScene& s, unsigned pad) {
     if (ui.menu && ui.ask == A::None) { // the MENU (shell/menu.h): GO's places in their four groups, the lit tile full; HERE dark
         if (ui.menu != menu_go_view) return {};
         static const unsigned group_track[4] {0, 2, 4, 1}; // sound, sequence, mix, project: as the screen colours them
+        if (!menu_tile_shown(ui, pad)) return {}; // a place Basic leaves out
         return track(group_track[menu_places()[pad % 16].group % 4], pad == ui.menu_tile % 16u ? full : mid);
     }
     bool about = false; // the pad the question is about

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/mix_hub.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/pages/common.h"
@@ -597,6 +598,7 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::PunchSnap: c.label = "SNAP"; c.value = punch_snaps[b.value % punch_snap_count]; break;
     case Kind::PunchTail: c.label = "TAIL"; c.value = punch_tails[b.value % 3]; break;
     case Kind::ClickLevel: c.label = "CLICK"; c.value = juce::String(b.value); c.unit = "%"; break;
+    case Kind::Features: c.label = "FEATURES"; c.value = b.value ? "Full" : "Basic"; break;
     case Kind::RecGrid: // the pattern's Q, named, or a grid of its own
         c.label = "GRID";
         if (b.value) c.value = division_name(grid_division(unsigned(b.value), s.pattern.division));
@@ -838,7 +840,7 @@ unsigned key_pages(const Snapshot& s, unsigned key, std::array<juce::String, 6>&
     if (s.ui.page == PageId::Stage) { // the group's pages, as its key names them
         if (!t.used()) return 0;
         const auto& g = stage_groups(t.engine);
-        bool instrument = stage_instrument(s.project, t);
+        StageSkip instrument = stage_skip(s.project, s.ui, t);
         if (!stage_has(g, key) || stage_opens_edit(t, key)) return 0;
         auto here = stage_at(s.ui, t, instrument);
         for (unsigned sub = 0; sub < stage_count(g, key) && n < names.size(); ++sub) {
@@ -854,6 +856,9 @@ unsigned key_pages(const Snapshot& s, unsigned key, std::array<juce::String, 6>&
             for (unsigned k = 0; k < count; ++k) names[n++] = fx[k] == PageId::Rack ? "TRACK" : fx[k] == PageId::Bus ? "BUS" : fx[k] == PageId::Master ? "MASTER" : "PAD";
             at = mix_section(s.ui.page) == MixSection::Fx ? mix_fx_at(s.ui.page, kit) : 0;
         }
+    } else if ((s.ui.page == PageId::Motion || s.ui.page == PageId::ModPage) && key == 2 && mod_shown(s.ui)) { // Seq's B3: its three pages
+        names[0] = "MOTION"; names[1] = "MOD"; names[2] = "MACRO"; n = 3;
+        at = s.ui.page == PageId::Motion ? 0 : s.ui.mod_view == 1 ? 2 : 1;
     } else if ((s.ui.page == PageId::Patterns || s.ui.page == PageId::Scenes) && key == 0) { // Seq's B1: its two pages
         names[0] = "SEQUENCES"; names[1] = "PATTERNS"; n = 2; at = s.ui.page == PageId::Patterns ? 1 : 0;
     }
@@ -869,18 +874,23 @@ ui::SoftKeys mix_keys(const Snapshot& s) {
     keys.dots[2] = uint8_t(count);
     keys.dot_at[2] = uint8_t(here == MixSection::Fx ? mix_fx_at(s.ui.page, kit) : 0);
     if (kit) { keys.dots[1] = 2; keys.dot_at[1] = uint8_t(mix_sends_pads(s.ui, kit)); } // SENDS: the tracks, then the kit's pads
+    if (!sends_shown(s.ui) && here != MixSection::Sends) { keys.labels[1] = ""; keys.dots[1] = 0; } // Basic: Tracks has send A
     return keys;
 }
 void mix_soft(Context& c, int key) {
     bool kit = c.track().engine == EngineKind::Sampler;
+    if (key == 1 && !sends_shown(c.ui) && c.ui.page != PageId::Sends) return; // Basic: no SENDS key
     if (key == 1) mix_sends_key(c.ui, kit); // B2 again on a kit's Sends: its pads (or back to the tracks)
     PageId next = mix_next(c.ui.page, unsigned(key), kit);
     if (next == PageId::Rack) c.ui.fx_loop = -1; // the track's own chain, not a loop's
     if (next != c.ui.page) c.open(next);
 }
 
+const char* motion_key(const Snapshot& s) { return motion_shown(s.ui, s.pattern) ? "MOTION" : ""; }
+
 void seq_hub_soft(Context& c, int key) {
     static const PageId pages[] {seq_home, PageId::Roll, PageId::Motion}; // B1: Sequences (again there: Patterns)
+    if (unsigned(key) % 3 == 2 && !motion_shown(c.ui, c.pattern())) return; // Basic: no MOTION key (shell/features.h)
     if (pages[unsigned(key) % 3] != c.ui.page) c.open(pages[unsigned(key) % 3]);
 }
 
@@ -888,7 +898,7 @@ void play_soft(Context& c, int key) {
     // Stage on that section: its first page, or its own kept when it was the one open (as Sample held's keys).
     const auto& t = c.track();
     c.open(PageId::Stage);
-    if (t.used() && stage_has(stage_groups(t.engine), unsigned(key) % 3) && stage_at(c.ui, t, stage_instrument(c.project, t)).group != unsigned(key) % 3)
+    if (t.used() && stage_has(stage_groups(t.engine), unsigned(key) % 3) && stage_at(c.ui, t, stage_skip(c.project, c.ui, t)).group != unsigned(key) % 3)
         stage_go(c.ui, unsigned(key) % 3, 0);
 }
 

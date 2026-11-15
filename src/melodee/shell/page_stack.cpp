@@ -9,7 +9,7 @@ namespace {
 int page_group(PageId page) {
     switch (page) {
     case PageId::Stage: case PageId::Keys: case PageId::Pads: return 1;
-    case PageId::StepEdit: case PageId::Patterns: case PageId::Scenes: case PageId::Roll: case PageId::Motion: return 2;
+    case PageId::StepEdit: case PageId::Patterns: case PageId::Scenes: case PageId::Roll: case PageId::Motion: case PageId::ModPage: return 2;
     case PageId::Tracks: case PageId::Rack: case PageId::Sends: case PageId::Bus: case PageId::Master: case PageId::PadFx: return 3;
     case PageId::Trim: case PageId::PadPage: case PageId::PlayPage: case PageId::EnvelopePage:
     case PageId::FilterPage: case PageId::FollowPage: case PageId::CloudPage:
@@ -49,7 +49,7 @@ void remember_editor(UiState& ui, PageId page) {
 }
 
 PageId seq_tap_page(const UiState& ui) {
-    if (seq_editor(ui.page)) return seq_home;          // home (hubs plan R-a)
+    if (seq_editor(ui.page) || ui.page == PageId::ModPage) return seq_home; // home (hubs plan R-a); MOD and MACRO are Motion's next pages
     return seq_editor_page(ui);                       // Step Edit, Song or any other page: the hub's page last open
 }
 

@@ -43,7 +43,7 @@ void draw_seq_sheet(Paint& p, const Snapshot& s) {
     bool blink = (s.now / 150) % 2;
 
     p.fill(0, zone::soft_y, zone::width, zone::soft_h + zone::header_h + zone::picture_h, colour::bg);
-    soft_keys(p, {{"SEQUENCES", "ROLL", "MOTION"}, -1, c});
+    soft_keys(p, {{"SEQUENCES", "ROLL", motion_key(s)}, -1, c});
     const bool every = sequences_lit(s.ui); // the pads are sequences: every track
     Header h = header_of(s);
     // the pads chip names it: PATTERNS, the selected track's (shell/pad_job.h)

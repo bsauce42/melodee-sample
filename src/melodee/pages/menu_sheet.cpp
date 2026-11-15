@@ -27,7 +27,7 @@ Icon job_icon(MenuJob job) {
     case J::SequenceFollowAll: return Icon::ArrowRight;
     case J::SequenceLaunch: return Icon::Play;
     case J::SequenceClear: case J::PatternClear: case J::TrackClear: return Icon::Trash;
-    case J::PatternDouble: return Icon::Plus;
+    case J::PatternDouble: case J::ModAdd: return Icon::Plus;
     case J::PatternHalf: return Icon::Minus;
     case J::TrackMove: return Icon::Swap;
     case J::TrackCopy: return Icon::Copy;
@@ -76,6 +76,7 @@ void draw_menu(Paint& p, const Snapshot& s) {
         float x = zone::pad + float(pad % 4) * (tw + gap), y = top + float(3 - pad / 4) * (th + gap);
         auto c = group_colour(places[pad].group);
         bool on = pad == lit;
+        if (!menu_tile_shown(ui, pad)) { p.fill(x, y, tw, th, colour::quiet, 4); continue; } // Basic leaves it out: its pad stays empty
         p.fill(x, y, tw, th, on ? colour::raised : colour::panel, 4);
         if (on) p.ring(x, y, tw, th, c, 4, 1.2f);
         icon(p, place_icon(pad), x + 5, y + 5, 12, c, 1.4f);

@@ -307,13 +307,17 @@ Motion, turn a knob while **SEQ RECORD** is on. To clear a lane, press
 
 ![Motion](../images/screens/motion.png)
 
-Press **MOTION** again for **MOD**:
+**B3** has three pages: **MOTION**, **MOD** and **MACRO**. Press **B3** again
+to step through them. The dots under the key show which one is open. **B1**
+and **B2** stay **SEQUENCES** and **ROLL** on all three.
 
-- **B1** (**MOD**): eight modulators. Each is an LFO (synced or free) or an
+- **MOD**: eight modulators. Each is an LFO (synced or free) or an
   envelope follower of a track or bus. It moves up to four parameters
-  anywhere in the project. **B3** (**ADD**) assigns the last knob you turned.
-- **B2** (**MACRO**): eight macros. Each turns up to eight parameters at
+  anywhere in the project.
+- **MACRO**: eight macros. Each turns up to eight parameters at
   once, each between its own low and high value.
+- **SHIFT** + **B3** (**ADD**) assigns the last knob you turned to the
+  modulator or macro in view.
 
 ![An LFO modulator](../images/screens/modlfo.png)
 

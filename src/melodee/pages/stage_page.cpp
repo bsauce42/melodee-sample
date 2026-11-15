@@ -16,6 +16,7 @@
 // Shift + Push is Back.
 // The pads play the track; on a kit the pad played is the pad edited.
 #include "melodee/engine/arp.h"
+#include "melodee/shell/features.h"
 #include "melodee/engine/dsp.h"
 #include "melodee/engine/effect_info.h"
 #include "melodee/engine/midi_engine.h"
@@ -497,6 +498,8 @@ void layers_picture(Paint& p, const Snapshot& s) {
 
 // A kit whose last pad holds a multisampled instrument (round 3 "instrument C": its TRIM is ZONES).
 bool instrument_pad(const Snapshot& s) { return stage_instrument(s.project, s.track()); }
+// What Stage passes over for the track in view: LAYERS on an instrument pad, and what Basic leaves out (shell/features.h).
+StageSkip skip_of(const Snapshot& s) { return stage_skip(s.project, s.ui, s.track()); }
 
 // How the pad's layers play, as an LED-less pill in the header (Shift + K1 turns it).
 HeaderItem layers_pill(const Snapshot& s) {
@@ -750,10 +753,10 @@ void wave_picture(Paint& p, const Snapshot& s, const StagePage& page) {
     };
     if (page.kind == StageKind::Trim && heard) { // the time heard, of the time kept; going round, which pass
         double into = heard->reverse() ? double(end) - heard->at : heard->at - double(start);
+        if (heard->slot != pad.sample) into = double(head_through(*heard)) * double(end - start); // another layer's voice: as far through as it is
         juce::String now = seconds(uint32_t(std::clamp(into, 0.0, double(end - start))));
         if ((heard->flags & tap::Loop) && heard->pass) two_part("PASS " + juce::String(heard->pass + 1), dot + now);
         else two_part(now, " OF " + seconds(end - start));
-        if (heard->slot != pad.sample) into = double(head_through(*heard)) * double(end - start); // another layer's voice: as far through as it is
         return;
     }
     if (page.kind == StageKind::Cloud) { // where the grains come from (or are now), at the line; the file's length dim
@@ -929,6 +932,7 @@ void new_track_picture(Paint& p, const Snapshot& s) {
     if (!s.ui.new_sources) {
         cards = {{Icon::Pads, "", "Drum", "PADS"}, {Icon::Keyboard, "", "Keygroup", "INSTRUMENT"}, {Icon::Plug, "", "Plugin", "VST CLAP LV2"},
                  {Icon::Din, "", "MIDI", juce::String::fromUTF8("OUT \xc2\xb7 USB")}, {Icon::Wav, "", "Audio", "RECORDING"}};
+        cards.resize(new_types_shown(s.ui)); // Basic: Drum, Keygroup and Plugin
     } else {
         auto list = type_sources(NewType(s.ui.new_type % new_type_count));
         for (unsigned n = 0; n < list.count; ++n) switch (list.items[n]) {
@@ -1033,7 +1037,8 @@ ui::SoftKeys stage_keys(const Snapshot& s) {
     const auto& t = s.track();
     const auto& g = stage_groups(t.engine);
     const bool instrument = instrument_pad(s);
-    auto at = stage_at(s.ui, t, instrument);
+    const StageSkip skip = skip_of(s);
+    auto at = stage_at(s.ui, t, skip);
     std::array<juce::String, 3> labels;
     SoftKeys keys {labels, int(at.group), colour_of(s)};
     for (unsigned n = 0; n < 3; ++n) {
@@ -1042,9 +1047,9 @@ ui::SoftKeys stage_keys(const Snapshot& s) {
         keys.labels[n] = stage_page_at(t, n, sub).key;
         if (stage_page_at(t, n, sub).kind == StageKind::PluginSound && !plugin_has_presets(s)) keys.labels[n] = "PLUG-IN"; // its face
         if (stage_page_at(t, n, sub).kind == StageKind::Trim && instrument) keys.labels[n] = "ZONES"; // round 3 "instrument C"
-        const unsigned shown = stage_shown(g, n, instrument); // an instrument pad's B1: no LAYERS, three dots
+        const unsigned shown = stage_shown(g, n, skip); // an instrument pad's B1: no LAYERS, three dots
         keys.dots[n] = uint8_t(shown > 1 ? shown : 0);
-        keys.dot_at[n] = uint8_t(stage_shown_at(g, n, sub, instrument));
+        keys.dot_at[n] = uint8_t(stage_shown_at(g, n, sub, skip));
     }
     return keys;
 }
@@ -1135,7 +1140,7 @@ HeaderItem kit_pill(const Snapshot& s) {
 
 void draw(Paint& p, const Snapshot& s) {
     const auto& t = s.track();
-    const auto& page = stage_page_now(s.ui, t, instrument_pad(s));
+    const auto& page = stage_page_now(s.ui, t, skip_of(s));
     auto c = colour_of(s);
     Header h = header_of(s);
     bool kit_sends = page.kind == StageKind::Sends && t.engine == EngineKind::Sampler; // the last pad's own sends
@@ -1216,7 +1221,7 @@ void draw(Paint& p, const Snapshot& s) {
 
 void soft(Context& c, int key) {
     const bool zones = stage_instrument(c.project, c.track()); // ZONES: no Trim jobs, no LAYERS
-    const auto& page = stage_page_now(c.ui, c.track(), zones);
+    const auto& page = stage_page_now(c.ui, c.track(), stage_skip(c.project, c.ui, c.track()));
     if (c.ui.shift && c.frozen(c.ui.track) && page.picture != StagePicture::Mix && page.picture != StagePicture::Sends
         && page.picture != StagePicture::Colours) {
         if (key == 2) c.deep_freeze(c.ui.track); // freeze plan F2d
@@ -1238,11 +1243,11 @@ void soft(Context& c, int key) {
         return;
     }
     if (stage_opens_edit(c.track(), unsigned(key))) { c.open(PageId::Edit); return; } // a MIDI track's B3 EDIT
-    stage_press(c.ui, c.track(), unsigned(key), zones);
+    stage_press(c.ui, c.track(), unsigned(key), stage_skip(c.project, c.ui, c.track()));
 }
 
 void wheel(Context& c, int delta) {
-    const auto& page = stage_page_now(c.ui, c.track(), stage_instrument(c.project, c.track()));
+    const auto& page = stage_page_now(c.ui, c.track(), stage_skip(c.project, c.ui, c.track()));
     auto cards = page_bindings(c.project, c.ui, c.pattern(), false);
     if (page.kind == StageKind::Preset) { // the sounds, one a detent
         if (cards[0].kind == Binding::Kind::StageSound) c.preset_turn(cards[0].value + delta);
@@ -1265,7 +1270,7 @@ void wheel(Context& c, int delta) {
 
 void push(Context& c) {
     auto& t = c.track();
-    const auto& page = stage_page_now(c.ui, t, stage_instrument(c.project, t));
+    const auto& page = stage_page_now(c.ui, t, stage_skip(c.project, c.ui, t));
     if (!t.used()) { new_track_push(c); return; } // the card in the middle: a type's sources, or the track made
     if (page.kind == StageKind::Preset) { c.stage_tick(UINT32_MAX); c.open(PageId::Sounds); return; }
     if (page.kind == StageKind::Fx && !t.fx.count()) { // nothing yet: the picker on the track's chain, to add the first

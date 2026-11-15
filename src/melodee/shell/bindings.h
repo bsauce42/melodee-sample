@@ -29,6 +29,7 @@ struct Binding {
         RecThreshold, RecLength, RecGain,  // Record and Input Config (RecLength: 0 Free, 1 Seq, 2.. 1..16 bars)
         ProjectJump, ProjectSort,          // Project
         Tempo, ClickLevel,                 // Tempo (Swing as on Length)
+        Features,                          // Settings' K1: 0 Basic, 1 Full (shell/features.h)
         ArpMode, ArpRate, ArpOctaves,      // Arp
         ChordType, ChordVoicing, ChordInvert, // Chord
         PadFine, PadPlayMode, PadGroup, PadReverse, PadAttack, PadDecay, PadRelease, PadSustain, // sampler pages

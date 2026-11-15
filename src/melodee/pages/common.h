@@ -105,6 +105,7 @@ void play_soft(Context& c, int key); // B1-B3 open Stage on that section (Pads, 
 unsigned key_pages(const Snapshot& s, unsigned key, std::array<juce::String, 6>& names, unsigned& at);
 ui::SoftKeys mix_keys(const Snapshot& s); // the MIX hub's row (shell/mix_hub.h): TRACKS SENDS FX, the page's lit
 void mix_soft(Context& c, int key);       // and where its keys go
-void seq_hub_soft(Context& c, int key); // the SEQUENCE hub's row: B1-B3 open PATTERNS, ROLL, MOTION
+void seq_hub_soft(Context& c, int key); // the SEQUENCE hub's row: B1-B3 open SEQUENCES, ROLL, MOTION
+const char* motion_key(const Snapshot& s); // B3's label there: MOTION, or none when Basic leaves it out (shell/features.h)
 
 } // namespace melodee

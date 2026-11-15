@@ -14,6 +14,7 @@
 // scene, playing something else, stopped by a follow action).
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
+#include "melodee/shell/features.h"
 #include "melodee/ui/widgets.h"
 #include <algorithm>
 
@@ -51,9 +52,9 @@ void draw(Paint& p, const Snapshot& s) {
     // the pads chip names the page: SEQUENCES (a scene on screen is a sequence, the panel's word; shell/pad_job.h)
     h.left.push_back(bank_pill(s));
     h.right.push_back(tag_of(s, s.ui.track));
-    SoftKeys keys {{"SEQUENCES", "ROLL", "MOTION"}, 0, c}; // B1's first page, Seq's home: B1 again is Patterns
+    SoftKeys keys {{"SEQUENCES", "ROLL", motion_key(s)}, 0, c}; // B1's first page, Seq's home: B1 again is Patterns
     keys.dots[0] = 2; keys.dot_at[0] = 0;
-    if (s.ui.shift) keys = SoftKeys {{"", "CAPTURE", "ALL"}, -1, c}; // Shift + B2: what plays into a scene; Shift + B3: the follow onto every track's pattern
+    if (s.ui.shift) keys = SoftKeys {{"", "CAPTURE", follow_shown(s.ui) ? "ALL" : ""}, -1, c}; // Shift + B2: what plays into a scene; Shift + B3: the follow onto every track's pattern
     if (s.ui.scene_capture) keys = SoftKeys {{"CANCEL", "CAPTURE", ""}, 1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}; // a pad picks the scene
     frame(p, s, keys, h);
 
@@ -97,8 +98,10 @@ void draw(Paint& p, const Snapshot& s) {
     icon(p, Icon::Metro, x, y + 21, 13, scene.tempo ? colour::amber : colour::dim, 1.3f);
     p.text(scene.tempo ? tempo_text(scene.tempo) + " BPM" : juce::String::fromUTF8("\xe2\x80\x94"), x + 17, y + 19, w - 17, 16,
            plain(scene.tempo ? colour::text : colour::dim, type::body, Weight::Medium));
-    p.fill(x, y + 40, w, 1, colour::line);
-    draw_follow(p, s, x, y + 46, w, c);
+    if (follow_shown(s.ui)) { // the follow action: Full's (shell/features.h)
+        p.fill(x, y + 40, w, 1, colour::line);
+        draw_follow(p, s, x, y + 46, w, c);
+    }
     // A dot a track: in this scene (its colour), playing another pattern (dim), stopped by a follow action (a ring).
     float dy = gy + grid_h - 9, dot = 6, step = w / 8;
     for (unsigned t = 0; t < track_count; ++t) {
@@ -131,7 +134,7 @@ void push(Context& c) { c.name_scene(c.ui.scene); }
 void soft(Context& c, int key) {
     if (c.ui.shift) { // CAPTURE, ALL
         if (key == 1) { c.ui.shift_used = true; c.ui.scene_capture = true; }
-        if (key == 2) { c.ui.shift_used = true; c.follow_to_column(); }
+        if (key == 2 && follow_shown(c.ui)) { c.ui.shift_used = true; c.follow_to_column(); }
         return;
     }
     if (c.ui.scene_capture) { if (key == 0) c.ui.scene_capture = false; return; } // CANCEL

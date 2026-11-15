@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
 #include "melodee/model/project.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/ui_state.h"
 
@@ -17,7 +18,7 @@ inline const char* pad_job(const Project& project, const UiState& ui) {
     if (ui.menu || ui.ask != UiState::Ask::None || ui.name.open() || ui.exit_open) return "";
     if (ui.copying != UiState::Copying::Off || ui.scene_capture) return ""; // a copy, a move or a capture: its prompt says what to pick
     if (ui.pad_bank) return "TRACKS";                                           // Pad Bank held
-    if (ui.loop_held && ui.page != PageId::Looper) return "LOOPS";              // Loop held: the loop grid
+    if (loop_grid_held(ui)) return "LOOPS";                                     // Loop held: the loop grid
     if (ui.seq_held) return sequences_lit(ui) ? "SEQUENCES" : "PATTERNS";       // Seq held: the sequences; on Patterns, with Erase held or freezing, the track's patterns
     if (ui.mute_mode()) return "";
     switch (ui.page) {

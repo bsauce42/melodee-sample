@@ -4,6 +4,7 @@
 // 5 ms; the runtime sends only what changed). Colours come from the track
 // palette; button light values from surface/leds.h.
 #include "melodee/engine/engine_host.h"
+#include "melodee/shell/features.h"
 #include "melodee/engine/dsp.h"
 #include "melodee/engine/engine_info.h"
 #include "melodee/model/project_file.h"
@@ -315,7 +316,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         page_track.store(uint32_t(ui_.page) | uint32_t(ui_.track) << 8, std::memory_order_relaxed);
         { // Stage: the button and page in view, the card the wheel edits, a sound waiting to load
             const auto& t = project_->tracks[ui_.track];
-            const bool instrument = stage_instrument(*project_, t);
+            const StageSkip instrument = stage_skip(*project_, ui_, t);
             auto at = stage_at(ui_, t, instrument);
             stage_bits.store(at.group | at.sub << 4 | unsigned(stage_focus(ui_, t)) << 8 | unsigned(ui_.preset_due != 0) << 12
                              | unsigned(t.preset & 0x3ff) << 16 | unsigned(t.bank % sampler_banks) << 26,
@@ -560,7 +561,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     }
     bool sound_hub = ui.page == PageId::Stage || is_sampler_page(ui.page) || ui.sample_held; // Sample's hub (docs/HUBS_PLAN.md)
     on(B::Sample, sound_hub || ui.page == PageId::InputConfig);
-    on(B::Seq, ui.page == PageId::StepEdit || ui.page == PageId::Patterns || ui.page == PageId::Scenes || ui.page == PageId::Roll || ui.page == PageId::Motion); // its hub
+    on(B::Seq, ui.page == PageId::StepEdit || ui.page == PageId::Patterns || ui.page == PageId::Scenes || ui.page == PageId::Roll || ui.page == PageId::Motion || ui.page == PageId::ModPage); // its hub
     on(B::SampleSelect, ui.page == PageId::Sounds || ui.page == PageId::Samples);
     on(B::Chop, ui.page == PageId::Chop);
     on(B::NoteRepeat, track.repeat && ui.page != PageId::Song); // on Song it repeats the clip

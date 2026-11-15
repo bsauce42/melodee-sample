@@ -6,6 +6,7 @@
 #include "melodee/pages/pages.h"
 #include "melodee/shell/ask.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/sample_mode.h"
 #include <algorithm>
 #include <cstdlib>
@@ -158,7 +159,7 @@ void loop_press(Context& c, bool pressed) {
 }
 
 bool loop_held_pad(Context& c, unsigned pad, bool down) {
-    if (!c.ui.loop_held || c.ui.page == PageId::Looper) return false;
+    if (!loop_grid_held(c.ui)) return false; // not on the Looper's own page; Basic has no grid (shell/features.h)
     if (down) grip_loop(c);
     if (down && c.ui.shift) c.ui.shift_used = true; // Shift + a play / stop pad: at once
     loop_grid_pad(c, pad, down);
@@ -220,7 +221,7 @@ void looper_tick(Context& c, uint32_t now) {
         else set_looper(c, false);
     }
     // Loop held: the pads are the loop grid (they were from the press), and its release does nothing.
-    if (ui.loop_held && !ui.loop_grip && now - ui.loop_down >= loop_hold_ms && ui.page != PageId::Looper) {
+    if (loop_grid_held(ui) && !ui.loop_grip && now - ui.loop_down >= loop_hold_ms) {
         grip_loop(c);
         if (!c.project.looper.on) c.notice("Looper off: Shift + hold Loop"); // on, the lit grid says it
     }

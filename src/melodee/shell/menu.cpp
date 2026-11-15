@@ -6,6 +6,7 @@
 #include "melodee/shell/ask.h"
 #include "melodee/shell/card_access.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/roll.h"
@@ -26,6 +27,7 @@ unsigned here_count(const Context& c) {
 void go(Context& c, unsigned tile) {
     auto& ui = c.ui;
     const auto& track = c.track();
+    if (!menu_tile_shown(ui, tile)) return; // a place Basic leaves out: its pad does nothing, the MENU stays
     ui.menu = menu_closed;
     switch (tile % 16) {
     case 0: if (ui.page != PageId::Stage) c.open(PageId::Stage); break;
@@ -99,6 +101,7 @@ void run(Context& c, MenuJob job) {
     }
     case J::Looper: c.open(PageId::Looper); break;
     case J::Freeze: c.open_print_sheet(); break;
+    case J::ModAdd: mod_add(c); break;
     default: break;
     }
 }
@@ -113,6 +116,7 @@ void menu_open(Context& c) {
     ui.menu = here_count(c) ? menu_here_view : menu_go_view;
     ui.menu_row = 0;
     ui.menu_tile = uint8_t(menu_tile_of(ui.page));
+    if (!menu_tile_shown(ui, ui.menu_tile)) ui.menu_tile = 0;
 }
 
 bool menu_button(Context& c, SurfaceButton b) {
@@ -138,7 +142,7 @@ bool menu_button(Context& c, SurfaceButton b) {
 
 void menu_wheel(Context& c, int delta) {
     auto& ui = c.ui;
-    if (ui.menu == menu_go_view) { ui.menu_tile = uint8_t(menu_tile_turn(ui.menu_tile, delta)); return; }
+    if (ui.menu == menu_go_view) { ui.menu_tile = uint8_t(menu_tile_turn(ui, ui.menu_tile, delta)); return; }
     unsigned n = here_count(c);
     if (n) ui.menu_row = uint8_t(std::clamp(int(ui.menu_row % n) + delta, 0, int(n) - 1));
 }

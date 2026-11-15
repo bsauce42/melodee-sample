@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/button_jobs.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/erase_copy.h"
 #include "melodee/shell/stage_map.h"
 
@@ -57,11 +58,11 @@ bool button_has_shift_job(const Project& project, const UiState& ui, SurfaceButt
         if (ui.page == PageId::Chop || ui.page == PageId::LayersPage) return true;
         const auto& tr = project.tracks[ui.track % track_count];
         const bool instrument = stage_instrument(project, tr);
-        auto kind = ui.page == PageId::Stage ? stage_page_now(ui, tr, instrument).kind : StageKind::Params;
+        auto kind = ui.page == PageId::Stage ? stage_page_now(ui, tr, stage_skip(project, ui, tr)).kind : StageKind::Params;
         if (kind == StageKind::Trim && instrument) return false; // ZONES (round 3)
         return kind == StageKind::Trim || kind == StageKind::Layers;
     }
-    case B::TopRight: return (ui.page == PageId::Chop && kit) || ui.page == PageId::Tracks || ui.page == PageId::Punch || ui.page == PageId::Patterns || ui.page == PageId::Scenes || ui.page == PageId::StepEdit; // Merge; COPY on Tracks; QUANTIZE on Pad FX; VARY on Patterns; ALL on Scenes; INSERT on Step Edit
+    case B::TopRight: return (ui.page == PageId::Chop && kit) || ui.page == PageId::Tracks || ui.page == PageId::Punch || ui.page == PageId::Patterns || ui.page == PageId::Scenes || ui.page == PageId::StepEdit || ui.page == PageId::ModPage; // Merge; COPY on Tracks; QUANTIZE on Pad FX; VARY on Patterns; ALL on Scenes; INSERT on Step Edit; ADD on MOD and MACRO
     case B::SampleRecord: return kit;                                            // Audio Recall
     case B::Erase: // Copy: what the page holds (shell/erase_copy.h), or off
         return ui.copying != UiState::Copying::Off || copy_here(project, ui, kit_pads, key_pads) != CopyHere::None;

@@ -4,6 +4,7 @@
 #include "melodee/engine/engine_host.h"
 #include "melodee/shell/ask.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/roll.h"
 #include "melodee/shell/sequences.h"
@@ -138,6 +139,7 @@ bool seq_button(Context& c, SurfaceButton button) {
     switch (button) {
     case B::TopLeft: case B::TopMiddle: case B::TopRight: {
         static const PageId editors[] {seq_home, PageId::Roll, PageId::Motion};
+        if (button == B::TopRight && !motion_shown(ui, c.pattern())) return true; // Basic: no MOTION key
         ui.seq_left = true; // the sheet stays away: the editor is what was asked for
         c.open(editors[button == B::TopLeft ? 0 : button == B::TopMiddle ? 1 : 2]);
         return true;

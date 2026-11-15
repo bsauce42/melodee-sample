@@ -850,6 +850,12 @@ void Context::apply(const Binding& b, int value) {
         ui.settings.rec_grid = uint8_t(std::clamp(value, 0, int(Division::Count)));
         settings_save_at = std::max<uint32_t>(now, 1) + 1000;
         break;
+    case Kind::Features: // Settings' K1: Basic or Full; nothing in the project changes
+        if (ui.settings.full_features == (value != 0)) break;
+        ui.settings.full_features = value != 0;
+        notice(value ? "Full: every page" : "Basic: the stock app's pages");
+        settings_save_at = std::max<uint32_t>(now, 1) + 1000;
+        break;
     case Kind::ClickLevel:
         ui.settings.click_level = uint8_t(value);
         send_click();

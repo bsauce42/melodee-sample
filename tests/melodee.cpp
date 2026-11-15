@@ -89,7 +89,9 @@
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/tap_hold.h"
 #include "melodee/shell/autosave.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/menu.h"
+#include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/mix_hub.h"
@@ -2271,6 +2273,70 @@ void button_remap() {
         p->tracks[2] = Track {}; b->at[0][4] = Pattern {}; // an unused track's pattern does not count
         CHECK(sequence_length(*p, *b, 0, 4, 1920) == 960);
     }
+    // Basic and Full (shell/features.h, Settings::full_features): what Basic leaves out, and who starts on it.
+    {
+        Settings fresh; CHECK(fresh.full_features); // the code's own start: Full (tests, previews)
+        fresh.read(""); CHECK(!fresh.full_features);                       // no settings file: a first install, Basic
+        Settings before; before.read("pad_response=2\nscreen=80\n"); CHECK(before.full_features); // a file from before the row: Full
+        Settings basic; basic.read("features=0\npad_response=2\n"); CHECK(!basic.full_features);
+        Settings back; back.read(basic.text()); CHECK(!back.full_features); // written and read back
+        basic.reset_factory(); CHECK(!basic.full_features);                 // Reset Factory Settings keeps it
+        UiState f; f.track = 0; f.page = PageId::Stage;
+        CHECK(full_features(f) && menu_tile_shown(f, 7) && sends_shown(f) && looper_shown(f) && follow_shown(f) && new_types_shown(f) == 5);
+        f.settings.full_features = false;
+        // GO: MOTION, SENDS and LOOPER are left out; the other tiles keep their pads; the wheel passes over them.
+        CHECK(!menu_tile_shown(f, 7) && !menu_tile_shown(f, 9) && !menu_tile_shown(f, 11) && menu_tile_shown(f, 8) && menu_tile_shown(f, 6) && menu_tile_shown(f, 15));
+        CHECK(menu_tile_turn(f, 6, 1) == 0 && menu_tile_turn(f, 0, -1) == 6); // STEP EDIT, then the bottom row: MOTION is passed over
+        CHECK(menu_tile_turn(f, 8, 1) == 10 && menu_tile_turn(f, 10, 1) == 4 && menu_tile_turn(f, 4, -1) == 10); // MIXER, EFFECTS, then the row below
+        CHECK(menu_tile_turn(f, 12, -1) == 12 && menu_tile_turn(f, 3, 1) == 3 && menu_tile_turn(f, 12, 15) == 3);
+        f.settings.full_features = true; CHECK(menu_tile_turn(f, 6, 1) == 7 && menu_tile_turn(f, 8, 1) == 9); f.settings.full_features = false;
+        // HERE: no LOOPER, no FREEZE, no FOLLOW TO ALL.
+        std::array<MenuItem, menu_here_max> items {};
+        f.page = PageId::Scenes;
+        unsigned n = menu_here(*project, f, items);
+        CHECK(n == 4);
+        for (unsigned k = 0; k < n; ++k) CHECK(items[k].job != MenuJob::SequenceFollowAll);
+        f.page = PageId::Tracks; n = menu_here(*project, f, items);
+        for (unsigned k = 0; k < n; ++k) CHECK(items[k].job != MenuJob::Looper && items[k].job != MenuJob::Freeze);
+        // Seq's MOTION: only for a pattern that holds motion. The loop grid: Full's.
+        Pattern plain, moved;
+        moved.motion.push_back(MotionPoint {});
+        CHECK(!motion_shown(f, plain) && motion_shown(f, moved));
+        f.page = PageId::Stage; f.loop_held = true; CHECK(!loop_grid_held(f) && std::string(pad_job(*project, f)).empty());
+        f.settings.full_features = true; CHECK(loop_grid_held(f) && std::string(pad_job(*project, f)) == "LOOPS");
+        f.page = PageId::Looper; CHECK(!loop_grid_held(f)); f.loop_held = false; f.page = PageId::Stage;
+        f.settings.full_features = false;
+        // A new track: Drum, Keygroup and Plugin; no MIDI, no Audio.
+        CHECK(new_types_shown(f) == 3 && new_pick_count(f) == 3 && NewType(2) == NewType::Plugin);
+        { UiState pick = f; pick.new_pick = 2; new_pick_turn(pick, 1, 1000); CHECK(pick.new_pick == 2); } // the end: Plugin
+        // Stage: a kit pad has the stock app's seven pages; SENDS goes on any track.
+        Track kit; kit.engine = EngineKind::Sampler;
+        const auto& g = stage_groups(EngineKind::Sampler);
+        StageSkip skip = stage_skip(*project, f, kit);
+        CHECK(stage_shown(g, 0, skip) == 3 && stage_shown(g, 1, skip) == 1 && stage_shown(g, 2, skip) == 3);
+        UiState full_ui = f; full_ui.settings.full_features = true;
+        StageSkip none = stage_skip(*project, full_ui, kit);
+        CHECK(stage_shown(g, 0, none) == 4 && stage_shown(g, 1, none) == 4 && stage_shown(g, 2, none) == 5);
+        UiState st = f; st.track = 0;
+        stage_press(st, kit, 0, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::Tune);   // TRIM, then TUNE: LAYERS is passed over
+        stage_press(st, kit, 0, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::AmpEnv);
+        stage_press(st, kit, 0, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::Trim);
+        stage_press(st, kit, 2, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::PadMix);
+        stage_press(st, kit, 2, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::Filter); // MIX, then FILTER: SENDS is passed over
+        stage_press(st, kit, 2, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::FiltEnv);
+        stage_press(st, kit, 2, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::PadMix); // KIT FILT too
+        stage_go(st, 1, 3); CHECK(stage_page_now(st, kit, none).kind == StageKind::Cloud && stage_page_now(st, kit, skip).kind == StageKind::Play); // left on CLOUD in Full: PLAY in Basic
+        // The cards: Settings' K1 FEATURES on the doors; Sequences has the pattern's length, Q and swing.
+        Pattern pat;
+        UiState b = f; b.page = PageId::SettingsPage;
+        auto cards = base_bindings(*project, b, pat);
+        CHECK(cards[0].kind == Binding::Kind::Features && cards[0].value == 0 && !cards[1].bound());
+        b.settings_in = true; CHECK(!base_bindings(*project, b, pat)[0].bound());
+        b.settings_in = false; b.page = PageId::Scenes;
+        CHECK(base_bindings(*project, b, pat)[0].kind == Binding::Kind::PatternLength);
+        b.settings.full_features = true;
+        CHECK(base_bindings(*project, b, pat)[0].kind == Binding::Kind::FollowAction || !base_bindings(*project, b, pat)[0].bound());
+    }
     // The MENU (shell/menu.h): the encoder held opens it, a tap stays the page's Push; GO's tiles and HERE's cards.
     {
         EncoderHold e;
@@ -2351,6 +2417,7 @@ void button_remap() {
         q.track = 0; remember_editor(q, PageId::Stage); CHECK(seq_editor_page(q) == PageId::Motion); // only the hub's pages count
         q.page = PageId::Motion; CHECK(seq_tap_page(q) == PageId::Scenes); // home
         q.page = PageId::Patterns; CHECK(seq_tap_page(q) == PageId::Scenes && seq_home == PageId::Scenes);
+        q.page = PageId::ModPage; CHECK(seq_tap_page(q) == PageId::Scenes && menu_tile_of(PageId::ModPage) == 7); // MOD and MACRO: Motion's next pages, in the hub
         q.page = PageId::StepEdit; CHECK(seq_tap_page(q) == PageId::Motion);
         CHECK(seq_editor(PageId::Roll) && !seq_editor(PageId::StepEdit) && seq_editor(PageId::Patterns));
     }
@@ -10138,6 +10205,23 @@ void voice_taps() {
         CHECK(std::abs(trail.heads()[0].wake - 0.5f) < 0.01f);
         trail.update(t, -500, 1450);
         CHECK(trail.heads()[0].pad < 0);
+        // A pad with layers: the voice of any layer's sample is the pad's (the picture shows its first layer); a
+        // pad without layers keeps to its own sample.
+        {
+            HeadTrail layered;
+            TrackTaps lt;
+            lt.track = 3; lt.count = 1;
+            auto& lv = lt.voice[0];
+            lv.serial = 9; lv.pad = 8; lv.slot = 28; lv.from = 0; lv.to = 20000; lv.at = 10000; lv.step = 1; lv.level = 1; lv.age = 10000;
+            layered.update(lt, 0, 5000);
+            PadSound two; two.sample = 27; two.layers[0].sample = 28;
+            PadSound one; one.sample = 27;
+            auto heads = layered.heads();
+            CHECK(pad_voices(heads, 8, uint16_t(27)).count == 0);          // by its first sample alone: nothing
+            auto both = pad_voices(heads, 8, two);
+            CHECK(both.count == 1 && both.sounding == 1 && both.head[0]->slot == 28 && std::abs(head_through(*both.head[0]) - 0.5f) < 0.01f);
+            CHECK(pad_voices(heads, 8, one).count == 0 && pad_voices(heads, 9, two).count == 0);
+        }
         // Silent while still tapped (a release run out) fades the same way; a new track starts afresh.
         t.count = 1; v.level = 0;
         trail.update(t, 0, 2000);
@@ -10205,23 +10289,6 @@ void voice_heads() {
         t.track = 3; t.count = 1; t.stamp = 10000;
         voice(t.voice[0], 5, 20000, 0.8f);
         trail.update(t, -500, 1000);
-        // A pad with layers: the voice of any layer's sample is the pad's (the picture shows its first layer); a
-        // pad without layers keeps to its own sample.
-        {
-            HeadTrail layered;
-            TrackTaps lt;
-            lt.track = 3; lt.count = 1;
-            auto& lv = lt.voice[0];
-            lv.serial = 9; lv.pad = 8; lv.slot = 28; lv.from = 0; lv.to = 20000; lv.at = 10000; lv.step = 1; lv.level = 1; lv.age = 10000;
-            layered.update(lt, 0, 5000);
-            PadSound two; two.sample = 27; two.layers[0].sample = 28;
-            PadSound one; one.sample = 27;
-            auto heads = layered.heads();
-            CHECK(pad_voices(heads, 8, uint16_t(27)).count == 0);          // by its first sample alone: nothing
-            auto both = pad_voices(heads, 8, two);
-            CHECK(both.count == 1 && both.sounding == 1 && both.head[0]->slot == 28 && std::abs(head_through(*both.head[0]) - 0.5f) < 0.01f);
-            CHECK(pad_voices(heads, 8, one).count == 0 && pad_voices(heads, 9, two).count == 0);
-        }
         CHECK(!trail.heads()[0].cut && trail.heads()[0].sounding());
         t.count = 0; t.stamp = 10480; // the next block, the voice gone
         trail.update(t, -500, 1010);

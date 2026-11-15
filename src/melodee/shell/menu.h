@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
 #include "melodee/model/project.h"
+#include "melodee/shell/features.h"
 #include "melodee/shell/ui_state.h"
 #include "surface/controls.h"
 #include <algorithm>
@@ -57,6 +58,7 @@ inline const std::array<MenuPlace, 16>& menu_places() {
 // The tile the cursor starts on: the open page's place, else STAGE.
 inline unsigned menu_tile_of(PageId page) {
     if (page == PageId::Patterns) return 4;                                                  // Sequences' second page
+    if (page == PageId::ModPage) return 7;                                                   // Motion's next pages
     if (page == PageId::Bus || page == PageId::Master || page == PageId::PadFx) return 10;   // the other chains
     if (page == PageId::Sounds || page == PageId::Plugins) return 1;                         // the other browsers
     const auto& places = menu_places();
@@ -69,11 +71,26 @@ inline unsigned menu_tile_turn(unsigned tile, int delta) {
     at = std::clamp(at + delta, 0, 15);
     return unsigned(3 - at / 4) * 4 + unsigned(at % 4);
 }
+// The same past the tiles Basic leaves out (shell/features.h): a step at a time, staying put when none is left that way.
+inline unsigned menu_tile_turn(const UiState& ui, unsigned tile, int delta) {
+    unsigned at = tile % 16;
+    for (int left = delta < 0 ? -delta : delta; left > 0; --left) {
+        unsigned next = at;
+        do {
+            unsigned step = menu_tile_turn(next, delta < 0 ? -1 : 1);
+            if (step == next) { next = at; break; } // the end
+            next = step;
+        } while (!menu_tile_shown(ui, next));
+        if (next == at) break;
+        at = next;
+    }
+    return at;
+}
 
 // HERE: a page's jobs that no printed key says.
 enum class MenuJob : uint8_t {
     None, SequenceCapture, SequenceName, SequenceFollowAll, SequenceLaunch, SequenceClear,
-    PatternDouble, PatternHalf, PatternClear, TrackMove, TrackCopy, TrackClear, Looper, Freeze,
+    PatternDouble, PatternHalf, PatternClear, TrackMove, TrackCopy, TrackClear, Looper, Freeze, ModAdd,
 };
 struct MenuItem {
     MenuJob job = MenuJob::None;
@@ -89,6 +106,7 @@ inline const char* menu_page_name(PageId page) {
     case PageId::Patterns: return "PATTERNS";
     case PageId::Roll: return "ROLL";
     case PageId::Motion: return "MOTION";
+    case PageId::ModPage: return "MOD";
     case PageId::StepEdit: return "STEP EDIT";
     case PageId::Tracks: return "MIXER";
     case PageId::Sends: return "SENDS";
@@ -102,14 +120,14 @@ inline unsigned menu_here(const Project& project, const UiState& ui, std::array<
     const auto& track = project.tracks[ui.track % track_count];
     unsigned n = 0;
     auto add = [&](J job, const char* name, const char* key, bool danger = false) { if (n < menu_here_max) out[n++] = {job, name, key, danger}; };
-    auto freeze = [&] { // a used track that is not an audio track: its PRINT sheet
-        if (track.used() && !track.is_audio()) add(J::Freeze, "FREEZE", track.engine == EngineKind::Sampler ? "SAMPLE RECORD, B3" : "SAMPLE RECORD");
+    auto freeze = [&] { // a used track that is not an audio track: its PRINT sheet (Full's)
+        if (freeze_shown(ui) && track.used() && !track.is_audio()) add(J::Freeze, "FREEZE", track.engine == EngineKind::Sampler ? "SAMPLE RECORD, B3" : "SAMPLE RECORD");
     };
     switch (ui.page) {
     case PageId::Scenes:
         add(J::SequenceCapture, "CAPTURE", "SHIFT + B2");
         add(J::SequenceName, "NAME", "PUSH");
-        add(J::SequenceFollowAll, "FOLLOW TO ALL", "SHIFT + B3");
+        if (follow_shown(ui)) add(J::SequenceFollowAll, "FOLLOW TO ALL", "SHIFT + B3");
         add(J::SequenceLaunch, "LAUNCH", "PAD");
         add(J::SequenceClear, "CLEAR", "ERASE", true);
         break;
@@ -126,10 +144,13 @@ inline unsigned menu_here(const Project& project, const UiState& ui, std::array<
         freeze();
         add(J::PatternClear, "CLEAR PATTERN", "SEQ + ERASE + PAD", true);
         break;
+    case PageId::ModPage: // MOD and MACRO: the lane last turned onto the modulator or macro in hand
+        add(J::ModAdd, "ADD TARGET", "SHIFT + B3");
+        break;
     case PageId::Tracks: case PageId::Sends: case PageId::Rack: case PageId::Bus: case PageId::Master: case PageId::PadFx: case PageId::Stage:
         add(J::TrackMove, "MOVE TRACK", "PAD BANK + B2");
         add(J::TrackCopy, "COPY TRACK", "PAD BANK + B3");
-        add(J::Looper, "LOOPER", "LOOP + 16 LEVELS");
+        if (looper_shown(ui)) add(J::Looper, "LOOPER", "LOOP + 16 LEVELS");
         freeze();
         add(J::TrackClear, "CLEAR TRACK", "PAD BANK + ERASE + PAD", true);
         break;
