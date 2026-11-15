@@ -1084,7 +1084,10 @@ and PortamentoLegato. Sixteen velocities of one key find an accent (one
 step that moves level and brightness far more than its neighbours and the
 rest), narrowed to the velocity; the layers split there, two at least.
 Three hits that differ in level envelope or brightness make three takes a
-key, played in turn (ZonePlay Cycle), when there is one layer. The sheet
+key, played in turn (ZonePlay Cycle), when there is one layer. A key held
+1.2 s whose level at the end is within 4 dB of its start sustains
+(`probe_sustains()`): LOOP at Auto (the card's Auto, On, Off) then loops
+each note's held part; drums never loop at Auto. The sheet
 shows CHECKING with a row a finding, then the type on its chip and the
 glide, accent and takes under the blocks.
 

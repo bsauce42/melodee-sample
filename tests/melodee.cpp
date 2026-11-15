@@ -7330,6 +7330,17 @@ void auto_probe() {
         CHECK(probe_drums(keys, {55.0f, 0, 0, 210.0f, 0}));
         CHECK(probe_drums(keys, {0, 0, 0, 0, 0}));
     }
+    { // a held part that keeps its level sustains (a tremolo too); one that fades does not, nor silence
+        std::vector<float> steady(48000), trem(48000), fade(48000);
+        for (size_t f = 0; f < steady.size(); ++f) {
+            const float wave = std::sin(2 * float(M_PI) * 220 * f / rate), t = f / rate;
+            steady[f] = 0.5f * wave;
+            trem[f] = 0.5f * wave * (0.7f + 0.3f * std::sin(2 * float(M_PI) * 5 * t));
+            fade[f] = 0.5f * wave * std::exp(-3 * t);
+        }
+        CHECK(probe_sustains(steady, 0, steady.size(), rate) && probe_sustains(trem, 0, trem.size(), rate));
+        CHECK(!probe_sustains(fade, 0, fade.size(), rate) && !probe_sustains(std::vector<float>(48000), 0, 48000, rate));
+    }
     { // hits: the same at another phase are the same; one 3 dB louder differs
         std::vector<float> a, b, c; double p1 = 0, p2 = 1.3, p3 = 0;
         tone(a, 0, 19200, 220, 220, 0, 0.5f, p1);
@@ -7355,6 +7366,17 @@ void loop_finder() {
     std::vector<float> quiet(size_t(rate), 0.0f), quiet2 = quiet;
     CHECK(!find_loop(quiet, quiet2, uint64_t(rate), rate).found());
     CHECK(!find_loop(l, r, uint64_t(0.2f * rate), rate).found());
+    // a note fading as it is held (6 dB a second, a 303's): a short loop, levelled so it goes round at one level, and
+    // what follows it raised as much, with no step at the loop's end
+    std::vector<float> fl(size_t(rate * 2)), fr;
+    for (size_t f = 0; f < fl.size(); ++f) fl[f] = float(0.5 * std::sin(2 * M_PI * hz * double(f) / rate) * std::pow(10.0, -6.0 * f / rate / 20));
+    fr = fl;
+    auto fading = find_loop(fl, fr, uint64_t(rate * 1.5), rate);
+    CHECK(fading.found() && fading.end - fading.start < uint32_t(0.3f * rate));
+    auto rms = [&](size_t at, size_t n) { double s = 0; for (size_t i = 0; i < n; ++i) s += double(fl[at + i]) * fl[at + i]; return 10 * std::log10(s / n); };
+    const size_t w = size_t(0.02f * rate);
+    CHECK(std::fabs(rms(fading.start - w, w) - rms(fading.end - w, w)) < 0.3);
+    CHECK(std::fabs(rms(fading.end - w, w) - rms(fading.end, w)) < 0.3);
 }
 
 void keygroup_reader() {

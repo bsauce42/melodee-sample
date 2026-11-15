@@ -319,6 +319,7 @@ void PrintEngine::run() {
                             (heard.error.empty() ? "kind=" + std::string(f.kind == AutoKind::Mono ? "mono" : f.kind == AutoKind::Drums ? "drums" : "keys")
                                                        + " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato)
                                                        + " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes)
+                                                       + " sustains=" + std::to_string(f.sustains)
                                                        + " sounds=" + std::to_string(f.sounding()) + heard.heard
                                                  : "error=" + heard.error));
             while (lines.size() > kept_lines) lines.pop_front();
@@ -691,6 +692,10 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         auto alone = play({{0, true, a, 100}, {at(1.2), false, a, 100}}, 1.3);
         if (stopped) return stop();
         const ProbeGlide g = probe_glide(both, alone, at(0.4), from_hz, to_hz, rate);
+        found.sustains = probe_sustains(alone, at(0.25), at(1.15), rate); // held past its attack: steady, or fading
+        char held[64];
+        std::snprintf(held, sizeof(held), " hold=%.1f/%.1f", probe_db(alone, at(0.25), at(0.225)), probe_db(alone, at(0.925), at(0.225)));
+        r.heard += held;
         if (g.mono) {
             found.kind = AutoKind::Mono;
             found.glide = g.seconds;
@@ -918,7 +923,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             layer.root = roots[k];
             layer.low_velocity = uint8_t(takes > 1 || layer_index == 0 ? 0 : set.velocity(layer_index - 1) + 1);
             layer.high_velocity = takes > 1 ? 127 : velocity;
-            if (set.loop) {
+            if (set.looping()) {
                 LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate);
                 if (loop.found()) { layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops; }
             }

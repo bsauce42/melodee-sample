@@ -1075,7 +1075,7 @@ const Preview previews[] {
          print_scene(s);
          s.ui.page = PageId::AutoSample;
          s.ui.auto_sheet = UiState::AutoSheet {};
-         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 2; s.ui.auto_sheet.settings.loop = true;
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 2;
      }},
     // The check: type and glide heard, the accent being listened for; then a mono sheet, a drums sheet, takes.
     {"autosamplecheck", [](Shell&, Snapshot& s) {
@@ -1086,6 +1086,14 @@ const Preview previews[] {
          auto& job = s.print;
          job.busy = true; job.autosample = true; job.checking = true; job.track = 2; job.check_step = 2;
          job.found.kind = AutoKind::Mono; job.found.glide = 0.06f;
+     }},
+    {"autosamplepad", [](Shell&, Snapshot& s) { // a pad that sustains: LOOP at Auto loops it
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 2;
+         auto& f = s.ui.auto_sheet.settings.found;
+         f.heard = true; f.sustains = true;
      }},
     {"autosamplemono", [](Shell&, Snapshot& s) {
          print_scene(s);

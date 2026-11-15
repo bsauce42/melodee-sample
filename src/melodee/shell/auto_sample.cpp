@@ -248,7 +248,7 @@ void Context::auto_sheet_set(Binding::Kind kind, int value) {
     case Kind::AutoHold: a.hold = std::clamp(value, 1, 100) / 10.0f; break;
     case Kind::AutoTail: a.tail = std::clamp(value, 0, 200) / 10.0f; break;
     case Kind::AutoTap: a.post_fx = value != 0; break;
-    case Kind::AutoLoop: a.loop = value != 0; break;
+    case Kind::AutoLoop: a.loop_auto = value == 0; a.loop = value == 1; break; // Auto, On, Off
     case Kind::AutoLevel: a.normalize = value != 0; break;
     default: break;
     }

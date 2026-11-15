@@ -102,7 +102,7 @@ almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 | --- | --- | --- | --- |
 | **KEYS** | **LOW**: lowest note | **HIGH**: highest note | **STEP**: semitones between notes |
 | **NOTE** | **LAYERS**: velocity layers, 1–4 | **HOLD**: how long each key is held | **TAIL**: longest release kept |
-| **SOUND** | **TAP**: Pre FX or Post FX | **LOOP**: loop held notes | **LEVEL**: as played, or loudest at −1 dB |
+| **SOUND** | **TAP**: Pre FX or Post FX | **LOOP**: Auto, On or Off | **LEVEL**: as played, or loudest at −1 dB |
 
 ![The AUTO SAMPLE sheet](../images/screens/autosample.png)
 
@@ -127,6 +127,7 @@ The check sets these for you; the sheet's chip shows the type:
 | **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. |
 | **ACCENT** | The velocity layers split where the sound jumps (two layers at least). |
 | **TAKES ×3** | Each key is recorded three times and the program plays them in turn. |
+| **LOOPS** | The sound holds steady while a key is held, so each note loops and plays on for as long as you hold the pad. With **LOOP** at Auto this follows the check; set it to On or Off to choose yourself. |
 
 On a keygroup track from a **MONO** program, a key pressed while another is
 held glides to the new note without starting it again. A **Slide** step does
@@ -135,7 +136,8 @@ works on an MPC and in MPC 3 exports.
 
 - Each key covers the notes halfway to the next sampled key.
 - **LOOP** finds a loop in the held part of each note and crossfades it, so
-  pads and organs sustain. Sounds that change all the time may not loop.
+  pads and organs sustain. Sounds that fade while held (plucks, a 303) are not
+  looped at Auto. Sounds that change all the time may not loop.
 - **LEVEL** at −1 dB raises every sample by the same amount, so velocity
   layers keep their balance.
 - A key where the plug-in makes no sound is left out.

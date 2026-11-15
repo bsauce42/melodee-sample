@@ -105,15 +105,17 @@ void draw(Paint& p, const Snapshot& s) {
                                   : juce::String("None");
         const juce::String accent = found.accent ? juce::String::fromUTF8("vel \xe2\x89\xa5 ") + juce::String(int(found.accent)) : juce::String("None");
         const juce::String each = found.accent ? none : found.takes > 1 ? juce::String::fromUTF8("Varies \xc3\x97") + juce::String(int(found.takes)) : juce::String("Same");
-        const juce::String caps[] {"TYPE", second_cap, "ACCENT", "EACH HIT"};
-        const juce::String values[] {type, second, accent, each};
-        // Rows from just under the keys to the knob strip's top: four of them.
-        const float ry = ky + kh + 16, rh = 15, gap = 4, rw = zone::width - 2.0f * zone::pad;
-        for (unsigned i = 0; i < 4; ++i) {
+        const juce::String hold = drums ? none : found.sustains ? juce::String("Steady, loops") : juce::String("Fades");
+        const juce::String caps[] {"TYPE", second_cap, "HOLD", "ACCENT", "EACH HIT"};
+        const juce::String values[] {type, second, hold, accent, each};
+        const unsigned heard_at[] {1, 2, 2, 3, 4}; // the check's step each is heard by
+        // Rows from just under the keys down past the knob strip (empty while it checks): five of them.
+        const float ry = ky + kh + 16, rh = 15, gap = 3, rw = zone::width - 2.0f * zone::pad;
+        for (unsigned i = 0; i < 5; ++i) {
             const float y0 = ry + i * (rh + gap);
             p.fill(x0, y0, rw, rh, colour::panel, 4);
             p.text(caps[i], x0 + 6, y0, 90, rh, caps_text(colour::mid));
-            if (step > i) {
+            if (step >= heard_at[i]) {
                 p.text(values[i], x0 + 100, y0, rw - 130, rh, plain(colour::text, type::body, Weight::SemiBold));
                 icon(p, Icon::Check, x0 + rw - 18, y0 + 2, 11, c);
             } else {
@@ -176,8 +178,8 @@ void draw(Paint& p, const Snapshot& s) {
         const double mb = double(samples) * (a.hold + a.tail) * std::max(1u, s.audio_rate) * 6.0 / (1024.0 * 1024.0);
         block(p, x0 + 2 * w, y, w, "CARD", juce::String::fromUTF8("\xe2\x89\xa4 ") + (mb >= 10 ? juce::String(int(std::lround(mb))) : juce::String(mb, 1)), "MB", colour::text);
         // What the check heard, under them: the glide, the layers split at the accent, the takes.
-        const bool mono = a.found.kind == AutoKind::Mono;
-        if (a.found.heard && (mono || a.found.accent || takes > 1)) {
+        const bool mono = a.found.kind == AutoKind::Mono, loops = a.looping();
+        if (a.found.heard && (mono || a.found.accent || takes > 1 || loops)) {
             const float sy = y + 42, sh = 20, sw = zone::width - 2.0f * zone::pad;
             p.fill(x0, sy, sw, sh, colour::panel, 5);
             float x = x0 + 6;
@@ -186,6 +188,11 @@ void draw(Paint& p, const Snapshot& s) {
                 x += 16;
                 const juce::String g = a.found.glide > 0 ? "GLIDE " + juce::String(int(std::lround(a.found.glide * 1000))) + " ms" : juce::String("NO GLIDE");
                 x += p.text(g, x, sy, 120, sh, caps_text(colour::text)) + 12;
+            }
+            if (loops) { // each note's held part loops: it plays on while the key is held
+                icon(p, Icon::Loop, x, sy + 4, 12, c);
+                x += 16;
+                x += p.text("LOOPS", x, sy, 60, sh, caps_text(colour::text)) + 12;
             }
             if (takes > 1) {
                 icon(p, Icon::Layers, x, sy + 4, 12, c);

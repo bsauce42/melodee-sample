@@ -242,7 +242,7 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::AutoHold: c.label = "HOLD"; c.value = juce::String(b.value / 10.0, 1); c.unit = "s"; break;
     case Kind::AutoTail: c.label = "TAIL"; c.value = b.value ? juce::String(b.value / 10.0, 1) : juce::String("Off"); c.unit = b.value ? "s" : ""; break;
     case Kind::AutoTap: c.label = "TAP"; c.value = b.value ? "Post FX" : "Pre FX"; break;
-    case Kind::AutoLoop: c.label = "LOOP"; c.value = b.value ? "On" : "Off"; break;
+    case Kind::AutoLoop: c.label = "LOOP"; c.value = b.value == 0 ? "Auto" : b.value == 1 ? "On" : "Off"; break; // Auto: as the check heard
     case Kind::AutoLevel: c.label = "LEVEL"; c.value = b.value ? juce::String::fromUTF8("\xe2\x88\x92" "1") : juce::String("Played"); c.unit = b.value ? "dB peak" : ""; break;
     case Kind::PrintTapPick: c.label = "TAP"; c.value = b.value ? "Pre FX" : "Post FX"; break; // freeze plan F2c, the PRINT sheet
     case Kind::PrintTailPick: c.label = "TAIL"; c.value = b.value == 2 ? "Cut" : b.value == 1 ? "Ring" : "Loop"; break;
