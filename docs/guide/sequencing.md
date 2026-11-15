@@ -130,6 +130,10 @@ start playing. This is one undo step.
 **B2** (**ROLL**) and **B3** (**MOTION**) open the pattern editors. Press
 **SHIFT** + **SEQ** for **Step Edit**, on any page.
 
+The header of Roll, Motion and Step Edit names the pattern they edit
+(**P20**). It is amber while the track plays another pattern. The cards
+that belong to one pattern name it too: **P20 LENGTH**, **P20 Q**.
+
 **Roll**
 
 Roll is a piano roll. On a kit, each row is a pad.

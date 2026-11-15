@@ -27,6 +27,7 @@ void draw(Paint& p, const Snapshot& s) {
     const auto& motion = s.pattern.motion;
     auto c = colour_of(s);
     Header h = header_of(s);
+    h.left.push_back(edit_pattern_chip(s));
     h.left.push_back(pill(Icon::Motion, juce::String(unsigned(motion.size()))));
     h.right.push_back(tag_of(s, s.ui.track));
     frame(p, s, {{"PATTERNS", "ROLL", "MOTION"}, 2, c}, h);

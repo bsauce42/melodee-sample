@@ -75,6 +75,13 @@ ui::HeaderItem bank_pill(const Snapshot& s) {
                     ui::colour::text);
 }
 
+// The pattern the editors and the pattern cards edit: in the track's colour, amber while another one plays.
+ui::HeaderItem edit_pattern_chip(const Snapshot& s) {
+    unsigned edited = s.track().pattern % pattern_count;
+    bool apart = s.playing && s.playing_patterns[s.ui.track % track_count] % pattern_count != edited;
+    return ui::chip(ui::Icon::Pattern, "P" + juce::String(edited + 1), apart ? ui::colour::amber : colour_of(s));
+}
+
 ui::HeaderItem tag_of(const Snapshot& s, unsigned track) {
     const auto& t = s.project.tracks[track % track_count];
     const auto& info = engine_info(t.engine);
@@ -326,12 +333,14 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         break;
     case Kind::PatternBars: case Kind::PatternLength: { // by the bar; a length that is not whole bars by the step of Q
         unsigned bar = s.project.bar_ticks();
-        if (s.pattern.length % bar) { c.label = "LENGTH"; c.value = juce::String(s.pattern.steps()); c.unit = "steps"; break; }
+        juce::String which = "P" + juce::String(s.track().pattern % pattern_count + 1) + " "; // the pattern it belongs to
+        c.label = which + "LENGTH"; c.label_mixed = which + "Length"; // mixed case where capitals don't fit (P128)
+        if (s.pattern.length % bar) { c.value = juce::String(s.pattern.steps()); c.unit = "steps"; break; }
         unsigned bars = s.pattern.length / bar;
-        c.label = "LENGTH"; c.value = juce::String(bars); c.unit = bars == 1 ? "bar" : "bars";
+        c.value = juce::String(bars); c.unit = bars == 1 ? "bar" : "bars";
         break;
     }
-    case Kind::Division: c.label = "Q"; c.value = division_name(Division(b.value)); break;
+    case Kind::Division: c.label = "P" + juce::String(s.track().pattern % pattern_count + 1) + " Q"; c.value = division_name(Division(b.value)); break;
     case Kind::TimeSignature: {
         auto sig = time_signatures[unsigned(b.value) % time_signature_count];
         c.label = "TIME SIG"; c.value = juce::String(sig.beats) + "/" + juce::String(sig.unit);

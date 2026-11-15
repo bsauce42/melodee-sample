@@ -179,6 +179,7 @@ void draw(Paint& p, const Snapshot& s) {
         where = "STEPS " + juce::String::fromUTF8("\xc2\xb7 ") + key_name(s, key, true);
     }
     if (s.ui.held_step >= 0) where += juce::String::fromUTF8(" \xc2\xb7 LOCK"); // held: the pots lock it
+    h.left.push_back(edit_pattern_chip(s));
     h.left.push_back(chip(where, colour::amber));
     if (s.ui.step_cards == 3 && lane >= 0) // the EUCLID row: the lane's rhythm, E(hits, steps)
         if (const EuclidLane* e = euclid_of(pattern, unsigned(lane)))

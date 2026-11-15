@@ -16,6 +16,7 @@ ui::Header header_of(const Snapshot& s);
 ui::HeaderItem tag_of(const Snapshot& s, unsigned track);
 // The bank of patterns in view (UiState::pattern_bank): "BANK B" beside the pattern grids.
 ui::HeaderItem bank_pill(const Snapshot& s);
+ui::HeaderItem edit_pattern_chip(const Snapshot& s); // "P20": the pattern edited; amber while another plays
 std::array<ui::KnobCard, 3> cards_of(const Snapshot& s);
 // A card's label, value and unit for one Binding (also the fader's card).
 void describe_card(const Snapshot& s, const struct Binding& b, ui::KnobCard& c);

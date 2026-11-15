@@ -2456,6 +2456,11 @@ const Preview previews[] {
          roll_bass(shell, s, 22, 60);
          s.playing = true; s.position = 26 * sixteenth_ticks; s.ui.turning = 1; s.ui.turned_at = s.now;
      }},
+    {"rollapart", [](Shell& shell, Snapshot& s) { // Roll on P1 while P2 plays: the pattern chip amber
+         roll_bass(shell, s, 22, 60);
+         s.playing = true; s.position = 26 * sixteenth_ticks;
+         s.playing_patterns[s.ui.track % track_count] = uint8_t((s.project.tracks[s.ui.track % track_count].pattern + 1) % pattern_count);
+     }},
     {"notesheet", [](Shell& shell, Snapshot& s) { // Push on the note in focus: Accent, Slide, Tie, Delete as cards
          roll_bass(shell, s, 24, 57);
          s.ui.sheet_open = true;
