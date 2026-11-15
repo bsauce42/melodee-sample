@@ -184,6 +184,8 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::Root: c.label = "ROOT"; c.value = note_letter(unsigned(b.value)); break;
     case Kind::Scale: c.label = "SCALE"; c.value = scales()[size_t(b.value)].name; break;
     case Kind::Layout: c.label = "LAYOUT"; c.value = layout_name(PadLayout(b.value)); break;
+    case Kind::ProgKey: c.label = "KEY"; c.value = note_letter(unsigned(b.value)); break;
+    case Kind::ProgVoicing: c.label = "VOICING"; c.value = prog_voicing_name(unsigned(b.value)); break;
     case Kind::Transpose:
         c.label = "TRANSPOSE"; c.bipolar = true; c.unit = "st";
         c.value = (b.value > 0 ? "+" : b.value < 0 ? juce::String::fromUTF8("\xe2\x88\x92") : juce::String()) + juce::String(std::abs(b.value));

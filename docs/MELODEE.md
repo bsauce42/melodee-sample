@@ -400,6 +400,21 @@ beat; the meters show the mix.
   octave on −/+; Shift + K3 transposes the pads −12..+12 (kept with the
   track). Push opens Edit. The layout is each track's own; the key is the
   project's.
+- **Prog** (K3's last layout, model/progression.h): each pad plays one chord
+  of the track's progression, an MPC 3 `.progression` file (JSON; read and
+  written by shell/progression_file.cpp), 48 chords at most on banks A–C
+  (Pad Bank, bank lights). Pads show the chord's short name (C#m9; a slash
+  bass on a second line), the file's Root chord in the track's colour, a pad
+  with no chord dark. The encoder walks the card's progressions
+  (Melodee/Progressions, Progressions, Samples/Expansions) and shows the
+  name large for 1.5 s; K1 KEY moves every chord (−6..+5 semitones, names
+  follow), K2 VOICING File / Close / Open / Spread, −/+ the octave (OCT 2
+  plays the file's notes). A chord holds up to eight notes
+  (`notes_per_step`). Storing: on Scale, Chromatic or Chords with pads held,
+  B2 STORE takes the held keys, turns the layout to Prog and the next pad
+  takes them (B1 BACK cancels); the progression is saved as
+  Melodee/Progressions/<file>.progression (a new one Mine N). The project
+  keeps each track's progression, key and voicing (PROG section).
 - **Drums** (K3's last layout): a drum plug-in's or MIDI drum machine's pads
   play as a kit's, notes 36 up whatever the key, octave or transpose: pad 1
   of bank A is 36 (the MPC's and Ableton's drum-rack notes), pad n of the

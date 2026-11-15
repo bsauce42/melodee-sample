@@ -7,6 +7,7 @@
 #include "melodee/shell/mpc_project.h"
 #include "melodee/shell/mpc3_export.h"
 #include "melodee/shell/new_track.h"
+#include "melodee/model/progression.h"
 #include "melodee/model/project_file.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/sample_library.h"
@@ -599,6 +600,38 @@ void looper_scene(Snapshot& s) {
 }
 
 // The loop's sheet (B3 MORE) on loop `l`, no change waiting, with the kit (track 4) in hand: COMMIT lands on B01.
+// A synth track on the Prog layout with a 20-chord progression (plain names for the previews).
+void prog_scene(Snapshot& s) {
+    s.ui.page = PageId::Keys; s.playing = true;
+    auto& t = s.project.tracks[0];
+    t.layout = PadLayout::Prog; t.octave = 2; t.bank = 0;
+    t.prog = Progression {};
+    std::snprintf(t.prog.name, sizeof(t.prog.name), "Minor 9ths");
+    std::snprintf(t.prog.file, sizeof(t.prog.file), "Minor 9ths");
+    t.prog.root = 9;
+    struct Row { const char* name; std::array<uint8_t, 6> notes; };
+    static const Row rows[] {
+        {"Amin9", {45, 55, 60, 64, 67, 71}}, {"Dmin9", {38, 53, 57, 60, 64, 0}}, {"GMaj9", {43, 54, 57, 59, 62, 0}}, {"CMaj7", {48, 55, 59, 64, 0, 0}},
+        {"Fmaj7/A", {45, 53, 57, 60, 64, 0}}, {"Bmin7(b5)", {47, 57, 62, 65, 0, 0}}, {"E7(#9)", {40, 56, 62, 67, 0, 0}}, {"Amin7", {45, 55, 60, 64, 0, 0}},
+        {"D9sus4", {38, 55, 60, 64, 0, 0}}, {"GMaj(add2)/B", {47, 55, 57, 62, 0, 0}}, {"Cmin9", {48, 58, 63, 67, 62, 0}}, {"F13", {41, 51, 57, 62, 0, 0}},
+        {"Bbmaj9", {46, 57, 60, 62, 65, 0}}, {"Emin11", {40, 55, 57, 62, 66, 0}}, {"A7(#9#5)", {45, 55, 60, 61, 65, 0}}, {"Dmin9", {50, 60, 64, 65, 69, 0}},
+        {"G6/9", {43, 52, 57, 59, 62, 0}}, {"C#min7", {49, 59, 64, 68, 0, 0}}, {"F#min9", {42, 57, 61, 64, 68, 0}}, {"Bsus4", {47, 59, 64, 66, 0, 0}},
+    };
+    unsigned n = 0;
+    for (const auto& r : rows) {
+        auto& c = t.prog.chords[n++];
+        std::snprintf(c.name, sizeof(c.name), "%s", r.name);
+        for (auto k : r.notes) if (k) c.notes[c.count++] = k;
+        std::array<int, notes_per_step> keys {};
+        for (unsigned k = 0; k < c.count; ++k) keys[k] = c.notes[k];
+        sort_notes(keys, c.count);
+        for (unsigned k = 0; k < c.count; ++k) c.notes[k] = uint8_t(keys[k]);
+    }
+    t.prog.chords[0].root = true;
+    t.prog.count = uint8_t(n);
+    s.ui.prog_count = 12; s.ui.prog_at = 4;
+}
+
 void looper_sheet(Snapshot& s, unsigned l) {
     looper_scene(s);
     s.ui.loop_sheet = true; s.ui.loop = uint8_t(l); s.ui.track = 3;
@@ -877,6 +910,29 @@ const Preview previews[] {
     {"keys", [](Shell&, Snapshot& s) {
          s.ui.page = PageId::Keys; s.ui.held_pads = 1u << 4 | 1u << 9; s.playing = true;
          s.ui.turning = 1; s.ui.turned_at = s.now;
+     }},
+    // Prog pads (model/progression.h): bank A of a 20-chord progression, a pad held, bank B, the wheel just turned,
+    // K1 KEY moved, and storing (notes held on Chromatic with STORE on B2; then the pad to take them).
+    {"keysprog", [](Shell&, Snapshot& s) { prog_scene(s); }},
+    {"keysprogheld", [](Shell&, Snapshot& s) { prog_scene(s); s.ui.held_pads = 1u << 4; }},
+    {"keysprogbank", [](Shell&, Snapshot& s) { prog_scene(s); s.project.tracks[0].bank = 1; }},
+    {"keysprogpick", [](Shell&, Snapshot& s) {
+         prog_scene(s); s.ui.prog_shown_at = s.now ? s.now : 1;
+         std::snprintf(s.ui.prog_prev, sizeof(s.ui.prog_prev), "Major 7ths"); std::snprintf(s.ui.prog_next, sizeof(s.ui.prog_next), "Sus Chords");
+     }},
+    {"keysprogkey", [](Shell&, Snapshot& s) { prog_scene(s); s.project.tracks[0].prog_shift = 3; s.ui.turning = 0; s.ui.turned_at = s.now; }},
+    {"keysprogstore", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::Keys; s.playing = true;
+         auto& t = s.project.tracks[0]; t.layout = PadLayout::Chromatic; t.octave = 2;
+         s.ui.held_pads = 1u << 0 | 1u << 3 | 1u << 7 | 1u << 10;
+     }},
+    {"keysprogstorepad", [](Shell&, Snapshot& s) {
+         prog_scene(s);
+         for (unsigned n = 16; n < prog_chords; ++n) s.project.tracks[0].prog.chords[n] = ProgChord {};
+         for (unsigned n = 12; n < 16; ++n) s.project.tracks[0].prog.chords[n] = ProgChord {};
+         s.ui.prog_storing = true; s.ui.prog_store_count = 4;
+         const uint8_t am7[] {45, 48, 52, 55};
+         for (unsigned n = 0; n < 4; ++n) s.ui.prog_store_keys[n] = am7[n];
      }},
     {"keysdrums", [](Shell&, Snapshot& s) { // Keys on Drums pads: a drum plug-in's eleven voices (9W9's), Low Tom last, Snare held
          s.ui.page = PageId::Keys; s.playing = true;

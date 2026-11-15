@@ -392,6 +392,7 @@ public:
     std::array<std::vector<std::pair<uint8_t, std::array<uint8_t, 96>>>, track_count> print_peaks {};
     // Sampler tracks
     SampleLibrary* library = nullptr; // set by the app; the service thread reads the files
+    std::vector<std::string> prog_paths; // the card's .progression files, as the Prog layout's wheel walks them (listed when first wanted)
     // Projects on the card
     ProjectStore* store = nullptr;
     CardLink* card = nullptr;          // SD card access (shell/card_access.h): set by the shell

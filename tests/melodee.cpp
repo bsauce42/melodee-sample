@@ -44,6 +44,7 @@
 #include "melodee/engine/arp.h"
 #include "melodee/model/note_edits.h"
 #include "melodee/model/chords.h"
+#include "melodee/model/progression.h"
 #include "melodee/model/project_file.h"
 #include "melodee/model/keygroup_track.h"
 #include "melodee/model/generators.h"
@@ -1502,6 +1503,73 @@ void project_files() {
     CHECK(load_project(extended, *copy, *copy_bank).empty() && copy->tempo == 1245);
     CHECK(!load_project({1, 2, 3}, *copy, *copy_bank).empty());
 }
+// Chord progressions (the Prog layout, model/progression.h): an MPC 3 file's chords on the pads, moved by K1 KEY,
+// voiced by K2, stored from held keys, kept by the project (PROG).
+void progressions() {
+    auto owned = std::make_unique<Project>();
+    auto& project = *owned;
+    auto& t = project.tracks[0];
+    load_sound(t, EngineKind::Midi, 0);
+    t.layout = PadLayout::Prog;
+    t.prog.root = 4; // E
+    const uint8_t am9[] {45, 67, 71, 72, 76}, cm9[] {49, 56, 64, 68, 71, 75};
+    t.prog.chords[0].count = 6; t.prog.chords[0].root = true;
+    for (unsigned k = 0; k < 6; ++k) t.prog.chords[0].notes[k] = cm9[k];
+    std::snprintf(t.prog.chords[0].name, sizeof(t.prog.chords[0].name), "C#min9");
+    t.prog.chords[17].count = 5;
+    for (unsigned k = 0; k < 5; ++k) t.prog.chords[17].notes[k] = am9[k];
+    std::snprintf(t.prog.chords[17].name, sizeof(t.prog.chords[17].name), "F#Maj(add2)/A#");
+    t.prog.count = 18;
+    CHECK(prog_pads(t));
+    std::array<int, notes_per_step> keys {};
+    // Pad 1 of bank A: the file's notes as they are, at OCT 2; the Root chord is the pad's root.
+    CHECK(chord_notes(project, t, 0, keys) == 6 && keys[0] == 49 && keys[5] == 75 && pad_note(project, t, 0).root);
+    CHECK(chord_notes(project, t, 1, keys) == 0 && pad_note(project, t, 1).key == -1); // no chord there
+    t.bank = 1; // Pad Bank: chords 17-32
+    CHECK(chord_notes(project, t, 1, keys) == 5 && keys[0] == 45 && prog_index(t, 1) == 17);
+    // The voicings of A1 G3 B3 C4 E4 (MIDI 45 67 71 72 76).
+    t.prog_voicing = unsigned(ProgVoicing::Close);
+    CHECK(prog_keys(t, 17, keys) == 5 && keys[0] == 45 && keys[1] == 47 && keys[2] == 48 && keys[3] == 52 && keys[4] == 55);
+    t.prog_voicing = unsigned(ProgVoicing::Open);
+    CHECK(prog_keys(t, 17, keys) == 5 && keys[0] == 45 && keys[1] == 47 && keys[2] == 52 && keys[3] == 60 && keys[4] == 67);
+    t.prog_voicing = unsigned(ProgVoicing::Spread);
+    CHECK(prog_keys(t, 17, keys) == 5 && keys[0] == 33 && keys[1] == 67);
+    t.prog_voicing = 0;
+    // K1 KEY: E to G moves every chord up three semitones and its name with it; the octave moves by twelve.
+    UiState ui;
+    ui.page = PageId::Keys;
+    Pattern pattern;
+    auto cards = page_bindings(project, ui, pattern);
+    CHECK(cards[0].kind == Binding::Kind::ProgKey && cards[0].value == 4 && cards[1].kind == Binding::Kind::ProgVoicing && cards[2].kind == Binding::Kind::Layout);
+    t.prog_shift = 3;
+    CHECK(prog_key(t) == 7 && prog_keys(t, 17, keys) == 5 && keys[0] == 48);
+    CHECK(prog_pad_name(t, 17).chord == "Aadd2" && prog_pad_name(t, 17).bass == "C#");
+    t.octave = 3;
+    CHECK(prog_keys(t, 17, keys) == 5 && keys[0] == 60);
+    t.octave = 2; t.prog_shift = 0;
+    // Pad names, short.
+    CHECK(short_chord_name("C#min9") == "C#m9" && short_chord_name("EMaj9") == "Emaj9" && short_chord_name("C7(#9#5)") == "C7#5#9");
+    CHECK(short_chord_name("A9(13)") == "A13" && short_chord_name("C#min9(11)") == "C#m11" && short_chord_name("DMaj") == "D");
+    CHECK(pad_chord_name("B6/9").bass.empty() && pad_chord_name("AMaj(add2)/Db").chord == "Aadd2");
+    CHECK(transpose_chord_name("AMaj(add2)/Db", 0) == "AMaj(add2)/C#" && transpose_chord_name("F#min9(b5)", 2) == "G#min9(b5)");
+    // A chord stored from held keys: lowest first, each key once, named.
+    Progression mine;
+    const int held[] {60, 64, 67, 64, 71};
+    CHECK(store_prog_chord(mine, 12, held, 5) && mine.count == 13 && mine.chords[12].count == 4);
+    CHECK(mine.chords[12].notes[0] == 60 && mine.chords[12].notes[3] == 71 && std::string(mine.chords[12].name) == "Cmaj7");
+    CHECK(!store_prog_chord(mine, prog_chords, held, 5));
+    // The project keeps the progression, its key and voicing.
+    t.prog_shift = -2; t.prog_voicing = 3;
+    std::snprintf(t.prog.name, sizeof(t.prog.name), "Prisms 2-A Lydian");
+    std::snprintf(t.prog.file, sizeof(t.prog.file), "A Lydian");
+    auto bank = std::make_unique<PatternBank>();
+    auto bytes = save_project(project, *bank);
+    auto back = std::make_unique<Project>();
+    CHECK(load_project(bytes, *back, *bank).empty());
+    const auto& b = back->tracks[0];
+    CHECK(b.layout == PadLayout::Prog && b.prog == t.prog && b.prog_shift == -2 && b.prog_voicing == 3);
+    CHECK(back->tracks[1].prog.empty());
+}
 void helpers() {
     // Chords from the scale: pad 2 in D Dorian from octave 3 is Em7, E3 G3 B3 D4 (the Chord board).
     Project project;
@@ -2337,16 +2405,16 @@ void timing() {
     Pattern p;
     p.add({30, 40, 60, 100, 100, 0}); // step 1 of 1/16, six ticks late, held 40 ticks
     p.add({31, 24, 62, 90, 100, 0});
-    for (uint8_t k = 0; k < 5; ++k) p.add({24 * 3, 24, uint8_t(70 + k), 100, 100, 0}); // five notes on one step
+    for (uint8_t k = 0; k <= notes_per_step; ++k) p.add({24 * 3, 24, uint8_t(70 + k), 100, 100, 0}); // one note more than a step shows
     Step one = p.step(1);
     CHECK(one.notes[0].key == 60 && one.notes[0].offset == 6 && one.notes[1].offset == 7 && one.length == 2);
     one.notes[1].velocity = 50; // a velocity changed on Steps: places and lengths stay
     p.set_step(1, one);
     CHECK(p.events[0] == Event({30, 40, 60, 100, 100, 0}) && p.events[1].velocity == 50 && p.events[1].tick == 31);
     Step three = p.step(3);
-    CHECK(three.notes[3].key == 73);
-    p.set_step(3, Step {}); // the four shown go; the fifth stays
-    CHECK(p.events.size() == 3 && p.events.back().key == 74);
+    CHECK(three.notes[notes_per_step - 1].key == 70 + notes_per_step - 1);
+    p.set_step(3, Step {}); // the notes shown go; the one past them stays
+    CHECK(p.events.size() == 3 && p.events.back().key == 70 + notes_per_step);
     CHECK(p.steps() == 16 && !p.empty());
     // Q is only the grid: a coarser one sees the same notes in fewer, longer steps.
     p.division = Division::Quarter;
@@ -10336,10 +10404,10 @@ void drum_layout() {
     CHECK(level.key < 0 && level.semitones == 0 && level.velocity > 0);
     std::array<LevelsKind, 4> types {};
     CHECK(levels_types(t, types) == 1 && types[0] == LevelsKind::Velocity && levels_types(synth, types) == 3);
-    // K3 on Keys reaches Drums.
+    // K3 on Keys reaches Drums (and Prog after it).
     UiState ui; ui.page = PageId::Keys; ui.track = 0;
     Pattern pattern;
-    CHECK(page_bindings(*project, ui, pattern)[2].kind == Binding::Kind::Layout && page_bindings(*project, ui, pattern)[2].max == int(PadLayout::Drums));
+    CHECK(page_bindings(*project, ui, pattern)[2].kind == Binding::Kind::Layout && page_bindings(*project, ui, pattern)[2].max >= int(PadLayout::Drums));
     // The project keeps it: a MIDI track to a drum machine, on bank C.
     {
         auto saved = std::make_unique<Project>();
@@ -14571,6 +14639,7 @@ void plugin_macros() {
 }
 
 int main() {
+    progressions();
     pad_sends();
     pad_cloud();
     pad_sends_stage();

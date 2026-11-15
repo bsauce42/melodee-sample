@@ -182,6 +182,11 @@ Look keys_base(const PadScene& s, unsigned pad) {
         if (s.ui.drum_voices.any() && !s.ui.drum_voices.at(key)) return {};
         return track(selected_index(s), key == int(t.last_note) ? full : dim);
     }
+    if (prog_pads(t)) { // Prog: a pad with a chord white, the file's Root chord in the track's colour, a pad with none dark
+        const auto& chord = t.prog.chords[prog_index(t, pad)];
+        if (!chord.used()) return {};
+        return chord.root ? track(selected_index(s), mid) : white(dim);
+    }
     if (t.layout == PadLayout::Chords) // a held pad's chord: its other notes white Full, as the pad held
         for (unsigned h = 0; h < 16; ++h) {
             if (h == pad || !held(s, h)) continue;

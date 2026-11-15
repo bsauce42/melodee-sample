@@ -95,13 +95,61 @@ the scale and **K3** the pad layout.
 ![Keys](../images/screens/keys.png)
 
 - **K1**: root. **K2**: scale. **K3**: layout (Scale, Chromatic, Chords,
-  16 Levels or Drums). Drums lays the pads out as a kit's; see
-  [Drum machine plug-ins](plug-ins.md#drum-machine-plug-ins).
+  16 Levels, Drums or Prog). Drums lays the pads out as a kit's; see
+  [Drum machine plug-ins](plug-ins.md#drum-machine-plug-ins). Prog plays
+  chord progressions; see [Chord progressions](#chord-progressions).
 - **−** / **+**: octave.
 - **SHIFT** + **K3**: transpose the pads −12 to +12 semitones.
 - Encoder push: open Edit.
 
 The key and scale belong to the project. The layout belongs to each track.
+
+## Chord progressions
+
+The **Prog** layout plays a chord progression: each pad plays one chord.
+Melodee reads MPC 3 progression files (`.progression`). A progression has up
+to 48 chords, 16 in each of pad banks A to C.
+
+![Prog layout](../images/screens/keysprog.png)
+
+1. Hold **SAMPLE** on an instrument track to see **Keys**.
+2. Turn **K3** to **Prog**.
+3. Turn the encoder to select a progression. Its name shows on the screen.
+4. Play the pads. Press **PAD BANK** for banks B and C.
+
+The chord marked as the root in the file is in the track's colour. A pad
+with no chord is dark.
+
+| Control | Action |
+| --- | --- |
+| Encoder | Select the progression |
+| **K1** | Key. All chords move to the new key. |
+| **K2** | Voicing: File (as in the file), Close, Open or Spread |
+| **K3** | Layout |
+| **−** / **+** | Octave |
+| **PAD BANK** | Banks A–C |
+
+Melodee looks for progressions in these folders on the SD card:
+
+- `Melodee/Progressions` (your own progressions)
+- `Progressions`
+- `Samples/Expansions` (in each expansion's folders)
+
+### Make your own chords
+
+1. On **Keys**, set **K3** to Scale, Chromatic or Chords.
+2. Hold the pads of the chord. **B2** shows **STORE**.
+3. Press **B2**. The layout changes to **Prog**. Empty pads are outlined.
+4. Press the pad for the chord. To cancel, press **B1** (**BACK**).
+
+![Store a chord](../images/screens/keysprogstore.png)
+
+Melodee saves the progression to `Melodee/Progressions` on the SD card. A
+new progression is named Mine 1, Mine 2 and so on. When you add a chord to a
+progression from another folder, Melodee saves the changed copy in
+`Melodee/Progressions` and does not change the original file.
+
+The project keeps the progression of each track, its key and its voicing.
 
 ## MIDI tracks
 

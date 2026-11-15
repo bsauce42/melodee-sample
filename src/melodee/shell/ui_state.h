@@ -416,6 +416,17 @@ struct UiState {
     bool seq_print = false;
     std::array<uint64_t, (pattern_count + 63) / 64> seq_frozen {};
     bool seq_frozen_at(unsigned p) const { p %= pattern_count; return (seq_frozen[p / 64] >> (p % 64)) & 1; }
+    // Prog layout (shell/progression_jobs.h): the card's progressions as the wheel walks them (prog_at of prog_count;
+    // -1: the track's is not among them), its neighbours' names, and when the wheel last turned (Keys shows the name
+    // big for a moment). Storing: the keys held when B2 STORE was pressed, until a pad takes them (B1 BACK: none).
+    int16_t prog_at = -1;
+    uint16_t prog_count = 0;
+    char prog_prev[48] {}, prog_next[48] {};
+    uint32_t prog_shown_at = 0;
+    bool prog_storing = false;
+    std::array<uint8_t, notes_per_step> prog_store_keys {};
+    uint8_t prog_store_count = 0;
+    uint8_t prog_store_from = 0; // the layout to go back to on B1 BACK
     // A word over the header for a moment: what an undo, redo, delete or copy did.
     char notice[32] {};
     uint32_t notice_at = 0;   // ms

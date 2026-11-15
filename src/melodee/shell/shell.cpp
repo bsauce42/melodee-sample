@@ -30,6 +30,7 @@
 #include "melodee/shell/stage_map.h"
 #include "melodee/shell/zoom_view.h"
 #include "melodee/shell/sample_mode.h"
+#include "melodee/shell/progression_jobs.h"
 #include "melodee/shell/seq_layer.h"
 #include "melodee/shell/shift_pads.h"
 #include "surface/controls.h"
@@ -516,6 +517,11 @@ void Shell::wheel(int delta) {
     }
     if (seq_wheel(context_, delta)) return;     // Seq held: the tempo
     if (pad_bank_move(context_, delta)) return; // Pad Bank held: the wheel jumps banks
+    if (sample_held_page(*project_, ui_) == PageId::Keys && prog_pads(context_.track())) { // Keys on Prog: the progression
+        ui_.sample_used = true;
+        if (!ui_.prog_storing) prog_wheel(context_, delta);
+        return;
+    }
     if (ui_.shift && ui_.last_pot >= 0 && ui_.page != PageId::Patterns && ui_.page != PageId::Roll) { // Patterns: locates by Q; Roll: marks notes
         // Shift + wheel: fine edit of the last pot touched, one step a detent.
         ui_.shift_used = true;

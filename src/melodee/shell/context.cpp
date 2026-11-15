@@ -14,6 +14,7 @@
 #include <cmath>
 #include "melodee/engine/take_recorder.h"
 #include "melodee/model/chords.h"
+#include "melodee/shell/progression_jobs.h"
 #include "melodee/model/scales.h"
 #include "melodee/model/project_file.h"
 #include "melodee/plugin/plugin_rack.h"
@@ -362,6 +363,7 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
         return;
     }
     if (!t.used()) return;
+    if (ui.prog_storing) prog_store_pad(*this, pad); // Keys storing a chord: it goes on this pad, then the pad plays it
     if (t.levels) { // 16 Levels on a synth: the last note on all sixteen, soft to loud or in pitch; Scale the key's notes
         auto level = levels_of(project, t, pad);
         ui.levels_hit = int8_t(pad); ui.levels_value = int16_t(level.shown);
@@ -375,7 +377,8 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
     unsigned count = 1;
     keys[0] = pad_note(project, t, pad).key;
     if (drum_pads(t) && t.engine == EngineKind::Midi) t.last_pad = uint8_t(16 * drum_bank(t) + pad % 16); // the drum PADS' K2 maps (roadmap P4)
-    if (t.chord && t.layout != PadLayout::Levels) count = chord_notes(project, t, pad, keys);
+    if ((t.chord || t.layout == PadLayout::Prog) && t.layout != PadLayout::Levels) count = chord_notes(project, t, pad, keys); // Prog: the pad's chord
+    if (!count) return; // a Prog pad with no chord on it
     if (t.layout != PadLayout::Levels) t.last_note = uint8_t(std::clamp(keys[0], 0, 127));
     for (unsigned n = 0; n < count; ++n) {
         pad_keys[pad][n] = int16_t(std::clamp(keys[n], 0, 127));
@@ -528,7 +531,11 @@ void Context::apply(const Binding& b, int value) {
     case Kind::Layout:
         if (PadLayout(value) == PadLayout::Drums) use_drum_pads(t);
         else t.layout = PadLayout(value);
+        ui.prog_storing = false;
+        if (t.layout == PadLayout::Prog) prog_layout_on(*this);
         break;
+    case Kind::ProgKey: t.prog_shift = int8_t(((value - int(t.prog.root)) % 12 + 12 + 6) % 12 - 6); break; // the nearest way: -6..5
+    case Kind::ProgVoicing: t.prog_voicing = uint8_t(value % int(ProgVoicing::Count)); break;
     case Kind::Transpose: t.transpose = int8_t(std::clamp(value, -12, 12)); break;
     case Kind::Engine: {
         std::array<EngineKind, size_t(EngineKind::Count)> engines {};

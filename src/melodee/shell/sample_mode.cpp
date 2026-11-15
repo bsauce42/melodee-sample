@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/sample_mode.h"
+#include "melodee/shell/progression_jobs.h"
 #include "melodee/engine/sampler.h"
 #include "melodee/model/scales.h"
 #include "melodee/shell/sample_library.h"
@@ -40,12 +41,15 @@ void sample_button(Context& c, bool pressed) {
     // A tap opens; a hold that showed its sheet and did nothing is only a look.
     if (ui.sample_held && !ui.sample_used && c.now - ui.sample_down < sample_sheet_ms) open_sample_page(c);
     ui.sample_held = false;
+    prog_store_back(c); // a chord stored on Keys and no pad picked for it: none
 }
 
 bool sample_key(Context& c, unsigned key) {
     auto& ui = c.ui;
     if (!ui.sample_held || ui.shift) return false;
     ui.sample_used = true; // its release opens nothing more
+    if (ui.prog_storing) { if (key == 0) prog_store_back(c); return true; } // Keys storing a chord: B1 BACK
+    if (key == 1 && prog_can_store(c)) { prog_store_begin(c); return true; } // pads held on Keys: B2 STORE
     const auto& t = c.track();
     if (!t.used()) { c.open(PageId::Stage); return true; } // an empty track: what it becomes
     if (stage_opens_edit(t, key)) { c.open(PageId::Edit); return true; } // a MIDI track's B3 EDIT

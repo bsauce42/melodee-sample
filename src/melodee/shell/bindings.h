@@ -105,7 +105,8 @@ struct Binding {
         PrintTapPick, PrintTailPick, // freeze plan F2c, the PRINT sheet: K1 where prints are taken (PrintTap), K2 how they end (PrintTail)
         PadSend,  // Stage's SENDS on a kit, K2: the last pad's own send into bus id (PadSound::sends)
         PadColour, // Stage's COLOUR on a kit, K1: the last pad's colour, a place on shell/pad_colour.h's list
-        PadCloud   // Stage's CLOUD on a kit: the last pad's cloud; id 0 on or off, 1-5 position, size, density, scan, spread
+        PadCloud,  // Stage's CLOUD on a kit: the last pad's cloud; id 0 on or off, 1-5 position, size, density, scan, spread
+        ProgKey, ProgVoicing, // Keys on the Prog layout: K1 the progression's key (0..11), K2 its voicing (model/scales.h ProgVoicing)
     };
     Kind kind = Kind::None;
     int32_t id = 0;      // Param: the parameter

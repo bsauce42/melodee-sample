@@ -443,10 +443,11 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         lights.fader(level <= 0 ? Rgb {} : master ? led_colour::white(level) : pad_light::track(ui.track, level).rgb);
     }
     // Bank lights A-H: with Seq held or on Patterns, the bank of patterns in view; else the sampler track's bank in view, or the Drums
-    // pads' (A-D).
+    // pads' (A-D), or the Prog pads' (A-C).
     for (unsigned bank = 0; bank < surface_bank_lights; ++bank)
         lights.bank(bank, ui.seq_held || ui.page == PageId::Patterns || ui.page == PageId::Scenes ? bank == ui.pattern_bank % pattern_banks
-                                      : (track.engine == EngineKind::Sampler && bank == track.bank % sampler_banks) || (drum_pads(track) && bank == drum_bank(track)));
+                                      : (track.engine == EngineKind::Sampler && bank == track.bank % sampler_banks) || (drum_pads(track) && bank == drum_bank(track))
+                                        || (prog_pads(track) && bank == prog_bank(track)));
     { // The meters beside the screen, as on the MPC: the input source while Record or Input Config is in view or a
       // take waits or runs (what is about to be sampled), else main out.
         using S = TakeRecorder::State;

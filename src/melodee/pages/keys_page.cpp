@@ -13,17 +13,119 @@
 // there (else its note, a pad without a voice dark), the drum hit last in the
 // track's colour. The chip says DRUMS, the pill the bank; Minus / Plus (and
 // Pad Bank) step the bank, A-D.
+//
+// Prog (K3's last layout): each pad one chord of the track's progression, an
+// MPC 3 .progression file (model/progression.h): its name short, a slash bass
+// small under it, the file's Root chord in the track's colour, a pad with no
+// chord dark. Pad Bank steps banks A-C. K1 the key, K2 the voicing; the wheel
+// picks the progression on the card, its name shown large for a moment.
+// Pads held on Scale, Chromatic or Chords: B2 STORE takes their notes, the
+// layout turns to Prog and the next pad hit takes the chord (B1 BACK, or
+// letting go of Sample: none). Keys shows while Sample is held, so the wheel
+// and B1-B3 come here through the shell (shell.cpp wheel(), sample_key()).
+#include "melodee/model/progression.h"
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
+#include "melodee/shell/progression_jobs.h"
 #include "melodee/ui/widgets.h"
 
 namespace melodee {
 namespace {
 using namespace ui;
 
+constexpr unsigned shown_ms = 1500; // the progression's name after a wheel turn
+
+bool picking(const Snapshot& s) { return s.ui.prog_shown_at && s.now - s.ui.prog_shown_at < shown_ms; }
+
+ui::SoftKeys keys_of(const Snapshot& s) {
+    auto c = colour_of(s);
+    if (s.ui.prog_storing) return {{"BACK", "", ""}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
+    const auto& t = s.track();
+    bool notes = t.layout == PadLayout::Scale || t.layout == PadLayout::Chromatic || t.layout == PadLayout::Chords;
+    if (s.ui.held_pads && notes && t.used() && t.engine != EngineKind::Sampler && !t.levels) return {{"", "STORE", ""}, -1, c};
+    return sound_keys(s);
+}
+
+// The wheel turned: the progression large, its file's own name and size under it, the ones before and after small.
+void draw_pick(Paint& p, const Snapshot& s) {
+    const auto& t = s.track();
+    juce::String title = juce::String::fromUTF8(t.prog.file[0] ? t.prog.file : "No progression");
+    auto style = plain(colour::text, 26, Weight::SemiBold);
+    auto lines = p.wrap(title, style, zone::width - 2 * 10, 2);
+    float y = zone::picture_y + 8;
+    for (const auto& line : lines) { p.text(line, 10, y, zone::width - 20, style.size * 1.2f, style); y += style.size * 1.2f; }
+    unsigned chords = 0;
+    for (const auto& ch : t.prog.chords) chords += ch.used();
+    juce::String about = juce::String(int(chords)) + " chords" + juce::String::fromUTF8(" \xc2\xb7 key ") + note_letter(prog_key(t));
+    juce::String name = juce::String::fromUTF8(t.prog.name), file = juce::String::fromUTF8(t.prog.file);
+    if (name.endsWith(file) && name.length() > file.length()) { // "Prisms 2-A Lydian ...": the pack's name first
+        auto pack = name.dropLastCharacters(file.length()).trimCharactersAtEnd(" -");
+        if (pack.isNotEmpty()) about = pack + juce::String::fromUTF8(" \xc2\xb7 ") + about;
+    }
+    p.text(about, 11, y + 4, zone::width - 22, 18, p.fit(about, plain(colour::sec, type::body), zone::width - 22, type::floor));
+    float foot = zone::knobs_y - 22;
+    if (s.ui.prog_prev[0]) {
+        juce::String prev = juce::String::fromUTF8("\xe2\x80\xb9 ") + juce::String::fromUTF8(s.ui.prog_prev);
+        p.text(prev, 8, foot, 148, 18, p.fit(prev, plain(colour::mid, type::body), 148, type::floor));
+    }
+    if (s.ui.prog_next[0]) {
+        juce::String next = juce::String::fromUTF8(s.ui.prog_next) + juce::String::fromUTF8(" \xe2\x80\xba");
+        p.text(next, 164, foot, 148, 18, p.fit(next, plain(colour::mid, type::body), 148, type::floor), juce::Justification::centredRight);
+    }
+}
+
+void draw_prog(Paint& p, const Snapshot& s) {
+    const auto& track = s.track();
+    auto c = colour_of(s);
+    Header h = header_of(s);
+    if (s.ui.prog_storing) { // the chord held, waiting for its pad
+        std::array<int, notes_per_step> keys {};
+        for (unsigned n = 0; n < s.ui.prog_store_count; ++n) keys[n] = s.ui.prog_store_keys[n];
+        std::string name = name_chord(keys.data(), s.ui.prog_store_count);
+        if (name.empty()) name = note_name(keys[0]);
+        h.left.push_back(chip(juce::String(name) + juce::String::fromUTF8(" \xe2\x86\x92 PAD"), c));
+    } else {
+        h.left.push_back(chip(juce::String("BANK ") + juce::String::charToString(juce::juce_wchar('A' + prog_bank(track))), c));
+        if (s.ui.prog_count && s.ui.prog_at >= 0) h.left.push_back(pill("PROG " + juce::String(s.ui.prog_at + 1) + " / " + juce::String(s.ui.prog_count)));
+        else if (track.prog.file[0]) h.left.push_back(pill(juce::String::fromUTF8(track.prog.file)));
+    }
+    h.right.push_back(tag_of(s, s.ui.track));
+    frame(p, s, keys_of(s), h);
+    if (picking(s) && !s.ui.prog_storing) { draw_pick(p, s); return; }
+
+    constexpr float gap = 4, top = zone::picture_y + 2;
+    constexpr float w = (zone::width - 2 * zone::pad - 3 * gap) / 4, ch = (zone::picture_h - 4 - 3 * gap) / 4;
+    for (unsigned pad = 0; pad < 16; ++pad) {
+        unsigned row = 3 - pad / 4, column = pad % 4;
+        float x = zone::pad + column * (w + gap), y = top + row * (ch + gap);
+        bool held = s.ui.held_pads & (1u << pad);
+        unsigned index = prog_index(track, pad);
+        const auto& chord = track.prog.chords[index];
+        if (!chord.used()) {
+            p.fill(x, y, w, ch, colour::quiet, 3);
+            if (s.ui.prog_storing) p.ring(x, y, w, ch, c, 3, 1.5f); // a free pad for the chord
+            continue;
+        }
+        bool root = chord.root;
+        p.fill(x, y, w, ch, held ? colour::text : root ? c : colour::surf, 3);
+        auto fg = held || root ? colour::bg : colour::text;
+        auto name = prog_pad_name(track, index);
+        juce::String label = juce::String::fromUTF8(name.chord.c_str());
+        auto style = p.fit(label, plain(fg, type::list, Weight::SemiBold), w - 10, type::floor);
+        if (name.bass.empty()) {
+            p.text(label, x + 6, y, w - 10, ch, style);
+        } else {
+            p.text(label, x + 6, y + 1, w - 10, ch * 0.55f, style);
+            p.text("/ " + juce::String::fromUTF8(name.bass.c_str()), x + 6, y + ch * 0.5f, w - 10, ch * 0.45f,
+                   plain(held || root ? colour::bg.withAlpha(0.7f) : colour::mid, type::small, Weight::Medium));
+        }
+    }
+}
+
 void draw(Paint& p, const Snapshot& s) {
     const auto& track = s.track();
+    if (prog_pads(track)) { draw_prog(p, s); return; }
     auto c = colour_of(s);
     Header h = header_of(s);
     bool drums = drum_pads(track);
@@ -40,7 +142,7 @@ void draw(Paint& p, const Snapshot& s) {
         h.left.push_back(pill(octave));
     }
     h.right.push_back(tag_of(s, s.ui.track));
-    frame(p, s, sound_keys(s), h);
+    frame(p, s, keys_of(s), h);
 
     std::array<uint8_t, 12> degrees {};
     unsigned in_scale = scale_degrees(s.project.scale, degrees);
@@ -76,6 +178,12 @@ void draw(Paint& p, const Snapshot& s) {
 } // namespace
 
 void push(Context& c) { if (c.track().used()) c.open(PageId::Edit); } // the engine's every page (Stage holds the quick ones)
-const PageSpec keys_page {draw, play_pad, no_wheel, push, play_soft, octave};
+void wheel(Context& c, int delta) { if (prog_pads(c.track()) && !c.ui.prog_storing) prog_wheel(c, delta); }
+void soft(Context& c, int key) {
+    if (c.ui.prog_storing) { if (key == 0) prog_store_back(c); return; }
+    if (key == 1 && prog_can_store(c)) { prog_store_begin(c); return; }
+    play_soft(c, key);
+}
+const PageSpec keys_page {draw, play_pad, wheel, push, soft, octave};
 
 } // namespace melodee

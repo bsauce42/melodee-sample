@@ -766,6 +766,9 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     }
     switch (ui.page) {
     case PageId::Keys:
+        if (prog_pads(track)) // the progression's key and voicing (the wheel picks the progression)
+            return {Binding {Kind::ProgKey, 0, 0, 11, int(prog_key(track))}, Binding {Kind::ProgVoicing, 0, 0, int(ProgVoicing::Count) - 1, track.prog_voicing},
+                    Binding {Kind::Layout, 0, 0, int(PadLayout::Count) - 1, int(track.layout)}};
         return project_key(project, Binding {Kind::Layout, 0, 0, int(PadLayout::Count) - 1, int(track.layout)});
     case PageId::Sounds: { // every list: K1 jumps, the other pots draw nothing (the engine is Stage PRESET's K3)
         std::array<uint16_t, max_listed> list {};
