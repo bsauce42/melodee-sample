@@ -92,7 +92,7 @@ The result is an MPC keygroup program on a new keygroup track, which takes
 almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 
 1. Select the plug-in track and set the sound you want.
-2. Press **SAMPLE RECORD** (the PRINT sheet), then **SAMPLE RECORD** again.
+2. Press **SHIFT** + **Pad 11** (Resample). **SHIFT** + **Pad 11** again closes the sheet.
 3. Set the cards. **B2** (or the encoder) shows the next row.
 4. Press **B3 SAMPLE** (or push the encoder).
 

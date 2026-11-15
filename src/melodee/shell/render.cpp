@@ -5,7 +5,8 @@
 // - Resample (Shift + Pad 11, as printed): then a pad; the selected track's
 //   pattern (with every other track's playing alongside) is played from its
 //   start and rendered onto that pad, as Akai's editing_sequences page has
-//   it. Up to 60 s, the longest sample a pad loads. One undo.
+//   it. Up to 60 s, the longest sample a pad loads. One undo. On a plug-in
+//   track it opens AUTO SAMPLE instead (shell/auto_sample.h).
 // - Resample on Song (roadmap P3): then a pad; the song from its first bar to
 //   its end (and its tails, as a mixdown has them) onto that pad, its first
 //   60 s when it is longer. One undo.
@@ -31,8 +32,13 @@ using Type = Command::Type;
 void Context::resample() {
     if (ui.rendering) { notice("Rendering already"); return; }
     if (ui.resample_pick) { ui.resample_pick = false; notice("Resample off"); return; }
-    if (track().engine != EngineKind::Sampler) { notice("Resample: pick a kit track"); return; }
     const bool song = ui.page == PageId::Song && project.song.length(); // roadmap P3: on Song, the song
+    if (track().engine == EngineKind::Plugin && !song) { // a plug-in track: AUTO SAMPLE, its keys into a keygroup program; again closes it
+        if (ui.page == PageId::AutoSample) auto_sheet_cancel();
+        else open_auto_sheet();
+        return;
+    }
+    if (track().engine != EngineKind::Sampler) { notice("Resample: pick a kit track"); return; }
     bool notes = song; // the patterns the tracks play: any notes to render?
     for (unsigned t = 0; t < track_count && !notes; ++t) notes = project.tracks[t].used() && !patterns.at[t][project.tracks[t].pattern % pattern_count].empty();
     if (!notes) { notice("Resample: no notes to play"); return; }

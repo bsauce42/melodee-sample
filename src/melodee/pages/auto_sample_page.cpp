@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
-// AUTO SAMPLE (shell/auto_sample.h): Sample Record again on a plug-in track's
-// PRINT. The keys from C-1 to G9 as a strip, the range sampled in the
+// AUTO SAMPLE (shell/auto_sample.h): Resample (Shift + Pad 11) on a plug-in
+// track. The keys from C-1 to G9 as a strip, the range sampled in the
 // track's colour, each root a mark over it. Beside: how many samples, the
 // keys, what they take on the card at most. K1-K3 a row of three, B2 the
 // next: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL), SOUND (TAP, LOOP,
 // LEVEL). B3 or Push SAMPLE: the roots light up as they are done, the one
-// playing blinks, with its note, the speed and the time left; B1 or Sample
-// Record calls it off and its files go. The pads play the plug-in to try it;
-// Minus / Plus their octave. Done, it goes back and the new KEYGROUP track is
-// in hand.
+// playing blinks, with its note, the speed and the time left; B1 calls it
+// off and its files go. The pads play the plug-in to try it; Minus / Plus
+// their octave. Shift + Pad 11 again closes it. Done, it goes back and the
+// new KEYGROUP track is in hand.
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"

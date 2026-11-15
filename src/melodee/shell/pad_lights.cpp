@@ -651,7 +651,8 @@ bool shift_can_act(const PadScene& s, unsigned pad) {
     case 1: return notes && std::max<uint32_t>(p.length / 2, 1) != p.length; // Half Seq
     case 2: return notes && p.length * 2 <= s.project.max_length();         // Double Seq
     case 5: case 6: case 13: return notes;                                  // Half Speed, Double Speed, Time Correct
-    case 10: return s.ui.resample_pick || (!s.ui.rendering && t.engine == EngineKind::Sampler && any_notes(s)); // Resample
+    case 10: return s.ui.resample_pick || (t.engine == EngineKind::Plugin && s.ui.page != PageId::Song) // Resample; AUTO SAMPLE on a plug-in track
+                    || (!s.ui.rendering && t.engine == EngineKind::Sampler && any_notes(s));
     case 12: case 14: { // Trim Sample, Warp: a kit's own sample, not an instrument's
         if (t.engine != EngineKind::Sampler) return false;
         const auto& sound = t.pads[t.last_pad % sampler_pads];
@@ -667,7 +668,7 @@ bool shift_can_act(const PadScene& s, unsigned pad) {
 }
 Look shift_look(const PadScene& s, unsigned pad) {
     unsigned level = shift_pad_level(s.ui, pad); // 0 not built, 1 a job, 2 a toggle that is on
-    if (pad == 10 && s.ui.resample_pick) level = 2;
+    if (pad == 10 && (s.ui.resample_pick || s.ui.page == PageId::AutoSample)) level = 2;
     if (!level || !shift_can_act(s, pad)) return {};
     return white(level == 2 ? full : dim);
 }

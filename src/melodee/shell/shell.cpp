@@ -378,10 +378,8 @@ void Shell::press(Button b, bool pressed) {
         break;
     case Button::SampleRecord: // a sampler track: the Record page; there, a take ends and Sample Mode has its pad
         if (ui.shift) { context_.audio_recall(); break; } // Audio Recall: the input ring's last 25 s
-        if (ui.page == PageId::AutoSample) { context_.auto_sheet_cancel(); break; } // again: the sheet closes (calling off its samples)
-        // Again on a plug-in track's PRINT: AUTO SAMPLE (while nothing prints); elsewhere the sheet closes, calling off its prints.
-        if (ui.page == PageId::Print && context_.track().engine == EngineKind::Plugin && !ui.print_sheet.printing) { context_.open_auto_sheet(); break; }
-        if (ui.page == PageId::Print) { context_.print_sheet_cancel(); break; }
+        if (ui.page == PageId::AutoSample && ui.auto_sheet.sampling) break; // AUTO SAMPLE (Shift + Pad 11) runs: B1 calls it off
+        if (ui.page == PageId::Print) { context_.print_sheet_cancel(); break; } // again: the sheet closes, calling off its prints
         if (context_.track().engine != EngineKind::Sampler) { context_.open_print_sheet(); break; } // freeze plan F2c: PRINT
         if (ui.page != PageId::Record) context_.open(PageId::Record);
         else context_.record_button();

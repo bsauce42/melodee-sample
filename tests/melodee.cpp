@@ -10091,8 +10091,8 @@ void pad_lights() {
     CHECK(is(3, Hue::White, 2) && is(9, Hue::White, 4) && is(7, Hue::White, 2));
     kit.pattern = 0; light(plays);
     CHECK(is(1, Hue::White, 2) && is(5, Hue::White, 2) && is(10, Hue::White, 2));
-    ui.track = 0; light({}); // kits only: Resample, Trim Sample, Warp
-    CHECK(is(10, Hue::None, 0) && is(12, Hue::None, 0) && is(14, Hue::None, 0));
+    ui.track = 0; light({}); // a plug-in track: Resample opens AUTO SAMPLE; Trim Sample and Warp kits only
+    CHECK(is(10, Hue::White, 2) && is(12, Hue::None, 0) && is(14, Hue::None, 0));
     ui.track = 1; ui.shift = false;
     // Erase held on a kit, stopped: the pads that would empty. A pad copy: from, then where.
     ui.erase = true; light(plays);

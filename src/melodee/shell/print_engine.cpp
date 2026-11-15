@@ -580,6 +580,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     std::error_code e;
     auto fail = [&](std::string why) { // nothing half made is left on the card
         fs::remove_all(folder, e);
+        fs::remove(folder.parent_path(), e); // Keygroups/ too, when it is left empty
         r.error = std::move(why);
         r.program.clear();
         r.seconds = since(t0);

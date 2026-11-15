@@ -33,7 +33,7 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Roll, Motion, Patterns,
                             ModPage,                           // roadmap P4: modulators and macros (MOTION again on Motion)
                             Print,                             // freeze plan F2c: the PRINT sheet (Sample Record on a plug-in or MIDI track)
                             Scenes,                            // roadmap P5: the bank's scenes (B1 again on Patterns)
-                            AutoSample,                        // the AUTO SAMPLE sheet: Sample Record again on a plug-in track's PRINT
+                            AutoSample,                        // the AUTO SAMPLE sheet: Resample (Shift + Pad 11) on a plug-in track
                             Count };
 
 // Takeover (shell/takeover.h): a pot or the fader drives its value once it has

@@ -21,7 +21,7 @@ Previous: [Exit and troubleshooting](exit-and-troubleshooting.md) · [Contents](
 | **TAP TEMPO** | Tap tempo. Hold: Tempo page. | Metronome Off, On, Rec |
 | Encoder push | Open, or next card | Back |
 | **−** / **+** | Octave, bank, or list | Undo / redo |
-| **SAMPLE RECORD** | On a kit: record onto a pad. On a plug-in or MIDI track: the PRINT sheet; again on a plug-in track: AUTO SAMPLE. With **SEQ** held: freeze patterns. | Audio Recall |
+| **SAMPLE RECORD** | On a kit: record onto a pad. On a plug-in or MIDI track: the PRINT sheet. With **SEQ** held: freeze patterns. | Audio Recall |
 | **SEQ RECORD** | Arm or stop recording | Recall |
 | **STOP** | Stop | All notes off |
 | **PLAY** | Play from the start (on Song, from the cursor). Held while playing: Fill. | Continue |
@@ -35,7 +35,7 @@ show is in [Light show](basics.md#light-show).
 | --- | --- | --- | --- |
 | 1 | Full Level | 9 | Fader |
 | 2 | Half Seq | 10 | Rec Quantize |
-| 3 | Double Seq | 11 | Resample |
+| 3 | Double Seq | 11 | Resample (on a plug-in track: AUTO SAMPLE) |
 | 4 | Count-In | 12 | Song |
 | 5 | Compressor | 13 | Trim Sample |
 | 6 | Half Speed | 14 | Time Correct |

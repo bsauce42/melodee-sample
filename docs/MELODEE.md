@@ -160,7 +160,7 @@ holds the table the dispatch and the lights share.
 | --- | --- | --- | --- |
 | 1 | Full Level (every hit at 127; again back) | 9 | Fader page |
 | 2 | Half Seq | 10 | Rec Quantize: on / off (B3) and its grid |
-| 3 | Double Seq | 11 | Resample (then a pad) |
+| 3 | Double Seq | 11 | Resample (then a pad; on a plug-in track AUTO SAMPLE) |
 | 4 | Count-In on / off | 12 | Song |
 | 5 | Compressor | 13 | Trim Sample |
 | 6 | Half Speed | 14 | Time Correct |
@@ -171,7 +171,8 @@ Toggles (1, 4, 10) are kept in the settings file. While Shift is held the
 pads light white, the panel's own: a toggle that is on Full, a job Dim, and
 dark where the job would only answer with a notice (Half and Double Seq,
 Half and Double Speed and Time Correct with no notes in the pattern;
-Resample, Trim Sample and Warp off a kit or on an instrument). The screen draws no
+Resample off a kit or a plug-in track, Trim Sample and Warp off a kit or
+on an instrument). The screen draws no
 Shift layer, since the jobs are printed on the MPC: the page stays, and
 the knob strip shows only the Shift + K cards.
 
@@ -1064,8 +1065,8 @@ It checks the card has room for every note at its longest first; a
 cancel or failure deletes the folder. The program then goes on the
 first empty track as a KEYGROUP track with the plug-in track's
 patterns, Song clips, mix, pitch bend and (Pre FX) its chain without
-plug-in effects; one undo. The AUTO SAMPLE sheet (Sample Record again
-on a plug-in track's PRINT, `pages/auto_sample_page.cpp`) has three
+plug-in effects; one undo. The AUTO SAMPLE sheet (Resample, Shift + Pad 11,
+on a plug-in track, `pages/auto_sample_page.cpp`) has three
 rows of cards on B2: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL),
 SOUND (TAP, LOOP, LEVEL). Remote: `melodee-autosample TRACK [LOW-HIGH]
 [step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop] [raw]`;

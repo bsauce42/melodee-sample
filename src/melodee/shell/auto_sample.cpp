@@ -177,7 +177,6 @@ void Context::open_auto_sheet() {
         sheet.settings = auto_last;
         sheet.row = row;
     }
-    if (ui.page == PageId::Print) back(); // it stands in PRINT's place: B1 goes back where PRINT came from
     open(PageId::AutoSample);
 }
 
