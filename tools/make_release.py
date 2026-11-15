@@ -101,6 +101,8 @@ def collect(binary, version, commit):
     files[f"{licenses}/LICENSE-AGPL-3.0.txt"] = (ROOT / "LICENSE").read_bytes()
     files[f"{licenses}/THIRD_PARTY.md"] = (ROOT / "THIRD_PARTY.md").read_bytes()
     files[f"{licenses}/Rubik-OFL.txt"] = (ROOT / "build/deps/rubik/OFL.txt").read_bytes()
+    for face in sorted((ROOT / "build/deps/fonts").glob("*/OFL.txt")): # Settings > SCREEN > Font (src/melodee/dependencies.py FACES)
+        files[f"{licenses}/fonts/{face.parent.name}-OFL.txt"] = face.read_bytes()
     files[f"{licenses}/JUCE-LICENSE.md"] = (ROOT / "build/deps/JUCE/LICENSE.md").read_bytes()
     # Plug-ins (docs/MELODEE.md): the VST3 SDK and LV2 libraries inside JUCE, the CLAP headers, and the armhf runtime inside the binary's support pack.
     files[f"{licenses}/VST3-SDK-LICENSE.txt"] = (ROOT / "build/deps/JUCE/modules/juce_audio_processors_headless/format_types/VST3_SDK/LICENSE.txt").read_bytes()

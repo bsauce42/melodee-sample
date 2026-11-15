@@ -83,7 +83,7 @@ inline CardItem card_item(Icon i, juce::String word, juce::String sub = {}, bool
 struct CardSheet {
     juce::String chip, title, detail;
     juce::Colour chip_colour = colour::text, accent = colour::text, detail_colour = colour::mid;
-    std::array<CardItem, 8> items {};
+    std::array<CardItem, 12> items {};
     unsigned count = 0, current = 0;
 };
 void card_sheet(Paint& p, const CardSheet& sheet);

@@ -51,7 +51,7 @@ const std::array<Door, 8> doors {{
                               Settings::TapLight)},
     {Icon::Pattern, "SEQ", ROWS(Settings::SeqFollow, Settings::DoubleSeq, Settings::CaptureBars, Settings::CaptureQuantize)},
     {Icon::Knob, "KNOBS", ROWS(Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover)},
-    {Icon::Screen, "SCREEN", ROWS(Settings::Palette, Settings::Screen, Settings::PlaceBarRow, Settings::Mirror, Settings::MirrorSize,
+    {Icon::Screen, "SCREEN", ROWS(Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::Mirror, Settings::MirrorSize,
                                   Settings::MirrorRate)},
     {Icon::Speaker, "AUDIO", ROWS(Settings::SampleRate, Settings::AudioBuffer)},
     {Icon::Mic, "SAMPLING", ROWS(Settings::RecallGrabRow, Settings::RecallGap, Settings::RecallTrimEnd, Settings::TakeAutoEnd, Settings::AutoEndAfter,
@@ -205,8 +205,35 @@ void rows_draw(Paint& p, const Snapshot& s) {
     p.text(juce::String(ms, 1) + " ms", x + 70, py, 80, list_row_h, plain(colour::text, type::body, Weight::SemiBold));
 }
 
+// SCREEN's Palette and Font as cards over the rows: the screen is drawn in the one lit while the wheel turns, so
+// each is seen on the real page; Push keeps it, BACK goes back to the one there was.
+bool look_row(unsigned row) { return row == Settings::Palette || row == Settings::Font; }
+void look_draw(Paint& p, const Snapshot& s) {
+    bool palette = s.ui.settings_cursor == Settings::Palette;
+    frame(p, s, {{"BACK", "", "KEEP"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}}, header_of(s));
+    CardSheet m;
+    m.chip = "SCREEN";
+    m.title = palette ? "Palette" : "Font";
+    const auto& set = s.ui.settings;
+    if (palette) {
+        m.count = unsigned(palettes.size());
+        m.current = set.palette % m.count;
+        for (unsigned n = 0; n < m.count; ++n)
+            m.items[n] = card_item(Icon::Screen, palettes[n].name, palettes[n].light ? "LIGHT" : "DARK", n == m.current);
+    } else {
+        m.count = face_choices;
+        m.current = set.font % m.count;
+        for (unsigned n = 0; n < m.count; ++n)
+            m.items[n] = card_item(Icon::None, faces[n].name, faces[n].em > 0 ? "PIXEL" : "", n == m.current);
+    }
+    m.detail = juce::String(m.current + 1) + " / " + juce::String(m.count);
+    m.accent = track_colour(0);
+    card_sheet(p, m);
+}
+
 void settings_draw(Paint& p, const Snapshot& s) {
-    if (s.ui.settings_in && door_rows(door_of(s.ui))) rows_draw(p, s);
+    if (s.ui.settings_in && s.ui.settings_look && look_row(s.ui.settings_cursor)) look_draw(p, s);
+    else if (s.ui.settings_in && door_rows(door_of(s.ui))) rows_draw(p, s);
     else doors_draw(p, s);
 }
 
@@ -220,8 +247,15 @@ void open_door(Context& c) {
     ui.settings_cursor = uint8_t(doors[n].rows[0]);
 }
 
+void look_turn(Context& c, int delta) {
+    bool palette = c.ui.settings_cursor == Settings::Palette;
+    int count = palette ? int(palettes.size()) : int(face_choices), at = palette ? c.ui.settings.palette : c.ui.settings.font;
+    c.set_look(c.ui.settings_cursor, unsigned(std::clamp(at + delta, 0, count - 1)));
+}
+
 void settings_wheel(Context& c, int delta) {
     auto& ui = c.ui;
+    if (ui.settings_in && ui.settings_look) { look_turn(c, delta); return; }
     if (!ui.settings_in) { ui.settings_door = uint8_t(std::clamp(int(ui.settings_door % doors.size()) + delta, 0, int(doors.size()) - 1)); return; }
     if (ui.settings_editing) { c.change_setting(ui.settings_cursor, delta > 0 ? 1 : -1); return; }
     const auto& d = door_of(ui);
@@ -229,15 +263,28 @@ void settings_wheel(Context& c, int delta) {
     ui.settings_cursor = uint8_t(d.rows[at]);
 }
 void settings_push(Context& c) {
-    if (!c.ui.settings_in) { open_door(c); return; }
-    c.ui.settings_editing = !c.ui.settings_editing && c.ui.settings_cursor != Settings::Palette;
+    auto& ui = c.ui;
+    if (!ui.settings_in) { open_door(c); return; }
+    if (ui.settings_look) { ui.settings_look = false; return; } // kept: it was saved as it turned
+    if (look_row(ui.settings_cursor)) {
+        ui.settings_look = true;
+        ui.settings_look_before = ui.settings_cursor == Settings::Palette ? ui.settings.palette : ui.settings.font;
+        return;
+    }
+    ui.settings_editing = !ui.settings_editing;
 }
 void settings_nudge(Context& c, int way) {
     if (!c.ui.settings_in) { settings_wheel(c, way); return; }
+    if (c.ui.settings_look) { look_turn(c, way); return; }
     c.change_setting(c.ui.settings_cursor, way);
 }
 void settings_soft(Context& c, int key) {
     auto& ui = c.ui;
+    if (ui.settings_in && ui.settings_look) { // BACK: the look there was; KEEP: this one
+        if (key == 0) c.set_look(ui.settings_cursor, ui.settings_look_before);
+        if (key == 0 || key == 2) ui.settings_look = false;
+        return;
+    }
     if (ui.settings_in) { if (key == 0) { ui.settings_in = false; ui.settings_editing = false; } return; }
     if (key == 0) c.back();
     if (key == 2) open_door(c);

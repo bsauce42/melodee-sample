@@ -1877,6 +1877,19 @@ const Preview previews[] {
     {"settingslights", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 0; s.ui.settings_cursor = Settings::PadFade; }},
     {"settingsseq", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::SeqFollow; s.ui.settings.seq_follow = 1; }},
     {"settingsscreen", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::Palette; }},
+    // Push on Palette / Font: the cards, the screen in the one lit (DAY; Melodee Pixel).
+    {"settingspalette", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::Palette;
+         s.ui.settings_look = true; s.ui.settings.palette = 1;
+     }},
+    {"settingslcd", [](Shell&, Snapshot& s) { // LCD: no colour, Melodee Pixel
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::Palette;
+         s.ui.settings_look = true; s.ui.settings.palette = uint8_t(ui::palettes.size() - 1);
+     }},
+    {"settingsfont", [](Shell&, Snapshot& s) {
+         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::Font;
+         s.ui.settings_look = true; s.ui.settings.font = 6;
+     }},
     {"settingsaudio", [](Shell&, Snapshot& s) { // AUDIO's rows, 48 kHz with a dropout
         s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 4; s.ui.settings_cursor = Settings::AudioBuffer; s.ui.settings_editing = true;
         s.ui.settings.audio_rate = 48000; s.ui.settings.audio_periods = 4;
@@ -2427,6 +2440,8 @@ const Preview previews[] {
 };
 
 void draw(juce::Graphics& g, const Snapshot& s) {
+    ui::use_palette(s.ui.settings.palette); // Settings > SCREEN: the colours and the face this frame is drawn in
+    ui::use_face(ui::palette().face >= 0 ? unsigned(ui::palette().face) : s.ui.settings.font); // LCD sets its own
     ui::Paint p(g);
     g.fillAll(ui::colour::bg);
     page_spec(s.ui.page).draw(p, s);
@@ -2455,6 +2470,9 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
         snapshot->ui = UiState {};
         snapshot->now = 100000;
         preview.set(shell, *snapshot);
+        // MELODEE_PALETTE / MELODEE_FONT: every page in another of Settings' palettes or faces (by number).
+        if (auto* v = std::getenv("MELODEE_PALETTE"); v && !snapshot->ui.settings_look) snapshot->ui.settings.palette = uint8_t(std::atoi(v));
+        if (auto* v = std::getenv("MELODEE_FONT"); v && !snapshot->ui.settings_look) snapshot->ui.settings.font = uint8_t(std::atoi(v));
         // The pattern in view follows the track the preview picked.
         const auto& track = snapshot->project.tracks[snapshot->ui.track];
         snapshot->pattern = shell.patterns().at[snapshot->ui.track][track.pattern];

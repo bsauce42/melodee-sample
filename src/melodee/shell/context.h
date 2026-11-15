@@ -125,6 +125,7 @@ public:
     void flex_pad(unsigned pad);                            // Flex Beat: pad 1 Empty, 2-16 its effects
     void set_flex(unsigned what, int value);                // as Command::FlexBeat's index: 1 mode, 2 mix, 3 quantize
     void change_setting(unsigned row, int way);             // one step along a Settings row, kept on the card
+    void set_look(unsigned row, unsigned value);            // Settings' Palette or Font row to one value, kept on the card
     void toggle_favourite();                                // the sound under the Sounds cursor, else the loaded one
     // The Name sheet: what is named, its first text and how long it may be.
     void open_name(NameTarget target, const std::string& initial, unsigned limit, bool capitals);

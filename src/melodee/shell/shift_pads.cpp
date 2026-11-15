@@ -61,7 +61,7 @@ void shift_pad(Context& c, unsigned pad) {
         break;
     case 7: // Settings, as doors (MIDI Config one of them; Kerem's choice over the printed MIDI Config)
         if (c.ui.page == PageId::SettingsPage || c.ui.page == PageId::MidiConfig || c.ui.page == PageId::About) { c.back(); return; }
-        c.ui.midi_editing = false; c.ui.settings_editing = false; c.ui.settings_in = false;
+        c.ui.midi_editing = false; c.ui.settings_editing = false; c.ui.settings_in = false; c.ui.settings_look = false;
         c.open(PageId::SettingsPage);
         return;
     case 8: // Fader: what the selected track's fader follows, PIN, on / off (parity phase 8; round 2 fader C)

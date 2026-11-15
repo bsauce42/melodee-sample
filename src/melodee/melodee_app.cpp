@@ -456,6 +456,8 @@ void MelodeeApp::draw(juce::Graphics& g) {
         m.plugins = machine.plugins.load(std::memory_order_relaxed);
         m.plugins_load = machine.plugins_load.load(std::memory_order_relaxed);
     }
+    ui::use_palette(frame->ui.settings.palette); // Settings > SCREEN: the colours and the face this frame is drawn in
+    ui::use_face(ui::palette().face >= 0 ? unsigned(ui::palette().face) : frame->ui.settings.font); // LCD sets its own
     ui::Paint p(g);
     g.fillAll(ui::colour::bg);
     page_spec(frame->ui.page).draw(p, *frame);

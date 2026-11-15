@@ -1905,7 +1905,15 @@ void settings() {
     for (int n = 0; n < 20; ++n) c.step(Settings::Screen, -1);
     CHECK(c.screen == 20);
     c.step(Settings::PadLights, -1); CHECK(c.pad_lights == 2);
-    c.step(Settings::Palette, 1); CHECK(c.value_text(Settings::Palette) == "NIGHT");
+    // SCREEN's Palette and Font: NIGHT and Rubik first, stopping at the ends, kept in the text, a number out of range kept in.
+    CHECK(c.value_text(Settings::Palette) == "NIGHT" && c.value_text(Settings::Font) == "Rubik");
+    c.step(Settings::Palette, -1); CHECK(c.palette == 0);
+    c.step(Settings::Palette, 1); CHECK(c.value_text(Settings::Palette) == "DAY");
+    for (int n = 0; n < 20; ++n) c.step(Settings::Font, 1);
+    CHECK(c.font + 1u == ui::face_choices && c.value_text(Settings::Font) == "VT323");
+    { Settings back; back.read(c.text()); CHECK(back.palette == 1 && back.font + 1u == ui::face_choices); }
+    { Settings lcd; lcd.palette = uint8_t(ui::palettes.size() - 1); CHECK(lcd.value_text(Settings::Palette) == "LCD" && lcd.value_text(Settings::Font) == "Melodee Pixel"); }
+    { Settings odd; odd.read("palette=99\nfont=99\n"); CHECK(odd.palette + 1u == ui::palettes.size() && odd.font + 1u == ui::face_choices); }
     // Double Seq: Copy notes (the MPC's) or Empty, kept in the text.
     CHECK(c.double_copies && c.value_text(Settings::DoubleSeq) == "Copy notes");
     c.step(Settings::DoubleSeq, 1); CHECK(!c.double_copies && c.value_text(Settings::DoubleSeq) == "Empty");

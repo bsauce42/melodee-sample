@@ -7,6 +7,8 @@
 #include "drivers/screen_mirror.h"
 #include "melodee/model/input_config.h"
 #include "melodee/model/midi_config.h"
+#include "melodee/ui/faces.h"
+#include "melodee/ui/palettes.h"
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -35,7 +37,7 @@ inline const char* takeover_name(Takeover t) {
 struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
-                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Rows };
+                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, Rows };
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
@@ -74,6 +76,8 @@ struct Settings {
     // phase 8 one row, "Knob pickup" (key pickup): off reads as Instant for all three.
     Takeover knob_takeover = Takeover::Scaled, knob_fx_takeover = Takeover::Scaled, fader_takeover = Takeover::Pickup;
     uint8_t screen = 100;     // brightness, 20..100 %
+    uint8_t palette = 0;      // the screen's colours: ui/palettes.h (0 NIGHT)
+    uint8_t font = 0;         // the screen's typeface: ui/font_data.h (0 Rubik)
     bool place_bottom = false; // the place bar (shell/place_bar.h): under the knob cards, else between the soft keys and the header
     // The audio device (App::audio_format()): its rate, and the 128-frame periods queued ahead of the jacks. More
     // periods ride out a slow block (no crackle) and are heard later; a higher rate costs more CPU a second.
@@ -111,14 +115,18 @@ struct Settings {
         static const char* names[] {"Palette", "Pad response", "Pad pressure", "Pad lights", "Knob takeover", "Knob FX takeover",
                                     "Fader takeover", "Double Seq", "Capture bars", "Capture quantize", "Brightness", "Place bar", "Sample rate", "Audio buffer", "Recall grab", "Recall gap",
                                     "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Screen mirror", "Resolution", "Frame rate",
-                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow"};
+                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow", "Font"};
         return names[row % Rows];
     }
     std::string value_text(unsigned row) const {
         static const char* responses[] {"Soft", "Medium", "Hard", "Full level"};
         static const char* lights[] {"Track colours", "White", "Off"};
         switch (row) {
-        case Palette: return "NIGHT";
+        case Palette: return ui::palettes[palette % ui::palettes.size()].name;
+        case Font: { // a palette with a face of its own (LCD) shows that one
+            int own = ui::palettes[palette % ui::palettes.size()].face;
+            return ui::faces[own >= 0 ? unsigned(own) : font % ui::face_choices].name;
+        }
         case PadResponse: return responses[pad_response % 4];
         case PadPressure: return pressure ? "On" : "Off";
         case PadLights: return lights[pad_lights % 3];
@@ -152,9 +160,11 @@ struct Settings {
         default: return std::to_string(screen) + " %";
         }
     }
-    // One step along a row (the palette has one value).
+    // One step along a row.
     void step(unsigned row, int way) {
         switch (row) {
+        case Palette: palette = uint8_t(step_in(palette % ui::palettes.size(), unsigned(ui::palettes.size()), way)); break;
+        case Font: font = uint8_t(step_in(font % ui::face_choices, ui::face_choices, way)); break;
         case PadResponse: pad_response = uint8_t((pad_response + 4 + way) % 4); break;
         case PadPressure: pressure = !pressure; break;
         case PadLights: pad_lights = uint8_t((pad_lights + 3 + way) % 3); break;
@@ -218,7 +228,7 @@ struct Settings {
         out << "pad_response=" << int(pad_response) << "\npad_lights=" << int(pad_lights) << "\npad_fade=" << int(pad_fade) << "\ntap_light=" << int(tap_light)
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
-            << "\nscreen=" << int(screen) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
+            << "\nscreen=" << int(screen) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
             << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure) << "\nrepeat_pressure=" << int(repeat_pressure) << "\nseq_follow=" << int(seq_follow)
@@ -264,6 +274,8 @@ struct Settings {
             else if (key == "repeat_pressure") repeat_pressure = value != 0;
             else if (key == "seq_follow") seq_follow = uint8_t(std::clamp(value, 0, 2));
             else if (key == "screen") screen = uint8_t(std::clamp(value, 20, 100));
+            else if (key == "palette") palette = uint8_t(std::clamp(value, 0, int(ui::palettes.size()) - 1));
+            else if (key == "font") font = uint8_t(std::clamp(value, 0, int(ui::face_choices) - 1));
             else if (key == "place_bar") place_bottom = value != 0;
             else if (key == "count_in") count_in = value != 0;
             else if (key == "rec_quantize") rec_quantize = value != 0;

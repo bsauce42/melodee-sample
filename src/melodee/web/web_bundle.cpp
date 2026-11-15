@@ -5,7 +5,7 @@
 // that many bytes. The assembler reads it from the build folder (make runs at
 // the repository root).
 #include "melodee/web/web_bundle.h"
-#include "melodee/ui/rubik_data.h"
+#include "melodee/ui/font_data.h"
 #include <cstdint>
 #include <cstring>
 #include <map>

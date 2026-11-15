@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/ui/paint.h"
-#include "melodee/ui/rubik_data.h"
+#include "melodee/ui/font_data.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -10,30 +10,74 @@
 
 namespace melodee::ui {
 namespace {
-// One typeface per weight, cloned from the variable font's wght axis.
-const std::array<juce::Typeface::Ptr, 4>& faces() {
-    static const std::array<juce::Typeface::Ptr, 4> loaded = [] {
-        auto size = size_t(melodee_rubik_end - melodee_rubik_start);
-        auto base = juce::Typeface::createSystemTypefaceFor(melodee_rubik_start, size);
-        if (!base) throw std::runtime_error("Cannot load the embedded Rubik font");
-        std::array<juce::Typeface::Ptr, 4> out;
+unsigned face_in_use = 0; // Settings > SCREEN > Font (use_face())
+bool tight = false;       // an outline face's letters closed up a little, for a string a hair too wide (Paint::narrow_for)
+
+// One typeface per weight, cloned from a face's variable wght axis; each face
+// loaded on first use.
+const std::array<juce::Typeface::Ptr, 4>& typefaces() {
+    // Never freed: JUCE's own glyph caches, torn down at exit after this, still point at the typefaces.
+    static auto& loaded = *new std::array<std::array<juce::Typeface::Ptr, 4>, face_data.size()>;
+    auto& out = loaded[face_in_use];
+    if (!out[0]) {
+        const auto& data = face_data[face_in_use];
+        auto base = juce::Typeface::createSystemTypefaceFor(data.start, size_t(data.end - data.start));
+        if (!base) throw std::runtime_error(std::string("Cannot load the embedded font ") + faces[face_in_use].name);
         const float weights[] {400, 500, 600, 700};
         for (size_t n = 0; n < out.size(); ++n) {
             juce::FontVariableSetting setting {"wght", weights[n]};
             auto face = base->cloneWithVariableSettings(juce::Span<const juce::FontVariableSetting>(&setting, 1));
             out[n] = face ? face : base;
         }
-        return out;
-    }();
-    return loaded;
+    }
+    return out;
+}
+
+bool pixel_face() { return faces[face_in_use].em > 0; }
+
+// A pixel face's size: the whole multiple of its grid whose capitals come
+// nearest Rubik's (0.7 em) at `size`, never under 1x.
+float pixel_size(float size) {
+    const auto& f = faces[face_in_use];
+    return std::max(1.0f, std::round(0.7f * size / f.cap)) * f.em;
 }
 
 juce::Font make_font(float size, Weight weight, bool caps) {
     // JUCE's kerning factor is a share of the font height (ascent + descent,
-    // about 1.185 em for Rubik); capitals get type::caps_tracking.
-    auto options = juce::FontOptions(faces()[size_t(weight)]).withPointHeight(size);
-    if (caps) options = options.withKerningFactor(type::caps_tracking / 1.185f);
+    // about 1.185 em for Rubik); capitals get type::caps_tracking. A pixel
+    // face keeps its own one-pixel spacing, which tracking would smear.
+    if (pixel_face()) return juce::Font(juce::FontOptions(typefaces()[size_t(weight)]).withPointHeight(pixel_size(size)));
+    auto options = juce::FontOptions(typefaces()[size_t(weight)]).withPointHeight(size * faces[face_in_use].scale);
+    float tracking = (caps ? type::caps_tracking : 0) - (tight ? 0.04f : 0);
+    if (tracking != 0) options = options.withKerningFactor(tracking / 1.185f);
     return juce::Font(options);
+}
+
+// `value` with each character the face in use has no glyph for put as plain
+// text it has (most faces lack the arrow; the pixel faces some signs).
+juce::String shown(const juce::String& value) {
+    bool plain = true;
+    for (auto c : value) if (c > 0x7e) { plain = false; break; }
+    if (plain) return value;
+    const auto& face = typefaces()[0];
+    juce::String out;
+    for (auto c : value) {
+        if (c <= 0x7e || face->getNominalGlyphForCodepoint(c)) { out << juce::String::charToString(c); continue; }
+        switch (c) {
+        case 0x2192: out << "->"; break;
+        case 0x2265: out << ">="; break;
+        case 0x2264: out << "<="; break;
+        case 0x00BD: out << "1/2"; break;
+        case 0x00BE: out << "3/4"; break;
+        case 0x2212: case 0x2013: case 0x2014: out << "-"; break;
+        case 0x00D7: out << "x"; break;
+        case 0x203A: out << ">"; break;
+        case 0x2039: out << "<"; break;
+        case 0x00B7: out << "."; break;
+        default: out << juce::String::charToString(c); break;
+        }
+    }
+    return out;
 }
 
 // Text costs most of a frame: JUCE shapes each string with HarfBuzz, and its
@@ -43,11 +87,11 @@ juce::Font make_font(float size, Weight weight, bool caps) {
 // thread, or a host tool) and are dropped whole when they grow past `most`,
 // since a page reuses the same few hundred strings frame after frame.
 struct Style {
-    int size_hundredths; Weight weight; bool caps;
-    bool operator==(const Style& o) const { return size_hundredths == o.size_hundredths && weight == o.weight && caps == o.caps; }
-    size_t hash() const { return size_t(size_hundredths) * 31u + size_t(weight) * 7u + size_t(caps); }
+    int size_hundredths; Weight weight; bool caps; unsigned face; bool tight;
+    bool operator==(const Style& o) const { return size_hundredths == o.size_hundredths && weight == o.weight && caps == o.caps && face == o.face && tight == o.tight; }
+    size_t hash() const { return size_t(size_hundredths) * 31u + size_t(weight) * 7u + size_t(caps) + size_t(face) * 1009u + size_t(tight) * 7919u; }
 };
-Style style_of(float size, Weight weight, bool caps) { return {int(std::lround(size * 100)), weight, caps}; }
+Style style_of(float size, Weight weight, bool caps) { return {int(std::lround(size * 100)), weight, caps, face_in_use, tight}; }
 
 struct FontHash { size_t operator()(const Style& s) const { return s.hash(); } };
 
@@ -110,13 +154,31 @@ const juce::GlyphArrangement& cached_layout(const juce::String& value, float siz
 }
 } // namespace
 
+void use_face(unsigned face) { face_in_use = face % face_choices; }
+unsigned face_count() { return face_choices; }
+const char* face_name(unsigned face) { return faces[face % faces.size()].name; }
+
 juce::Font font(float size, Weight weight, bool caps) { return cached_font(std::max(size, type::floor), weight, caps); }
 
 void audit_text(std::vector<TextIssue>* sink) { audit = sink; }
 void report_text_issue(const TextIssue& issue) { if (audit) audit->push_back(issue); }
 
-float Paint::width(const juce::String& value, const Text& style) const {
+float Paint::width(const juce::String& asked, const Text& style) const {
+    auto value = shown(asked);
     return cached_width(value, std::max(style.size, type::floor), style.weight, style.caps);
+}
+
+// When `value` is wider than `w` in the face in use: a pixel face's narrow
+// companion (it cannot shrink between its multiples), else an outline face
+// other than Rubik a little tighter. Undone by the caller (restore_face).
+unsigned Paint::narrow_for(const juce::String& value, const Text& style, float w) const {
+    unsigned was = face_in_use;
+    tight = false;
+    if (width(value, style) <= w + 0.5f) return was;
+    int narrow = faces[face_in_use].narrow;
+    if (narrow >= 0) face_in_use = unsigned(narrow);
+    else if (face_in_use != 0 && faces[face_in_use].em == 0) tight = true;
+    return was;
 }
 
 Paint::Text Paint::fit(const juce::String& value, Text style, float w, float smallest) const {
@@ -146,10 +208,12 @@ juce::StringArray Paint::wrap(const juce::String& value, Text& style, float w, i
     }
 }
 
-float Paint::text(const juce::String& value, float x, float y, float w, float h, const Text& asked,
+float Paint::text(const juce::String& original, float x, float y, float w, float h, const Text& asked,
                   juce::Justification justify) {
+    auto value = shown(original);
     Text style = asked;
     style.size = std::max(style.size, type::floor);
+    struct Back { unsigned face; ~Back() { face_in_use = face; tight = false; } } back {narrow_for(value, style, w)};
     if (audit && value.isNotEmpty()) {
         float needed = width(value, style);
         // Under the floor, wider than its box, or an ellipsis standing in for what does not fit: all fail the check.
@@ -162,7 +226,16 @@ float Paint::text(const juce::String& value, float x, float y, float w, float h,
     if (value.isEmpty()) return 0;
     juce::Rectangle<float> area(x, y, w, h);
     if (g.clipRegionIntersects(area.getSmallestIntegerContainer()))
-        cached_layout(value, style.size, style.weight, style.caps, w, h, justify).draw(g, juce::AffineTransform::translation(x, y));
+    {
+        const auto& layout = cached_layout(value, style.size, style.weight, style.caps, w, h, justify);
+        if (pixel_face() && layout.getNumGlyphs() > 0) { // the first glyph's corner and baseline on whole pixels, so every square is sharp
+            const auto& first = layout.getGlyph(0);
+            float gx = x + first.getLeft(), gy = y + first.getBaselineY();
+            x += std::round(gx) - gx;
+            y += std::round(gy) - gy;
+        }
+        layout.draw(g, juce::AffineTransform::translation(x, y));
+    }
     return width(value, style);
 }
 

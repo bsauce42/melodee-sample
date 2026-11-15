@@ -8,7 +8,7 @@
 // made by tools/web_bundle.py from src/melodee/web/static/ and the user
 // docs): the device page, the quickstart and the user guide as HTML, the
 // images they show, the style sheet and the script. Rubik comes from the
-// font the screen already uses (ui/rubik_data.h).
+// font the screen already uses (ui/font_data.h).
 namespace melodee::web {
 
 struct File {

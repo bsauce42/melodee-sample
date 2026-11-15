@@ -80,6 +80,19 @@ SIL Open Font License 1.1, from google/fonts commit
 `build/deps/rubik/` and checks both against pinned SHA-256 digests; the
 font is not tracked here. Release zips include `OFL.txt`.
 
+## Screen fonts
+
+Settings > SCREEN > Font offers these, each under the SIL Open Font License
+1.1, from the same google/fonts commit: Inter Tight (The Inter Project
+Authors), Atkinson Hyperlegible Next (The Atkinson Hyperlegible Next Project
+Authors), Space Grotesk (The Space Grotesk Project Authors), IBM Plex Sans
+(IBM Corp., Reserved Font Name "Plex"; embedded unchanged), Manrope (The
+Manrope Project Authors), VT323 (The VT323 Project Authors).
+`src/melodee/dependencies.py` fetches each with its `OFL.txt` into ignored
+`build/deps/fonts/` against pinned SHA-256 digests. Release zips include
+each `OFL.txt`. Melodee Pixel is Melodee's own (`src/melodee/ui/fonts/`,
+`tools/gen_pixel_font.py`).
+
 ## Engines
 
 Melodee's sound engines, sequencer and effects are written for this

@@ -914,6 +914,13 @@ void Context::change_setting(unsigned row, int way) {
     if (store) store->save_settings(ui.settings.text());
 }
 
+void Context::set_look(unsigned row, unsigned value) {
+    if (row == Settings::Palette) ui.settings.palette = uint8_t(value % ui::palettes.size());
+    else if (row == Settings::Font) ui.settings.font = uint8_t(value % ui::face_choices);
+    else return;
+    if (store) store->save_settings(ui.settings.text());
+}
+
 const UserSound* Context::user_sound(EngineKind engine, unsigned k) const {
     for (const auto& s : user_sounds) if (s.engine == engine && k-- == 0) return &s;
     return nullptr;

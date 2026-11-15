@@ -347,6 +347,8 @@ struct UiState {
     bool settings_editing = false;            // Push opened the value under the cursor
     uint8_t settings_door = 0;                // Settings: the door in hand (pages/settings_page.cpp)
     bool settings_in = false;                 // and behind it: its rows
+    bool settings_look = false;               // SCREEN's Palette or Font row: its cards over the rows, the look turned live
+    uint8_t settings_look_before = 0;         // the palette or face to go back to on BACK
     uint8_t about_view = 0;                   // About (round 2): 0 how the machine is doing, 1 the credits (B3 again)
     std::array<Pot, 3> pots {};
     int8_t turning = -1;      // the card turned last

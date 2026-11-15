@@ -12,9 +12,15 @@ namespace melodee::ui {
 
 enum class Weight { Regular, Medium, SemiBold, Bold };
 
-// Rubik, embedded in the binary, at its four weights (one variable font).
-// Loaded on first use; throws when the embedded data cannot be read.
+// The face in use (Rubik unless Settings > SCREEN > Font picks another), embedded
+// in the binary, at its four weights (one variable font). Loaded on first use;
+// throws when the embedded data cannot be read.
 juce::Font font(float size, Weight weight = Weight::Regular, bool caps = false);
+// The face every later string is set in (ui/font_data.h's order; the screen
+// thread sets it before each frame from Settings).
+void use_face(unsigned face);
+unsigned face_count();
+const char* face_name(unsigned face);
 
 class Paint {
 public:
@@ -31,6 +37,7 @@ public:
     float text(const juce::String& value, float x, float y, float w, float h, const Text& style,
                juce::Justification justify = juce::Justification::centredLeft);
     float width(const juce::String& value, const Text& style) const;
+    unsigned narrow_for(const juce::String& value, const Text& style, float w) const;
     // The style shrunk until `value` fits `w`, down to `smallest` (never
     // under type::floor): text is never cut or ellipsised (the boards' rule).
     Text fit(const juce::String& value, Text style, float w, float smallest) const;
