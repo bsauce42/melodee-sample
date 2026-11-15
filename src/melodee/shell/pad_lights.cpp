@@ -13,6 +13,7 @@
 #include "melodee/model/chords.h"
 #include "melodee/model/pad_params.h"
 #include "melodee/model/scales.h"
+#include "melodee/shell/lesson.h"
 #include "melodee/shell/looper_jobs.h"
 #include "melodee/shell/menu.h"
 #include "melodee/shell/mute_mode.h"
@@ -731,6 +732,7 @@ Look sheet_look(const PadScene& s, unsigned pad) {
     if (ui.exit_open) return {};
     if (ui.menu && ui.ask == A::None) { // the MENU (shell/menu.h): GO's places in their four groups, the lit tile full; HERE dark
         if (ui.menu != menu_go_view) return {};
+        if (ui.lesson) return pad == 15 ? (blink(s.now, flash_ms) ? white(full) : white(faint)) : Look {}; // a lesson: LEAVE only
         static const unsigned group_track[4] {0, 2, 4, 1}; // sound, sequence, mix, project: as the screen colours them
         if (!menu_tile_shown(ui, pad)) return {}; // a place Basic leaves out
         return track(group_track[menu_places()[pad % 16].group % 4], pad == ui.menu_tile % 16u ? full : mid);
@@ -760,6 +762,10 @@ void pad_looks(const PadScene& s, std::array<Look, 16>& out) {
     if (ui.page == PageId::Chop) slices = slices_sounding(s);
     for (unsigned pad = 0; pad < 16; ++pad) {
         Look look;
+        if (ui.lesson && !ui.menu && ui.ask == UiState::Ask::None) { // a lesson (shell/lesson.h): the step's pad blinks, every other is off
+            out[pad] = lesson_lights_pad(ui, pad) && blink(s.now, flash_ms) ? white(full) : Look {};
+            continue;
+        }
         switch (pad_context(ui, t, s.facts, pad)) {
         case PadContext::Sheet: look = sheet_look(s, pad); break;
         case PadContext::Tracks: look = tracks_look(s, pad); break;

@@ -31,7 +31,7 @@ enum class NewType : uint8_t { Drum, Keygroup, Plugin, Midi, Audio, Count };
 constexpr unsigned new_type_count = unsigned(NewType::Count);
 // The types offered: all five, or in Basic the first three (MIDI and Audio tracks are Full's, shell/features.h).
 constexpr unsigned basic_type_count = unsigned(NewType::Midi);
-inline unsigned new_types_shown(const UiState& ui) { return ui.settings.full_features ? new_type_count : basic_type_count; }
+inline unsigned new_types_shown(const UiState& ui) { return ui.settings.full_features && !ui.lesson ? new_type_count : basic_type_count; }
 struct NewSources { NewChoice items[3]; uint8_t count, first; };
 constexpr NewSources type_sources(NewType type) {
     switch (type) {

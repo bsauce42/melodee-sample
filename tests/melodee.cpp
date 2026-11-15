@@ -90,6 +90,7 @@
 #include "melodee/shell/tap_hold.h"
 #include "melodee/shell/autosave.h"
 #include "melodee/shell/features.h"
+#include "melodee/shell/lesson.h"
 #include "melodee/shell/menu.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
@@ -2336,6 +2337,61 @@ void button_remap() {
         CHECK(base_bindings(*project, b, pat)[0].kind == Binding::Kind::PatternLength);
         b.settings.full_features = true;
         CHECK(base_bindings(*project, b, pat)[0].kind == Binding::Kind::FollowAction || !base_bindings(*project, b, pat)[0].bound());
+    }
+    // Lessons (shell/lesson.h): one control a step; any other press does nothing; the step's light blinks.
+    {
+        using B = SurfaceButton;
+        UiState u; u.page = PageId::Stage;
+        CHECK(!lesson_step(u) && !lesson_finished(u) && !lesson_takes_pad(u, 0));
+        for (unsigned n = 0; n < lesson_count; ++n) { // every lesson: a name, a first step that waits for the kit, words for every step
+            const Lesson& l = lesson_at(n);
+            CHECK(l.name[0] && l.count >= 5 && l.steps[0].kind == LessonKind::Wait);
+            for (unsigned k = 0; k < l.count; ++k) CHECK(l.steps[k].words[0] && std::strlen(l.steps[k].words) <= 16);
+        }
+        // First beat: the kit loads, pad 1, pad 2, Seq Record, Play ...
+        u.lesson = 1; u.lesson_step = 0;
+        CHECK(lesson_step(u)->kind == LessonKind::Wait && !lesson_takes_pad(u, 0) && !lesson_takes_button(u, B::Play));
+        CHECK(lesson_takes_button(u, B::WheelPush)); // the encoder always: held, the MENU, the way out
+        lesson_next(u, 100);
+        CHECK(lesson_takes_pad(u, 0) && !lesson_takes_pad(u, 1) && !lesson_takes_button(u, B::Play) && !lesson_takes_knob(u, 0) && !lesson_takes_wheel(u));
+        CHECK(lesson_lights_pad(u, 0) && !lesson_lights_pad(u, 1) && !lesson_lights_button(u, B::Play));
+        lesson_pad(u, 3, 200); CHECK(u.lesson_step == 1); // another pad: nothing
+        lesson_pad(u, 0, 200); CHECK(u.lesson_step == 2 && lesson_takes_pad(u, 1));
+        lesson_pad(u, 1, 300); CHECK(u.lesson_step == 3 && lesson_takes_button(u, B::SeqRecord) && lesson_lights_button(u, B::SeqRecord));
+        lesson_button(u, B::Play, true, 400); CHECK(u.lesson_step == 3);
+        lesson_button(u, B::SeqRecord, true, 400); CHECK(u.lesson_step == 4 && lesson_takes_button(u, B::Play));
+        u.menu = menu_go_view; // the MENU over it: B1 and pad 16 (LEAVE) only
+        CHECK(!lesson_takes_button(u, B::Play) && lesson_takes_button(u, B::TopLeft) && lesson_takes_pad(u, 15) && !lesson_takes_pad(u, 0));
+        u.menu = menu_closed;
+        u.lesson_step = lesson_at(0).count; CHECK(lesson_finished(u) && !lesson_step(u) && !lesson_takes_button(u, B::Stop));
+        // Sequences: Seq opens its page (the step is done once the page is open); Seq held + pad 2.
+        u.lesson = 2; u.lesson_step = 2; u.page = PageId::Stage;
+        CHECK(lesson_step(u)->page == PageId::Scenes && lesson_takes_button(u, B::Seq));
+        lesson_button(u, B::Seq, true, 500); lesson_page(u, 500); CHECK(u.lesson_step == 2); // pressed, the page not open yet
+        u.page = PageId::Scenes; lesson_page(u, 600); CHECK(u.lesson_step == 3);
+        u.lesson_step = 6; u.page = PageId::Stage;
+        CHECK(lesson_step(u)->with == int8_t(B::Seq) && lesson_takes_button(u, B::Seq) && !lesson_takes_pad(u, 1)); // not before Seq is held
+        CHECK(lesson_lights_button(u, B::Seq) && lesson_lights_pad(u, 1));
+        lesson_button(u, B::Seq, true, 700); CHECK(u.lesson_step == 6 && u.lesson_with == int8_t(B::Seq) && lesson_takes_pad(u, 1));
+        lesson_pad(u, 1, 800); CHECK(u.lesson_step == 7);
+        lesson_button(u, B::Seq, false, 900); CHECK(u.lesson_with == -1);
+        // Mix: Pad FX held + Knob FX; a knob's step is done once it has moved; B1-B3 and the knob cards pulse on screen.
+        u.lesson = 3; u.lesson_step = 1; u.page = PageId::Stage;
+        CHECK(lesson_takes_button(u, B::PadFx) && !lesson_takes_button(u, B::KnobFx));
+        lesson_button(u, B::PadFx, true, 1000); CHECK(lesson_takes_button(u, B::KnobFx));
+        lesson_button(u, B::KnobFx, true, 1000); CHECK(u.lesson_step == 1); // its page ends the step
+        u.page = PageId::Tracks; lesson_page(u, 1100); CHECK(u.lesson_step == 2 && lesson_knob_card(u) == 0 && lesson_soft_key(u) == -1);
+        CHECK(lesson_takes_knob(u, 0) && !lesson_takes_knob(u, 1));
+        lesson_knob(u, 0, 60, 1200); lesson_knob(u, 0, 64, 1200); CHECK(u.lesson_step == 2); // a nudge is not a turn
+        lesson_knob(u, 0, 60 + lesson_knob_travel, 1300); CHECK(u.lesson_step == 3 && lesson_knob_card(u) == 1);
+        u.lesson_step = 4; CHECK(lesson_soft_key(u) == 2 && lesson_knob_card(u) == -1);
+        // The settings keep the lessons done; a lesson shows Basic's pages.
+        Settings done; done.lessons_done = 5;
+        Settings read_back; read_back.read(done.text()); CHECK(read_back.lessons_done == 5);
+        done.reset_factory(); CHECK(done.lessons_done == 5);
+        UiState full; CHECK(full_features(full)); full.lesson = 1; CHECK(!full_features(full) && new_types_shown(full) == 3);
+        // GO's pad 16 is LEARN.
+        CHECK(std::string(menu_places()[15].name) == "LEARN" && menu_tile_shown(full, 15));
     }
     // The MENU (shell/menu.h): the encoder held opens it, a tap stays the page's Push; GO's tiles and HERE's cards.
     {

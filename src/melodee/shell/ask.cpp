@@ -46,6 +46,11 @@ bool ask_button(Context& c, SurfaceButton button) {
         ui.ask = UiState::Ask::None;
         return true;
     }
+    if (button == B::TopMiddle && ui.ask == UiState::Ask::NewProject) { // EMPTY: a new project without the factory kit
+        ui.ask = UiState::Ask::None;
+        c.start_new_project(false);
+        return true;
+    }
     if (button != B::TopRight) return true;                                  // the rest wait
     auto kind = ui.ask;
     ui.ask = UiState::Ask::None;                                              // Do it

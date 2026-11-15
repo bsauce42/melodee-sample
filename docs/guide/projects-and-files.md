@@ -11,7 +11,9 @@ Press **SHIFT** + **Pad 16**.
 - **B1** (**SAVE AS**): save the project under a new name. The old file
   stays as it was.
 - **B2** (**OPEN**): the list of projects.
-- **B3** (**NEW**): start a new project (asks first).
+- **B3** (**NEW**): start a new project (asks first). On the question,
+  **B3** (**NEW**) starts it with one of the MPC's factory kits on track 1, so
+  the pads play at once. **B2** (**EMPTY**) starts it with an empty kit.
 
 Or turn the encoder to pick one and push it.
 

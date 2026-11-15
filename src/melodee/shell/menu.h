@@ -3,12 +3,15 @@
 #pragma once
 #include "melodee/model/project.h"
 #include "melodee/shell/features.h"
+#include "melodee/shell/lesson.h"
 #include "melodee/shell/ui_state.h"
 #include "surface/controls.h"
 #include <algorithm>
 #include <array>
 
-// The MENU: the encoder held menu_hold_ms opens it over any page. It has two halves on B2 and B3.
+// The MENU: the encoder held menu_hold_ms opens it over any page. It has two halves on B2 and B3. GO's pad 16 is
+// LEARN: the lessons as cards (the wheel moves, Push or B3 starts one, B1 goes back to GO). While a lesson runs the
+// MENU opens on GO with that one pad, LEAVE (shell/lesson.h).
 // HERE lists what the page can do that no printed key says, as cards, each with its shortcut under its name (the
 // wheel moves, Push does the lit card). GO shows the sixteen places laid out as the pads (a pad opens its place;
 // the wheel and Push work too). B1 goes back. A short push of the encoder keeps the page's own job: it acts when
@@ -19,7 +22,7 @@ namespace melodee {
 class Context;
 
 constexpr uint32_t menu_hold_ms = 300;
-enum MenuView : uint8_t { menu_closed = 0, menu_here_view = 1, menu_go_view = 2 }; // UiState::menu
+enum MenuView : uint8_t { menu_closed = 0, menu_here_view = 1, menu_go_view = 2, menu_learn_view = 3 }; // UiState::menu
 
 // The encoder's push: a tap or a hold.
 struct EncoderHold {
@@ -51,7 +54,7 @@ inline const std::array<MenuPlace, 16>& menu_places() {
         {"MIXER", "PAD FX + KNOB FX", 2, PageId::Tracks}, {"SENDS", "PAD FX + KNOB FX, B2", 2, PageId::Sends},
         {"EFFECTS", "SHIFT + KNOB FX", 2, PageId::Rack}, {"LOOPER", "LOOP + 16 LEVELS", 2, PageId::Looper},
         {"SONG", "SHIFT + PAD 12", 3, PageId::Song}, {"PROJECT", "SHIFT + PAD 16", 3, PageId::Project},
-        {"SETTINGS", "SHIFT + PAD 8", 3, PageId::SettingsPage}, {"TEMPO", "TAP TEMPO HELD", 3, PageId::Tempo},
+        {"SETTINGS", "SHIFT + PAD 8", 3, PageId::SettingsPage}, {"LEARN", "", 3, PageId::Count}, // LEARN: the lessons (shell/lesson.h); in one, LEAVE
     }};
     return places;
 }

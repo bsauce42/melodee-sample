@@ -107,6 +107,12 @@ struct UiState {
     // The MENU (shell/menu.h), the encoder held: 0 closed, 1 HERE (the page's jobs as cards), 2 GO (the sixteen
     // places as the pads sit); the tile the wheel is on (a pad's index) and the card.
     uint8_t menu = 0, menu_tile = 0, menu_row = 0;
+    // A lesson (shell/lesson.h): which (0 none, else its number + 1), the step in hand, the button held with the
+    // step's control (-1 none), where the step's knob stood when it first moved (-1 not yet), when the step began.
+    uint8_t lesson = 0, lesson_step = 0;
+    int8_t lesson_with = -1;
+    int16_t lesson_pot = -1;
+    uint32_t lesson_at = 0;
     // A soft key that steps through several pages lists them by name for a moment after a press (pages/overlays.cpp):
     // the key (0-2) and when it was pressed.
     uint8_t key_list_key = 0;

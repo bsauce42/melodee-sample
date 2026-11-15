@@ -7,6 +7,7 @@
 #include "melodee/shell/key_pick.h"
 #include "melodee/shell/p4_status.h"
 #include "melodee/plugin/plugin_rack.h"
+#include "melodee/shell/lesson_jobs.h"
 #include "melodee/shell/looper_jobs.h"
 #include "melodee/shell/looper_chord.h"
 #include "melodee/shell/input_route.h"
@@ -157,9 +158,14 @@ void Shell::surface(const SurfaceEvent& event, uint32_t now) {
         if (held_off && down) { eaten = true; return; }
         if (eaten) { if (up) eaten = false; return; }
         if (held_off && !up) return;
+        // A lesson (shell/lesson.h): only the step's pad acts; any other does nothing, its release neither.
+        if (ui_.lesson && down && !lesson_takes_pad(ui_, unsigned(event.pad))) { eaten = true; return; }
+        if (ui_.lesson && kind == 0xa0 && !lesson_takes_pad(ui_, unsigned(event.pad))) return;
+        const bool lesson_hit = ui_.lesson && down && !ui_.menu;
         if (down) pad(unsigned(event.pad), event.midi.value, true);
         else if (up) pad(unsigned(event.pad), 0, false);
         else if (kind == 0xa0) context_.pressure(unsigned(event.pad), event.midi.value); // to the mod matrix
+        if (lesson_hit) lesson_pad(ui_, unsigned(event.pad), now); // the step's pad, hit: the next step
         return;
     }
     if (input.kind == SurfaceInput::Kind::Button) {
@@ -173,7 +179,11 @@ void Shell::surface(const SurfaceEvent& event, uint32_t now) {
             return;
         }
         if (eaten && !input.pressed) { eaten = false; return; }
+        // A lesson: only the step's button, the one held with it and the encoder act (held, the MENU: the way out).
+        if (ui_.lesson && input.pressed && !lesson_takes_button(ui_, Button(input.index))) { eaten = true; return; }
+        const bool in_lesson = ui_.lesson && !ui_.menu;
         button(Button(input.index), input.pressed);
+        if (in_lesson && ui_.lesson) lesson_button(ui_, Button(input.index), input.pressed, now);
         return;
     }
     if (input.kind != SurfaceInput::Kind::Control) return;
@@ -189,6 +199,24 @@ void Shell::surface(const SurfaceEvent& event, uint32_t now) {
     }
     // SD card access: the card is on a computer; only the main volume still turns (as the MPC, other modes wait).
     if (card_owns_controls(ui_) && SurfaceControl(input.index) != SurfaceControl::MainVolume) return;
+    if (ui_.lesson) { // a lesson: the step's knob or the encoder; the other knobs and the fader keep their positions
+        switch (SurfaceControl(input.index)) {
+        case SurfaceControl::K1: case SurfaceControl::K2: case SurfaceControl::K3: {
+            unsigned n = unsigned(input.index) - unsigned(SurfaceControl::K1);
+            if (!lesson_takes_knob(ui_, n)) { pot(n, input.value, true); return; }
+            pot(n, input.value, event.syncing);
+            if (!event.syncing) lesson_knob(ui_, n, input.value, now);
+            return;
+        }
+        case SurfaceControl::Fader: fader_move(context_, input.value, true); return;
+        case SurfaceControl::Wheel:
+            if (!input.delta || !lesson_takes_wheel(ui_)) return;
+            wheel(input.delta);
+            lesson_wheel(ui_, now);
+            return;
+        default: break; // the main volume
+        }
+    }
     switch (SurfaceControl(input.index)) {
     case SurfaceControl::MainVolume: main_volume.store(main_volume_gain(input.value), std::memory_order_relaxed); break;
     case SurfaceControl::K1: pot(0, input.value, event.syncing); break;
@@ -238,8 +266,11 @@ void Shell::press(Button b, bool pressed) {
     if (b == Button::Sample && !pressed) { sample_button(context_, false); return; } // always heard, so Sample is never left held
     if (b == Button::WheelPush && !pressed) { // the encoder let go: a tap is the page's Push; held, it opened the MENU
         bool tap = encoder_release(enc);
-        if (tap && !ui.menu && ui.ask == UiState::Ask::None && !ui.name.open() && !ui.exit_open && !card_owns_controls(ui))
+        if (ui.lesson && !lesson_takes_push(ui)) return; // a lesson: Push acts only as its step
+        if (tap && !ui.menu && ui.ask == UiState::Ask::None && !ui.name.open() && !ui.exit_open && !card_owns_controls(ui)) {
             page_spec(ui.page).push(context_);
+            if (ui.lesson) lesson_push(ui, context_.now);
+        }
         return;
     }
     if (pressed && ask_button(context_, b)) return; // a question open (shell/ask.cpp): B1 Cancel, B3 Do it

@@ -4,6 +4,7 @@
 // 5 ms; the runtime sends only what changed). Colours come from the track
 // palette; button light values from surface/leds.h.
 #include "melodee/engine/engine_host.h"
+#include "melodee/shell/lesson_jobs.h"
 #include "melodee/shell/features.h"
 #include "melodee/engine/dsp.h"
 #include "melodee/engine/engine_info.h"
@@ -57,7 +58,7 @@ void Shell::autosave_tick(uint32_t now) {
                || ui.auto_sheet.sampling || ui.auto_sheet.checking || (store_ && store_->exporting());
     f.sheet = ui.ask != UiState::Ask::None || ui.name.open() || ui.exit_open || card_owns_controls(ui) || ui.update.phase != 0;
     f.loading = ui.loading || context_.samples_to_load < sample_slots;
-    f.editing = ui.page == PageId::Chop || ui.page == PageId::Record || context_.import_unsaved;
+    f.editing = ui.page == PageId::Chop || ui.page == PageId::Record || context_.import_unsaved || ui.lesson; // a lesson's project is never saved
     f.failed = autosave_failed_;
     f.now = now; f.last_input = last_input_; f.last_try = autosave_try_;
     if (!autosave_due(f)) return;
@@ -264,7 +265,13 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         settings_seen = store_->generation();
         ProjectStore::View v;
         store_->view(v);
-        if (v.settings_read) { ui_.settings.read(v.settings); settings_loaded = true; context_.send_click(); context_.send_repeat_velocity(); }
+        if (v.settings_read) {
+            ui_.settings.read(v.settings); settings_loaded = true; context_.send_click(); context_.send_repeat_velocity();
+            // A first install (no settings file, so no project to resume): the first project starts with the MPC's
+            // factory kit on track 1, as NEW gives (shell/lesson.h), so the pads play at once.
+            if (v.settings.empty() && context_.project_path.empty() && !context_.dirty && std::filesystem::exists(factory_kit_path))
+                context_.load_kit_file(factory_kit_path, factory_kit_name);
+        }
     }
     // The backlight stays as the stock app left it until Screen asks for less (and then follows it).
     if (ui_.settings.screen != 100 || screen_wanted.load(std::memory_order_relaxed)) screen_wanted.store(ui_.settings.screen, std::memory_order_relaxed);
@@ -294,6 +301,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         ++context_.samples_to_load;
     }
     if (encoder_tick(enc, now)) menu_open(context_); // the encoder held: the MENU (shell/menu.h)
+    lesson_tick(context_, now); // a lesson: its kit loaded, or its last step done (shell/lesson_jobs.h)
     // Tap Tempo held half a second with nothing turned: the Tempo page; held on it, back to the page under it.
     switch (tap_tick(tap, now, ui_.page == PageId::Tempo)) {
     case TapDo::Open: context_.open(PageId::Tempo); break;
@@ -526,6 +534,14 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
             set(button, L::Off);
         set(B::Play, playing ? L::Bright : L::Dim);
         set(B::Stop, L::Dim);
+        button_levels.store(levels, std::memory_order_relaxed);
+        return;
+    }
+    if (ui.lesson && !ui.menu) { // a lesson (shell/lesson.h): the step's button blinks (and the one held with it), every other is off
+        const bool lit = (now / 250) % 2;
+        for (unsigned n = 0; n < unsigned(B::Count); ++n)
+            if (B(n) != B::TopLeft && B(n) != B::TopMiddle && B(n) != B::TopRight) // B1-B3 have no lights
+                set(B(n), lit && lesson_lights_button(ui, B(n)) ? L::Bright : L::Off);
         button_levels.store(levels, std::memory_order_relaxed);
         return;
     }

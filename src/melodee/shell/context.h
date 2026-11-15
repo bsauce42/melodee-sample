@@ -465,7 +465,8 @@ public:
     void new_project();
     // Parity phase 10 (shell/project_jobs.cpp): New project asks first (B3 / B1); Load Kit.
     void ask_new_project();                   // the question, with what happens to unsaved changes
-    void start_new_project();                 // its B3: saved first if it has a file, then a new one, Stage
+    void start_new_project(bool kit = true);  // its B3: saved first if it has a file, then a new one with the factory kit (B2 EMPTY: without), Stage
+    std::string lesson_return;                // a lesson runs (shell/lesson_jobs.h): the file of the project open before it, "" none
     void load_kit_file(const std::string& path, const std::string& name); // a project's kit onto the selected track, once loaded
     void load_kit(const Project& from, const std::string& name);          // that kit onto the selected track, one undo
     std::string kit_from;                     // the file Load Kit waits for

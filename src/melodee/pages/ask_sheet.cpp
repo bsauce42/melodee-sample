@@ -31,7 +31,7 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
     const auto& t = s.track();
     unsigned track = s.ui.track % track_count, playing = t.pattern % pattern_count;
     ConfirmSheet sheet;
-    juce::String verb = "ERASE", cancel = "CANCEL";
+    juce::String verb = "ERASE", cancel = "CANCEL", middle; // middle: B2, a second way to do it (New project's EMPTY)
     Icon verb_glyph = Icon::Trash;
     juce::Colour accent = colour::rec; // the verb's: red for a loss
     const juce::String undo_line = "Undo brings them back.";
@@ -111,6 +111,7 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
         else if (s.ui.ask_target == 2) sheet.lines = {"This project was never saved.", "Its changes are lost."};
         else sheet.lines = {name + " has nothing unsaved.", ""};
         verb = "NEW"; verb_glyph = Icon::Check;
+        middle = "EMPTY"; // B3: with the MPC's factory kit on track 1; B2: an empty kit
         break;
     }
     case Ask::TakeCardBack:
@@ -206,7 +207,7 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
         p.fill(x + 8, zone::soft_y + 2, column - 16, zone::soft_h - 4, colour::raised, 4);
     }
     bool on_verb = s.ui.ask_pick == 2; // the wheel's key, barred; Push presses it
-    SoftKeys keys {{cancel, "", verb}, on_verb ? 2 : 0, on_verb ? accent : colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
+    SoftKeys keys {{cancel, middle, verb}, on_verb ? 2 : 0, on_verb ? accent : colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
     keys.glyphs[2] = verb_glyph;
     keys.tints[2] = accent;
     soft_keys(p, keys);

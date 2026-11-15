@@ -5,6 +5,7 @@
 // rates, the Shift + K cards while Shift is held, and the Exit sheet after a
 // short press of Power; and over all of them the place bar.
 #include "melodee/pages/pages.h"
+#include "melodee/shell/lesson.h"
 #include "melodee/shell/sample_mode.h"
 #include "melodee/engine/arp.h"
 #include "melodee/pages/common.h"
@@ -80,7 +81,22 @@ void draw_overlays(Paint& p, const Snapshot& s) {
     if (s.ui.exit_open) draw_exit_sheet(p, s);
     else if (s.ui.shift && !s.ui.shift_used && !s.ui.name.open()) draw_shift_layer(p, s);
     if (!sheet && !tracks && !seq && !sound && repeat_keys(s.project, s.ui)) draw_repeat_keys(p, s);
+    if (s.ui.lesson && !s.ui.menu && s.ui.ask == UiState::Ask::None && !s.ui.name.open()) draw_lesson(p, s);
     draw_place_bar(p, s); // over everything: where the music is stays in view
+}
+
+// A lesson's step on a control with no light (shell/lesson.h): its soft key, under the key itself, or its knob
+// card, over the knob, pulses.
+void draw_lesson(Paint& p, const Snapshot& s) {
+    const auto ring = colour::text.withAlpha((s.now / 250) % 2 ? 1.0f : 0.3f);
+    if (int key = lesson_soft_key(s.ui); key >= 0) {
+        const float w = zone::width / 3.0f;
+        p.ring(key * w + 1.5f, zone::soft_y + 1.5f, w - 3, zone::soft_h - 3, ring, 4, 2);
+    }
+    if (int card = lesson_knob_card(s.ui); card >= 0) {
+        const float gap = 4, w = (zone::width - 2 * zone::pad - 2 * gap) / 3.0f;
+        p.ring(zone::pad + card * (w + gap) - 1, zone::knobs_y + 1, w + 2, zone::knobs_h - 4, ring, 5, 2);
+    }
 }
 
 // Note Repeat on: B1-B3 are its rate, 1/8, 1/16, 1/32, and with Shift held their triplets; B1 and B3 again 1/4 and

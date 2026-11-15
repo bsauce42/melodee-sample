@@ -6,6 +6,7 @@
 #include "melodee/shell/ask.h"
 #include "melodee/shell/card_access.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/lesson_jobs.h"
 #include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/project_store.h"
@@ -28,6 +29,8 @@ void go(Context& c, unsigned tile) {
     auto& ui = c.ui;
     const auto& track = c.track();
     if (!menu_tile_shown(ui, tile)) return; // a place Basic leaves out: its pad does nothing, the MENU stays
+    if (ui.lesson) { if (tile % 16 == 15) lesson_leave(c, false); return; } // a lesson: LEAVE only
+    if (tile % 16 == 15) { ui.menu = menu_learn_view; ui.menu_row = 0; return; } // LEARN: the lessons
     ui.menu = menu_closed;
     switch (tile % 16) {
     case 0: if (ui.page != PageId::Stage) c.open(PageId::Stage); break;
@@ -68,7 +71,7 @@ void go(Context& c, unsigned tile) {
         ui.midi_editing = false; ui.settings_editing = false; ui.settings_in = false; ui.settings_look = false;
         c.open(PageId::SettingsPage);
         break;
-    default: if (ui.page != PageId::Tempo) c.open(PageId::Tempo); break;
+    default: break; // LEARN, above
     }
 }
 
@@ -117,12 +120,24 @@ void menu_open(Context& c) {
     ui.menu_row = 0;
     ui.menu_tile = uint8_t(menu_tile_of(ui.page));
     if (!menu_tile_shown(ui, ui.menu_tile)) ui.menu_tile = 0;
+    if (ui.lesson) { ui.menu = menu_go_view; ui.menu_tile = 15; } // a lesson: GO, on LEAVE
 }
 
 bool menu_button(Context& c, SurfaceButton b) {
     using B = SurfaceButton;
     auto& ui = c.ui;
     if (!ui.menu) return false;
+    if (ui.menu == menu_learn_view) { // LEARN: B1 back to GO, B3 or Push starts the lesson in hand
+        if (b == B::TopLeft) ui.menu = menu_go_view;
+        else if (b == B::TopRight || b == B::WheelPush) lesson_start(c, ui.menu_row % lesson_count);
+        else if (b != B::TopMiddle && b != B::Play && b != B::Stop && b != B::Shift) { ui.menu = menu_closed; return false; }
+        return b != B::Play && b != B::Stop && b != B::Shift;
+    }
+    if (ui.lesson) { // a lesson: BACK, and Push on LEAVE
+        if (b == B::TopLeft) ui.menu = menu_closed;
+        else if (b == B::WheelPush) go(c, ui.menu_tile);
+        return true;
+    }
     switch (b) {
     case B::TopLeft: ui.menu = menu_closed; return true;                               // BACK
     case B::TopMiddle: if (here_count(c)) ui.menu = menu_here_view; return true;       // HERE, when the page lists something
@@ -142,6 +157,7 @@ bool menu_button(Context& c, SurfaceButton b) {
 
 void menu_wheel(Context& c, int delta) {
     auto& ui = c.ui;
+    if (ui.menu == menu_learn_view) { ui.menu_row = uint8_t(std::clamp(int(ui.menu_row % lesson_count) + delta, 0, int(lesson_count) - 1)); return; }
     if (ui.menu == menu_go_view) { ui.menu_tile = uint8_t(menu_tile_turn(ui, ui.menu_tile, delta)); return; }
     unsigned n = here_count(c);
     if (n) ui.menu_row = uint8_t(std::clamp(int(ui.menu_row % n) + delta, 0, int(n) - 1));

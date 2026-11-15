@@ -81,14 +81,44 @@ the lit place opens without the Menu.
 | 2 | Browser | 10 | Sends |
 | 3 | Record | 11 | Effects |
 | 4 | Chop | 12 | Looper |
-| 5 | Patterns | 13 | Song |
+| 5 | Sequences | 13 | Song |
 | 6 | Roll | 14 | Project |
 | 7 | Step Edit | 15 | Settings |
-| 8 | Motion | 16 | Tempo |
+| 8 | Motion | 16 | Learn |
 
 The Menu opens on **HERE** when the page has something to list (Stage, the
 mixer, Patterns, Sequences, Roll, Motion and Step Edit), and on **GO**
-otherwise. Any other button closes the Menu and does its own job.
+otherwise. Any other button closes the Menu and does its own job. In
+Basic (see [Settings](settings.md#basic-and-full)), pads 8, 10 and 12 are
+empty.
+
+## Lessons
+
+Pad 16 on **GO** opens **LEARN**, a list of short lessons. Turn the encoder
+to pick one and push it, or press **B3** (**START**). **B1** goes back. A
+finished lesson keeps a check.
+
+| Lesson | What it covers |
+| --- | --- |
+| First beat | Play two pads and record them into a pattern. |
+| Sequences | Launch sequences from the Sequences page, and with **SEQ** held. |
+| Mix a track | Open the mixer, set a track's level and pan, open its effects. |
+| Shape a pad | Set a pad's end on Trim, then its tune. |
+
+During a lesson:
+
+- Each step uses one control. The header shows the step number and what to
+  do.
+- The step's button or pad blinks, and every other light is off. **B1**–**B3**
+  and **K1**–**K3** have no light: the key's label or the knob's card
+  pulses on the screen instead.
+- Any other press does nothing.
+- The lesson runs on its own project, with the MPC's factory kit. Your
+  project is saved first and opens again when the lesson ends. The lesson's
+  project is never saved.
+- To leave, hold the encoder and press pad 16 (**LEAVE**).
+
+Lessons need the card and the MPC's factory kits on its internal storage.
 
 ## Knob takeover
 

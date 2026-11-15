@@ -7,10 +7,12 @@
 #include "melodee/shell/ask.h"
 #include "melodee/shell/card_access.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/lesson.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/track_copy.h"
+#include <filesystem>
 #include <memory>
 
 namespace melodee {
@@ -19,11 +21,14 @@ void Context::ask_new_project() {
     ask(*this, UiState::Ask::NewProject, !dirty ? 0 : project_path.empty() ? 2 : 1);
 }
 
-void Context::start_new_project() {
+void Context::start_new_project(bool kit) {
     if (dirty && !project_path.empty()) save_project();
     new_project();
     open(PageId::Stage);
     notice("New project");
+    // The pads play at once: the MPC's factory kit on track 1 (shell/lesson.h). Not there (another firmware): the
+    // track stays an empty kit, as EMPTY leaves it.
+    if (kit && store && std::filesystem::exists(factory_kit_path)) load_kit_file(factory_kit_path, factory_kit_name);
 }
 
 void Context::load_kit_file(const std::string& path, const std::string& name) {

@@ -51,7 +51,23 @@ void draw_menu(Paint& p, const Snapshot& s) {
     unsigned n = menu_here(s.project, ui, items);
     bool here = ui.menu == menu_here_view && n;
     p.fill(0, zone::soft_y, zone::width, zone::soft_h, colour::bg);
-    SoftKeys keys {{"BACK", n ? "HERE" : "", "GO"}, here ? 1 : 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
+    if (ui.menu == menu_learn_view) { // LEARN: the lessons as cards, a check on those done
+        soft_keys(p, SoftKeys {{"BACK", "", "START"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}});
+        CardSheet m;
+        m.chip = "LEARN"; m.title = "LESSONS";
+        unsigned done = 0;
+        for (unsigned k = 0; k < lesson_count; ++k) {
+            const Lesson& l = lesson_at(k);
+            bool finished = ui.settings.lessons_done >> k & 1;
+            done += finished;
+            m.items[k] = card_item(finished ? Icon::Check : Icon::Play, l.name, finished ? juce::String("DONE") : juce::String(l.minutes) + " MIN");
+        }
+        m.detail = juce::String(done) + " OF " + juce::String(lesson_count) + " DONE"; m.detail_colour = colour::mid;
+        m.count = lesson_count; m.current = ui.menu_row % lesson_count;
+        card_sheet(p, m);
+        return;
+    }
+    SoftKeys keys {{"BACK", n && !ui.lesson ? "HERE" : "", "GO"}, here ? 1 : 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
     soft_keys(p, keys);
     if (here) {
         CardSheet m;
@@ -76,20 +92,21 @@ void draw_menu(Paint& p, const Snapshot& s) {
         float x = zone::pad + float(pad % 4) * (tw + gap), y = top + float(3 - pad / 4) * (th + gap);
         auto c = group_colour(places[pad].group);
         bool on = pad == lit;
-        if (!menu_tile_shown(ui, pad)) { p.fill(x, y, tw, th, colour::quiet, 4); continue; } // Basic leaves it out: its pad stays empty
+        if (!menu_tile_shown(ui, pad) || (ui.lesson && pad != 15)) { p.fill(x, y, tw, th, colour::quiet, 4); continue; } // Basic leaves it out, or a lesson runs: its pad stays empty
         p.fill(x, y, tw, th, on ? colour::raised : colour::panel, 4);
         if (on) p.ring(x, y, tw, th, c, 4, 1.2f);
         icon(p, place_icon(pad), x + 5, y + 5, 12, c, 1.4f);
         p.text(juce::String(pad + 1), x + tw - 24, y + 3, 19, 13, plain(colour::dim, type::small, Weight::Medium), juce::Justification::centredRight);
-        juce::String name(places[pad].name);
+        juce::String name(ui.lesson && pad == 15 ? "LEAVE" : places[pad].name); // a lesson: its way out
         p.text(name, x + 5, y + 20, tw - 8, 13, p.fit(name, caps_text(on ? colour::text : colour::sec), tw - 8, type::floor));
     }
     // The foot line: the lit place and how it opens without the MENU.
     float fy = top + 4 * (th + gap) + 2, fw = zone::width - 2 * zone::pad;
     p.fill(zone::pad, fy, fw, 20, colour::panel, 4);
-    juce::String name(places[lit].name);
+    juce::String name(ui.lesson && lit == 15 ? "LEAVE THE LESSON" : places[lit].name);
     float nw = p.text(name, zone::pad + 6, fy + 3, fw - 12, 14, caps_text(colour::text));
-    juce::String key = juce::String::fromUTF8("\xc2\xb7 ") + places[lit].key;
+    juce::String key = places[lit].key[0] ? juce::String::fromUTF8("\xc2\xb7 ") + places[lit].key : juce::String();
+    if (lit == 15 && !ui.lesson) key = juce::String::fromUTF8("\xc2\xb7 ") + juce::String(lesson_count) + " LESSONS";
     p.text(key, zone::pad + 6 + nw + 5, fy + 3, fw - 17 - nw, 14, p.fit(key, caps_text(colour::mid), fw - 17 - nw, type::floor));
 }
 

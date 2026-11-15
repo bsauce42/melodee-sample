@@ -21,7 +21,8 @@
 // shell, the screen and the tests.
 namespace melodee {
 
-inline bool full_features(const UiState& ui) { return ui.settings.full_features; }
+// A lesson (shell/lesson.h) shows Basic's pages whatever the setting, so it reads the same on both.
+inline bool full_features(const UiState& ui) { return ui.settings.full_features && !ui.lesson; }
 
 // The MENU's GO: a tile's place is shown. MOTION (pad 8), SENDS (pad 10) and LOOPER (pad 12) are Full's.
 inline bool menu_tile_shown(const UiState& ui, unsigned tile) {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
+#include "melodee/shell/lesson.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/features.h"
 #include "melodee/shell/pad_bank.h"
@@ -46,6 +47,17 @@ ui::Header header_of(const Snapshot& s) {
     if (tempo % 10) std::snprintf(bpm, sizeof(bpm), "%d.%d", tempo / 10, tempo % 10);
     else std::snprintf(bpm, sizeof(bpm), "%d", tempo / 10);
     h.bpm = bpm;
+    if (s.ui.lesson) { // a lesson's step has the header's first slot (shell/lesson.h): which step, and what to do in two or three words
+        const Lesson& lesson = lesson_at(s.ui.lesson - 1u);
+        const LessonStep* step = lesson_step(s.ui);
+        h.left.push_back(ui::pill(juce::String(std::min<unsigned>(s.ui.lesson_step + 1u, lesson.count)) + "/" + juce::String(lesson.count)));
+        // A control with no light and no place on the screen gets its glyph: Shift, the encoder turned or pushed.
+        ui::Icon glyph = !step ? ui::Icon::Check : step->with == int8_t(SurfaceButton::Shift) ? ui::Icon::Shift
+                       : step->kind == LessonKind::Wheel ? ui::Icon::Wheel : step->kind == LessonKind::Push ? ui::Icon::Push : ui::Icon::None;
+        h.left.push_back(ui::chip(glyph, step ? step->words : "DONE", ui::colour::text));
+        h.lead = 2;
+        return h;
+    }
     // Count-In: the beat counted before the take, an amber metronome chip.
     if (s.count_in) h.left.push_back(ui::chip(ui::Icon::Metro, juce::String(s.count_in), ui::colour::amber));
     if (s.following) h.left.push_back(ui::chip(s.following_mtc ? "EXT MTC" : "EXT CLOCK", ui::colour::text)); // MIDI clock / MTC in leads (phase 9, 9b)
