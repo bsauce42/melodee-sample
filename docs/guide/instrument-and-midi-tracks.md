@@ -93,8 +93,10 @@ almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 
 1. Select the plug-in track and set the sound you want.
 2. Press **SHIFT** + **Pad 11** (Resample). **SHIFT** + **Pad 11** again closes the sheet.
-3. Set the cards. **B2** (or the encoder) shows the next row.
-4. Press **B3 SAMPLE** (or push the encoder).
+3. Wait for the check (**CHECKING**, a few seconds). It plays a few notes and
+   finds out what the plug-in is.
+4. Set the cards. **B2** (or the encoder) shows the next row.
+5. Press **B3 SAMPLE** (or push the encoder).
 
 | Row | K1 | K2 | K3 |
 | --- | --- | --- | --- |
@@ -115,6 +117,21 @@ clips, mix and pitch bend. With **TAP** at Pre FX it also gets the plug-in
 track's effects (not plug-in effects); at Post FX the effects are in the
 samples. The plug-in track stays as it was. **SHIFT** + **−** undoes the new
 track; the files stay on the card.
+
+The check sets these for you; the sheet's chip shows the type:
+
+| Found | What Auto sample does |
+| --- | --- |
+| **KEYS** | Samples every **STEP** keys, as set. |
+| **MONO** | The program plays one note at a time and glides like the plug-in (**GLIDE** shows the time). |
+| **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. |
+| **ACCENT** | The velocity layers split where the sound jumps (two layers at least). |
+| **TAKES ×3** | Each key is recorded three times and the program plays them in turn. |
+
+On a keygroup track from a **MONO** program, a key pressed while another is
+held glides to the new note without starting it again. A **Slide** step does
+the same on any keygroup track. The glide is saved in the program, so it also
+works on an MPC and in MPC 3 exports.
 
 - Each key covers the notes halfway to the next sampled key.
 - **LOOP** finds a loop in the held part of each note and crossfades it, so

@@ -1069,8 +1069,33 @@ plug-in effects; one undo. The AUTO SAMPLE sheet (Resample, Shift + Pad 11,
 on a plug-in track, `pages/auto_sample_page.cpp`) has three
 rows of cards on B2: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL),
 SOUND (TAP, LOOP, LEVEL). Remote: `melodee-autosample TRACK [LOW-HIGH]
-[step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop] [raw]`;
+[step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop] [raw] [check]`;
 `melodee-print status` reports it.
+
+The sheet first runs a check (`probe_track()`, `engine/auto_probe.h`):
+a few notes on the plug-in, nothing read from it. Five keys whose pitch
+does not follow the keys make it Drums: each key of the range that sounds
+is sampled once, its keygroup that key alone. Two keys pressed legato,
+against the first held alone, make it Mono when the first key's pitch
+goes: the second's pitch track gives the glide, and two keys apart tell
+whether it glides only legato; the .xpm is then written Mono with that
+PortamentoTime (MPC 3's curve, 30 s x e^(7 (v - 1)), `mpc_portamento_value()`)
+and PortamentoLegato. Sixteen velocities of one key find an accent (one
+step that moves level and brightness far more than its neighbours and the
+rest), narrowed to the velocity; the layers split there, two at least.
+Three hits that differ in level envelope or brightness make three takes a
+key, played in turn (ZonePlay Cycle), when there is one layer. The sheet
+shows CHECKING with a row a finding, then the type on its chip and the
+glide, accent and takes under the blocks.
+
+**Keygroup glide.** A KEYGROUP track's program (an .xpm's or an MPC 3
+program's Mono, PortamentoTime and PortamentoLegato, `SfzRead`) plays
+mono: with Legato a key pressed while one is held carries that note on,
+no new attack, its pitch sliding over the portamento (`SamplerEngine::carry()`);
+without, each press starts afresh sliding from the last key. A Slide step
+slides the held note the same way on any instrument (the program's time,
+else 60 ms), a Tie at once. MPC 3 exports write the program's Mono and
+portamento to the keygroup track, and MPC 3 projects read them back.
 
 ### Sampler
 

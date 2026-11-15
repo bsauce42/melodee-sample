@@ -50,6 +50,7 @@ struct PrintJob {
     // The auto sampler: the track's instrument played a note at a time into `sample_folder` as `sample_name`.xpm
     // and its WAVs, not its patterns printed.
     bool autosample = false;
+    bool probing = false;                // the check alone (AutoFindings), nothing sampled
     AutoSampleSettings sampling;
     std::string sample_folder, sample_name;
 };
@@ -98,6 +99,11 @@ struct PrintProgress {
     static constexpr unsigned wave_bars = 128;
     std::array<uint8_t, wave_bars> wave {};
     uint8_t wave_count = 0, wave_hold = 0, velocity = 0;
+    // The check under way (`checking`): how far it has got (0 type, 1 glide or sounds, 2 accent, 3 takes, 4 done) and
+    // what it has heard so far.
+    bool checking = false;
+    uint8_t check_step = 0;
+    AutoFindings found;
     bool is_done(unsigned p) const { p %= pattern_count; return (done[p / 64] >> (p % 64)) & 1; }
     bool is_failed(unsigned p) const { p %= pattern_count; return (failed[p / 64] >> (p % 64)) & 1; }
 };
@@ -117,6 +123,8 @@ public:
     bool take(PrintResult& out);
     // MIDI thread: an auto sampler job's program, made or not.
     bool take_sampled(AutoSampleResult& out);
+    // MIDI thread: a check's findings.
+    bool take_probed(AutoProbeResult& out);
     // Freeze plan F2b. The pager the audio thread reads prints with (set before any freeze). MIDI thread: a freeze's
     // prints ready; a pack the audio thread has finished with, freed on the print thread once the pager has let go of
     // its streams (and its files' mappings with it).
@@ -133,6 +141,7 @@ private:
     void run();
     PrintResult print_one(const PrintJob& job, unsigned pattern, const std::array<const SampleData*, sample_slots>& samples);
     AutoSampleResult sample_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples);
+    AutoProbeResult probe_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples);
     FreezeReady freeze_pack(const PrintJob& job, const PrintTable& known);
     void empty_trash(); // print thread: the packs discarded, freed
     SampleLibrary* library;
@@ -144,6 +153,7 @@ private:
     std::unique_ptr<PrintJob> waiting; // under lock
     std::deque<PrintResult> results;   // under lock
     std::deque<AutoSampleResult> sampled; // under lock
+    std::deque<AutoProbeResult> probed;   // under lock
     std::deque<std::string> lines;     // under lock: the latest results
     std::string doing;                 // under lock
     PrintProgress shown;               // under lock

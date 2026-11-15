@@ -895,9 +895,11 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     case PageId::AutoSample: { // the AUTO SAMPLE sheet: its row of three; nothing while it runs
         const auto& sheet = ui.auto_sheet;
         const auto& a = sheet.settings;
-        if (sheet.sampling) return {};
+        if (sheet.sampling || sheet.checking) return {};
         switch (sheet.row % 3) {
-        case 0: return {Binding {Kind::AutoLow, 0, 0, 127, a.low}, Binding {Kind::AutoHigh, 0, 0, 127, a.high}, Binding {Kind::AutoStep, 0, 1, 12, a.step}};
+        case 0: // drums: every key that sounds, no STEP
+            if (a.found.kind == AutoKind::Drums) return {Binding {Kind::AutoLow, 0, 0, 127, a.low}, Binding {Kind::AutoHigh, 0, 0, 127, a.high}, Binding {}};
+            return {Binding {Kind::AutoLow, 0, 0, 127, a.low}, Binding {Kind::AutoHigh, 0, 0, 127, a.high}, Binding {Kind::AutoStep, 0, 1, 12, a.step}};
         case 1: return {Binding {Kind::AutoLayers, 0, 1, 4, a.layers}, Binding {Kind::AutoHold, 0, 1, 100, int(std::lround(a.hold * 10))},
                         Binding {Kind::AutoTail, 0, 0, 200, int(std::lround(a.tail * 10))}};
         default: return {Binding {Kind::AutoTap, 0, 0, 1, int(a.post_fx)}, Binding {Kind::AutoLoop, 0, 0, 1, int(a.loop)},

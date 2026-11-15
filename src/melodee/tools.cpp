@@ -1077,6 +1077,35 @@ const Preview previews[] {
          s.ui.auto_sheet = UiState::AutoSheet {};
          s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 2; s.ui.auto_sheet.settings.loop = true;
      }},
+    // The check: type and glide heard, the accent being listened for; then a mono sheet, a drums sheet, takes.
+    {"autosamplecheck", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.checking = true;
+         auto& job = s.print;
+         job.busy = true; job.autosample = true; job.checking = true; job.track = 2; job.check_step = 2;
+         job.found.kind = AutoKind::Mono; job.found.glide = 0.06f;
+     }},
+    {"autosamplemono", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2;
+         auto& f = s.ui.auto_sheet.settings.found;
+         f.heard = true; f.kind = AutoKind::Mono; f.glide = 0.06f; f.accent = 100;
+     }},
+    {"autosampledrums", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2;
+         auto& a = s.ui.auto_sheet.settings;
+         a.low = 36; a.high = 59;
+         auto& f = a.found;
+         f.heard = true; f.kind = AutoKind::Drums; f.takes = 3; f.scan_low = 36; f.scan_high = 59;
+         for (unsigned k : {36u, 37u, 38u, 39u, 40u, 42u, 44u, 46u, 47u, 49u, 50u, 51u}) f.keys[0] |= uint64_t(1) << k;
+     }},
     {"autosampling", [](Shell&, Snapshot& s) {
          print_scene(s);
          s.ui.page = PageId::AutoSample;

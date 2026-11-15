@@ -71,11 +71,35 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings) {
     if (!printer->start(std::move(job))) { notice("A print is under way"); return; }
     autosample_track = int8_t(t);
     auto_last = settings;
+    auto_last.found = {}; // heard again for the next sheet
     notice("Sampling " + name);
+}
+
+bool Context::autosample_check(unsigned track, const AutoSampleSettings& settings) {
+    const unsigned t = track % track_count;
+    if (!printer || project.tracks[t].engine != EngineKind::Plugin || deep(t) || printer->busy()) return false;
+    PrintJob job;
+    job.project_path = project_path;
+    job.track = t;
+    job.probing = true;
+    job.sampling = settings;
+    job.project = std::make_unique<Project>(project);
+    job.bank = std::make_unique<PatternBank>(patterns);
+    if (plugins) job.states = plugins->states();
+    if (library && !library->root().empty()) job.card_top = fs::path(library->root()).parent_path().string();
+    return printer->start(std::move(job));
 }
 
 void Context::autosample_tick() {
     if (!printer) return;
+    AutoProbeResult heard;
+    while (printer->take_probed(heard)) {
+        auto& sheet = ui.auto_sheet;
+        if (!sheet.checking || sheet.track != heard.track) continue; // called off, or another's
+        sheet.checking = false;
+        if (heard.error.empty()) sheet.settings.found = heard.found;
+        else if (heard.error != "stopped") notice("Check: " + heard.error);
+    }
     AutoSampleResult r;
     while (printer->take_sampled(r)) {
         autosample_track = -1;
@@ -175,14 +199,18 @@ void Context::open_auto_sheet() {
         sheet = UiState::AutoSheet {};
         sheet.track = uint8_t(t);
         sheet.settings = auto_last;
+        sheet.settings.found = {};
         sheet.row = row;
+        // The check: what the plug-in is, heard from a few notes (shell/auto_sample.h AutoFindings).
+        sheet.checking = autosample_check(t, sheet.settings);
+        if (!sheet.checking && printer && printer->busy()) notice("A print is under way");
     }
     open(PageId::AutoSample);
 }
 
 void Context::auto_sheet_go() {
     auto& sheet = ui.auto_sheet;
-    if (sheet.sampling) return;
+    if (sheet.sampling || sheet.checking) return;
     if (project.tracks[sheet.track % track_count].engine != EngineKind::Plugin) { notice("Auto sample: plug-in tracks"); return; }
     if (first_empty_track() < 0) notice("No empty track: the program is only saved");
     autosample(sheet.track, sheet.settings);
@@ -191,6 +219,12 @@ void Context::auto_sheet_go() {
 
 void Context::auto_sheet_cancel() {
     auto& sheet = ui.auto_sheet;
+    if (sheet.checking) { // the check called off: its findings, when they come, are dropped
+        if (printer && printer->busy()) printer->cancel();
+        sheet.checking = false;
+        back();
+        return;
+    }
     if (!sheet.sampling) { back(); return; }
     if (printer && printer->busy() && printer->progress().autosample) printer->cancel(); // its files go with it
     // The sheet stays until the print engine has stopped (autosample_tick()); its result says so.
@@ -198,13 +232,13 @@ void Context::auto_sheet_cancel() {
 
 void Context::auto_sheet_row(int way) {
     auto& sheet = ui.auto_sheet;
-    if (sheet.sampling) return;
+    if (sheet.sampling || sheet.checking) return;
     sheet.row = uint8_t((sheet.row + 3 + (way < 0 ? 2 : 1)) % 3);
 }
 
 void Context::auto_sheet_set(Binding::Kind kind, int value) {
     auto& a = ui.auto_sheet.settings;
-    if (ui.auto_sheet.sampling) return;
+    if (ui.auto_sheet.sampling || ui.auto_sheet.checking) return;
     using Kind = Binding::Kind;
     switch (kind) {
     case Kind::AutoLow: a.low = uint8_t(std::clamp(value, 0, 127)); if (a.high < a.low) a.high = a.low; break; // HIGH moves along

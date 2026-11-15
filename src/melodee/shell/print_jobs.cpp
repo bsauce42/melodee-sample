@@ -14,7 +14,11 @@ namespace melodee {
 void Context::print(const PrintAsk& ask) {
     if (ask.mode == PrintAsk::Freeze) { freeze(ask); return; } // freeze plan F2b, `melodee-freeze` and `melodee-unfreeze`
     if (ask.mode == PrintAsk::Unfreeze) { unfreeze(ask.track); return; }
-    if (ask.mode == PrintAsk::AutoSample) { autosample(ask.track, ask.sampling); return; }
+    if (ask.mode == PrintAsk::AutoSample) {
+        if (ask.check) { if (!autosample_check(ask.track, ask.sampling)) notice("A print is under way"); }
+        else autosample(ask.track, ask.sampling);
+        return;
+    }
     if (!printer) return;
     if (project_path.empty()) { printer->note("save the project first: its prints go beside its file"); return; }
     const unsigned t = ask.track % track_count;

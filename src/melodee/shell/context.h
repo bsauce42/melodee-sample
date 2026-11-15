@@ -322,6 +322,7 @@ public:
         PrintTail tail = PrintTail::Loop;
         enum Mode : uint8_t { Print, Freeze, Unfreeze, AutoSample } mode = Print; // freeze plan F2b: the same ask freezes the track
         AutoSampleSettings sampling; // AutoSample: `melodee-autosample`
+        bool check = false;          // AutoSample: the check alone, its findings in `melodee-print status`
         bool deep = false; // freeze plan F2d: a deep freeze (every pattern with notes, Post FX)
     };
     void print(const PrintAsk& ask);
@@ -330,6 +331,7 @@ public:
     // then played by a new KEYGROUP track. `autosample_track`: the track being sampled, -1 none.
     std::string autosample_name(unsigned track) const;
     void autosample(unsigned track, const AutoSampleSettings& settings);
+    bool autosample_check(unsigned track, const AutoSampleSettings& settings); // the check alone (AutoFindings); false: not started
     void autosample_tick();
     void autosample_landed(const AutoSampleResult& result);
     int first_empty_track() const; // -1: none

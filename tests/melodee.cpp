@@ -29,6 +29,7 @@
 #include "melodee/shell/chop.h"
 #include "melodee/shell/light_show.h"
 #include "melodee/shell/xpm_write.h"
+#include "melodee/engine/auto_probe.h"
 #include "melodee/shell/auto_sample.h"
 #include "melodee/engine/loop_find.h"
 #include "melodee/engine/engine_host.h"
@@ -7251,6 +7252,93 @@ void xpm_writer() {
     CHECK(!read_keygroup(tree).mono && read_keygroup(tree).glide == 0);
 }
 
+// The auto sampler's check (engine/auto_probe.h), on made-up sounds: a pitch, a mono glide and a poly chord, an accent,
+// drums, and hits that differ.
+void auto_probe() {
+    const float rate = 48000;
+    auto tone = [&](std::vector<float>& x, size_t from, size_t frames, float hz_from, float hz_to, float slide, float level, double& phase) {
+        if (x.size() < from + frames) x.resize(from + frames);
+        for (size_t f = 0; f < frames; ++f) {
+            const float t = float(f) / rate;
+            const float hz = slide > 0 && t < slide ? hz_from * std::pow(hz_to / hz_from, t / slide) : hz_to;
+            phase += 2 * M_PI * hz / rate;
+            x[from + f] += level * float(std::sin(phase) + 0.3 * std::sin(2 * phase));
+        }
+    };
+    { // a pitch; none in noise
+        std::vector<float> x; double ph = 0;
+        tone(x, 0, 4800, 220, 220, 0, 0.5f, ph);
+        CHECK(std::fabs(probe_pitch(x, 0, 2048, rate) - 220) < 1.5f);
+        std::vector<float> noise(4800);
+        uint32_t seed = 7;
+        for (auto& v : noise) { seed = seed * 1664525u + 1013904223u; v = float(int32_t(seed)) / 2147483648.0f * 0.5f; }
+        CHECK(probe_pitch(noise, 0, 2048, rate) == 0 && probe_db(std::vector<float>(100), 0, 100) == -120.0f);
+    }
+    const float c3 = 130.81f, g3 = 196.0f;
+    const size_t onset = size_t(0.4f * rate);
+    { // mono, sliding a fifth over 0.1 s
+        std::vector<float> x; double ph = 0;
+        tone(x, 0, onset, c3, c3, 0, 0.5f, ph);
+        tone(x, onset, size_t(0.8f * rate), c3, g3, 0.1f, 0.5f, ph);
+        std::vector<float> alone; double pa = 0;
+        tone(alone, 0, onset + size_t(0.8f * rate), c3, c3, 0, 0.5f, pa);
+        const ProbeGlide g = probe_glide(x, alone, onset, c3, g3, rate);
+        CHECK(g.mono && g.seconds > 0.07f && g.seconds < 0.14f);
+        CHECK(probe_slides_apart(x, onset, c3, g3, rate)); // starts at the first key's pitch
+    }
+    { // mono, no slide: a jump
+        std::vector<float> x; double ph = 0;
+        tone(x, 0, onset, c3, c3, 0, 0.5f, ph);
+        tone(x, onset, size_t(0.8f * rate), g3, g3, 0, 0.5f, ph);
+        std::vector<float> alone; double pa = 0;
+        tone(alone, 0, onset + size_t(0.8f * rate), c3, c3, 0, 0.5f, pa);
+        const ProbeGlide g = probe_glide(x, alone, onset, c3, g3, rate);
+        CHECK(g.mono && g.seconds == 0 && !probe_slides_apart(x, onset, c3, g3, rate));
+    }
+    { // poly: the first key plays on under the second
+        std::vector<float> x; double a = 0, b = 0;
+        tone(x, 0, onset + size_t(0.8f * rate), c3, c3, 0, 0.4f, a);
+        tone(x, onset, size_t(0.8f * rate), g3, g3, 0, 0.4f, b);
+        std::vector<float> alone; double pa = 0;
+        tone(alone, 0, onset + size_t(0.8f * rate), c3, c3, 0, 0.4f, pa);
+        CHECK(!probe_glide(x, alone, onset, c3, g3, rate).mono);
+    }
+    { // an accent: the sound jumps at 104; a velocity curve does not
+        std::vector<uint8_t> vel;
+        std::vector<float> db, bright, even_db;
+        for (int v = 8; v <= 127; v = v == 120 ? 127 : v + 8) {
+            vel.push_back(uint8_t(v));
+            db.push_back(-20 + 0.1f * v + (v >= 104 ? 6.0f : 0.0f));
+            bright.push_back(v >= 104 ? 1800.0f : 1000.0f);
+            even_db.push_back(-40 + 0.3f * v);
+        }
+        CHECK(probe_accent(vel, db, bright) == 104);
+        // a 303's: the same level up to 96, then 1.4 dB louder and darker
+        std::vector<float> flat_db, flat_bright;
+        for (auto v : vel) { flat_db.push_back(v >= 104 ? -31.0f : -32.4f); flat_bright.push_back(v >= 104 ? 305.0f : 346.0f); }
+        CHECK(probe_accent(vel, flat_db, flat_bright) == 104);
+        std::vector<float> curve; // level as 20 log(velocity): big first steps, no accent
+        for (auto v : vel) curve.push_back(20.0f * std::log10(v / 127.0f));
+        CHECK(probe_accent(vel, curve, std::vector<float>(vel.size(), 1000.0f)) == 0);
+        CHECK(probe_accent(vel, even_db, std::vector<float>(vel.size(), 1000.0f)) == 0);
+    }
+    { // drums: pitches that do not follow the keys
+        const std::vector<uint8_t> keys {48, 49, 50, 53, 60};
+        std::vector<float> follows;
+        for (auto k : keys) follows.push_back(440.0f * std::pow(2.0f, (k - 69) / 12.0f));
+        CHECK(!probe_drums(keys, follows));
+        CHECK(probe_drums(keys, {55.0f, 0, 0, 210.0f, 0}));
+        CHECK(probe_drums(keys, {0, 0, 0, 0, 0}));
+    }
+    { // hits: the same at another phase are the same; one 3 dB louder differs
+        std::vector<float> a, b, c; double p1 = 0, p2 = 1.3, p3 = 0;
+        tone(a, 0, 19200, 220, 220, 0, 0.5f, p1);
+        tone(b, 0, 19200, 220, 220, 0, 0.5f, p2);
+        tone(c, 0, 19200, 220, 220, 0, 0.71f, p3);
+        CHECK(!probe_varies({a, b}, rate) && probe_varies({a, c}, rate));
+    }
+}
+
 // The auto sampler's loops (engine/loop_find.h): on a steady tone, a start and end a whole number of periods apart and
 // a seamless join; none on silence or a short hold.
 void loop_finder() {
@@ -8418,6 +8506,30 @@ void keygroup_glide() {
         r.engine->note_off(72);
         r.run(8000);
         CHECK(peak_of(r.run(2000), 0) < 0.01f);
+    }
+    { // legato: a key pressed after the last was let go starts at its own pitch, no slide from the last
+        ZoneRig r;
+        rig(r, true, 0.1f);
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->note_off(60);
+        r.run(200);
+        r.engine->note_on(72, 127);
+        const auto start = r.run(unsigned(rate * 0.04));
+        CHECK(zone_hz(start, 0, start.size()) > 410); // 440 (a 40 ms count of crossings reads within 25 Hz)
+    }
+    { // not legato: every press slides from the last key, let go or not
+        ZoneRig r;
+        rig(r, true, 0.1f);
+        r.multi->legato = false;
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->note_off(60);
+        r.run(200);
+        r.engine->note_on(72, 127);
+        const auto start = r.run(unsigned(rate * 0.04));
+        const double hz = zone_hz(start, 0, start.size());
+        CHECK(hz > 225 && hz < 400);
     }
     { // no glide: the legato note jumps at once, still without a new note
         ZoneRig r;
@@ -14846,6 +14958,7 @@ int main() {
     keygroup_reader();
     xpm_writer();
     loop_finder();
+    auto_probe();
     exs_reader();
     kit_levels_octave();
     drum_program_pads();

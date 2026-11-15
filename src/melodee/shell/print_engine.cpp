@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/print_engine.h"
+#include "melodee/engine/auto_probe.h"
 #include "melodee/engine/effects.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/print_player.h"
@@ -243,6 +244,14 @@ bool PrintEngine::start(PrintJob job) {
 
 void PrintEngine::cancel() { cancelled.store(true); }
 
+bool PrintEngine::take_probed(AutoProbeResult& out) {
+    std::lock_guard<std::mutex> held(lock);
+    if (probed.empty()) return false;
+    out = std::move(probed.front());
+    probed.pop_front();
+    return true;
+}
+
 bool PrintEngine::take_sampled(AutoSampleResult& out) {
     std::lock_guard<std::mutex> held(lock);
     if (sampled.empty()) return false;
@@ -301,6 +310,24 @@ void PrintEngine::run() {
             shown.count = uint16_t(job->patterns.size());
         }
         auto samples = library ? library->hold_samples() : std::array<const SampleData*, sample_slots> {};
+        if (job->probing) { // the auto sampler's check: a few notes heard, nothing kept
+            AutoProbeResult heard = probe_track(*job, samples);
+            if (library) library->release_samples();
+            std::lock_guard<std::mutex> held(lock);
+            const auto& f = heard.found;
+            lines.push_back("autosample-check track=" + std::to_string(job->track + 1) + " " +
+                            (heard.error.empty() ? "kind=" + std::string(f.kind == AutoKind::Mono ? "mono" : f.kind == AutoKind::Drums ? "drums" : "keys")
+                                                       + " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato)
+                                                       + " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes)
+                                                       + " sounds=" + std::to_string(f.sounding()) + heard.heard
+                                                 : "error=" + heard.error));
+            while (lines.size() > kept_lines) lines.pop_front();
+            probed.push_back(std::move(heard));
+            doing.clear();
+            shown.busy = false; shown.checking = false; shown.pattern = -1;
+            running.store(false, std::memory_order_release);
+            continue;
+        }
         if (job->autosample) { // the auto sampler: notes, not patterns
             AutoSampleResult made = sample_track(*job, samples);
             if (library) library->release_samples();
@@ -565,6 +592,168 @@ std::string key_word(unsigned key) {
 }
 } // namespace
 
+// The auto sampler's check (shell/auto_sample.h AutoFindings): a few notes on the track's plug-in, as it is set now,
+// heard by engine/auto_probe.h. Its type from five keys (drums when their pitch does not follow them); a mono
+// instrument from two keys pressed legato against the first alone, its glide from how the second's pitch moves, and
+// from two keys apart whether it glides only legato; drums, the keys of the range that sound; the accent from one key
+// at sixteen velocities; takes from three hits of it.
+AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples) {
+    AutoProbeResult r;
+    r.project_path = job.project_path;
+    r.track = job.track % track_count;
+    const unsigned t = r.track;
+    const auto& set = job.sampling;
+    AutoFindings& found = r.found;
+    auto show = [&](uint8_t step) {
+        std::lock_guard<std::mutex> held(lock);
+        shown.check_step = step;
+        shown.found = found;
+    };
+    {
+        std::lock_guard<std::mutex> held(lock);
+        shown.autosample = true; shown.checking = true; shown.check_step = 0; shown.found = {};
+        doing = "track=" + std::to_string(t + 1) + " autosample-check";
+    }
+    auto project = std::make_unique<Project>(*job.project);
+    auto bank = std::make_unique<PatternBank>(*job.bank);
+    print_project(*project, *bank, t, project->tracks[t].pattern % pattern_count);
+    const Track& track = project->tracks[t];
+    if (track.engine != EngineKind::Plugin) { r.error = "not a plug-in track"; return r; }
+    PrintHost opened = open_print_host(*project, *bank, track, samples, job.states, job.card_top, cancelled);
+    if (!opened.error.empty()) { r.error = opened.error; return r; }
+    auto& host = *opened.host;
+    const PrintTap tap = set.post_fx ? PrintTap::PostFx : PrintTap::PreFx;
+    host.set_print_tap(t, tap == PrintTap::PostFx);
+    const float rate = dsp::sample_rate();
+    std::vector<int32_t> out(EngineHost::block * 2);
+    // Before each go: silence, until what is left of the last has died away (a second at most).
+    auto settle = [&] {
+        unsigned quiet = 0;
+        for (unsigned b = 0; b < unsigned(rate) / EngineHost::block && quiet < unsigned(0.05f * rate); ++b) {
+            host.render(out.data(), EngineHost::block, 1.0f);
+            const ProjectPack* done = nullptr;
+            while (host.take_done_pack(done)) delete done;
+            const float* l = host.print_left();
+            const float* rr = host.print_right();
+            bool loud = false;
+            for (unsigned f = 0; f < EngineHost::block; ++f) loud |= std::fabs(l[f]) >= 0.000316f || std::fabs(rr[f]) >= 0.000316f;
+            quiet = loud ? 0 : quiet + EngineHost::block;
+        }
+    };
+    auto at = [&](double seconds) { return uint64_t(seconds * rate); };
+    bool stopped = false;
+    auto play = [&](std::vector<ProbeNote> notes, double seconds) {
+        if (stopped || cancelled.load()) { stopped = true; return std::vector<float> {}; }
+        settle();
+        auto x = render_notes(host, t, std::move(notes), at(seconds), tap, [&] { return !cancelled.load(); });
+        if (x.empty()) stopped = true;
+        return x;
+    };
+    auto hit = [&](uint8_t key, uint8_t velocity, double hold, double seconds) {
+        return play({{0, true, key, velocity}, {at(hold), false, key, velocity}}, seconds);
+    };
+    auto stop = [&] { r.error = "stopped"; return r; };
+    settle();
+
+    // Type: five keys, their pitch read just past the attack.
+    const int low = set.low, high = std::max<int>(set.low, set.high);
+    const uint8_t base = uint8_t(std::clamp(48, low, std::max(low, high - 12)));
+    std::vector<uint8_t> keys;
+    for (int k : {0, 1, 2, 5, 12}) keys.push_back(uint8_t(std::min(127, base + k)));
+    std::vector<float> hz;
+    for (uint8_t k : keys) {
+        auto x = hit(k, 100, 0.3, 0.35);
+        if (stopped) return stop();
+        hz.push_back(probe_pitch(x, at(0.06), at(0.08), rate));
+    }
+    found.kind = probe_drums(keys, hz) ? AutoKind::Drums : AutoKind::Keys;
+    show(1);
+    uint8_t loud_key = base;
+    if (found.kind == AutoKind::Drums) { // the keys of the range that sound, a short hit each
+        found.scan_low = uint8_t(low); found.scan_high = uint8_t(high);
+        bool any = false;
+        for (int k = low; k <= high; ++k) {
+            auto x = hit(uint8_t(k), 100, 0.1, 0.15);
+            if (stopped) return stop();
+            float peak = 0;
+            for (float v : x) peak = std::max(peak, std::fabs(v));
+            if (peak < 0.001f) continue;
+            found.keys[unsigned(k) / 64] |= uint64_t(1) << (unsigned(k) % 64);
+            if (!any || std::abs(k - int(base)) < std::abs(int(loud_key) - int(base))) loud_key = uint8_t(k);
+            any = true;
+        }
+    } else {
+        // Mono: the first key's pitch gone soon after a second is pressed legato, where alone it sounds on.
+        const uint8_t a = base, b = uint8_t(std::min(127, base + 7));
+        const float from_hz = hz[0] > 0 ? hz[0] : 440.0f * std::pow(2.0f, (int(a) - 69) / 12.0f);
+        const float to_hz = from_hz * std::pow(2.0f, 7.0f / 12.0f);
+        auto both = play({{0, true, a, 100}, {at(0.4), true, b, 100}, {at(1.2), false, a, 100}, {at(1.2), false, b, 100}}, 1.3);
+        auto alone = play({{0, true, a, 100}, {at(1.2), false, a, 100}}, 1.3);
+        if (stopped) return stop();
+        const ProbeGlide g = probe_glide(both, alone, at(0.4), from_hz, to_hz, rate);
+        if (g.mono) {
+            found.kind = AutoKind::Mono;
+            found.glide = g.seconds;
+            if (g.seconds > 0) { // gliding also from a key let go: not legato
+                auto apart = play({{0, true, a, 100}, {at(0.3), false, a, 100}, {at(0.35), true, b, 100}, {at(0.8), false, b, 100}}, 0.9);
+                if (stopped) return stop();
+                found.legato = !probe_slides_apart(apart, at(0.35), from_hz, to_hz, rate);
+            }
+        }
+    }
+    show(2);
+    // Accent: one key at sixteen velocities, each one's level and brightness over its first 150 ms.
+    std::vector<uint8_t> velocities;
+    std::vector<float> db, bright;
+    for (int v = 8; v <= 127; v = v == 120 ? 127 : v + 8) {
+        auto x = hit(loud_key, uint8_t(v), 0.25, 0.3);
+        if (stopped) return stop();
+        velocities.push_back(uint8_t(v));
+        db.push_back(probe_db(x, at(0.01), at(0.15)));
+        bright.push_back(probe_brightness(x, at(0.01), at(0.15), rate));
+    }
+    found.accent = probe_accent(velocities, db, bright);
+    if (found.accent) { // narrowed down between the two velocities heard either side of it
+        const size_t i = size_t(std::find(velocities.begin(), velocities.end(), found.accent) - velocities.begin());
+        int below = velocities[i - 1], above = found.accent;
+        const float low_db = db[i - 1], high_db = db[i], low_b = bright[i - 1], high_b = bright[i];
+        while (above - below > 1) {
+            const int mid = (below + above) / 2;
+            auto x = hit(loud_key, uint8_t(mid), 0.25, 0.3);
+            if (stopped) return stop();
+            const float d = probe_db(x, at(0.01), at(0.15)), b = probe_brightness(x, at(0.01), at(0.15), rate);
+            auto apart = [](float d1, float b1, float d2, float b2) {
+                return std::fabs(d1 - d2) + (b1 > 0 && b2 > 0 ? 6.0f * std::fabs(std::log2(b1 / b2)) : 0.0f);
+            };
+            if (apart(d, b, high_db, high_b) < apart(d, b, low_db, low_b)) above = mid; else below = mid;
+        }
+        found.accent = uint8_t(above);
+    }
+    for (size_t i = 0; i < velocities.size(); ++i) {
+        char one[48];
+        std::snprintf(one, sizeof(one), "%s%d:%.1f/%.0f", i ? "," : " levels=", velocities[i], db[i], bright[i]);
+        r.heard += one;
+    }
+    show(3);
+    // Takes: three hits of the key, when one velocity layer is all there is to take.
+    if (!found.accent) {
+        std::vector<std::vector<float>> hits;
+        for (int n = 0; n < 3; ++n) {
+            hits.push_back(hit(loud_key, 80, 0.3, 0.35)); // under an accent, where one is (it may carry from hit to hit)
+            if (stopped) return stop();
+        }
+        if (probe_varies(hits, rate)) found.takes = 3;
+        for (size_t h = 0; h < hits.size(); ++h) {
+            char one[48];
+            std::snprintf(one, sizeof(one), "%s%.1f/%.0f", h ? "," : " hits=", probe_db(hits[h], at(0.01), at(0.15)), probe_brightness(hits[h], 0, at(0.1), rate));
+            r.heard += one;
+        }
+    }
+    found.heard = true;
+    show(4);
+    return r;
+}
+
 AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples) {
     AutoSampleResult r;
     r.project_path = job.project_path;
@@ -575,7 +764,8 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     const unsigned t = r.track;
     const auto& set = job.sampling;
     const auto roots = set.roots();
-    const unsigned layers = std::clamp<unsigned>(set.layers, 1, 4);
+    const unsigned layers = set.layer_count(), takes = set.take_count();
+    const bool drums = set.found.kind == AutoKind::Drums;
     const fs::path folder(job.sample_folder), parts = folder / ".parts";
     std::error_code e;
     auto fail = [&](std::string why) { // nothing half made is left on the card
@@ -589,14 +779,14 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     if (roots.empty() || roots.size() > 128) { r.error = "no keys to sample"; return r; }
     {
         std::lock_guard<std::mutex> held(lock);
-        shown.count = uint16_t(roots.size() * layers);
+        shown.count = uint16_t(roots.size() * layers * takes);
         shown.autosample = true;
         doing = "track=" + std::to_string(t + 1) + " autosample";
     }
     const float rate = dsp::sample_rate();
     const unsigned whole_rate = unsigned(std::lround(rate));
     { // the card: room for every note at its longest, as 24-bit WAVs and the 32-bit float parts they are made from
-        const double most = double(roots.size()) * layers * (std::max(0.05f, set.hold) + set.tail + 0.01) * rate;
+        const double most = double(roots.size()) * layers * takes * (std::max(0.05f, set.hold) + set.tail + 0.01) * rate;
         const uint64_t need = uint64_t(most * (6 + 8)) + (8u << 20);
         fs::path probe = folder.parent_path();
         while (!probe.empty() && !fs::exists(probe, e)) probe = probe.parent_path();
@@ -637,6 +827,11 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
 
     XpmProgram program;
     program.name = job.sample_name;
+    if (set.found.kind == AutoKind::Mono) { // as the check heard it: one note at a time, sliding as the plug-in does
+        program.mono = true;
+        program.legato = set.found.legato;
+        program.glide = set.found.glide;
+    }
     std::vector<double> releases;
     float peak_all = 0;
     unsigned blocks = 0;
@@ -644,8 +839,10 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     double rendering = 0;
     for (size_t k = 0; k < roots.size(); ++k) {
         XpmKeygroup group;
-        for (unsigned v = 0; v < layers; ++v) {
-            const uint8_t velocity = set.velocity(v);
+        group.cycle = takes > 1;
+        for (unsigned v = 0; v < layers * takes; ++v) {
+            const unsigned take = v % takes, layer_index = v / takes;
+            const uint8_t velocity = set.velocity(layer_index);
             // The note's level for the screen: the hold on 60% of the bars at first, the release after it.
             constexpr unsigned bars = PrintProgress::wave_bars;
             std::vector<float> wave;
@@ -710,16 +907,17 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 const double wall = since(t0);
                 shown.times_real = rendering > 0 ? float(double(rendered) / rate / rendering) : 0;
                 shown.seconds_left = float(wall / shown.through * (shown.count - shown.through));
-                if (v + 1 == layers) shown.done[roots[k] / 64 % shown.done.size()] |= uint64_t(1) << (roots[k] % 64);
+                if (v + 1 == layers * takes) shown.done[roots[k] / 64 % shown.done.size()] |= uint64_t(1) << (roots[k] % 64);
             }
             if (peak < 0.000316f) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
             peak_all = std::max(peak_all, peak);
             releases.push_back(double(audio.release) / rate);
             XpmLayer layer;
-            layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity);
+            layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity)
+                         + (takes > 1 ? "-T" + std::to_string(take + 1) : std::string());
             layer.root = roots[k];
-            layer.low_velocity = uint8_t(v == 0 ? 0 : set.velocity(v - 1) + 1);
-            layer.high_velocity = velocity;
+            layer.low_velocity = uint8_t(takes > 1 || layer_index == 0 ? 0 : set.velocity(layer_index - 1) + 1);
+            layer.high_velocity = takes > 1 ? 127 : velocity;
             if (set.loop) {
                 LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate);
                 if (loop.found()) { layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops; }
@@ -737,13 +935,18 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         if (!group.layers.empty()) program.keygroups.push_back(std::move(group));
     }
     if (program.keygroups.empty()) return fail("the plug-in made no sound");
-    // The keygroups that are left cover every key: each reaches halfway to the next. A silent layer leaves its
-    // velocities to the layer above (the loudest reaches 127).
+    // The keygroups that are left cover every key: each reaches halfway to the next (drums: its own key only, a sound
+    // not stretched over its neighbours). A silent layer leaves its velocities to the layer above (the loudest reaches
+    // 127); takes each reach every velocity.
     for (size_t k = 0; k < program.keygroups.size(); ++k) {
         auto& g = program.keygroups[k];
         const int root = g.layers.front().root;
-        g.low = uint8_t(k == 0 ? 0 : (program.keygroups[k - 1].layers.front().root + root) / 2 + 1);
-        g.high = uint8_t(k + 1 == program.keygroups.size() ? 127 : (root + program.keygroups[k + 1].layers.front().root) / 2);
+        if (drums) g.low = g.high = uint8_t(root);
+        else {
+            g.low = uint8_t(k == 0 ? 0 : (program.keygroups[k - 1].layers.front().root + root) / 2 + 1);
+            g.high = uint8_t(k + 1 == program.keygroups.size() ? 127 : (root + program.keygroups[k + 1].layers.front().root) / 2);
+        }
+        if (g.cycle) continue;
         for (size_t l = 0; l < g.layers.size(); ++l) g.layers[l].low_velocity = uint8_t(l == 0 ? 0 : g.layers[l - 1].high_velocity + 1);
         g.layers.back().high_velocity = 127;
     }
