@@ -1190,7 +1190,10 @@ program's Mono, PortamentoTime, PortamentoLegato and Mono Retrig,
 pressed while one is held carries that note on, no new attack, its pitch
 sliding over the portamento (`SamplerEngine::carry()`). Not tied, the
 press starts the note again, its pitch sliding from the last key: with
-Legato only from a key still held, without it always. Mono Retrig is
+Legato only from a key still held, without it always. When the key that
+sounds is let go while others are still held, the note goes back to the
+newest of them (`SamplerEngine::mono_held`), carried or started again
+the same way, as a mono synth's does. Mono Retrig is
 MPC 3's (`monoRetrigger` in its projects, MPC 3.9): MPC 3 exports write
 it and MPC 3 projects read it back. An .xpm is MPC 2's file and has no
 tag for it (an MPC 2 always starts the note again), so the auto sampler

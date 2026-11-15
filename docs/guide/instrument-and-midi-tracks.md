@@ -142,7 +142,8 @@ The check sets these for you; the sheet's chip shows the type:
 
 On a keygroup track from a **MONO** program, a key pressed while another is
 held does what the plug-in did: it carries the note on to the new key
-(legato), or starts the note again (retrigger). A **Slide** step always
+(legato), or starts the note again (retrigger). Let that key go while the
+first is still held and the note goes back to the first. A **Slide** step always
 carries the note on, on any keygroup track. The glide is saved in the
 program, so it also works on an MPC. MPC 3 exports set **Mono Retrig** to
 match. An MPC on version 2 has no such setting and always starts the note

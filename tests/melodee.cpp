@@ -7587,6 +7587,19 @@ void auto_probe() {
         note(steady_both, 0, on, c3, 0, 0); note(steady_both, on, len - on, g3, 0, 0);
         CHECK(probe_retriggers(steady_both, steady_alone, steady_fresh, on, rate) == -1);
     }
+    { // low keys lie close in frequency (C2 and G2, 33 Hz): still told apart, mono and poly
+        const float c2 = 65.41f, g2 = 98.0f;
+        std::vector<float> x; double ph = 0;
+        tone(x, 0, onset, c2, c2, 0, 0.5f, ph);
+        tone(x, onset, size_t(0.8f * rate), g2, g2, 0, 0.5f, ph);
+        std::vector<float> alone; double pa = 0;
+        tone(alone, 0, onset + size_t(0.8f * rate), c2, c2, 0, 0.5f, pa);
+        CHECK(probe_glide(x, alone, onset, c2, g2, rate).mono);
+        std::vector<float> both; double a = 0, b = 0;
+        tone(both, 0, onset + size_t(0.8f * rate), c2, c2, 0, 0.4f, a);
+        tone(both, onset, size_t(0.8f * rate), g2, g2, 0, 0.4f, b);
+        CHECK(!probe_glide(both, alone, onset, c2, g2, rate).mono);
+    }
     { // mono, no slide: a jump
         std::vector<float> x; double ph = 0;
         tone(x, 0, onset, c3, c3, 0, 0.5f, ph);
@@ -8933,12 +8946,42 @@ void keygroup_glide() {
         const auto next = r.run(unsigned(rate * 0.05));
         CHECK(tied ? peak_of(next) < 0.02f : peak_of(next) > 0.2f);
         if (!tied) { const double hz = zone_hz(next, 0, next.size()); CHECK(hz > 240 && hz < 420); }
-        // not tied, Legato: a key pressed after the last was let go starts at its own pitch
-        r.engine->note_off(60); r.engine->note_off(72);
+        // The newer key let go while the first is still held: the note goes back to the first, as a mono synth's
+        // does: carried there, still faded (tied), or started again, sliding down to it.
+        r.run(unsigned(rate * 0.5));
+        r.engine->note_off(72);
+        const auto back = r.run(unsigned(rate * 0.3));
+        CHECK(tied ? peak_of(back) < 0.02f : peak_of(back) > 0.2f);
+        if (!tied) CHECK(std::fabs(zone_hz(back, size_t(rate * 0.15), size_t(rate * 0.25)) - 220) < 12);
+        // a key pressed after the last was let go starts at its own pitch (Legato: no slide from the last)
+        r.engine->note_off(60);
         r.run(400);
         r.engine->note_on(60, 127);
         const auto apart = r.run(unsigned(rate * 0.04));
         CHECK(peak_of(apart) > 0.2f && zone_hz(apart, 0, apart.size()) < 250);
+        // the older of two held keys let go: nothing changes; then the one that sounds: it ends, none left to go back to
+        r.engine->note_on(72, 127);
+        r.run(2000);
+        r.engine->note_off(60);
+        CHECK(tied || peak_of(r.run(2000)) > 0.1f);
+        r.engine->note_off(72);
+        r.run(8000);
+        CHECK(peak_of(r.run(2000)) < 0.01f);
+    }
+    { // tied, on a sound that holds: back at the first key's pitch, the same note still sounding, until that is let go too
+        ZoneRig r;
+        rig(r, true, 0.05f);
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->note_on(72, 127);
+        r.run(unsigned(rate * 0.2));
+        r.engine->note_off(72);
+        r.run(unsigned(rate * 0.2));
+        const auto home = r.run(6000);
+        CHECK(std::fabs(zone_hz(home, 0, 6000) - 220) < 8 && peak_of(home) > 0.1f);
+        r.engine->note_off(60);
+        r.run(8000);
+        CHECK(peak_of(r.run(2000)) < 0.01f);
     }
     {
         ZoneRig r;
