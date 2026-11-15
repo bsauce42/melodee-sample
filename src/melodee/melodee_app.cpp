@@ -280,7 +280,7 @@ std::string MelodeeApp::command(const std::string& action, const std::string& ar
             if (std::sscanf(word.c_str(), "%d-%d", &low, &high) == 2 && low >= 0 && high <= 127 && low <= high) { set.low = uint8_t(low); set.high = uint8_t(high); continue; }
             if (word == "pre" || word == "post") { set.post_fx = word == "post"; continue; }
             if (word == "loop" || word == "noloop") { set.loop_auto = false; set.loop = word == "loop"; continue; } // else Auto
-            if (word == "raw") { set.normalize = false; continue; } // the level as played
+            if (word == "raw" || word == "peak") { set.normalize = word == "peak"; continue; } // the level as played (as it comes), or loudest at -1 dB
             if (word == "check") { ask.check = true; continue; }    // the check alone: what the plug-in is (melodee-print status)
             if (word == "auto") { ask.probe_first = true; continue; } // the check, then sampled as it heard
             std::string value;

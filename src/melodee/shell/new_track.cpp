@@ -27,9 +27,11 @@ bool new_track_lock(Context& c, SurfaceButton button, bool pressed) {
         return true;
     }
     if (!new_track_locked(c)) return false;
+    if (ui.ask != UiState::Ask::None) return false; // a question on screen (Erase on the picker): its keys answer it
     bool carousel = ui.page == PageId::Stage;
     switch (button) {
     case B::Play: case B::Stop: case B::TapTempo: case B::TopLeft: return false;
+    case B::Erase: if (!carousel) return false; break;     // the picker: the plug-in under the cursor deleted (shell/delete_jobs.h)
     case B::WheelPush: if (!ui.shift) return false; break; // Push makes it (Shift + Push, Back, waits)
     case B::PadBank: if (carousel) return false; break;    // + pad: another track
     default: break;

@@ -1082,8 +1082,23 @@ plug-in effects; one undo. The AUTO SAMPLE sheet (Resample, Shift + Pad 11,
 on a plug-in or MIDI track, `pages/auto_sample_page.cpp`) has three
 rows of cards on B2: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL),
 SOUND (TAP, LOOP, LEVEL). Remote: `melodee-autosample TRACK [LOW-HIGH]
-[step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop] [raw] [check]`;
+[step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop] [raw|peak] [check]`
+(LEVEL is as played unless `peak`);
 `melodee-print status` reports it.
+
+**Deleting from the card** (`shell/delete_jobs.h`). Erase tapped on
+Samples or on the plug-in picker asks (Ask::DeleteFile, B3 DELETE) and
+then deletes the row under the cursor on the library's service thread
+(`SampleLibrary::remove()`): a file, a folder with all in it, an MPC 3
+track, program or project with the data folder that is its own
+(`<name>_[TrackData]`, so an auto sampled keygroup goes whole), a
+plug-in or a folder of them. The folder in view is listed again and the
+cursor stays on a row. Refused: what the open project plays (a path in
+`Project::samples` or `Project::plugins` at or under it), anything off
+the card, the card's top folders, Melodee's folder from the sample
+browser, a SoundFont's presets, one plug-in of a bundle, the Plugins
+folder itself. The picker opened for a new track lets Erase through
+(`new_track_lock()`).
 
 The sheet first runs a check (`probe_track()`, `engine/auto_probe.h`):
 a few notes on the plug-in, nothing read from it. It starts once the

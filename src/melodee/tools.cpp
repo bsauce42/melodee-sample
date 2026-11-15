@@ -5,6 +5,7 @@
 #include "melodee/shell/expansion_install.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/mpc_project.h"
+#include "melodee/shell/delete_jobs.h"
 #include "melodee/shell/mpc3_export.h"
 #include "melodee/shell/new_track.h"
 #include "melodee/model/progression.h"
@@ -1461,6 +1462,23 @@ const Preview previews[] {
          for (auto name : files) s.files.push_back({std::string("/media/card/Samples/") + name + ".wav", name, 0, false});
          s.files[4].path = s.project.samples[4].path;
          s.ui.files_count = uint16_t(s.files.size()); s.ui.turning = 1; s.ui.turned_at = s.now;
+     }},
+    {"samplesdelete", [](Shell&, Snapshot& s) { // Erase on a row of the browser: the question (shell/delete_jobs.h), B3 DELETE
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 1; s.sample_root = "/media/card/Samples";
+         s.files_folder = s.sample_root + "/Keygroups/Huge Saw"; s.files_top = false;
+         s.files.push_back({s.files_folder + "/Huge Saw.xty", "HUGE SAW", 0, false});
+         s.files.back().instrument = true;
+         s.ui.files_count = uint16_t(s.files.size()); s.ui.files_cursor = 0;
+         s.ui.ask = UiState::Ask::DeleteFile; s.ui.ask_target = int(DeleteWhat::Program);
+         std::snprintf(s.ui.ask_name.data(), s.ui.ask_name.size(), "Huge Saw.xty");
+     }},
+    {"samplesdeletefolder", [](Shell&, Snapshot& s) { // a folder: all in it goes
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.sample_root = "/media/card/Samples";
+         s.files_folder = s.sample_root; s.files_top = false;
+         for (auto name : {"EDITS", "KEYGROUPS", "RECORDED"}) s.files.push_back({std::string("/media/card/Samples/") + name, name, 0, true});
+         s.ui.files_count = uint16_t(s.files.size()); s.ui.files_cursor = 0;
+         s.ui.ask = UiState::Ask::DeleteFile; s.ui.ask_target = int(DeleteWhat::Folder);
+         std::snprintf(s.ui.ask_name.data(), s.ui.ask_name.size(), "Edits");
      }},
     {"samplesinstruments", [](Shell&, Snapshot& s) { // a folder of instruments: each tagged by its kind, a kit, an expansion
          s.ui.page = PageId::Samples; s.ui.track = 3; s.playing = true; s.ui.files_cursor = 0; s.sample_root = "/media/card/Samples";

@@ -160,9 +160,9 @@ again.
   reverb), and sets the program's release to match. A sound that rings on
   plays as two keygroups over the same keys, one with the short release and
   one with the long.
-- **LEVEL** at −1 dB raises every sample by the same amount, so velocity
-  layers keep their balance. With **LEVEL** as played, the keygroup track is
-  as loud as the plug-in track at the same settings.
+- **LEVEL** starts as played: the keygroup track is as loud as the plug-in
+  track at the same settings. At −1 dB every sample is raised by the same
+  amount (the loudest to −1 dB), so velocity layers keep their balance.
 - The program follows velocity as far as the plug-in did. A plug-in that
   plays every note at one level gives a program that does the same.
 - A key where the plug-in makes no sound is left out.

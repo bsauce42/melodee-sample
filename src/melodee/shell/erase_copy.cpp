@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/erase_copy.h"
+#include "melodee/shell/delete_jobs.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/ask.h"
@@ -92,6 +93,8 @@ bool erase_tap(Context& c) {
     case PageId::LayersPage: c.layer_clear(); return true;
     case PageId::ModPage: mod_remove(c); return true;
     case PageId::Project: return project_erase(c);
+    case PageId::Samples: return samples_erase(c);
+    case PageId::Plugins: return plugins_erase(c);
     default: return false;
     }
 }

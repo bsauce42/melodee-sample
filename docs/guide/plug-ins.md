@@ -80,6 +80,11 @@ a keyboard for instruments or sliders for effects. A check marks the plug-in
 loaded. A bundle with many plug-ins shows as one row with a count; push to
 open it. **K1** jumps through the list.
 
+**ERASE** deletes the plug-in or the folder under the cursor from the card.
+Melodee asks first (**B3 DELETE**, **B1 CANCEL**) and undo does not bring it
+back. A plug-in the open project uses is not deleted. To remove a plug-in
+with its data (Surge XT with its patches), delete its folder.
+
 ![A bundle of plug-ins, opened](../images/screens/pluginsbundle.png)
 
 To change a track's plug-in, press **SAMPLE SELECT** on the track.

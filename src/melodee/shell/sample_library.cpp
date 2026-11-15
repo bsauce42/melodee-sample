@@ -130,6 +130,41 @@ void SampleLibrary::browse(Drive drive, const std::string& folder) {
     std::lock_guard<std::mutex> guard(lock);
     wanted.pending = true; wanted.up = false; wanted.drive = drive; wanted.folder = folder;
 }
+void SampleLibrary::remove(const std::string& path) {
+    std::lock_guard<std::mutex> guard(lock);
+    removals_wanted.push_back(path);
+}
+
+// One deletion a pass: the file or the folder, with all in it; an MPC 3 track's, program's or project's own data
+// folder with it. The folder in view is then listed again.
+void SampleLibrary::remove_service() {
+    std::string path;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        if (removals_wanted.empty()) return;
+        path = removals_wanted.front();
+        removals_wanted.erase(removals_wanted.begin());
+    }
+    const fs::path file(path);
+    std::error_code error;
+    std::string kind = file.extension().string();
+    for (auto& c : kind) c = char(std::toupper(static_cast<unsigned char>(c)));
+    if (!fs::is_directory(file, error))
+        for (const auto& [suffix, tail] : {std::pair<const char*, const char*> {".XTY", "_[TrackData]"}, {".XPM", "_[ProgramData]"}, {".XPJ", "_[ProjectData]"}}) {
+            if (kind != suffix) continue;
+            const fs::path data = file.parent_path() / (file.stem().string() + tail);
+            if (fs::is_directory(data, error)) fs::remove_all(data, error);
+        }
+    error.clear();
+    fs::remove_all(file, error);
+    std::error_code still;
+    const bool gone = !error && !fs::exists(file, still);
+    finish((gone ? "Deleted " : "Cannot delete ") + file.filename().string());
+    removal_count.fetch_add(1, std::memory_order_release);
+    std::lock_guard<std::mutex> guard(lock);
+    if (!wanted.pending) { wanted.pending = true; wanted.up = false; wanted.drive = known.drive; wanted.folder = known.folder; }
+}
+
 void SampleLibrary::install(const std::string& path) {
     std::lock_guard<std::mutex> guard(lock);
     installs_wanted.push_back(path);
@@ -287,6 +322,7 @@ void SampleLibrary::service(Hardware& hardware) {
     SampleJob job;
     bank_files();
     install_service();
+    remove_service();
     if (jobs.pop(job)) make(job);
     else {
         std::string heard;

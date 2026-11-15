@@ -12,6 +12,7 @@
 // new one takes an entry nothing uses. The rack loads what is used and lets go
 // of the rest, so undo, a project switch or a removed effect need nothing more.
 #include "melodee/shell/context.h"
+#include "melodee/shell/delete_jobs.h"
 #include "melodee/engine/effect_info.h"
 #include "melodee/model/scales.h"
 #include "melodee/plugin/plugin_files.h"
@@ -254,6 +255,7 @@ void Context::plugins_tick(uint32_t at) {
     }
     split_shared_plugins();
     plugins->sync(project, plugins_asleep());
+    delete_tick(*this); // the picker listed again once a plug-in is deleted (shell/delete_jobs.h)
     if (ui.page == PageId::Plugins && plugins->changes() != plugin_view_seen) { // the picker's rows, and where going up lands
         plugin_view_seen = plugins->changes();
         auto view = plugins->view();

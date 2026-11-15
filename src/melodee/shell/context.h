@@ -424,6 +424,8 @@ public:
     std::array<BrowserPlace, 2> files_places {}, project_places {};
     int files_row_wanted = -1;        // Samples: the row to land on once the folder asked for lists
     std::string project_row_path;     // Project: the entry to land on once the folder lists (the open project, at first)
+    std::string delete_path;          // Erase in a browser (shell/delete_jobs.h): what the question on screen would delete
+    unsigned removals_seen = 0;       // the library's deletions the plug-in picker has listed again for
     bool project_list_opened = false; // the list has been opened since start
     bool dirty = false;               // changed since it was saved or loaded
     void save_project_to(const std::string& path);

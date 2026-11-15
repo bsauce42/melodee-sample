@@ -9,6 +9,7 @@
 #include "melodee/engine/engine_info.h"
 #include "melodee/shell/ask.h"
 #include "melodee/shell/bindings.h"
+#include "melodee/shell/delete_jobs.h"
 #include "melodee/shell/step_edit.h"
 #include "melodee/shell/update.h"
 #include "melodee/ui/widgets.h"
@@ -142,6 +143,20 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
         sheet.chip_colour = colour::sec;
         verb = "INSTALL"; verb_glyph = Icon::Check; cancel = "LATER";
         break;
+    case Ask::DeleteFile: { // Erase in a browser (shell/delete_jobs.h): a file, a folder, a program, a plug-in
+        const auto what = DeleteWhat(s.ui.ask_target);
+        const bool plugin = what == DeleteWhat::Plugin || what == DeleteWhat::PluginFolder;
+        sheet.icon = Icon::Trash;
+        sheet.title = "Delete from the card?";
+        sheet.lines = {what == DeleteWhat::Folder || what == DeleteWhat::PluginFolder ? "The folder and all in it go."
+                       : what == DeleteWhat::Program ? "The program and its samples go."
+                       : plugin ? "The plug-in goes." : "The file goes.",
+                       "Undo can't bring it back."};
+        sheet.chip = juce::String::fromUTF8(s.ui.ask_name.data()).toUpperCase();
+        sheet.chip_colour = colour::sec;
+        verb = "DELETE";
+        break;
+    }
     case Ask::Unfreeze: { // freeze plan F2c: an edit of a frozen track
         unsigned which = unsigned(s.ui.ask_target) % track_count;
         const bool deep = s.freeze[which].state == FreezeState::Deep; // freeze plan F2d: thawed first

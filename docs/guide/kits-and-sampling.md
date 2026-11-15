@@ -132,6 +132,19 @@ you hit.
 | **B2** | Switch between the card (**CARD**) and the MPC's factory samples (**INTERNAL**). The key names the other drive. Each drive keeps its folder and row. The internal drive is read only. |
 | **B3** | **PREVIEW**: play each file when you move to it. |
 | **SHIFT** + pad | Load the file onto the next empty pad. |
+| **ERASE** | Delete the file or folder under the cursor from the card. Melodee asks first: **B3 DELETE**, **B1 CANCEL**. |
+
+**ERASE** deletes for good; undo does not bring a file back.
+
+- A folder goes with everything in it.
+- An MPC 3 track file (`.xty`) or program goes with its own data folder, so
+  an auto sampled keygroup goes whole. To delete one, press **ERASE** on its
+  folder in `Samples/Keygroups`, or on its `.xty` inside.
+- A file the open project uses is not deleted (**In use by this project**).
+  Take it off its pad or track first, or open another project.
+- Only files on the card can be deleted, and not the folders at the top of
+  the card or anything in the `Melodee` folder. Plug-ins are deleted in the
+  plug-in picker, projects on the Project page.
 
 Put your samples in a folder named `Samples` at the top level of the card.
 Melodee reads WAV (16, 24 or 32-bit), MP3, FLAC, Ogg Vorbis and AIFF files, any sample

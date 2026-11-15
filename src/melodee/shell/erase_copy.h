@@ -12,7 +12,9 @@
 // cursor, Step Edit's event, the pattern on Patterns, the track on Tracks,
 // the scene on Scenes, the loop on the Looper, the effect in a chain, the
 // slice on Chop, the layer on LAYERS, the target on MOD, the project on
-// Project (Delete: tap again). Song keeps its own (the clip, on the press).
+// Project (Delete: tap again), the file or folder under the cursor on
+// Samples and on the plug-in picker, deleted from the card
+// (shell/delete_jobs.h). Song keeps its own (the clip, on the press).
 // What can be lost asks first, as Erase + pad does.
 //
 // Shift + Erase copies what the page holds. Pad Bank held: tracks; Seq
@@ -63,6 +65,7 @@ inline bool erase_tap_page(const UiState& ui) {
     case PageId::Roll: case PageId::StepEdit: case PageId::Patterns: case PageId::Scenes: case PageId::Tracks:
     case PageId::Looper: case PageId::Rack: case PageId::Bus: case PageId::Master: case PageId::PadFx:
     case PageId::Chop: case PageId::LayersPage: case PageId::ModPage:
+    case PageId::Samples: case PageId::Plugins:
         return true;
     case PageId::Project: return ui.project_list && !ui.move_open;
     default: return false;
