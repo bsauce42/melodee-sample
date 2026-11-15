@@ -2,6 +2,7 @@
 """A project written as an MPC 3 project by the built app, then read back."""
 import gzip
 import json
+import math
 from pathlib import Path
 import struct
 import subprocess
@@ -188,6 +189,28 @@ class Mpc3Export(unittest.TestCase):
         second = next(s["value"] for s in data["sequences"] if s["key"] == 1)
         events = next(c["value"] for c in second["trackClipMaps"][0] if c["key"] == "Drum 001")["eventList"]["events"]
         self.assertEqual([(e["time"], e["note"]["note"]) for e in events], [(0, 36), (960, 37)])
+
+    def test_keygroup_portamento(self):
+        # A mono program that glides (an auto sampled 303's): its Mono and Portamento go to the MPC 3 program.
+        time = 1 + math.log(0.06 / 30) / 7  # 60 ms on MPC 3's curve, 30 s x e^(7 (v - 1))
+        with tempfile.TemporaryDirectory() as folder:
+            keys = Path(folder) / "Bass"
+            keys.mkdir()
+            (keys / "Bass-C3.wav").write_bytes(wav(44100))
+            layer = ("<Layer number=\"1\"><Active>True</Active><Volume>1.0</Volume><Pan>0.5</Pan><VelStart>0</VelStart><VelEnd>127</VelEnd>"
+                     "<RootNote>49</RootNote><SampleName>Bass-C3</SampleName><SliceEnd>44099</SliceEnd></Layer>")
+            (keys / "Bass.xpm").write_text(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><MPCVObject><Program type=\"Keygroup\"><ProgramName>Bass</ProgramName>"
+                f"<Mono>True</Mono><PortamentoTime>{time:.6f}</PortamentoTime><PortamentoLegato>True</PortamentoLegato>"
+                "<KeygroupNumKeygroups>1</KeygroupNumKeygroups><Instruments><Instrument number=\"1\"><LowNote>0</LowNote><HighNote>127</HighNote>"
+                f"<Layers>{layer}</Layers></Instrument></Instruments></Program></MPCVObject>")
+            report, out = self.export(folder, "K:0=FOLDER/Bass/Bass.xpm")
+            self.assertIn("exported tracks=0 keygroups=1", report)
+            _, data = read(out / "Beat.xpj")
+        voices = data["tracks"][0]["program"]["drum"]
+        self.assertTrue(voices["monophonic"])
+        self.assertTrue(voices["portamentoLegato"])
+        self.assertAlmostEqual(voices["portamentoTime"], time, places=5)
 
     def test_pitched_wav_pad(self):
         # A WAV pad its notes play 7 semitones up (16 Levels, Keys): one keygroup over every key, its own pitch at 60.

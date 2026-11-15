@@ -7231,6 +7231,24 @@ void xpm_writer() {
     CHECK(set.velocity(0) == 42 && set.velocity(1) == 84 && set.velocity(2) == 127);
     set.layers = 1;
     CHECK(set.velocity(0) == 127);
+    // Mono and Portamento: the program's tags, on MPC 3's curve (30 s x e^(7 (v - 1)), 0 off)
+    CHECK(!has("<Mono>True</Mono>") && has("<PortamentoTime>0.000000</PortamentoTime>"));
+    program.mono = true; program.legato = true; program.glide = 0.06;
+    const std::string mono = xpm_text(program);
+    char porta[64];
+    std::snprintf(porta, sizeof(porta), "<PortamentoTime>%.6f</PortamentoTime>", mpc_portamento_value(0.06));
+    CHECK(mono.find("    <Mono>True</Mono>") != std::string::npos && mono.find(porta) != std::string::npos
+          && mono.find("<PortamentoLegato>True</PortamentoLegato>") != std::string::npos);
+    CHECK(std::fabs(mpc_portamento_seconds(1.0) - 30.0) < 1e-9 && mpc_portamento_seconds(0) == 0 && mpc_portamento_value(0) == 0);
+    CHECK(std::fabs(mpc_portamento_seconds(mpc_portamento_value(0.06)) - 0.06) < 1e-6);
+    CHECK(std::fabs(mpc_portamento_seconds(0.5) - 30.0 * std::exp(-3.5)) < 1e-9);
+    KeygroupProgram tree;
+    tree.type = "Keygroup";
+    tree.tags = {{"Mono", "True"}, {"PortamentoLegato", "True"}, {"PortamentoTime", std::to_string(mpc_portamento_value(0.2))}};
+    const SfzRead read = read_keygroup(tree);
+    CHECK(read.mono && read.legato && std::fabs(read.glide - 0.2) < 1e-4);
+    tree.tags.clear();
+    CHECK(!read_keygroup(tree).mono && read_keygroup(tree).glide == 0);
 }
 
 // The auto sampler's loops (engine/loop_find.h): on a steady tone, a start and end a whole number of periods apart and
@@ -8368,6 +8386,81 @@ void instrument_zones_r3() {
         std::string text(file.begin(), file.end());
         file[text.find("ZTRM")] = 'X';
         CHECK(load_project(file, *back, *back_bank).empty() && !find_trim(back->tracks[3].zone_trims, 8, 300, 5));
+    }
+}
+
+// A mono program's portamento on a KEYGROUP track (an MPC keygroup's Mono, PortamentoTime, PortamentoLegato): with
+// Legato a key pressed while one is held carries that note on, its pitch sliding to the new key; a Slide step does the
+// same on any instrument, a Tie at once.
+void keygroup_glide() {
+    const double rate = dsp::sample_rate();
+    auto rig = [](ZoneRig& r, bool mono, float glide) {
+        r.part(zone_tone(220, 0.5f, 3 * 44100));
+        auto& z = r.zone(0); z.root = 60;
+        r.pad.release = 0;
+        r.multi->mono = mono; r.multi->legato = mono; r.multi->glide = glide;
+        r.build(PadPlay::Gate);
+        r.engine->set_keyed(true);
+    };
+    {
+        ZoneRig r;
+        rig(r, true, 0.1f);
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->note_on(72, 127); // legato: no new note, the pitch slides up an octave over 0.1 s
+        const auto sliding = r.run(unsigned(rate * 0.05));
+        const double mid = zone_hz(sliding, 0, sliding.size());
+        CHECK(mid > 240 && mid < 420);
+        r.run(unsigned(rate * 0.1));
+        CHECK(std::fabs(zone_hz(r.run(6000), 0, 6000) - 440) < 8);
+        r.engine->note_off(60); // the key slid from: the note is 72's now
+        CHECK(std::fabs(zone_hz(r.run(6000), 0, 6000) - 440) < 8 && peak_of(r.run(2000), 0) > 0.1f);
+        r.engine->note_off(72);
+        r.run(8000);
+        CHECK(peak_of(r.run(2000), 0) < 0.01f);
+    }
+    { // no glide: the legato note jumps at once, still without a new note
+        ZoneRig r;
+        rig(r, true, 0.0f);
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->note_on(67, 127);
+        r.run(600);
+        CHECK(std::fabs(zone_hz(r.run(6000), 0, 6000) - 220 * std::pow(2.0, 7 / 12.0)) < 8);
+    }
+    { // poly (no Mono): a second key is a second note, the first at its own pitch
+        ZoneRig r;
+        rig(r, false, 0.1f);
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->note_on(72, 127);
+        r.engine->note_off(72);
+        r.run(8000);
+        CHECK(std::fabs(zone_hz(r.run(6000), 0, 6000) - 220) < 8);
+    }
+    { // a Slide step on a poly instrument with no portamento of its own: the held note slides over slide_seconds
+        ZoneRig r;
+        rig(r, false, 0.0f);
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->slide(60, 67, 100, true);
+        const auto sliding = r.run(unsigned(rate * SamplerEngine::slide_seconds / 2));
+        const double mid = zone_hz(sliding, 0, sliding.size());
+        CHECK(mid > 225 && mid < 320);
+        r.run(unsigned(rate * 0.06));
+        CHECK(std::fabs(zone_hz(r.run(6000), 0, 6000) - 220 * std::pow(2.0, 7 / 12.0)) < 8);
+        r.engine->note_off(67);
+        r.run(8000);
+        CHECK(peak_of(r.run(2000), 0) < 0.01f);
+    }
+    { // a Tie: there at once
+        ZoneRig r;
+        rig(r, false, 0.0f);
+        r.engine->note_on(60, 127);
+        r.run(4000);
+        r.engine->slide(60, 64, 100, false);
+        r.run(600);
+        CHECK(std::fabs(zone_hz(r.run(6000), 0, 6000) - 220 * std::pow(2.0, 4 / 12.0)) < 8);
     }
 }
 
@@ -14767,6 +14860,7 @@ int main() {
     sample_rates_p2();
     sampler_zones();
     keygroup_tracks();
+    keygroup_glide();
     instrument_zones_r3();
     live_pad_values();
     note_pitches();
