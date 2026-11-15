@@ -11235,7 +11235,7 @@ void track_move() {
 
     // B1-B3 with Pad Bank held: B2 MOVE, B3 COPY; B1 steps back, then out; the active key again ends it.
     UiState held; held.pad_bank = true;
-    CHECK(track_key(held, 0) == TrackKey::Nothing && held.copying == UiState::Copying::Off && held.pad_bank_used);
+    CHECK(track_key(held, 0) == TrackKey::Tracks && held.copying == UiState::Copying::Off && held.pad_bank_used); // B1 TRACKS
     CHECK(track_key(held, 1) == TrackKey::Started && held.copying == UiState::Copying::Tracks && held.moving && held.copy_from < 0);
     held.copy_from = 3;
     CHECK(track_key(held, 2) == TrackKey::Switched && !held.moving && held.copy_from == 3);

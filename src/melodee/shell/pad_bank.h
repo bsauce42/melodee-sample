@@ -21,7 +21,7 @@ void step_bank(Context& c, int way);
 // Whether the pads are the sixteen tracks now: Pad Bank held, or a track copy under way.
 inline bool tracks_on_pads(const UiState& ui) { return ui.pad_bank || ui.copying == UiState::Copying::Tracks; }
 // Whether the screen shows the tracks over the page: a track move or copy picking its tracks. Pad Bank held
-// alone shows nothing (the Tracks page, Pad FX + Knob FX, does).
+// alone keeps the page and redraws only its keys, TRACKS / MOVE / COPY (pages/common.cpp frame).
 inline bool track_overlay_shown(const UiState& ui) { return ui.copying == UiState::Copying::Tracks; }
 // A pad while tracks_on_pads(): picks that track, or the move's or copy's track and
 // then where it goes; with Erase held, asks to clear it. False when the pads are not the tracks.
@@ -35,14 +35,14 @@ inline void start_track_pick(UiState& ui, bool move) {
 }
 // B1-B3 while the pads are the tracks (Pad Bank held, or a move or copy picking its tracks): B2 MOVE and B3 COPY
 // start one, or switch the one under way (its track kept), and again end it; B1 steps back, from where to the
-// track, then out. Ignored: the pads are not the tracks, the page's keys answer.
-enum class TrackKey : uint8_t { Ignored, Nothing, Started, Switched, Back, Ended };
+// track, then out, and before a pick opens the mixer's Tracks. Ignored: the pads are not the tracks, the page's keys answer.
+enum class TrackKey : uint8_t { Ignored, Nothing, Started, Switched, Back, Ended, Tracks };
 inline TrackKey track_key(UiState& ui, int key) {
     if (!tracks_on_pads(ui)) return TrackKey::Ignored;
     if (ui.pad_bank) ui.pad_bank_used = true; // its release steps no bank
     bool picking = ui.copying == UiState::Copying::Tracks;
     if (key == 0) {
-        if (!picking) return TrackKey::Nothing;
+        if (!picking) return TrackKey::Tracks; // B1 TRACKS
         if (ui.copy_from >= 0) { ui.copy_from = -1; return TrackKey::Back; }
         ui.stop_copying();
         return TrackKey::Ended;

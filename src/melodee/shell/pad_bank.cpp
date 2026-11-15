@@ -98,6 +98,7 @@ bool track_soft(Context& c, int key) {
     bool moving = c.ui.moving;
     auto did = track_key(c.ui, key);
     if (did == TrackKey::Ended) c.notice(moving ? "Move off" : "Copy off");
+    if (did == TrackKey::Tracks && c.ui.page != PageId::Tracks) c.open(PageId::Tracks); // B1 TRACKS: the mixer's
     return did != TrackKey::Ignored;
 }
 

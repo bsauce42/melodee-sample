@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/mix_hub.h"
+#include "melodee/shell/pad_bank.h"
 #include "melodee/pages/common.h"
 #include "melodee/shell/undo_scope.h"
 #include "melodee/shell/midi_ports.h"
@@ -789,7 +790,13 @@ FaderShown fader_shown(const Snapshot& s) {
 }
 
 void frame(ui::Paint& p, const Snapshot& s, const ui::SoftKeys& keys, const ui::Header& header) {
-    ui::soft_keys(p, keys);
+    if (s.ui.pad_bank && !track_overlay_shown(s.ui)) { // Pad Bank held: its keys over the page's (shell/pad_bank.h)
+        ui::SoftKeys held {{"TRACKS", "MOVE", "COPY"}, -1, colour_of(s)};
+        held.glyphs[1] = ui::Icon::Swap; held.glyphs[2] = ui::Icon::Copy;
+        ui::soft_keys(p, held);
+    } else {
+        ui::soft_keys(p, keys);
+    }
     auto cards = cards_of(s);
     bool knob_fx = std::any_of(cards.begin(), cards.end(), [](const ui::KnobCard& c) { return c.knob_fx; });
     if (knob_fx && s.ui.page != PageId::KnobFx) { // the pots are Knob FX's: the header names its effect first

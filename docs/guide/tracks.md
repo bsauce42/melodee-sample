@@ -8,8 +8,10 @@ Hold **PAD BANK** and press a pad. This works on any page. Pad 1 is track 1.
 To see all 16 tracks, open the [Tracks page](#the-tracks-page).
 
 While **PAD BANK** is held the pads are the tracks, and the screen stays on
-the page you are on:
+the page you are on. Only the keys change: **TRACKS**, **MOVE** and
+**COPY**.
 
+- Press **B1** (**TRACKS**) to open the Tracks page.
 - Press **B2** (**MOVE**), then a track, then a pad to move the track there.
   A track already there swaps places with it.
 - Press **B3** (**COPY**) or **SHIFT** + **ERASE**, then a track, then a pad
