@@ -348,7 +348,7 @@ bool SampleLibrary::begin_landing(InstrumentRead& from) {
     multi->part_count = unsigned(l.names.size());
     multi->turns.assign(multi->zones.size(), 0);
     instrument_switches(l.read, *multi);
-    multi->mono = l.read.mono; multi->legato = l.read.legato; multi->glide = float(l.read.glide);
+    multi->mono = l.read.mono; multi->legato = l.read.legato; multi->tied = l.read.tied; multi->glide = float(l.read.glide);
     l.multi = multi;
     loaded.zones = unsigned(multi->zones.size());
     loaded.parts = multi->part_count;

@@ -216,7 +216,7 @@ int Context::first_empty_track() const {
 void Context::autosample_landed(const AutoSampleResult& r) {
     const unsigned from = r.track % track_count;
     const int target = first_empty_track();
-    const std::string short_name = fs::path(r.program).parent_path().filename().string();
+    const std::string short_name = r.name; // Keygroups/<name>/
     if (target < 0) { notice("Saved Keygroups/" + short_name + ", no empty track"); return; }
     const unsigned t = unsigned(target);
     const Track source = project.tracks[from];

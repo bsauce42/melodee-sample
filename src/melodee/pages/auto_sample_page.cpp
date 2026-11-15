@@ -109,7 +109,8 @@ void draw(Paint& p, const Snapshot& s) {
         const bool live = job.busy && job.checking && job.track == t;
         const unsigned step = live ? job.check_step : 0;
         const juce::String none = juce::String::fromUTF8("\xe2\x80\x94");
-        const juce::String type = found.kind == AutoKind::Mono ? "Mono" : drums ? "Drums" : "Keys";
+        // Mono: whether a key pressed while another is held carries the note on (legato) or starts it again.
+        const juce::String type = found.kind == AutoKind::Mono ? (found.tied ? "Mono, legato" : "Mono, retrigger") : drums ? "Drums" : "Keys";
         const juce::String second_cap = drums ? "SOUNDS" : "GLIDE";
         const juce::String second = drums ? juce::String(found.sounding()) + " keys"
                                   : found.kind == AutoKind::Mono && found.glide > 0 ? juce::String(int(std::lround(found.glide * 1000))) + " ms"

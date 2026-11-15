@@ -2670,8 +2670,9 @@ static int instrument_read(const char* path) {
     for (const auto& i : read.ignored) ignored += i + ",";
     for (const auto& i : read.left_by) left_by += i + ",";
     const auto& e = read.envelope;
-    std::printf("zones=%zu left=%u left_by=%s velocity=%.0f ignored=%s attack=%.3f decay=%.3f sustain=%.1f release=%.3f\n", read.regions.size(), read.left,
-                left_by.c_str(), read.velocity, ignored.c_str(), e.attack.value_or(-1), e.decay.value_or(-1), e.sustain.value_or(-1), e.release.value_or(-1));
+    std::printf("zones=%zu left=%u left_by=%s velocity=%.0f ignored=%s attack=%.3f decay=%.3f sustain=%.1f release=%.3f mono=%d legato=%d tied=%d glide=%.3f\n",
+                read.regions.size(), read.left, left_by.c_str(), read.velocity, ignored.c_str(), e.attack.value_or(-1), e.decay.value_or(-1),
+                e.sustain.value_or(-1), e.release.value_or(-1), read.mono, read.legato, read.tied, read.glide);
     for (const auto& r : read.regions) {
         const auto& z = r.zone;
         std::printf("  keys %u-%u root %u vel %u-%u tune %d track %d gain %.1f pan %.2f from %lld to %lld loop %d %u-%u one_shot %d seq %u/%u choke %u %s\n", z.low_key,
@@ -2919,6 +2920,11 @@ std::optional<int> run_tool(int argc, char** argv) {
     if (argc == 3 && !std::strcmp(argv[1], "--mpc-import")) return mpc_import(argv[2]);
     if (argc >= 5 && !std::strcmp(argv[1], "--mpc3-export")) return mpc3_export(argv[2], argv[3], argv[4], argc - 5, argv + 5); // IN FOLDER NAME [CHANGE...]
     if (argc == 3 && !std::strcmp(argv[1], "--instrument-read")) return instrument_read(argv[2]);
+    if (argc == 4 && !std::strcmp(argv[1], "--mpc-track")) { // a keygroup program as MPC 3's track file, as the auto sampler writes it
+        const auto error = write_mpc3_track(argv[2], argv[3]);
+        std::printf("%s\n", error.empty() ? "written" : ("error=" + error).c_str());
+        return error.empty() ? 0 : 1;
+    }
     if (argc == 4 && !std::strcmp(argv[1], "--mpc-install")) { // an expansion into DIR/<its title>, as Push on one does
         ExpansionInstall install;
         auto error = install.open(argv[2], argv[3]);

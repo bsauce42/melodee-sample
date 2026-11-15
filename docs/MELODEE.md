@@ -1058,9 +1058,20 @@ up to 50 ms; no loop under a match of 0.6. Samples are kept as 32-bit
 float in `.parts/` until all are made, then written as 24-bit WAVs at
 the device's rate, `<name>-C4-V127.wav`, with one gain for the whole
 program when LEVEL is −1 dB (its loudest sample at -1 dB, 24 dB at
-most), and the program `Samples/Keygroups/<name>/<name>.xpm`: the MPC 2
+most), and the program `<name>.xpm` beside them: the MPC 2
 XML with the MPC's own layout (128 instruments, four layers each, the
 program's pads JSON, pad note and group maps; a loop is a slice loop).
+The WAVs and the .xpm are in `Samples/Keygroups/<name>/<name>_[TrackData]/`,
+and `Samples/Keygroups/<name>/<name>.xty` beside that folder is the same
+program as MPC 3's track file (`write_mpc3_track()`, `shell/mpc3_export.h`:
+the MPC 3 export's Keygroup track on its own, gzip under a
+SerialisableTrackData header). MPC 3 looks for a track file's samples in
+`<name>_[TrackData]` and an .xpm's beside it, so one copy of the files
+serves both; the .xty holds what MPC 2's .xpm cannot (Mono Retrig).
+Melodee's browser shows the .xty (the folder is the file's own and is
+hidden); the new track plays the .xpm. A take per key more than one
+(ZonePlay Cycle) is in the .xpm only. `--mpc-track PROGRAM.xpm FILE.xty`
+writes one on a host.
 Keygroups split halfway between roots; the program's release is the
 plug-in's own, measured. A key where the plug-in is silent is left out.
 It checks the card has room for every note at its longest first; a
@@ -1089,7 +1100,12 @@ does not follow the keys make it Drums: each key of the range that sounds
 is sampled once, its keygroup that key alone. Two keys pressed legato,
 against the first held alone, make it Mono when the first key's pitch
 goes: the second's pitch track gives the glide, and two keys apart tell
-whether it glides only legato; the .xpm is then written Mono with that
+whether it glides only legato; the second key alone, against the two
+legato and the first held on, tells whether a legato press starts the
+sound again or carries the note on (`probe_retriggers()`: a held note has
+moved on from its start in level or brightness, and a note started again
+is back there; a sound that has not moved 2 dB tells nothing and is left
+tied); the .xpm is then written Mono with that
 PortamentoTime (MPC 3's curve, 30 s x e^(7 (v - 1)), `mpc_portamento_value()`)
 and PortamentoLegato. Sixteen velocities of one key find an accent (one
 step that moves level and brightness far more than its neighbours and the
@@ -1169,13 +1185,21 @@ full scale; Input Config's gain applies. `melodee-autosample TRACK ...`
 takes a MIDI track too, and its status line adds the silence and delay.
 
 **Keygroup glide.** A KEYGROUP track's program (an .xpm's or an MPC 3
-program's Mono, PortamentoTime and PortamentoLegato, `SfzRead`) plays
-mono: with Legato a key pressed while one is held carries that note on,
-no new attack, its pitch sliding over the portamento (`SamplerEngine::carry()`);
-without, each press starts afresh sliding from the last key. A Slide step
-slides the held note the same way on any instrument (the program's time,
-else 60 ms), a Tie at once. MPC 3 exports write the program's Mono and
-portamento to the keygroup track, and MPC 3 projects read them back.
+program's Mono, PortamentoTime, PortamentoLegato and Mono Retrig,
+`SfzRead`) plays mono. Tied (`SfzRead::tied`: Mono Retrig off), a key
+pressed while one is held carries that note on, no new attack, its pitch
+sliding over the portamento (`SamplerEngine::carry()`). Not tied, the
+press starts the note again, its pitch sliding from the last key: with
+Legato only from a key still held, without it always. Mono Retrig is
+MPC 3's (`monoRetrigger` in its projects, MPC 3.9): MPC 3 exports write
+it and MPC 3 projects read it back. An .xpm is MPC 2's file and has no
+tag for it (an MPC 2 always starts the note again), so the auto sampler
+writes it there under MPC 3's name, `<MonoRetrigger>`, which an MPC 2
+passes over; a program without it is tied where its portamento is
+Legato. A Slide step slides the held note on any instrument (the
+program's time, else 60 ms), a Tie at once. MPC 3 exports write the
+program's Mono and portamento to the keygroup track, and MPC 3 projects
+read them back.
 
 ### Sampler
 

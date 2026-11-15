@@ -113,7 +113,15 @@ their octave. While it samples, the marks over the keys light as each note is
 done, and the note being recorded is drawn as it plays: the held part, then
 the release. **B1 CANCEL** stops it and deletes what was made.
 
-When it is done, the program is in **Samples/Keygroups/<name>/** and the first
+When it is done, the program is in **Samples/Keygroups/<name>/**:
+
+- **<name>.xty**: the track file for MPC 3. Melodee's browser shows this
+  one.
+- **<name>_[TrackData]**: the samples, and **<name>.xpm**, the program for
+  an MPC on version 2 and MPC Beats. To use it there, copy the whole
+  **<name>** folder and load the .xpm from inside **<name>_[TrackData]**.
+
+The first
 empty track becomes a keygroup track with the plug-in track's patterns, Song
 clips, mix and pitch bend. With **TAP** at Pre FX it also gets the plug-in
 track's effects (not plug-in effects); at Post FX the effects are in the
@@ -125,7 +133,7 @@ The check sets these for you; the sheet's chip shows the type:
 | Found | What Auto sample does |
 | --- | --- |
 | **KEYS** | Samples every **STEP** keys, as set. |
-| **MONO** | The program plays one note at a time and glides like the plug-in (**GLIDE** shows the time). |
+| **MONO** | The program plays one note at a time and glides like the plug-in (**GLIDE** shows the time). **Mono, legato**: a key pressed while another is held carries the note on. **Mono, retrigger**: it starts the note again. |
 | **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. Each drum plays whole however short the tap. |
 | **ACCENT** | The velocity layers split where the sound jumps (two layers at least). |
 | **TAKES ×3** | Each key is recorded three times and the program plays them in turn. |
@@ -133,9 +141,12 @@ The check sets these for you; the sheet's chip shows the type:
 | **HOLD Auto** | A steady sound is held 2 s. A sound that moves while held (a slow LFO, detuned oscillators) is held 8 s and gets a long loop, so its movement carries on. A sound that fades is held until it has died away. |
 
 On a keygroup track from a **MONO** program, a key pressed while another is
-held glides to the new note without starting it again. A **Slide** step does
-the same on any keygroup track. The glide is saved in the program, so it also
-works on an MPC and in MPC 3 exports.
+held does what the plug-in did: it carries the note on to the new key
+(legato), or starts the note again (retrigger). A **Slide** step always
+carries the note on, on any keygroup track. The glide is saved in the
+program, so it also works on an MPC. MPC 3 exports set **Mono Retrig** to
+match. An MPC on version 2 has no such setting and always starts the note
+again.
 
 - Each key covers the notes halfway to the next sampled key.
 - **LOOP** finds a loop in the held part of each note and crossfades it, so

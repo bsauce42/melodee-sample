@@ -1564,7 +1564,7 @@ int Context::sample_slot(const std::string& path, const std::string& name) {
         if (project.samples[n].used() && path == project.samples[n].path) return int(n); // already in the project
         if (free < 0 && !project.samples[n].used()) free = int(n);
     }
-    if (free < 0 || !library) return -1;
+    if (free < 0 || !library || path.size() >= sizeof(SampleRef::path)) return -1; // a path cut short opens nothing
     auto& ref = project.samples[size_t(free)];
     project.chops[size_t(free)] = read_mpc_slices(path); // the file's own slices (an MPC's), not the slot's last file's
     std::strncpy(ref.path, path.c_str(), sizeof(ref.path) - 1);

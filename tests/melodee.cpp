@@ -7304,6 +7304,15 @@ void xpm_writer() {
     tree.tags = {{"Mono", "True"}, {"PortamentoLegato", "True"}, {"PortamentoTime", std::to_string(mpc_portamento_value(0.2))}};
     const SfzRead read = read_keygroup(tree);
     CHECK(read.mono && read.legato && std::fabs(read.glide - 0.2) < 1e-4);
+    // Mono Retrig under MPC 3's name: whether a key pressed while one is held starts the note again. Written for a
+    // mono program only; a program without it carries the note on where its portamento is Legato.
+    CHECK(read.tied && mono.find("<MonoRetrigger>True</MonoRetrigger>") != std::string::npos && has("<MonoRetrigger>False</MonoRetrigger>"));
+    program.tied = true;
+    CHECK(xpm_text(program).find("<MonoRetrigger>False</MonoRetrigger>") != std::string::npos);
+    tree.tags["MonoRetrigger"] = "True";
+    CHECK(!read_keygroup(tree).tied && read_keygroup(tree).legato);
+    tree.tags["MonoRetrigger"] = "False"; tree.tags["PortamentoLegato"] = "False";
+    CHECK(read_keygroup(tree).tied && !read_keygroup(tree).legato);
     tree.tags.clear();
     CHECK(!read_keygroup(tree).mono && read_keygroup(tree).glide == 0);
 }
@@ -7554,6 +7563,29 @@ void auto_probe() {
         const ProbeGlide g = probe_glide(x, alone, onset, c3, g3, rate);
         CHECK(g.mono && g.seconds > 0.07f && g.seconds < 0.14f);
         CHECK(probe_slides_apart(x, onset, c3, g3, rate)); // starts at the first key's pitch
+    }
+    { // played legato on a sound that fades: the second key starts it again, or the first's note carries on; a steady
+      // sound tells nothing
+        const size_t on = size_t(0.4f * rate), len = size_t(0.9f * rate);
+        auto note = [&](std::vector<float>& x, size_t from, size_t frames, float hz, double since, double fall) {
+            if (x.size() < from + frames) x.resize(from + frames);
+            double phase = 0;
+            for (size_t f = 0; f < frames; ++f) { // a tone fading by e each `fall` seconds, `since` seconds into it at `from`
+                phase += 2 * M_PI * hz / rate;
+                const double level = 0.5 * (fall > 0 ? std::exp(-(since + double(f) / rate) / fall) : 1.0);
+                x[from + f] += float(level * (std::sin(phase) + 0.3 * std::sin(2 * phase)));
+            }
+        };
+        std::vector<float> alone, fresh, again, carried;
+        note(alone, 0, len, c3, 0, 0.2);
+        note(fresh, 0, len, g3, 0, 0.2);
+        note(again, 0, on, c3, 0, 0.2); note(again, on, len - on, g3, 0, 0.2);
+        note(carried, 0, on, c3, 0, 0.2); note(carried, on, len - on, g3, 0.4, 0.2);
+        CHECK(probe_retriggers(again, alone, fresh, on, rate) == 1 && probe_retriggers(carried, alone, fresh, on, rate) == 0);
+        std::vector<float> steady_alone, steady_fresh, steady_both;
+        note(steady_alone, 0, len, c3, 0, 0); note(steady_fresh, 0, len, g3, 0, 0);
+        note(steady_both, 0, on, c3, 0, 0); note(steady_both, on, len - on, g3, 0, 0);
+        CHECK(probe_retriggers(steady_both, steady_alone, steady_fresh, on, rate) == -1);
     }
     { // mono, no slide: a jump
         std::vector<float> x; double ph = 0;
@@ -8879,10 +8911,35 @@ void keygroup_glide() {
         r.part(zone_tone(220, 0.5f, 3 * 44100));
         auto& z = r.zone(0); z.root = 60;
         r.pad.release = 0;
-        r.multi->mono = mono; r.multi->legato = mono; r.multi->glide = glide;
+        r.multi->mono = mono; r.multi->legato = mono; r.multi->tied = mono; r.multi->glide = glide;
         r.build(PadPlay::Gate);
         r.engine->set_keyed(true);
     };
+    // Tied or not, on a sound that fades: a key pressed while one is held carries the faded note on, or starts the
+    // sound again (as an MPC plays a mono program), its pitch sliding from the held key.
+    for (bool tied : {true, false}) {
+        ZoneRig r;
+        std::vector<float> fading = zone_tone(220, 0.5f, 44100);
+        for (size_t f = 0; f < fading.size(); ++f) fading[f] *= float(std::exp(-double(f) / (0.1 * 44100)));
+        r.part(std::move(fading));
+        auto& z = r.zone(0); z.root = 60;
+        r.pad.release = 0;
+        r.multi->mono = true; r.multi->legato = true; r.multi->tied = tied; r.multi->glide = 0.1f;
+        r.build(PadPlay::Gate);
+        r.engine->set_keyed(true);
+        r.engine->note_on(60, 127);
+        r.run(unsigned(rate * 0.5));
+        r.engine->note_on(72, 127);
+        const auto next = r.run(unsigned(rate * 0.05));
+        CHECK(tied ? peak_of(next) < 0.02f : peak_of(next) > 0.2f);
+        if (!tied) { const double hz = zone_hz(next, 0, next.size()); CHECK(hz > 240 && hz < 420); }
+        // not tied, Legato: a key pressed after the last was let go starts at its own pitch
+        r.engine->note_off(60); r.engine->note_off(72);
+        r.run(400);
+        r.engine->note_on(60, 127);
+        const auto apart = r.run(unsigned(rate * 0.04));
+        CHECK(peak_of(apart) > 0.2f && zone_hz(apart, 0, apart.size()) < 250);
+    }
     {
         ZoneRig r;
         rig(r, true, 0.1f);

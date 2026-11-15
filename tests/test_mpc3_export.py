@@ -3,6 +3,7 @@
 import gzip
 import json
 import math
+import re
 from pathlib import Path
 import struct
 import subprocess
@@ -211,6 +212,88 @@ class Mpc3Export(unittest.TestCase):
         self.assertTrue(voices["monophonic"])
         self.assertTrue(voices["portamentoLegato"])
         self.assertAlmostEqual(voices["portamentoTime"], time, places=5)
+        self.assertFalse(voices["monoRetrigger"])  # no tag for it: Legato carries the note on
+
+    def test_keygroup_mono_retrigger(self):
+        # A mono program whose keys start the note again when played legato (an auto sampled pluck's): MPC 3's Mono
+        # Retrig, from the .xpm's tag.
+        with tempfile.TemporaryDirectory() as folder:
+            keys = Path(folder) / "Pluck"
+            keys.mkdir()
+            (keys / "Pluck-C3.wav").write_bytes(wav(44100))
+            layer = ("<Layer number=\"1\"><Active>True</Active><Volume>1.0</Volume><Pan>0.5</Pan><VelStart>0</VelStart><VelEnd>127</VelEnd>"
+                     "<RootNote>49</RootNote><SampleName>Pluck-C3</SampleName><SliceEnd>44099</SliceEnd></Layer>")
+            (keys / "Pluck.xpm").write_text(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><MPCVObject><Program type=\"Keygroup\"><ProgramName>Pluck</ProgramName>"
+                "<Mono>True</Mono><PortamentoTime>0.000000</PortamentoTime><PortamentoLegato>True</PortamentoLegato>"
+                "<MonoRetrigger>True</MonoRetrigger>"
+                "<KeygroupNumKeygroups>1</KeygroupNumKeygroups><Instruments><Instrument number=\"1\"><LowNote>0</LowNote><HighNote>127</HighNote>"
+                f"<Layers>{layer}</Layers></Instrument></Instruments></Program></MPCVObject>")
+            report, out = self.export(folder, "K:0=FOLDER/Pluck/Pluck.xpm")
+            self.assertIn("exported tracks=0 keygroups=1", report)
+            _, data = read(out / "Beat.xpj")
+        voices = data["tracks"][0]["program"]["drum"]
+        self.assertTrue(voices["monophonic"] and voices["monoRetrigger"] and voices["portamentoLegato"])
+
+    def test_track_file(self):
+        # A keygroup program in "<name>_[TrackData]" as MPC 3's track file beside that folder (the auto sampler's
+        # layout): a track's header and gzip around one Keygroup track, its samples named as they lie in the folder,
+        # nothing copied, Mono Retrig from the program's tag; read back, it is the program the .xpm is.
+        time = 1 + math.log(0.03 / 30) / 7
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder) / "Pluck_[TrackData]"
+            data.mkdir()
+            for name in ("Pluck-C3", "Pluck-C4"):
+                (data / f"{name}.wav").write_bytes(wav(44100))
+
+            def keygroup(number, low, high, name, root):
+                return (f"<Instrument number=\"{number}\"><LowNote>{low}</LowNote><HighNote>{high}</HighNote><TriggerMode>2</TriggerMode>"
+                        "<VolumeRelease>0.5</VolumeRelease><Layers><Layer number=\"1\"><Active>True</Active><Volume>1.0</Volume><Pan>0.5</Pan>"
+                        f"<VelStart>0</VelStart><VelEnd>127</VelEnd><RootNote>{root + 1}</RootNote><SampleName>{name}</SampleName>"
+                        f"<SampleFile>{name}.WAV</SampleFile>"  # as an MPC names it; the file is .wav
+                        "<SliceStart>0</SliceStart><SliceEnd>40000</SliceEnd><SliceLoop>1</SliceLoop><SliceLoopStart>1000</SliceLoopStart>"
+                        "</Layer></Layers></Instrument>")
+
+            (data / "Pluck.xpm").write_text(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><MPCVObject><Program type=\"Keygroup\"><ProgramName>Pluck</ProgramName>"
+                f"<Mono>True</Mono><PortamentoTime>{time:.6f}</PortamentoTime><PortamentoLegato>True</PortamentoLegato>"
+                "<PortamentoQuantized>False</PortamentoQuantized><MonoRetrigger>True</MonoRetrigger>"
+                "<KeygroupNumKeygroups>2</KeygroupNumKeygroups><Instruments>"
+                + keygroup(1, 0, 59, "Pluck-C3", 48) + keygroup(2, 60, 127, "Pluck-C4", 60) + "</Instruments></Program></MPCVObject>")
+            track_file = Path(folder) / "Pluck.xty"
+            result = self.run_tool("--mpc-track", data / "Pluck.xpm", track_file)
+            self.assertEqual(result.stdout.strip(), "written", result.stdout + result.stderr)
+            header, track = read(track_file)
+            self.assertEqual((header[0], header[2], header[3]), ("ACVS", "SerialisableTrackData", "json"))
+            program = track["program"]
+            self.assertEqual((track["name"], program["name"], program["type"]), ("Pluck", "Pluck", 1))
+            voices = program["drum"]
+            self.assertTrue(voices["monophonic"] and voices["monoRetrigger"] and voices["portamentoLegato"])
+            self.assertAlmostEqual(voices["portamentoTime"], time, places=5)
+            self.assertEqual(program["keygroup"]["numKeygroups"], 2)
+            self.assertEqual([s["path"] for s in program["samples"]], ["Pluck-C3.wav", "Pluck-C4.wav"])
+            first = voices["instruments"][0]
+            self.assertEqual((first["lowNote"], first["highNote"], first["monophonic"], first["triggerMode"]), (0, 59, False, 2))
+            layer = first["layersv"][0]
+            self.assertEqual((layer["sampleName"], layer["sampleFile"], layer["rootNote"]), ("Pluck-C3", "Pluck-C3.wav", 49))
+            self.assertEqual((layer["sliceInfo"]["LoopStart"], layer["sliceInfo"]["End"], layer["sliceInfo"]["LoopMode"]), (1000, 40000, 1))
+            self.assertEqual(len(voices["instruments"]), 128)
+            # nothing copied, nothing left behind
+            self.assertEqual(sorted(p.name for p in data.iterdir()), ["Pluck-C3.wav", "Pluck-C4.wav", "Pluck.xpm"])
+            self.assertEqual(sorted(p.name for p in Path(folder).iterdir()), ["Pluck.xty", "Pluck_[TrackData]"])
+            # read back as the sample library reads it: the same program
+            from_xpm = self.run_tool("--instrument-read", data / "Pluck.xpm").stdout
+            from_track = self.run_tool("--instrument-read", track_file).stdout
+            self.assertIn("mono=1 legato=1 tied=0 glide=0.030", from_xpm)
+            # (its files named from the track file's folder; the release through MPC 3's 0..1 and back, within 2 %)
+            release = [float(re.search(r"release=([0-9.]+)", text).group(1)) for text in (from_xpm, from_track)]
+            self.assertAlmostEqual(release[0], release[1], delta=0.02 * release[0])
+            same = [re.sub(r"release=[0-9.]+", "", text).replace("Pluck_[TrackData]/", "").lower() for text in (from_xpm, from_track)]
+            self.assertEqual(same[0], same[1])
+            # a program that is not in the track file's folder: not written
+            elsewhere = self.run_tool("--mpc-track", data / "Pluck.xpm", Path(folder) / "Other.xty")
+            self.assertIn("error=", elsewhere.stdout)
+            self.assertFalse((Path(folder) / "Other.xty").exists())
 
     def test_keygroup_two_stage_release(self):
         # An auto sampled sound that drops and rings on: two keygroups over the same keys and sample, one with most of

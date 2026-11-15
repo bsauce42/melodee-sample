@@ -12,6 +12,7 @@
 #include "melodee/engine/stream_pager.h"
 #include "melodee/engine/sample_data.h"
 #include "melodee/plugin/plugin_rack.h"
+#include "melodee/shell/mpc3_export.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/xpm_write.h"
 #include <algorithm>
@@ -340,7 +341,7 @@ void PrintEngine::run() {
             const auto& f = heard.found;
             lines.push_back("autosample-check track=" + std::to_string(job->track + 1) + " " +
                             (heard.error.empty() ? "kind=" + std::string(f.kind == AutoKind::Mono ? "mono" : f.kind == AutoKind::Drums ? "drums" : "keys")
-                                                       + " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato)
+                                                       + " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato) + " tied=" + std::to_string(f.tied)
                                                        + " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes)
                                                        + " sustains=" + std::to_string(f.sustains) + " moves=" + std::to_string(f.moves) + " hold_s=" + std::to_string(int(std::lround(f.hold * 10)) / 10) + "." + std::to_string(int(std::lround(f.hold * 10)) % 10) + " release_ms=" + std::to_string(int(std::lround(f.release * 1000)))
                                                        + " sounds=" + std::to_string(f.sounding()) + heard.heard
@@ -362,7 +363,7 @@ void PrintEngine::run() {
                 const auto& f = heard.found;
                 lines.push_back("autosample-check track=" + std::to_string(job->track + 1) + " kind=" +
                                 std::string(f.kind == AutoKind::Mono ? "mono" : f.kind == AutoKind::Drums ? "drums" : "keys") +
-                                " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato) +
+                                " glide_ms=" + std::to_string(int(std::lround(f.glide * 1000))) + " legato=" + std::to_string(f.legato) + " tied=" + std::to_string(f.tied) +
                                 " accent=" + std::to_string(f.accent) + " takes=" + std::to_string(f.takes) + " sustains=" + std::to_string(f.sustains) + " moves=" + std::to_string(f.moves) + " hold_s=" + std::to_string(int(std::lround(f.hold * 10)) / 10) + "." + std::to_string(int(std::lround(f.hold * 10)) % 10) + " release_ms=" + std::to_string(int(std::lround(f.release * 1000))) +
                                 " sounds=" + std::to_string(f.sounding()) + (heard.error.empty() ? std::string() : " error=" + heard.error) + heard.heard);
                 while (lines.size() > kept_lines) lines.pop_front();
@@ -879,6 +880,13 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         if (g.mono) {
             found.kind = AutoKind::Mono;
             found.glide = g.seconds;
+            // Played legato, whether the second key starts the sound again or the first's note carries on: against
+            // the second key alone.
+            auto fresh = play({{0, true, b, 100}, {at(0.5), false, b, 100}}, 0.6);
+            if (stopped) return stop();
+            const int again = probe_retriggers(both, alone, fresh, at(0.4), rate);
+            found.tied = again != 1;
+            r.heard += again < 0 ? " again=?" : again ? " again=1" : " again=0";
             if (g.seconds > 0) { // gliding also from a key let go: not legato
                 auto apart = play({{0, true, a, 100}, {at(0.3), false, a, 100}, {at(0.35), true, b, 100}, {at(0.8), false, b, 100}}, 0.9);
                 if (stopped) return stop();
@@ -952,7 +960,10 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     const auto roots = set.roots();
     const unsigned layers = set.layer_count(), takes = set.take_count();
     const bool drums = set.found.kind == AutoKind::Drums;
-    const fs::path folder(job.sample_folder), parts = folder / ".parts";
+    // Keygroups/<name>/: the program and its WAV files in "<name>_[TrackData]", where MPC 3 looks for the samples of
+    // "<name>.xty", its track file written beside that folder (an .xpm finds its samples beside itself, so one copy
+    // of the files serves both).
+    const fs::path folder(job.sample_folder), parts = folder / ".parts", files = folder / (job.sample_name + "_[TrackData]");
     std::error_code e;
     auto fail = [&](std::string why) { // nothing half made is left on the card
         fs::remove_all(folder, e);
@@ -984,6 +995,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     auto source = open_notes(*this, job, samples, roots[roots.size() / 2], cancelled, why_not);
     if (!source) return fail(why_not);
     fs::create_directories(parts, e);
+    if (!e) fs::create_directories(files, e);
     if (e) return fail("cannot make " + folder.filename().string());
 
     const uint64_t hold = uint64_t(std::max(0.05f, set.hold_seconds()) * rate);
@@ -997,6 +1009,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     if (set.found.kind == AutoKind::Mono) { // as the check heard it: one note at a time, sliding as the plug-in does
         program.mono = true;
         program.legato = set.found.legato;
+        program.tied = set.found.tied;
         program.glide = set.found.glide;
     }
     std::vector<ReleaseShape> falls; // each note's fall once its key was let go (engine/release_fit.h)
@@ -1167,7 +1180,7 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             part.read(reinterpret_cast<char*>(interleaved.data()), std::streamsize(interleaved.size() * sizeof(float)));
             if (!part) return fail("cannot read " + l.sample);
             for (auto& x : interleaved) x *= gain;
-            const fs::path path = folder / (l.sample + ".wav");
+            const fs::path path = files / (l.sample + ".wav");
             WavStream wav;
             bool written = wav.open(path.string(), whole_rate, 24, 0, 2);
             for (size_t at = 0; written && at < l.frames; at += EngineHost::block) {
@@ -1178,9 +1191,13 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             if (!written) return fail("cannot write " + path.filename().string());
         }
     fs::remove_all(parts, e);
-    const fs::path xpm = folder / (job.sample_name + ".xpm");
+    const fs::path xpm = files / (job.sample_name + ".xpm");
     if (auto why = write_xpm(xpm.string(), program); !why.empty()) return fail(why);
     r.program = xpm.string();
+    // MPC 3's track file of the same program: it has what an .xpm has no tag for (Mono Retrig). The program stands
+    // without it, so a failure is only told.
+    if (auto why = write_mpc3_track(xpm.string(), (folder / (job.sample_name + ".xty")).string()); !why.empty())
+        r.release_note += " xty=" + why;
     r.seconds = since(t0);
     return r;
 }

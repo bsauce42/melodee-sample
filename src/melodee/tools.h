@@ -28,6 +28,7 @@
 //   --mpc-import FILE.xpj|.xpm|.xty  reads an MPC Sample project or an MPC program and prints what came across
 //   --mpc-install FILE.xpn DIR       installs an MPC expansion into DIR/<its title>
 //   --instrument-read FILE           reads an .sfz, .xpm, .xty or .exs as the sample library does
+//   --mpc-track PROGRAM.xpm FILE.xty writes MPC 3's track file of a keygroup program in "<name>_[TrackData]" beside it
 //                                    and prints its zones, their samples found
 //   --melodee-monkey [SEED COUNT MOVES]  random presses, holds and releases of every control
 //                                    (src/melodee/monkey.cpp); fails when a layer, a note, a
