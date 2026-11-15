@@ -92,6 +92,12 @@ struct PrintProgress {
     float seconds_left = 0;    // the job's, estimated from the pattern printing now
     std::array<uint64_t, (pattern_count + 63) / 64> done {}, failed {}; // the job's patterns through (made or unchanged), and failed
     uint16_t count = 0, through = 0;   // the job's patterns, and how many are through
+    // The auto sampler's note under way, as AUTO SAMPLE draws it: its level a bar at a time (0-255 for -36 to 0 dB),
+    // `wave_hold` the bar where the key is let go, and the layer's velocity. The bars cover more time each (two
+    // merged into one) when a long release outgrows them.
+    static constexpr unsigned wave_bars = 128;
+    std::array<uint8_t, wave_bars> wave {};
+    uint8_t wave_count = 0, wave_hold = 0, velocity = 0;
     bool is_done(unsigned p) const { p %= pattern_count; return (done[p / 64] >> (p % 64)) & 1; }
     bool is_failed(unsigned p) const { p %= pattern_count; return (failed[p / 64] >> (p % 64)) & 1; }
 };

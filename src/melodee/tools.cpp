@@ -1087,6 +1087,9 @@ const Preview previews[] {
          job.busy = true; job.autosample = true; job.track = 2; job.count = 42; job.through = 17; job.pattern = 63; job.fraction = 0.4f;
          job.times_real = 4.1f; job.seconds_left = 21;
          for (unsigned k = 36; k <= 60; k += 3) job.done[0] |= uint64_t(1) << k;
+         job.velocity = 63; job.wave_hold = 76; job.wave_count = 64; // half way through the hold: a pluck settling
+         for (unsigned b = 0; b < job.wave_count; ++b)
+             job.wave[b] = uint8_t(std::lround(255 * std::clamp(0.45f + 0.5f * std::exp(-float(b) / 14.0f) - 0.07f * float((b * 7) % 5) / 4, 0.0f, 1.0f)));
      }},
     {"printmidi", [](Shell&, Snapshot& s) {
          stage_midi(s, 0, 0);

@@ -6,10 +6,11 @@
 // keys, what they take on the card at most. K1-K3 a row of three, B2 the
 // next: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL), SOUND (TAP, LOOP,
 // LEVEL). B3 or Push SAMPLE: the roots light up as they are done, the one
-// playing blinks, with its note, the speed and the time left; B1 calls it
-// off and its files go. The pads play the plug-in to try it; Minus / Plus
-// their octave. Shift + Pad 11 again closes it. Done, it goes back and the
-// new KEYGROUP track is in hand.
+// playing blinks; under the keys its note and velocity, the note drawn as it
+// records (hold, then release), the speed, the time left and the job's bar
+// with a light running along it; B1 calls it off and its files go. The pads
+// play the plug-in to try it; Minus / Plus their octave. Shift + Pad 11 again
+// closes it. Done, it goes back and the new KEYGROUP track is in hand.
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
@@ -85,15 +86,51 @@ void draw(Paint& p, const Snapshot& s) {
     // Under them: what it makes, or how it goes.
     const float y = ky + kh + 20, w = (zone::width - 2.0f * zone::pad) / 3;
     if (sampling) {
-        juce::String note = ours && job.pattern >= 0 ? juce::String(note_name(job.pattern)) : juce::String::fromUTF8("\xe2\x80\x94");
-        block(p, x0, y, w, "NOTE", note, "", colour::text);
-        block(p, x0 + w, y, w, "SPEED", ours && job.times_real > 0 ? juce::String::fromUTF8("\xc3\x97") + juce::String(job.times_real, 1)
-                                                                    : juce::String::fromUTF8("\xe2\x80\x94"), "", colour::ice); // the label says what it is: no room for a unit
-        block(p, x0 + 2 * w, y, w, "LEFT", ours && job.through ? clock(job.seconds_left) : juce::String::fromUTF8("\xe2\x80\x94"), "", colour::text);
-        const float by = y + 46, bw = zone::width - 2.0f * zone::pad;
-        p.fill(x0, by, bw, 6, colour::quiet, 3);
-        float done = ours && job.count ? (float(job.through) + job.fraction) / float(job.count) : 0;
-        if (done > 0) p.fill(x0, by, bw * std::clamp(done, 0.0f, 1.0f), 6, colour::ice, 3);
+        // Left: the note and its velocity. Right: the note as it records, hold then release, a bar a slice of time,
+        // the line at its end where it is now. Under them the speed and time left, and the whole job's bar.
+        const juce::String dash = juce::String::fromUTF8("\xe2\x80\x94");
+        const bool live = ours && job.pattern >= 0;
+        block(p, x0, y, 80, "NOTE", live ? juce::String(note_name(job.pattern)) : dash, "", colour::text);
+        if (live && job.velocity) p.text("VEL " + juce::String(int(job.velocity)), x0, y + 40, 80, 12, caps_text(colour::mid));
+        const float bx = x0 + 88, bw = zone::width - zone::pad - bx, by = y - 2, bh = 70;
+        p.fill(bx, by, bw, bh, colour::panel, 5);
+        const unsigned count = live ? std::min<unsigned>(job.wave_count, unsigned(job.wave.size())) : 0;
+        const unsigned hold = std::max<unsigned>(1, job.wave_hold);
+        // The bars across: the hold on 60% at first; a longer release pushes the hold left.
+        const float span = std::max({float(count), hold / 0.6f, 1.0f});
+        const float ix = bx + 4, iw = bw - 8, cy = by + 14 + (bh - 18) / 2, amp = (bh - 22) / 2;
+        const float split = ix + iw * std::min(1.0f, hold / span);
+        p.text("HOLD", ix, by + 3, std::max(0.0f, split - ix - 2), 12, caps_text(colour::dim));
+        if (ix + iw - split > 50) p.text("RELEASE", split + 4, by + 3, ix + iw - split - 4, 12, caps_text(colour::dim));
+        p.fill(split, by + 4, 1, bh - 8, colour::line);
+        const float step = iw / span;
+        for (unsigned b = 0; b < count; ++b) {
+            const float a = std::max(0.04f, job.wave[b] / 255.0f) * amp;
+            const juce::Colour bar = b < hold ? c : c.withAlpha(0.5f);
+            p.fill(ix + b * step, cy - a, std::max(1.0f, step - 0.6f), 2 * a, bar, 0);
+        }
+        if (live) p.fill(std::min(ix + count * step, ix + iw - 1), by + 4, 1.5f, bh - 8, colour::text);
+        // Speed and time left on one line, then the job's bar with a light running along what is done.
+        const float fy = by + bh + 6;
+        float vw = p.text(ours && job.times_real > 0 ? juce::String::fromUTF8("\xc3\x97") + juce::String(job.times_real, 1) : dash,
+                          x0, fy, 70, 16, plain(colour::ice, type::list, Weight::SemiBold));
+        p.text("SPEED", x0 + vw + 6, fy, 60, 16, caps_text(colour::mid));
+        const juce::String left = ours && job.through ? clock(job.seconds_left) : dash;
+        const float lw = p.width("LEFT", caps_text(colour::mid));
+        p.text("LEFT", zone::width - zone::pad - lw, fy, lw, 16, caps_text(colour::mid));
+        p.text(left, zone::width - zone::pad - lw - 66, fy, 60, 16, plain(colour::text, type::list, Weight::SemiBold), juce::Justification::centredRight);
+        const float gy = fy + 22, gw = zone::width - 2.0f * zone::pad;
+        p.fill(x0, gy, gw, 6, colour::quiet, 3);
+        const float done = ours && job.count ? std::clamp((float(job.through) + job.fraction) / float(job.count), 0.0f, 1.0f) : 0;
+        if (done > 0) {
+            const float dw = gw * done;
+            p.fill(x0, gy, dw, 6, colour::ice, 3);
+            const float run = dw + 30, at = std::fmod(float(s.now % 100000) * 0.12f, run) - 15; // 120 px a second
+            for (int k = -12; k <= 12; ++k) {
+                const float sx = x0 + at + k;
+                if (sx > x0 + 1 && sx < x0 + dw - 2) p.fill(sx, gy + 1, 1, 4, juce::Colours::white.withAlpha(0.8f * (1.0f - std::abs(k) / 12.0f)));
+            }
+        }
     } else {
         block(p, x0, y, w, "SAMPLES", juce::String(samples), layers > 1 ? juce::String(roots.size()) + juce::String::fromUTF8(" \xc3\x97 ") + juce::String(layers) : juce::String(), colour::text);
         block(p, x0 + w, y, w, "KEYS", juce::String(note_name(a.low)) + juce::String::fromUTF8("\xe2\x80\x93") + juce::String(note_name(a.high)), "", colour::text);

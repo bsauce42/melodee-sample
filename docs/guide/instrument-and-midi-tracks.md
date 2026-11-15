@@ -106,7 +106,8 @@ almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 
 The pads play the plug-in so you can try the sound first; **−** / **+** move
 their octave. While it samples, the marks over the keys light as each note is
-done. **B1 CANCEL** stops it and deletes what was made.
+done, and the note being recorded is drawn as it plays: the held part, then
+the release. **B1 CANCEL** stops it and deletes what was made.
 
 When it is done, the program is in **Samples/Keygroups/<name>/** and the first
 empty track becomes a keygroup track with the plug-in track's patterns, Song

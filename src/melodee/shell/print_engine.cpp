@@ -646,13 +646,42 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         XpmKeygroup group;
         for (unsigned v = 0; v < layers; ++v) {
             const uint8_t velocity = set.velocity(v);
+            // The note's level for the screen: the hold on 60% of the bars at first, the release after it.
+            constexpr unsigned bars = PrintProgress::wave_bars;
+            std::vector<float> wave;
+            wave.reserve(bars);
+            uint64_t per = std::max<uint64_t>(1, (hold + bars * 6 / 10 - 1) / (bars * 6 / 10)), into = 0;
+            float loudest = 0;
+            auto show_wave = [&] {
+                std::lock_guard<std::mutex> held(lock);
+                for (size_t b = 0; b < wave.size(); ++b) {
+                    const float db = wave[b] > 0 ? 20.0f * std::log10(wave[b]) : -36.0f;
+                    shown.wave[b] = uint8_t(std::lround(std::clamp((db + 36.0f) / 36.0f, 0.0f, 1.0f) * 255));
+                }
+                shown.wave_count = uint8_t(wave.size());
+                shown.wave_hold = uint8_t(std::min<uint64_t>(255, hold / per));
+            };
             {
                 std::lock_guard<std::mutex> held(lock);
                 shown.pattern = int16_t(roots[k]);
                 shown.fraction = 0;
+                shown.velocity = velocity;
+                shown.wave_count = 0;
             }
             auto r0 = Clock::now();
             NoteAudio audio = render_note(host, t, roots[k], velocity, hold, tap, set.tail, [&] {
+                if (blocks) { // the block rendered last, into its bar
+                    const float* l = host.print_left();
+                    const float* rr = host.print_right();
+                    for (unsigned f = 0; f < EngineHost::block; ++f) loudest = std::max({loudest, std::fabs(l[f]), std::fabs(rr[f])});
+                    into += EngineHost::block;
+                    while (into >= per) { wave.push_back(loudest); into -= per; loudest = 0; }
+                    if (wave.size() >= bars) { // a long release: each bar twice the time
+                        for (size_t b = 0; b < bars / 2; ++b) wave[b] = std::max(wave[2 * b], wave[2 * b + 1]);
+                        wave.resize(bars / 2);
+                        per *= 2;
+                    }
+                }
                 if (opened.streams) {
                     double ahead = double(blocks) * EngineHost::block / rate - since(r0);
                     if (ahead > 0) std::this_thread::sleep_for(std::chrono::duration<double>(ahead));
@@ -660,11 +689,13 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 ++blocks;
                 if (opened.rack && (blocks & 63) == 1) idle_new_threads(opened.threads_before, opened.threads_idle);
                 if ((blocks & 15) == 0) {
+                    show_wave();
                     std::lock_guard<std::mutex> held(lock);
                     shown.fraction = std::min(0.95f, float(double(blocks) * EngineHost::block / (double(hold) + 0.5 * rate)));
                 }
                 return !cancelled.load();
             });
+            show_wave();
             rendering += since(r0);
             rendered += audio.left.size();
             blocks = 0;
