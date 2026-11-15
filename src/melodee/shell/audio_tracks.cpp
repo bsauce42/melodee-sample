@@ -7,6 +7,7 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <map>
 
 namespace melodee {
@@ -91,12 +92,46 @@ unsigned AudioTracks::next_take(const std::string& folder, unsigned at_least) {
     return next;
 }
 
+namespace {
+bool write_peaks(const std::string& path, const std::vector<uint8_t>& peaks) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(peaks.data()), std::streamsize(peaks.size()));
+    return bool(out);
+}
+} // namespace
+
+std::vector<uint8_t> AudioTracks::peaks_of(const std::string& folder, unsigned take) {
+    const std::string path = (fs::path(folder) / audio_peaks_name(take)).string();
+    std::vector<uint8_t> peaks;
+    {
+        std::ifstream in(path, std::ios::binary);
+        if (in) { peaks.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()); if (!peaks.empty()) return peaks; }
+    }
+    WavReader reader; // none kept (a take from elsewhere): read once through
+    if (!reader.open((fs::path(folder) / audio_take_name(take)).string(), longest_take_seconds).empty() || !reader.rate()) return peaks;
+    const double per = double(reader.rate()) * take_peak_frames / 44100.0; // the take's frames a column
+    std::vector<float> l(16384), r(16384);
+    uint64_t at = 0;
+    for (uint32_t n; (n = reader.read(l.data(), r.data(), 16384)) > 0; at += n)
+        for (uint32_t f = 0; f < n; ++f) {
+            size_t column = size_t(double(at + f) / per);
+            if (column >= peaks.size()) peaks.resize(column + 1, 0);
+            uint8_t v = uint8_t(std::min(1.0f, std::max(std::fabs(l[f]), std::fabs(r[f]))) * 255);
+            peaks[column] = std::max(peaks[column], v);
+        }
+    write_peaks(path, peaks);
+    return peaks;
+}
+
 unsigned AudioTracks::prune(const std::string& folder, const std::vector<unsigned>& kept) {
     unsigned removed = 0;
     std::error_code error;
     std::vector<fs::path> going;
     for (const auto& entry : fs::directory_iterator(folder, error)) {
-        const std::string name = entry.path().filename().string();
+        std::string name = entry.path().filename().string();
+        const std::string overview = ".peaks"; // a take's overview goes with it
+        if (name.size() > overview.size() && !name.compare(name.size() - overview.size(), overview.size(), overview))
+            name = name.substr(0, name.size() - overview.size()) + ".wav";
         unsigned take = audio_take_of(name);
         if (take && std::find(kept.begin(), kept.end(), take) == kept.end()) going.push_back(entry.path());
     }
@@ -153,6 +188,7 @@ void AudioTracks::make(const AudioPackJob& job) {
                 pack->takes.push_back(std::move(owned));
             }
             parts[r.take] = part;
+            if (part) out.peaks[r.take] = peaks_of(job.folder, r.take);
         }
         if (!part || !part->total) { ++out.missing; continue; }
         const double k = double(part->rate) / 44100.0; // the region counts 44.1 kHz frames; the take has its own
@@ -205,6 +241,7 @@ void AudioTracks::drain() {
         take_job.take = next_take(take_job.folder, take_job.take);
         take_part = (fs::path(take_job.folder) / audio_take_name(take_job.take)).string() + ".part";
         take_rate = ring.rate();
+        take_peaks.clear(); take_peak_at = 0;
         taking = true;
         if (!take_file.open(take_part, take_rate, take_bits)) {
             AudioTakeDone done;
@@ -218,7 +255,16 @@ void AudioTracks::drain() {
         }
     }
     chunk.resize(2 * 16384);
-    for (unsigned n; (n = ring.pop(chunk.data(), 16384)) > 0;) take_file.add(chunk.data(), n);
+    const double per = double(take_rate) * take_peak_frames / 44100.0; // the take's frames an overview column
+    for (unsigned n; (n = ring.pop(chunk.data(), 16384)) > 0;) {
+        take_file.add(chunk.data(), n);
+        for (unsigned f = 0; f < n; ++f, ++take_peak_at) {
+            size_t column = size_t(double(take_peak_at) / per);
+            if (column >= take_peaks.size()) take_peaks.resize(column + 1, 0);
+            uint8_t v = uint8_t(std::min(1.0f, std::max(std::fabs(chunk[2 * f]), std::fabs(chunk[2 * f + 1]))) * 255);
+            take_peaks[column] = std::max(take_peaks[column], v);
+        }
+    }
     auto state = ring.state();
     bool ended = state == Bounce::State::Done || state == Bounce::State::Cancelled || state == Bounce::State::Failed;
     if (!ended || !ring.drained()) return; // a take stopped before its first bar ends Cancelled, with nothing in it
@@ -233,7 +279,11 @@ void AudioTracks::drain() {
     if (state == Bounce::State::Failed) done.error = "the card could not keep up";
     else if (!whole) done.error = "cannot write to the card";
     else if (!done.frames) done.error = "nothing recorded";
-    if (done.error.empty()) fs::rename(take_part, final_path, error);
+    if (done.error.empty()) {
+        fs::rename(take_part, final_path, error);
+        write_peaks((fs::path(take_job.folder) / audio_peaks_name(take_job.take)).string(), take_peaks);
+        done.peaks = std::move(take_peaks);
+    }
     if (!done.error.empty() || error) {
         fs::remove(take_part, error);
         if (done.error.empty()) done.error = "cannot name the take";

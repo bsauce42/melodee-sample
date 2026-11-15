@@ -67,6 +67,7 @@ void Context::audio_tick() {
     while (audio_tracks->take_made(made)) {
         const unsigned t = made.track % track_count;
         if (made.serial != audio_serial[t] || !project.tracks[t].is_audio()) { audio_tracks->discard(made.pack); continue; }
+        if (!made.peaks.empty()) add_peaks(std::move(made.peaks));
         Command c {Type::AudioRegions, uint8_t(t)};
         c.audio = made.pack;
         if (!host.send(c)) { audio_tracks->discard(made.pack); audio_stale |= 1u << t; continue; } // again next pass
@@ -83,6 +84,7 @@ void Context::audio_tick() {
         }
         // Another project since (its file stays in the old one's folder), or the track is no longer an audio track.
         if (take.job.folder != audio_folder(project_path) || !project.tracks[t].is_audio()) continue;
+        if (!take.peaks.empty()) { TakePeaks one; one[take.job.take] = std::move(take.peaks); add_peaks(std::move(one)); }
         AudioRegion r;
         r.track = uint8_t(t);
         r.take = uint16_t(take.job.take);
@@ -97,6 +99,12 @@ void Context::audio_tick() {
         commit_edit(std::move(edit));
         dirty = true;
     }
+}
+
+void Context::add_peaks(TakePeaks&& more) {
+    auto next = std::make_shared<TakePeaks>(audio_peaks ? *audio_peaks : TakePeaks {});
+    for (auto& [take, peaks] : more) (*next)[take] = std::move(peaks);
+    audio_peaks = std::move(next);
 }
 
 bool Context::record_audio(unsigned track, unsigned from, unsigned to) {
@@ -180,6 +188,51 @@ void Context::toggle_audio_free() {
         dirty = true;
     }
     notice(ui.audio_free ? "Records from the cursor until Stop" : "Records the loop once");
+}
+
+// Stage's cards on the region at the Song cursor. Start and end trim the take (the audio keeps its place in time: a
+// later start moves the region on by as much); what it then covers on the lane is its alone.
+void Context::set_region_value(const Binding& b, int value) {
+    using K = Binding::Kind;
+    auto& song = project.song;
+    if (b.id < 0 || unsigned(b.id) >= song.region_count) return;
+    const unsigned bar = project.bar_ticks();
+    AudioRegion r = song.regions[size_t(b.id)];
+    auto frames = [](int ms) { return uint32_t(uint64_t(std::max(ms, 0)) * 441 / 10); };
+    bool placed = false; // its span on the lane changed: placed again
+    switch (b.kind) {
+    case K::RegionGain: r.gain = int16_t(std::clamp(value, region_gain_min, region_gain_max)); break;
+    case K::RegionStart: {
+        const uint32_t end = r.offset + r.frames;
+        const uint32_t start = std::min(frames(value), end - 1);
+        const int64_t moved = int64_t(frames_to_ticks(start, r.tempo)) - int64_t(frames_to_ticks(r.offset, r.tempo));
+        const int64_t at = std::max<int64_t>(0, int64_t(region_start(r, bar)) + moved);
+        r.offset = start; r.frames = end - start;
+        set_region_start(r, uint32_t(at), bar);
+        placed = true;
+        break;
+    }
+    case K::RegionEnd: r.frames = std::clamp<uint32_t>(frames(value), r.offset + 1, r.take_frames) - r.offset; placed = true; break;
+    case K::RegionFadeIn: r.fade_in = std::min(frames(value), r.frames); break;
+    case K::RegionFadeOut: r.fade_out = std::min(frames(value), r.frames); break;
+    case K::RegionReverse: r.reverse = value != 0; break;
+    case K::RegionBpm: r.tempo = uint16_t(std::clamp(value, 300, 3000)); placed = true; break;
+    case K::RegionSemi: r.semi = int8_t(std::clamp(value, -24, 24)); break;
+    case K::RegionFine: r.fine = int8_t(std::clamp(value, -50, 50)); break;
+    case K::RegionWarp: r.warp = value != 0; break;
+    case K::RegionMode: r.mode = WarpMode(std::clamp(value, 0, int(WarpMode::Count) - 1)); break;
+    default: return;
+    }
+    r.fade_in = std::min(r.fade_in, r.frames); r.fade_out = std::min(r.fade_out, r.frames);
+    if (placed) {
+        song.erase_region(unsigned(b.id));
+        song.place_region(r, bar);
+        ui.song_cursor = r.bar; // still on it
+    } else {
+        song.regions[size_t(b.id)] = r;
+    }
+    sync_song();
+    dirty = true;
 }
 
 } // namespace melodee

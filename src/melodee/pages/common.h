@@ -61,6 +61,9 @@ bool record_keys_shown(const Snapshot& s);
 void track_grid(ui::Paint& p, const Snapshot& s);
 // An engine as a glyph: a saw for the Prophet, FM's operators, a chip for SID, pads for a kit, a DIN plug for MIDI.
 ui::Icon engine_icon(EngineKind kind);
+// Freeze plan F3: a region's take as a wave in x, y, w, h (its level, fades and direction in it), from the takes'
+// overviews (Snapshot::audio_peaks); nothing while its take's overview is not in yet.
+void region_wave(ui::Paint& p, const Snapshot& s, const AudioRegion& r, float x, float y, float w, float h, juce::Colour c);
 
 // A sound, pad or track name as names are shown (words: capitals for labels, Title Case for names): a name stored
 // in capitals ("BASS II") in Title Case ("Bass II"), roman numerals and acronyms as written.

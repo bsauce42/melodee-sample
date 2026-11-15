@@ -495,6 +495,27 @@ std::array<Binding, 3> stage_bindings(const Project& project, const UiState& ui,
         return {Binding {Kind::StageSound, 0, 0, int(std::max(listed, 2u)) - 1, at}, Binding {Kind::SoundList, 0, 0, 2, ui.sounds_filter},
                 Binding {Kind::Engine, 0, 0, int(std::max(count, 2u)) - 1, int(here)}};
     }
+    case SK::Clip: case SK::Fades: case SK::Warp: case SK::WarpMode: { // freeze plan F3: the region at the Song cursor
+        if (shift_row) return {};
+        const unsigned bar = project.bar_ticks();
+        const int at = project.song.region_near(ui.track, ui.song_cursor * bar, bar);
+        if (at < 0) return {};
+        const auto& r = project.song.regions[size_t(at)];
+        auto ms = [](uint32_t frames) { return int((uint64_t(frames) * 10 + 220) / 441); };
+        const int take_ms = ms(r.take_frames), start = ms(r.offset), end = ms(r.offset + r.frames), length = end - start;
+        switch (page.kind) {
+        case SK::Clip:
+            return {Binding {Kind::RegionGain, at, region_gain_min, region_gain_max, r.gain}, Binding {Kind::RegionStart, at, 0, std::max(end - 1, 1), start},
+                    Binding {Kind::RegionEnd, at, std::min(start + 1, take_ms - 1), std::max(take_ms, 1), end}};
+        case SK::Fades:
+            return {Binding {Kind::RegionFadeIn, at, 0, std::max(length, 1), ms(r.fade_in)}, Binding {Kind::RegionFadeOut, at, 0, std::max(length, 1), ms(r.fade_out)},
+                    Binding {Kind::RegionReverse, at, 0, 1, int(r.reverse)}};
+        case SK::Warp:
+            return {Binding {Kind::RegionBpm, at, 300, 3000, r.tempo}, Binding {Kind::RegionSemi, at, -24, 24, r.semi}, Binding {Kind::RegionFine, at, -50, 50, r.fine}};
+        default:
+            return {Binding {Kind::RegionWarp, at, 0, 1, int(r.warp)}, Binding {Kind::RegionMode, at, 0, int(WarpMode::Count) - 1, int(r.mode)}, Binding {}};
+        }
+    }
     case SK::Mix: // level, pan and the quick send, into bus A (SENDS has all four)
         if (shift_row) return {};
         return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
@@ -919,6 +940,18 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         return {Binding {Kind::PrintTapPick, 0, 0, 1, int(sheet.tap)}, Binding {Kind::PrintTailPick, 0, 0, 2, int(sheet.tail)}, Binding {}};
     }
     case PageId::Song: {
+        if (track.is_audio()) { // freeze plan F3: its regions
+            const unsigned bar = project.bar_ticks();
+            std::array<uint16_t, song_regions> lane {};
+            unsigned count = project.song.lane_regions(ui.track, bar, lane), at = 0;
+            int here = project.song.region_at(ui.track, ui.song_cursor * bar, bar);
+            for (unsigned n = 0; n < count; ++n) if (int(lane[n]) == here) at = n;
+            Binding zoom {Kind::SongZoom, 0, 0, int(sizeof(song_zooms) / sizeof(song_zooms[0])) - 1, ui.song_zoom};
+            if (!count) return {zoom, Binding {}, Binding {}};
+            unsigned bars = here >= 0 ? (region_ticks(project.song.regions[size_t(here)]) + bar / 2) / bar : 0;
+            return {zoom, Binding {Kind::SongRegion, here, 0, std::max(int(count) - 1, 1), int(at)},
+                    here >= 0 ? Binding {Kind::SongRegionBars, here, 1, 64, int(std::max(bars, 1u))} : Binding {}};
+        }
         int clip = project.song.clip_at(ui.track, ui.song_cursor);
         int pattern_value = clip >= 0 ? project.song.clips[size_t(clip)].pattern : ui.song_pattern;
         int length_value = clip >= 0 ? project.song.clips[size_t(clip)].bars : ui.song_length;

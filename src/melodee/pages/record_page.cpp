@@ -108,7 +108,14 @@ void draw_audio(Paint& p, const Snapshot& s) {
             const double a = double(region_start(r, bar)) / bar, b = double(region_end(r, bar)) / bar;
             float rx = x_of(a), rw = float(b - a) * bw;
             p.fill(rx + 0.5f, y, rw - 1, lane_h, tc.withAlpha(r.muted ? 0.12f : 0.38f), 2.5f);
-            if (rw > 26) p.text("T" + juce::String(r.take), rx + 3, y, 40, lane_h, plain(tc, type::small, Weight::Bold));
+            if (!r.muted) region_wave(p, s, r, rx + 1, y + 1, rw - 2, lane_h - 2, tc.withAlpha(0.9f));
+            if (rw > 26) { // its take's number on a backing, clear of the wave
+                auto style = plain(tc, type::small, Weight::Bold);
+                juce::String name = "T" + juce::String(r.take);
+                float lw = p.width(name, style) + 5;
+                p.fill(rx + 1, y + 1, lw, lane_h - 2, colour::bg.interpolatedWith(tc, r.muted ? 0.12f : 0.38f), 2);
+                p.text(name, rx + 3, y, lw, lane_h, style);
+            }
         }
         if (mine && running && s.song_playing) { // the take growing, in red, from its first bar to where the song is
             double now = double(s.song_bar) + double(s.ticks % bar) / bar;

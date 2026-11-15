@@ -682,6 +682,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
     edit_loop_check(context_); // an editor's loop ends with the editor (shell/note_jobs.h)
     out.ui = ui_;
     out.project = *project_;
+    out.audio_peaks = context_.audio_peaks; // freeze plan F3
     out.pattern = context_.pattern();
     for (unsigned t = 0; t < track_count; ++t)
         out.has_notes[t] = !patterns_->at[t][project_->tracks[t].pattern].empty();

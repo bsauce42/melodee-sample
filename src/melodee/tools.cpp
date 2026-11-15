@@ -541,6 +541,18 @@ void audio_scene(Snapshot& s) {
     song.loop_start = 24; song.loop_end = 32;
     s.ui.track = 12; s.ui.song_cursor = 24;
     s.take.left = 0.26f; s.take.right = 0.22f;
+    auto peaks = std::make_shared<TakePeaks>(); // a sung line: phrases rising and falling, breaths between
+    for (unsigned take : {1u, 2u}) {
+        auto& v = (*peaks)[take];
+        v.resize(2000);
+        for (size_t n = 0; n < v.size(); ++n) {
+            double phrase = std::fmod(double(n) / (take == 1 ? 130.0 : 170.0), 1.0);
+            double shape = phrase < 0.85 ? std::sin(phrase / 0.85 * 3.14159) : 0.03;
+            double grain = 0.75 + 0.25 * std::sin(double(n) * 0.9 + take) * std::sin(double(n) * 0.13);
+            v[n] = uint8_t(std::clamp(shape * grain * 230.0, 0.0, 255.0));
+        }
+    }
+    s.audio_peaks = peaks;
 }
 void on_stage(Snapshot& s, unsigned track, unsigned group, unsigned sub) {
     s.ui.page = PageId::Stage; s.ui.track = uint8_t(track);
@@ -1728,6 +1740,21 @@ const Preview previews[] {
      }},
     {"recordaudiofree", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Record; s.ui.audio_free = true; }}, // B3: until Stop
     {"songaudio", [](Shell&, Snapshot& s) { audio_scene(s); s.ui.page = PageId::Song; s.ui.song_cursor = 24; s.ui.song_view = 16; }},
+    {"stageaudioclip", [](Shell&, Snapshot& s) { // freeze plan F3: the region at the cursor (take 2), its start trimmed and faded in
+         audio_scene(s); on_stage(s, 12, 0, 0);
+         auto& r = s.project.song.regions[size_t(s.project.song.region_at(12, 24 * 384, 384))];
+         r.gain = 15; r.offset = 3175; r.frames -= 3175; r.fade_in = 1323; r.fade_out = 6615;
+     }},
+    {"stageaudiofades", [](Shell&, Snapshot& s) {
+         audio_scene(s); on_stage(s, 12, 0, 1);
+         auto& r = s.project.song.regions[size_t(s.project.song.region_at(12, 24 * 384, 384))];
+         r.fade_in = 8820; r.fade_out = 22050;
+     }},
+    {"stageaudiowarp", [](Shell&, Snapshot& s) { audio_scene(s); on_stage(s, 12, 1, 0); }},
+    {"stageaudiomode", [](Shell&, Snapshot& s) {
+         audio_scene(s); on_stage(s, 12, 1, 1);
+         s.project.song.regions[size_t(s.project.song.region_at(12, 24 * 384, 384))].warp = true;
+     }},
     {"record", [](Shell&, Snapshot& s) { // a take onto B01 with three pads cut from it
          s.ui.page = PageId::Record; s.ui.track = 3; s.playing = true;
          auto& in = s.ui.settings.input;

@@ -31,6 +31,7 @@ struct PatternSketch {
 };
 
 struct Snapshot {
+    std::shared_ptr<const TakePeaks> audio_peaks; // freeze plan F3: the takes' overviews (Context::audio_peaks)
     UiState ui;
     Project project;
     Pattern pattern;                         // the selected track's pattern playing

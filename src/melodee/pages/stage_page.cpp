@@ -802,6 +802,60 @@ void cc_picture(Paint& p, const Snapshot& s) {
 
 // An empty track: what it can become, as a carousel in two steps (shell/new_track.h): the track types in the MPC's
 // order, then the sources of the type opened. The wheel moves along it, Push opens or makes the card in the middle.
+// Freeze plan F3, an audio track's region at the Song cursor (CLIP, FADES, WARP, MODE): the whole take in small with
+// the part the region plays lit, then the region large, its fades drawn over it; under it where it sits in the song
+// (and on WARP its BPM and whether it follows the song's tempo).
+int stage_region(const Snapshot& s) {
+    const unsigned bar = s.project.bar_ticks();
+    return s.project.song.region_near(s.ui.track, s.ui.song_cursor * bar, bar);
+}
+void region_picture(Paint& p, const Snapshot& s, const StagePage& page) {
+    const int at = stage_region(s);
+    auto c = colour_of(s);
+    if (at < 0) {
+        icon(p, Icon::Wav, zone::width / 2.0f - 14, top + 40, 28, colour::mid, 1.4f);
+        p.text("NO TAKE YET", 0, top + 76, zone::width, 14, caps_text(colour::mid), juce::Justification::centred);
+        return;
+    }
+    const auto& r = s.project.song.regions[size_t(at)];
+    const unsigned bar = std::max(1u, s.project.bar_ticks());
+    // The take: dim end to end, the region's part lit.
+    const float tx = px + 6, tw = pw - 12, ty = top + 6, th = 14;
+    p.fill(tx, ty, tw, th, colour::panel, 2);
+    AudioRegion whole = r;
+    whole.offset = 0; whole.frames = std::max(r.take_frames, 1u); whole.fade_in = whole.fade_out = 0; whole.gain = 0; whole.reverse = false;
+    region_wave(p, s, whole, tx, ty, tw, th, colour::dim);
+    const float from = tw * float(r.offset) / whole.frames, span = std::max(2.0f, tw * float(r.frames) / whole.frames);
+    p.ring(tx + from, ty, span, th, c, 2, 1.2f);
+    // The region large, with its fades as ramps over it.
+    const float wx = px + 6, ww = pw - 12, wy = ty + th + 8, wh = 74;
+    p.fill(wx, wy, ww, wh, colour::panel, 3);
+    if (r.muted) p.text("MUTED", wx, wy, ww, wh, caps_text(colour::mid), juce::Justification::centred);
+    else region_wave(p, s, r, wx + 2, wy + 2, ww - 4, wh - 4, c);
+    const bool fades = page.kind == StageKind::Fades || page.kind == StageKind::Clip;
+    if (fades && r.fade_in) { float fw = ww * float(r.fade_in) / r.frames; p.g.setColour(colour::text); p.g.drawLine(wx, wy + wh - 2, wx + fw, wy + 2, 1.4f); }
+    if (fades && r.fade_out) { float fw = ww * float(r.fade_out) / r.frames; p.g.setColour(colour::text); p.g.drawLine(wx + ww - fw, wy + 2, wx + ww, wy + wh - 2, 1.4f); }
+    if (r.reverse) icon(p, Icon::Reverse, wx + ww - 16, wy + 3, 12, colour::text, 1.4f);
+    if (page.kind == StageKind::Warp || page.kind == StageKind::WarpMode) { // its beats at its BPM, a bar's taller
+        const unsigned beat = std::max(1u, s.project.beat_ticks()), ticks = region_ticks(r);
+        if (ticks / beat <= 128)
+            for (unsigned b = 0; b * beat <= ticks; ++b) {
+                bool line = (b * beat) % bar == 0;
+                p.fill(wx + ww * float(b * beat) / ticks, wy + wh - (line ? 9 : 5), 1, line ? 9 : 5, line ? colour::mid : colour::line);
+            }
+    }
+    // Where it sits: its bars (a part of one counted as a bar) and how long it is.
+    const unsigned first = r.bar + 1, last = (region_end(r, bar) + bar - 1) / bar, bars = last >= first ? last - first + 1 : 1;
+    juce::String where = juce::String(first) + juce::String::fromUTF8("\xe2\x80\x93") + juce::String(last) + juce::String::fromUTF8(" \xc2\xb7 ")
+                       + juce::String(bars) + (bars == 1 ? " BAR" : " BARS");
+    if (page.kind == StageKind::Warp || page.kind == StageKind::WarpMode)
+        where = juce::String(r.tempo / 10) + "." + juce::String(r.tempo % 10) + " BPM" + juce::String::fromUTF8(" \xc2\xb7 ")
+              + (r.warp ? juce::String("FOLLOWS THE SONG") : juce::String("AS RECORDED"));
+    auto style = plain(colour::mid, type::small, Weight::SemiBold);
+    float w = p.width(where, style);
+    p.text(where, px + pw - w - 4, wy + wh + 4, w + 1, 14, style);
+}
+
 void new_track_picture(Paint& p, const Snapshot& s) {
     p.fill(0, zone::picture_y, zone::width, zone::height - zone::picture_y, colour::bg); // the knob strip too: no pots here
     juce::String channel = juce::String::fromUTF8("MIDI \xc2\xb7 CH ") + juce::String(std::clamp<int>(s.ui.new_channel, 1, 16));
@@ -1030,6 +1084,12 @@ void draw(Paint& p, const Snapshot& s) {
     } else if (page.kind == StageKind::PluginEdit && plugin_ready(s)) { // the share of each audio block it takes, as Edit's
         const auto& panel = s.ui.plugin_panel;
         h.left.push_back(pill(Icon::Chip, juce::String(panel.load / 10) + " %", panel.load > 700 ? colour::amber : colour::mid));
+    } else if (page.picture == StagePicture::Region) { // freeze plan F3: which region, by its bar and take
+        if (int at = stage_region(s); at >= 0) {
+            const auto& r = s.project.song.regions[size_t(at)];
+            h.left.push_back(pill("BAR " + juce::String(r.bar + 1) + juce::String::fromUTF8(" \xc2\xb7 ") + "TAKE " + juce::String(r.take)));
+            if (r.warp && (page.kind == StageKind::Warp || page.kind == StageKind::WarpMode)) h.left.push_back(chip("WARP", c));
+        }
     } else if (page.kind == StageKind::Arp || page.kind == StageKind::Chord) { // on or off, as the LED on the MPC would say
         bool on = page.kind == StageKind::Arp ? t.arp : t.chord;
         h.left.push_back(pill(on ? Icon::Check : Icon::None, on ? "ON" : "OFF", on ? c : colour::mid));
@@ -1079,6 +1139,7 @@ void draw(Paint& p, const Snapshot& s) {
     case StagePicture::PluginEdit: draw_plugin_view(p, s, t.plugin, top); break;
     case StagePicture::Engines: case StagePicture::Sources: case StagePicture::Ports: break; // new_track_picture
     case StagePicture::Colours: colours_picture(p, s); break;
+    case StagePicture::Region: region_picture(p, s, page); break;
     }
 }
 

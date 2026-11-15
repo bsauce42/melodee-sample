@@ -37,6 +37,7 @@ struct AudioPackMade {
     uint32_t serial = 0;
     AudioPack* pack = nullptr; // the MIDI thread's to send or discard
     unsigned missing = 0;      // regions whose take could not be read
+    TakePeaks peaks;           // its takes' overviews (read beside them, or made once from the take)
 };
 
 // A take to record: its file, the track and the bars it is for, the tempo it is recorded at.
@@ -50,6 +51,7 @@ struct AudioTakeDone {
     uint32_t frames = 0; // the file's (device) frames, at `rate`
     unsigned rate = 44100;
     std::string error;   // empty: the file is whole
+    std::vector<uint8_t> peaks; // its overview (TakePeaks)
 };
 
 class AudioTracks {
@@ -94,7 +96,10 @@ private:
     WavStream take_file;
     unsigned take_rate = 44100;
     std::vector<float> chunk;
+    std::vector<uint8_t> take_peaks;
+    uint64_t take_peak_at = 0; // device frames taken into take_peaks
     std::deque<AudioTakeDone> recorded;
+    static std::vector<uint8_t> peaks_of(const std::string& folder, unsigned take); // read beside it, else made and kept
     std::atomic<bool> busy {false};
 };
 

@@ -112,6 +112,7 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     deep_sent.fill(0);
     for (unsigned t = 0; t < track_count; ++t) { ++freeze_serial[t]; if (frozen(t)) freeze_waiting |= 1u << t; }
     audio_stale = 0xffff; // freeze plan F3: its audio tracks' regions mapped again (the audio thread lets the last go)
+    audio_peaks.reset();  // and their takes' overviews read again (another folder's)
     for (auto& serial : audio_serial) ++serial;
     if (plugins) plugins->set_states(plugin_states ? *plugin_states : PluginStates {});
     project = next;
@@ -625,6 +626,29 @@ void Context::apply(const Binding& b, int value) {
         send({Type::Swing, 0, 0, 0, int16_t(value)});
         break;
     case Kind::SongZoom: ui.song_zoom = uint8_t(value); break;
+    case Kind::SongRegion: { // freeze plan F3: the cursor to the lane's region `value`
+        std::array<uint16_t, song_regions> lane {};
+        unsigned count = project.song.lane_regions(ui.track, project.bar_ticks(), lane);
+        if (count) ui.song_cursor = project.song.regions[lane[std::min<unsigned>(unsigned(value), count - 1)]].bar;
+        break;
+    }
+    case Kind::RegionGain: case Kind::RegionStart: case Kind::RegionEnd: case Kind::RegionFadeIn: case Kind::RegionFadeOut:
+    case Kind::RegionReverse: case Kind::RegionBpm: case Kind::RegionSemi: case Kind::RegionFine: case Kind::RegionWarp: case Kind::RegionMode:
+        set_region_value(b, value); // freeze plan F3 (shell/audio_jobs.cpp)
+        break;
+    case Kind::SongRegionBars: { // its length in bars, no longer than its take allows
+        if (b.id < 0 || unsigned(b.id) >= project.song.region_count) break;
+        auto& r = project.song.regions[size_t(b.id)];
+        uint64_t want = ticks_to_frames(uint64_t(value) * project.bar_ticks(), r.tempo);
+        r.frames = uint32_t(std::clamp<uint64_t>(want, 1, r.take_frames - std::min(r.offset, r.take_frames - 1)));
+        r.fade_out = std::min(r.fade_out, r.frames);
+        AudioRegion kept = r; // what it now covers on the lane is its alone
+        project.song.erase_region(unsigned(b.id));
+        project.song.place_region(kept, project.bar_ticks());
+        sync_song();
+        dirty = true;
+        break;
+    }
     case Kind::SongPattern:
     case Kind::SongLength:
         if (b.id >= 0) { // the clip under the cursor

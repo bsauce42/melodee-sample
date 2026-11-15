@@ -113,13 +113,22 @@ struct Binding {
         ProgKey, ProgVoicing, // Keys on the Prog layout: K1 the progression's key (0..11), K2 its voicing (model/scales.h ProgVoicing)
         // Freeze plan F3, the Record page on an audio track: K1 its source (an index into audio_sources()), K2 its monitor.
         AudioSource, AudioMonitorMode,
+        // Song on an audio track's lane: K2 the region (its place among the lane's by start: the cursor goes to it), K3
+        // its length in bars (id: the region, or -1).
+        SongRegion, SongRegionBars,
+        // Stage on an audio track, the region at the Song cursor (id: the region): CLIP its level (tenths of a dB), start
+        // and end in the take (ms); FADES fade in and out (ms) and reverse; WARP its BPM (tenths), semitones and cents;
+        // MODE warp on or off and its algorithm (WarpMode).
+        RegionGain, RegionStart, RegionEnd, RegionFadeIn, RegionFadeOut, RegionReverse, RegionBpm, RegionSemi, RegionFine,
+        RegionWarp, RegionMode,
     };
     Kind kind = Kind::None;
     int32_t id = 0;      // Param: the parameter
     int min = 0, max = 0, value = 0;
     // Which control this is, for pickup; a song clip's index may move as clips change, so it is left out.
     uint32_t key(unsigned track) const {
-        bool clip = kind == Kind::SongPattern || kind == Kind::SongLength;
+        // A region's index moves too as its edits place it again (freeze plan F3).
+        bool clip = kind == Kind::SongPattern || kind == Kind::SongLength || (kind >= Kind::SongRegion && kind <= Kind::RegionMode);
         return uint32_t(kind) << 24 | uint32_t(clip ? 0 : uint16_t(id)) << 8 | track;
     }
     bool bound() const { return kind != Kind::None && max > min; }

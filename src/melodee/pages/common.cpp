@@ -82,6 +82,25 @@ ui::HeaderItem tag_of(const Snapshot& s, unsigned track) {
                          ui::track_colour(track));
 }
 
+void region_wave(ui::Paint& p, const Snapshot& s, const AudioRegion& r, float x, float y, float w, float h, juce::Colour c) {
+    if (!s.audio_peaks || w < 2 || !r.frames) return;
+    auto found = s.audio_peaks->find(r.take);
+    if (found == s.audio_peaks->end() || found->second.empty()) return;
+    const auto& peaks = found->second;
+    const unsigned columns = std::max(1u, unsigned(w / 1.5f));
+    const float gain = std::pow(10.0f, r.gain / 200.0f), mid = y + h / 2, cw = w / columns;
+    for (unsigned n = 0; n < columns; ++n) {
+        uint32_t a = uint32_t(uint64_t(r.frames) * n / columns), b = uint32_t(uint64_t(r.frames) * (n + 1) / columns);
+        if (r.reverse) { uint32_t ra = r.frames - b, rb = r.frames - a; a = ra; b = rb; }
+        float v = peak_over(peaks, r.offset + a, r.offset + b) * gain;
+        const float at = float(uint64_t(r.frames) * n / columns);
+        if (r.fade_in && at < r.fade_in) v *= at / r.fade_in;
+        if (r.fade_out && r.frames - at < r.fade_out) v *= (r.frames - at) / r.fade_out;
+        float half = std::max(0.5f, std::min(1.0f, v) * (h / 2 - 1));
+        p.fill(x + n * cw, mid - half, std::max(1.0f, cw * 0.7f), half * 2, c);
+    }
+}
+
 ui::Icon engine_icon(EngineKind kind) {
     switch (kind) {
     case EngineKind::Sampler: return ui::Icon::Pads;
@@ -327,6 +346,31 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::SongZoom: c.label = "ZOOM"; c.value = juce::String(song_zooms[b.value]); c.unit = "bars"; break;
     case Kind::SongPattern: c.label = "PATTERN"; c.value = "P" + juce::String(b.value + 1); break;
     case Kind::SongLength: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "bar" : "bars"; break;
+    case Kind::SongRegion: // freeze plan F3: the region at the cursor by its take
+        c.label = "REGION";
+        c.value = b.id >= 0 && unsigned(b.id) < s.project.song.region_count ? "Take " + juce::String(s.project.song.regions[size_t(b.id)].take) : juce::String("None");
+        break;
+    case Kind::SongRegionBars: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "bar" : "bars"; break;
+    case Kind::RegionGain: { // freeze plan F3: Stage on an audio track's region
+        c.label = "LEVEL";
+        juce::String sign = b.value < 0 ? juce::String::fromUTF8("\xe2\x88\x92") : b.value > 0 ? juce::String("+") : juce::String();
+        c.value = sign + juce::String(std::abs(b.value) / 10.0, 1); c.unit = "dB"; c.bipolar = true;
+        break;
+    }
+    case Kind::RegionStart: case Kind::RegionEnd:
+        c.label = b.kind == Kind::RegionStart ? "START" : "END";
+        c.value = juce::String(b.value / 1000.0, b.value < 10000 ? 3 : 2); c.unit = "s";
+        break;
+    case Kind::RegionFadeIn: case Kind::RegionFadeOut:
+        c.label = b.kind == Kind::RegionFadeIn ? "FADE IN" : "FADE OUT";
+        if (b.value < 1000) { c.value = juce::String(b.value); c.unit = "ms"; } else { c.value = juce::String(b.value / 1000.0, 2); c.unit = "s"; }
+        break;
+    case Kind::RegionReverse: c.label = "REVERSE"; c.value = b.value ? "On" : "Off"; break;
+    case Kind::RegionBpm: c.label = "BPM"; c.value = juce::String(b.value / 10) + "." + juce::String(b.value % 10); break;
+    case Kind::RegionSemi: c.label = "SEMI"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.bipolar = true; break;
+    case Kind::RegionFine: c.label = "FINE"; c.value = (b.value > 0 ? "+" : "") + juce::String(b.value); c.unit = "ct"; c.bipolar = true; break;
+    case Kind::RegionWarp: c.label = "WARP"; c.value = b.value ? "On" : "Off"; break;
+    case Kind::RegionMode: c.label = "MODE"; c.value = warp_mode_name(WarpMode(b.value)); break;
     case Kind::FxParam: {
         const auto& slot = s.project.chain(unsigned(b.id) / 64).slots[(unsigned(b.id) / 8) % 8];
         const auto& pi = effect_info(EffectKind(slot.kind)).params[unsigned(b.id) % 8];

@@ -327,6 +327,8 @@ public:
     unsigned audio_sent_bar = 0;
     int audio_take_track = -1;
     uint32_t audio_quiet_sent = 0; // tracks whose regions the audio thread keeps quiet (their monitor hears the input)
+    std::shared_ptr<const TakePeaks> audio_peaks; // this project's takes' overviews, for the screen (a new map on each change)
+    void add_peaks(TakePeaks&& more);
     void sync_audio();  // each audio track's pack made again where its regions changed
     void audio_tick();  // packs made sent, packs done freed, takes recorded placed in the song
     // A take for audio track `track` from bar `from` to bar `to` (0: until Stop), armed for the song's next Play;
@@ -339,6 +341,7 @@ public:
     void audio_record_play();
     void audio_record_wheel(int delta);
     void toggle_audio_free();
+    void set_region_value(const Binding& b, int value); // Stage's CLIP, FADES, WARP and MODE cards on a region
     struct PrintAsk {
         uint8_t track = 0;
         std::array<uint64_t, (pattern_count + 63) / 64> patterns {};
