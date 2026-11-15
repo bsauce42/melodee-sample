@@ -348,7 +348,8 @@ void PrintEngine::run() {
             std::lock_guard<std::mutex> held(lock);
             lines.push_back("autosample track=" + std::to_string(job->track + 1) + " " +
                             (made.error.empty() ? "made=" + made.program + " samples=" + std::to_string(made.samples)
-                                                      + " loops=" + std::to_string(made.loops) + " centred=" + std::to_string(made.centred)
+                                                      + " loops=" + std::to_string(made.loops) + " tails=" + std::to_string(made.tails)
+                                                      + " centred=" + std::to_string(made.centred)
                                                 : "error=" + made.error) +
                             " seconds=" + std::to_string(int(std::lround(made.seconds))));
             while (lines.size() > kept_lines) lines.pop_front();
@@ -943,10 +944,11 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             layer.low_velocity = uint8_t(takes > 1 || layer_index == 0 ? 0 : set.velocity(layer_index - 1) + 1);
             layer.high_velocity = takes > 1 ? 127 : velocity;
             if (set.looping()) {
-                LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate);
+                LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate, true); // it sustains: a loop however unlike its ends
                 if (loop.found()) { layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops; }
             }
             layer.frames = uint32_t(audio.left.size());
+            layer.held = uint32_t(audio.held);
             // Kept as 32-bit float until the program's gain is known.
             std::ofstream part(parts / (layer.sample + ".f32"), std::ios::binary | std::ios::trunc);
             std::vector<float> interleaved(audio.left.size() * 2);
@@ -974,11 +976,35 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         for (size_t l = 0; l < g.layers.size(); ++l) g.layers[l].low_velocity = uint8_t(l == 0 ? 0 : g.layers[l - 1].high_velocity + 1);
         g.layers.back().high_velocity = 127;
     }
+    // A looped note's own tail, played when its key is let go: a keygroup over the same keys on its key's release,
+    // each layer the looped one's WAV from where its key was let go, faded in over 5 ms; the loop fades under it in
+    // 30 ms. A note too short to have a tail (under 20 ms), or a program with no room left (128), goes without.
+    const size_t played = program.keygroups.size();
+    for (size_t k = 0; k < played && program.keygroups.size() < 128; ++k) {
+        auto& g = program.keygroups[k];
+        XpmKeygroup tail;
+        tail.low = g.low; tail.high = g.high;
+        tail.on_release = true;
+        tail.cycle = g.cycle;
+        tail.attack = 0.005;
+        for (const auto& l : g.layers) {
+            if (!l.looped() || l.frames < l.held + uint32_t(0.02f * rate)) continue;
+            XpmLayer from = l;
+            from.start = l.held;
+            from.loop_start = from.loop_end = 0;
+            tail.layers.push_back(from);
+        }
+        if (tail.layers.size() != g.layers.size()) continue; // every layer its tail, or none: velocities stay whole
+        g.release = 0.03;
+        program.keygroups.push_back(std::move(tail));
+        ++r.tails;
+    }
     // One gain for every sample: the loudest at -1 dB (24 dB more at most), so the layers keep the balance played.
     const float gain = set.normalize && peak_all > 0 ? std::min(0.891251f / peak_all, 15.8489f) : 1.0f;
     r.gain_db = 20 * std::log10(gain);
     for (const auto& g : program.keygroups)
         for (const auto& l : g.layers) {
+            if (g.on_release) break; // a tail plays the WAV its note wrote
             if (cancelled.load()) return fail("stopped");
             std::ifstream part(parts / (l.sample + ".f32"), std::ios::binary);
             std::vector<float> interleaved(size_t(l.frames) * 2);

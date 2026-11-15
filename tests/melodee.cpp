@@ -7240,6 +7240,33 @@ void xpm_writer() {
     CHECK(has("<SliceEnd>47999</SliceEnd>") && has("<SliceEnd>44099</SliceEnd>") && has("<TriggerMode>2</TriggerMode>")); // the last frame
     CHECK(!has("<TriggerMode>0</TriggerMode>"));
     { XpmProgram kit = program; kit.keygroups[0].one_shot = true; CHECK(xpm_text(kit).find("<TriggerMode>0</TriggerMode>") != std::string::npos); }
+    { // a looped note's tail on the key's release: the same WAV from where the key was let go, faded in
+        XpmProgram tails = program;
+        XpmKeygroup tail = tails.keygroups[1];
+        tail.on_release = true; tail.attack = 0.005;
+        tail.layers[0].start = 30000;
+        tails.keygroups[1].release = 0.03;
+        tails.keygroups.push_back(tail);
+        const std::string text = xpm_text(tails);
+        CHECK(text.find("<TriggerMode>1</TriggerMode>") != std::string::npos && text.find("<SliceStart>30000</SliceStart>") != std::string::npos);
+        CHECK(text.find("<KeygroupNumKeygroups>3</KeygroupNumKeygroups>") != std::string::npos);
+        char attack[64];
+        std::snprintf(attack, sizeof(attack), "<VolumeAttack>%.6f</VolumeAttack>", xpm_envelope_value(0.005));
+        CHECK(text.find(attack) != std::string::npos);
+        // read back as Melodee plays it: the tail a release zone from frame 30000, its keys the keygroup's
+        KeygroupProgram tree;
+        tree.type = "Keygroup";
+        tree.tags = {{"KeygroupNumKeygroups", "2"}};
+        KeygroupInstrument held, gone;
+        held.number = 1; held.tags = {{"LowNote", "38"}, {"HighNote", "127"}, {"TriggerMode", "2"}};
+        held.layers = {{{"SampleName", "Pad-Eb2-V127"}, {"RootNote", "40"}, {"SliceEnd", "44099"}, {"SliceLoop", "1"}, {"SliceLoopStart", "20000"}}};
+        gone.number = 2; gone.tags = {{"LowNote", "38"}, {"HighNote", "127"}, {"TriggerMode", "1"}};
+        gone.layers = {{{"SampleName", "Pad-Eb2-V127"}, {"RootNote", "40"}, {"SliceStart", "30000"}, {"SliceEnd", "44099"}}};
+        tree.instruments = {held, gone};
+        const SfzRead read = read_keygroup(tree);
+        CHECK(read.regions.size() == 2 && !read.regions[0].zone.on_release && read.regions[0].zone.loop == ZoneLoop::On);
+        CHECK(read.regions[1].zone.on_release && read.regions[1].offset == 30000 && read.regions[1].zone.low_key == 38);
+    }
     CHECK(has("<SliceLoop>1</SliceLoop>") && has("<SliceLoopStart>20000</SliceLoopStart>") && has("<SliceEnd>40000</SliceEnd>")); // the loop
     CHECK(has("<VelocitySensitivity>0.000000</VelocitySensitivity>")); // layered
     char release[64];
@@ -7399,6 +7426,20 @@ void loop_finder() {
     const double periods = double(loop.end - loop.start) * hz / rate;
     CHECK(std::fabs(periods - std::round(periods)) < 0.05);
     CHECK(std::fabs(l[loop.end - 1] - l[loop.start - 1]) < 0.02f); // the frame before the jump meets the one before the start
+    { // a sound that never repeats closely (seven detuned saws): no loop matched; with `always` a long one, smeared
+        std::vector<float> wl(size_t(rate * 2)), wr;
+        const double detune[] {-0.31, -0.19, -0.07, 0, 0.11, 0.23, 0.37};
+        for (size_t f = 0; f < wl.size(); ++f) {
+            double v = 0;
+            for (double d : detune) { const double t = 65.4 * std::pow(2.0, d / 12) * f / rate + d; v += 2 * (t - std::floor(t)) - 1; }
+            wl[f] = float(0.08 * v);
+        }
+        wr = wl;
+        auto copy_l = wl, copy_r = wr;
+        CHECK(!find_loop(copy_l, copy_r, uint64_t(rate * 2), rate).found());
+        auto smeared = find_loop(wl, wr, uint64_t(rate * 2), rate, true);
+        CHECK(smeared.found() && smeared.end - smeared.start > uint32_t(0.5f * rate) && smeared.start >= uint32_t(rate * 2 / 3));
+    }
     { // a drum cut where it falls silent, not at the end of the time its key was held
         NoteAudio n;
         n.left.assign(size_t(rate * 1.5), 0.0f);
@@ -8648,6 +8689,28 @@ void keygroup_glide() {
         r.engine->note_off(67);
         r.run(8000);
         CHECK(peak_of(r.run(2000), 0) < 0.01f);
+    }
+    { // a looped note let go: the loop fades in 30 ms, its tail (a release zone, the same file from frame 30000) plays
+        ZoneRig r;
+        std::vector<float> tone(88200);
+        for (size_t f = 0; f < tone.size(); ++f) tone[f] = f < 30000 ? 0.5f * float(std::sin(2 * M_PI * 220 * f / 44100.0))
+                                                                     : 0.5f * float(std::sin(2 * M_PI * 220 * f / 44100.0)) * std::exp(-float(f - 30000) / 20000.0f);
+        r.part(tone);
+        auto& held = r.zone(0); held.root = 57; held.loop = ZoneLoop::On; held.loop_start = 10000; held.loop_end = 20000; held.end = 30000;
+        held.release = -10; // the pad's release less ten steps: quick
+        auto& gone = r.zone(0); gone.root = 57; gone.on_release = true; gone.one_shot = true; gone.start = 30000; gone.end = 88200;
+        r.multi->has_release = true;
+        r.pad.release = 10;
+        r.build(PadPlay::Gate);
+        r.engine->set_keyed(true);
+        r.engine->note_on(57, 127);
+        r.run(40000); // well past the 30000 frames held: the loop keeps it going
+        CHECK(peak_of(r.run(2000), 0) > 0.2f);
+        r.engine->note_off(57);
+        r.run(4410);  // 100 ms on: the tail, falling from where the key was let go
+        CHECK(peak_of(r.run(2000), 0) > 0.2f);
+        r.run(44100);
+        CHECK(peak_of(r.run(2000), 0) < 0.15f);
     }
     { // a Tie: there at once
         ZoneRig r;

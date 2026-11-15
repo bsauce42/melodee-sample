@@ -136,8 +136,11 @@ works on an MPC and in MPC 3 exports.
 
 - Each key covers the notes halfway to the next sampled key.
 - **LOOP** finds a loop in the held part of each note and crossfades it, so
-  pads and organs sustain. Sounds that fade while held (plucks, a 303) are not
-  looped at Auto. Sounds that change all the time may not loop.
+  pads and organs sustain. Sounds that never repeat exactly (wide detuned
+  saws, chorus) get a longer, smoother crossfade. Sounds that fade while held
+  (plucks, a 303) are not looped at Auto.
+- When a looped note is let go, its own recorded release plays, as the
+  plug-in's would: the filter closing, the delay or reverb at Post FX.
 - **LEVEL** at −1 dB raises every sample by the same amount, so velocity
   layers keep their balance.
 - A key where the plug-in makes no sound is left out.

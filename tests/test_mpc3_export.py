@@ -212,6 +212,34 @@ class Mpc3Export(unittest.TestCase):
         self.assertTrue(voices["portamentoLegato"])
         self.assertAlmostEqual(voices["portamentoTime"], time, places=5)
 
+    def test_keygroup_release_tails(self):
+        # An auto sampled pad: a looped keygroup and its tail on the key's release (TriggerMode 1, the same WAV from
+        # frame 30000). Both go to the MPC 3 program, the tail as triggerMode 1 from its start.
+        with tempfile.TemporaryDirectory() as folder:
+            keys = Path(folder) / "Pad"
+            keys.mkdir()
+            (keys / "Pad-C3.wav").write_bytes(wav(44100))
+            def layer(extra):
+                return ("<Layer number=\"1\"><Active>True</Active><Volume>1.0</Volume><Pan>0.5</Pan><VelStart>0</VelStart>"
+                        f"<VelEnd>127</VelEnd><RootNote>49</RootNote><SampleName>Pad-C3</SampleName>{extra}</Layer>")
+            held = layer("<SliceEnd>29999</SliceEnd><SliceLoop>1</SliceLoop><SliceLoopStart>20000</SliceLoopStart>")
+            gone = layer("<SliceStart>30000</SliceStart><SliceEnd>44099</SliceEnd>")
+            (keys / "Pad.xpm").write_text(
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><MPCVObject><Program type=\"Keygroup\"><ProgramName>Pad</ProgramName>"
+                "<KeygroupNumKeygroups>2</KeygroupNumKeygroups><Instruments>"
+                f"<Instrument number=\"1\"><LowNote>0</LowNote><HighNote>127</HighNote><TriggerMode>2</TriggerMode><Layers>{held}</Layers></Instrument>"
+                f"<Instrument number=\"2\"><LowNote>0</LowNote><HighNote>127</HighNote><TriggerMode>1</TriggerMode><Layers>{gone}</Layers></Instrument>"
+                "</Instruments></Program></MPCVObject>")
+            report, out = self.export(folder, "K:0=FOLDER/Pad/Pad.xpm")
+            self.assertIn("exported tracks=0 keygroups=1", report)
+            _, data = read(out / "Beat.xpj")
+        program = data["tracks"][0]["program"]
+        self.assertEqual(program["keygroup"]["numKeygroups"], 2)
+        groups = [i for i in program["drum"]["instruments"] if i["layersv"][0]["sampleFile"]]
+        self.assertEqual([g["triggerMode"] for g in groups], [2, 1])
+        self.assertEqual(groups[0]["layersv"][0]["loopMode"], 1)
+        self.assertEqual(groups[1]["layersv"][0]["sampleFile"], groups[0]["layersv"][0]["sampleFile"])
+
     def test_pitched_wav_pad(self):
         # A WAV pad its notes play 7 semitones up (16 Levels, Keys): one keygroup over every key, its own pitch at 60.
         with tempfile.TemporaryDirectory() as folder:
