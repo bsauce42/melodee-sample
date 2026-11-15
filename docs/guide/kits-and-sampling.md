@@ -117,7 +117,9 @@ in view and the header names the held pad.
 
 ## Loading samples
 
-Press **SAMPLE SELECT** on a kit to open the sample browser.
+Press **SAMPLE SELECT** on a kit to open the sample browser. Press it again
+to close it. The header shows the pad a file loads onto (→ A09), the last pad
+you hit.
 
 ![The sample browser](../images/screens/samples.png)
 
@@ -275,12 +277,12 @@ Resample, or any track with a sound. **K2** length, **K3** threshold,
 **SHIFT** + **K3** gain. With a track as the source, **SHIFT** + **K1**
 records it **Post FX** (with its effect chain) or **Pre FX**.
 
-- **B2** (**MONITOR**): Off, Auto or On. You hear the input as loud as the
+- **B1** (**MONITOR**): Off, Auto or On. You hear the input as loud as the
   take will play back. Choosing Mic while the speaker plays sets Monitor
   to Off; choosing another source sets it back to what it was. With
   headphones or line out plugged in, Monitor stays as it is. While the
   mic is monitored the speaker goes quiet.
-- **B3** (**INPUT FX**): run Knob FX on the input. You hear them while the
+- **B2** (**INPUT FX**): run Knob FX on the input. You hear them while the
   input is monitored, and they are recorded.
 
 ![Input Config](../images/screens/inputconfig.png)

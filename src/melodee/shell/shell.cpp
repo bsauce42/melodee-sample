@@ -356,11 +356,16 @@ void Shell::press(Button b, bool pressed) {
         break;
     case Button::KnobFx:
         if (!ui.shift) { context_.knob_fx_button(); break; } // Knob FX, as on the MPC: the mode on or off (shell/knob_fx.cpp)
-        // Shift + Knob FX (FX SELECT): Melodee's effects along the signal, track, sends, bus, master;
-        // on the Looper the selected loop track's chain
+        // Shift + Knob FX (FX SELECT): the effect chains, the same cycle as MIX's B3 FX (track, bus, master,
+        // a kit's pad); on the Looper the selected loop track's chain
         if (ui.page == PageId::Looper && context_.project.looper.on) { int8_t l = int8_t(ui.loop % loop_tracks); context_.open(PageId::Rack); ui.fx_loop = l; break; }
-        context_.open(ui.page == PageId::Rack && ui.fx_loop < 0 ? PageId::Sends : ui.page == PageId::Sends ? PageId::Bus
-                      : ui.page == PageId::Bus ? PageId::Master : PageId::Rack);
+        {
+            bool kit = context_.track().engine == EngineKind::Sampler;
+            bool own_chain = mix_section(ui.page) == MixSection::Fx && !(ui.page == PageId::Rack && ui.fx_loop >= 0);
+            PageId next = own_chain ? mix_next(ui.page, 2, kit) : PageId::Rack;
+            if (next == PageId::Rack) ui.fx_loop = -1; // the track's own chain, not a loop's
+            context_.open(next);
+        }
         break;
     case Button::SampleSelect: // on a sampler track it lists samples
         if (ui.shift) { // by engine: on Sounds a star; on Samples Save Bank; a kit: Save Sample; a synth: Save sound
@@ -372,7 +377,9 @@ void Shell::press(Button b, bool pressed) {
         }
         if (!ui.shift) {
             bool kit = context_.track().sampled(); // a kit's or a keygroup's sounds are files
-            context_.open(kit ? PageId::Samples : PageId::Sounds);
+            PageId list = kit ? PageId::Samples : PageId::Sounds;
+            if (ui.page == list) { context_.back(); break; } // its opener closes it (HUBS_PLAN T-a)
+            context_.open(list);
             if (kit && library_) library_->rescan();
         }
         break;

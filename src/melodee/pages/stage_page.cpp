@@ -531,6 +531,17 @@ void wave_picture(Paint& p, const Snapshot& s, const StagePage& page) {
         juce::String why = !pad.used() ? juce::String("EMPTY") : s.sample.error.empty() ? juce::String("LOADING") : juce::String(s.sample.error);
         p.text(why, px, wy + 42, pw, 18, p.fit(why, pad.used() && !s.sample.error.empty() ? plain(colour::amber, type::body, Weight::Medium)
                                                                                          : caps_text(colour::mid, type::body), pw, type::floor), juce::Justification::centred);
+        if (!pad.used()) { // where a sound comes from: the printed buttons, glyph and name
+            struct Way { Icon glyph; const char* name; };
+            Way ways[2] {{Icon::Folder, "SAMPLE SELECT"}, {Icon::Rec, "SAMPLE RECORD"}};
+            unsigned count = t.engine == EngineKind::Sampler ? 2 : 1; // a keygroup records nothing in
+            float col = pw / float(count), gy = wy + 74;
+            for (unsigned n = 0; n < count; ++n) {
+                float cx = px + col * (float(n) + 0.5f);
+                icon(p, ways[n].glyph, cx - 8, gy, 16, c, 1.4f);
+                p.text(ways[n].name, cx - col / 2, gy + 20, col, 14, caps_text(colour::sec), juce::Justification::centred);
+            }
+        }
         return;
     }
     // How it plays, as glyphs on the bottom row (lit when on): one shot or note on, loop (locked: the lock), reverse;

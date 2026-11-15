@@ -44,6 +44,11 @@ void draw(Paint& p, const Snapshot& s) {
     drive_chip.spare = true; // a long folder name keeps its room: B2 names the other drive
     h.left.push_back(drive_chip);
     h.left.push_back(pill(folder_title(s) + juce::String::fromUTF8(" \xc2\xb7 ") + juce::String(s.files.size()), c));
+    if (track.engine == EngineKind::Sampler) { // a kit: the pad Push loads onto, the last one hit
+        char label[8];
+        pad_label(track.last_pad % sampler_pads, label);
+        h.right.push_back(pill(Icon::ArrowRight, juce::String(label), c)); // an arrow: the rows' pad glyph marks files already on a pad
+    }
     h.right.push_back(tag_of(s, s.ui.track));
     juce::String other = drive == Drive::Card ? "INTERNAL" : "CARD";
     // The file under the cursor as it previews (mock 7): its row fills as it plays; B3 lit while there is sound.

@@ -8,9 +8,9 @@ namespace {
 // the back stack instead of growing it, so Back leaves the group.
 int page_group(PageId page) {
     switch (page) {
-    case PageId::Stage: case PageId::Tracks: case PageId::Keys: case PageId::Pads: return 1;
+    case PageId::Stage: case PageId::Keys: case PageId::Pads: return 1;
     case PageId::StepEdit: case PageId::Patterns: case PageId::Scenes: case PageId::Roll: case PageId::Motion: return 2;
-    case PageId::Rack: case PageId::Sends: case PageId::Bus: case PageId::Master: case PageId::PadFx: return 3;
+    case PageId::Tracks: case PageId::Rack: case PageId::Sends: case PageId::Bus: case PageId::Master: case PageId::PadFx: return 3;
     case PageId::Trim: case PageId::PadPage: case PageId::PlayPage: case PageId::EnvelopePage:
     case PageId::FilterPage: case PageId::FollowPage: case PageId::CloudPage:
     case PageId::PadMix: case PageId::PadFilterPage: case PageId::FilterEnvPage: case PageId::LayersPage: return 4;

@@ -119,7 +119,7 @@ and the dots under **FX** show where you are:
   slots.
 
 **SHIFT** + **KNOB FX** opens the track's chain from any page. Press it again
-for Sends, the bus, then the master.
+for the bus, the master and, on a kit, the pad's chain, as **B3** does.
 
 ![A track's effect chain](../images/screens/rack.png)
 

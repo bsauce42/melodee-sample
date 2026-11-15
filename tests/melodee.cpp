@@ -2227,6 +2227,15 @@ void button_remap() {
     // Opening a page already on the stack goes back to it instead of growing it.
     go(PageId::Sounds); go(PageId::Patterns); go(PageId::Sounds);
     CHECK(nav.back_depth == 1 && nav.back_stack[0] == PageId::Stage);
+    // Tracks is the mixer's: Tracks -> Stage, Back lands on Tracks; Tracks -> Sends -> Rack is one stop.
+    {
+        UiState m; m.page = PageId::Patterns;
+        auto to = [&](PageId page) { push_back_stack(m, page); m.page = page; };
+        to(PageId::Tracks); to(PageId::Stage);
+        CHECK(back_target(m) == PageId::Tracks);
+        to(PageId::Tracks); to(PageId::Sends); to(PageId::Rack);
+        CHECK(back_target(m) == PageId::Patterns);
+    }
     // Seq, the SEQUENCE hub (docs/HUBS_PLAN.md): a tap opens the hub's page last open on the track (Patterns until
     // another is), per track; inside the hub home, Patterns; Step Edit goes back to the page under it.
     {

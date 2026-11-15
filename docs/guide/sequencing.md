@@ -214,7 +214,7 @@ PLAY mode (step entry):
 
 - Play a pad or a chord. It is written at the caret. The caret moves on when
   you release the pads.
-- **B2** (**REST**) moves on without writing. **B3** (**ERASE**) goes back
+- **B2** (**REST**) moves on without writing. **B3** (**BACKSPACE**) goes back
   and removes that step.
 - The encoder moves the caret through every bar.
 - **K1** length, **K2** velocity (Played uses your velocity), **K3** chance

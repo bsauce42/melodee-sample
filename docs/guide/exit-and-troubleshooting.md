@@ -8,7 +8,7 @@ Press **POWER** briefly. The Exit screen opens.
 
 ![Exit](../images/screens/exitcard.png)
 
-- **B1** (**STAY**): go back to Melodee.
+- **B1** (**STAY**), or **POWER** again: go back to Melodee.
 - **B2** (**POWER OFF**): save the project and switch the MPC off.
 - **B3** (**MPC APP**): save the project and run the stock app until the
   next time the MPC is switched on.

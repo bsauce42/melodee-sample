@@ -42,10 +42,10 @@ void draw(Paint& p, const Snapshot& s) {
     h.left.push_back(pill("INPUT"));
     if (s.speaker_quieted) h.left.push_back(pill(Icon::SpeakerOff, "SPEAKER", colour::amber));
     h.right.push_back(tag_of(s, s.ui.track));
-    SoftKeys keys {{"", "MONITOR", "INPUT FX"}, -1, c}; // Shift + Sample again closes (T-a)
-    keys.toggles = 2 | 4;
-    keys.lit = uint8_t((in.monitor != Monitor::Off ? 2 : 0) | (in.fx ? 4 : 0));
-    keys.leds[1] = in.monitor == Monitor::Auto ? colour::amber : colour::play;
+    SoftKeys keys {{"MONITOR", "INPUT FX", ""}, -1, c}; // MONITOR on B1, as on Record; Shift + Sample again closes (T-a)
+    keys.toggles = 1 | 2;
+    keys.lit = uint8_t((in.monitor != Monitor::Off ? 1 : 0) | (in.fx ? 2 : 0));
+    keys.leds[0] = in.monitor == Monitor::Auto ? colour::amber : colour::play;
     frame(p, s, keys, h);
 
     // The sockets, the one chosen glowing; which sides of it (L + R, L, R) over its lead into the meter.
@@ -82,8 +82,8 @@ void draw(Paint& p, const Snapshot& s) {
 }
 
 void soft(Context& c, int key) {
-    if (key == 1) c.cycle_monitor();
-    if (key == 2) c.toggle_rec_fx();
+    if (key == 0) c.cycle_monitor();
+    if (key == 1) c.toggle_rec_fx();
 }
 } // namespace
 

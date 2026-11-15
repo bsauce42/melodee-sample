@@ -168,6 +168,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                 project_->samples[n].one_key_zones = one_key && zone_key_count(project_->samples[n]) >= 2;
             }
         ui_.files_count = uint16_t(std::min<size_t>(library_->files().size(), 0xffff));
+        if (ui_.files_cursor >= ui_.files_count) ui_.files_cursor = uint16_t(ui_.files_count ? ui_.files_count - 1 : 0); // a row deleted: the last one left
         if (ui_.page == PageId::Chop && !ui_.slices.count) context_.rechop();
     }
     context_.files_landed();  // Trim Sample, Extract, Save Sample, takes, Recall, Resample: done on the service thread
@@ -261,15 +262,15 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (real && !chop.unwritten) chop = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
         ++context_.samples_to_load;
     }
-    // Tap Tempo held half a second: the Tempo page.
-    if (tap_held && now - tap_down > 500 && ui_.page != PageId::Tempo) { tap_held = false; context_.open(PageId::Tempo); }
+    // Tap Tempo held half a second: the Tempo page; held on it, back to the page under it (its opener closes it).
+    if (tap_held && now - tap_down > 500) { tap_held = false; if (ui_.page == PageId::Tempo) context_.back(); else context_.open(PageId::Tempo); }
     context_.now = now;
     looper_tick(context_, now); // Loop held, a clear pad held, refusals, the metronome (shell/looper_jobs.cpp)
     unsigned presses = power.load(std::memory_order_relaxed);
-    if (presses != power_seen) { // a second press while it is open does nothing more
+    if (presses != power_seen) { // a second press while it is open closes it, as B1 STAY does
         power_seen = presses;
-        if (!ui_.exit_open) ui_.exit_pick = 0; // the wheel starts on STAY
-        ui_.exit_open = true;
+        if (ui_.exit_open) { ui_.exit_open = ui_.exit_off = ui_.exit_saved = false; leave_after_save = -1; off_after_save = false; }
+        else { ui_.exit_pick = 0; ui_.exit_open = true; } // the wheel starts on STAY
     }
 
     const auto& ui = ui_;

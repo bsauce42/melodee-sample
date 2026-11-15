@@ -187,7 +187,7 @@ void draw(Paint& p, const Snapshot& s) {
         h.left.push_back(pill("LANE " + juce::String((pattern.lane_length(unsigned(lane)) + q - 1) / q)));
     h.right.push_back(tag_of(s, s.ui.track));
     unsigned sets = lane >= 0 ? 4 : 3, set = s.ui.step_cards % sets;
-    SoftKeys keys {{card_names[set], "REST", "ERASE"}, -1, c}; // Shift + Seq (or Seq, or Push) closes (T-a)
+    SoftKeys keys {{card_names[set], "REST", "BACKSPACE"}, -1, c}; // Shift + Seq (or Seq, or Push) closes (T-a)
     keys.glyphs = {Icon::None, Icon::ArrowRight, Icon::Trash};
     keys.tints[0] = c; keys.tints[2] = colour::rec;
     keys.dots[0] = uint8_t(sets); keys.dot_at[0] = uint8_t(set);
