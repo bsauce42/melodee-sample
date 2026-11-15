@@ -57,6 +57,7 @@ For the complete control reference, see [MELODEE.md](MELODEE.md).
    - [Record](guide/audio-tracks.md#record)
    - [Edit the take](guide/audio-tracks.md#edit-the-take)
    - [Patterns and the Song](guide/audio-tracks.md#patterns-and-the-song)
+   - [Warp](guide/audio-tracks.md#warp)
    - [Files](guide/audio-tracks.md#files)
 9. [Sequencing](guide/sequencing.md)
    - [Patterns](guide/sequencing.md#patterns)

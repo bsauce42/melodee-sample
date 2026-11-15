@@ -66,6 +66,7 @@ the recording it plays. Turn the encoder for fine steps.
 | --- | --- | --- | --- |
 | **CLIP** | **LEVEL** (−60 to +12 dB) | **START** | **END** |
 | **FADES** (**B1** again) | **FADE IN** | **FADE OUT** | **REVERSE** |
+| **WARP** (**B1** a third time) | **WARP**: Off, Stretch or Repitch | **BPM** | **SEMI** (**SHIFT**: **FINE**) |
 
 **B3** opens **MIX**, **SENDS** and **FX**, as on other tracks.
 
@@ -78,8 +79,19 @@ the pattern starts.
 
 ![Takes on the Song](../images/screens/songaudio.png)
 
-A take plays at the speed it was recorded at. If you change the tempo, it
-no longer fits its bars.
+## Warp
+
+A take plays at the speed it was recorded at. To have it follow the tempo,
+turn **WARP** on (**B1** three times, **K1**), as with Warp on the MPC:
+
+- **Stretch** plays it faster or slower and keeps its pitch. **SEMI** and
+  **FINE** move its pitch without changing its length.
+- **Repitch** plays it faster or slower, and its pitch moves with it.
+
+**BPM** is the tempo the take was recorded at. Melodee sets it when you
+record; change it if the take was played to another tempo.
+
+![WARP](../images/screens/stageaudiowarp.png)
 
 ## Files
 
