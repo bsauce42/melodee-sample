@@ -31,6 +31,7 @@
 #include "melodee/shell/step_edit.h"
 #include "melodee/ui/tokens.h"
 #include "surface/led_colours.h"
+#include "melodee/shell/mpc_wav_slices.h"
 #include <algorithm>
 #include <cstdio>
 
@@ -256,6 +257,8 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         const auto& ref = project_->samples[context_.samples_to_load];
         bool real = ref.used() && ref.path[0] == '/';
         if (!library_->load(context_.samples_to_load, real ? ref.path : "")) break;
+        auto& chop = project_->chops[context_.samples_to_load];
+        if (real && !chop.unwritten) chop = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
         ++context_.samples_to_load;
     }
     // Tap Tempo held half a second: the Tempo page.

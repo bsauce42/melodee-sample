@@ -953,8 +953,10 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         if (!frames || n >= ui.slices.count) return {Binding {}, Binding {}, type};
         const auto& sl = ui.slices; // in frames; zoomed in, each pot turns across the view on screen
         uint32_t start = sl.start[n], end = sl.end(n, frames);
-        uint32_t start_lo = n ? sl.start[n - 1] + min_slice : 0, start_hi = end > min_slice ? end - min_slice : 0;
-        uint32_t end_hi = n + 1 < sl.count ? sl.end(n + 1, frames) - min_slice : frames;
+        // A neighbour touching the edge moves with it (keeping 20 ms); across a gap the edge stops at the neighbour.
+        uint32_t start_lo = !n ? 0 : sl.touches(n - 1, frames) ? sl.start[n - 1] + min_slice : sl.end(n - 1, frames);
+        uint32_t start_hi = end > min_slice ? end - min_slice : 0;
+        uint32_t end_hi = sl.touches(n, frames) ? sl.end(n + 1, frames) - min_slice : n + 1 < sl.count ? sl.start[n + 1] : frames;
         FrameView view = ui.chop_zoom ? chop_view(project, ui) : FrameView {};
         return {handle_card(Kind::ChopStart, int(n), start, start_lo, start_hi, view),
                 handle_card(Kind::ChopEnd, int(n), end, start + min_slice, end_hi, view), type};

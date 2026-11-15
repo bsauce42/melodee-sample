@@ -20,6 +20,34 @@ def wav(rate):
     return b"RIFF" + struct.pack("<I", len(body)) + body
 
 
+def sliced_wav(rate, frames, slices):
+    """A mono 16-bit WAV with the MPC's slices in it: the "atem" JSON and the "slic" chunk, as the stock app saves."""
+    fmt = struct.pack("<HHIIHH", 1, 1, rate, rate * 2, 2, 16)
+    def slice_info(start, end):
+        return {"Start": start, "End": end, "LoopStart": start, "LoopMode": 0, "PulsePosition": 0, "LoopCrossfadeLength": 0,
+                "LoopCrossfadeType": 0, "TailLength": 0.0, "TailLoopPosition": 0.5}
+    value = {"defaultSlice": slice_info(0, frames - 1), "numBars": 2, "Num slices": len(slices)}
+    for n, (start, end) in enumerate(slices):
+        value["Slice %d" % n] = slice_info(start, end)
+    atem = json.dumps({"version": 1, "value0": value, "value1": {"version": 1, "note": "F", "scale": "Natural Minor"}}, indent=4).encode()
+    slic = struct.pack("<HHH", 1, len(slices), 0) + b"".join(struct.pack("<IIIH", s, e, s, 0) for s, e in slices)
+    data = b"\0\0" * frames
+    def chunk(name, body):
+        return name + struct.pack("<I", len(body)) + body + (b"\0" if len(body) & 1 else b"")
+    body = b"WAVE" + chunk(b"fmt ", fmt) + chunk(b"atem", atem) + chunk(b"slic", slic) + chunk(b"data", data)
+    return b"RIFF" + struct.pack("<I", len(body)) + body
+
+
+def chunks(path):
+    """A WAV's chunks by name."""
+    raw, out, at = Path(path).read_bytes(), {}, 12
+    while at + 8 <= len(raw):
+        name, size = raw[at:at + 4].decode("latin1"), struct.unpack("<I", raw[at + 4:at + 8])[0]
+        out[name] = raw[at + 8:at + 8 + size]
+        at += 8 + size + (size & 1)
+    return out
+
+
 def envelope(one_shot=True):
     def v(x):
         return {"value0": x}
@@ -119,6 +147,20 @@ class MpcProject(unittest.TestCase):
         self.assertIn("track 1 name=Keys level=100 pan=0 mute=0 pattern=1 engine=9", out)
         self.assertIn("keygroup zones=2", out)
         self.assertIn("pattern 1 1 length=768 notes=2 first=0:64:127", out)
+
+    def test_wav_slices(self):
+        # A sample chopped on the MPC keeps its slices in the WAV: they open as the file's chop (Manual), each slice its
+        # own start and end, a gap between them kept; at 22.05 kHz their frames double at the model's 44.1 kHz.
+        with tempfile.TemporaryDirectory() as folder:
+            data = Path(folder) / "Chops_[ProjectData]"
+            data.mkdir()
+            (data / "Break.wav").write_bytes(sliced_wav(44100, 120000, [(29153, 74097), (74097, 95962)]))
+            (data / "Half.wav").write_bytes(sliced_wav(22050, 50000, [(1000, 20000), (30000, 49999)]))
+            path = write(folder, "Chops", project([instrument("Break.wav", 74097, 95962), instrument("Half.wav", 0, 50000)]))
+            result = self.run_tool(path)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("chop file=Break from=0 to=0 slices=2 29153-74097 74097-95962", result.stdout)
+        self.assertIn("chop file=Half from=0 to=0 slices=2 2000-40000 60000-0", result.stdout)
 
     def test_two_members(self):
         # The factory kits in /content/Projects/Kits: the header in one gzip member, the JSON in the next.

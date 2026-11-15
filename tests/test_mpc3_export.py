@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from test_mpc_project import BINARY, instrument, note, project, wav, write
+from test_mpc_project import BINARY, chunks, instrument, note, project, sliced_wav, wav, write
 
 
 def float_wav(path, rate, channels, frames):
@@ -42,6 +42,31 @@ class Mpc3Export(unittest.TestCase):
         result = self.run_tool("--mpc3-export", path, out, "Beat", *[c.replace("FOLDER", str(folder)) for c in changes])
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         return result.stdout, out
+
+    def test_wav_slices(self):
+        # A file's chop goes into the copied WAV as the MPC keeps slices ("atem" and "slic"), its key kept, and reads
+        # back as the same slices.
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "in"
+            data = source / "Song_[ProjectData]"
+            data.mkdir(parents=True)
+            (data / "Break.wav").write_bytes(sliced_wav(44100, 120000, [(29153, 74097), (74097, 95962)]))
+            path = write(source, "Song", project([instrument("Break.wav", 0, 120000)]))
+            out = Path(folder) / "out"
+            out.mkdir()
+            result = self.run_tool("--mpc3-export", path, out, "Beat")
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("chops=1", result.stdout)
+            written = chunks(out / "Beat_[ProjectData]" / "Break.wav")
+            atem = json.loads(written["atem"].rstrip(b"\0"))
+            self.assertEqual(atem["value0"]["Num slices"], 2)
+            self.assertEqual((atem["value0"]["Slice 1"]["Start"], atem["value0"]["Slice 1"]["End"]), (74097, 95962))
+            self.assertEqual(atem["value1"]["note"], "F")
+            self.assertEqual(struct.unpack("<HHH", written["slic"][:6]), (1, 2, 0))
+            self.assertEqual(struct.unpack("<IIIH", written["slic"][6:20]), (29153, 74097, 29153, 0))
+            self.assertEqual(len(written["data"]), 240000)
+            back = self.run_tool("--mpc-import", out / "Beat.xpj")
+        self.assertIn("chop file=Break from=0 to=0 slices=2 29153-74097 74097-95962", back.stdout)
 
     def test_document(self):
         with tempfile.TemporaryDirectory() as folder:

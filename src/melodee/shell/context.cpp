@@ -31,6 +31,7 @@
 #include "melodee/shell/looper_jobs.h"
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/pad_colour.h"
+#include "melodee/shell/mpc_wav_slices.h"
 #include <filesystem>
 #include <chrono>
 #include <cstdio>
@@ -66,7 +67,7 @@ void Context::save_project_to(const std::string& path) {
     auto name = std::filesystem::path(path).stem().string();
     std::snprintf(project.name, sizeof(project.name), "%s", name.c_str());
     save_loop_files(*this, path); // the loops' lengths into the project, their audio beside it (docs/LOOPER.md)
-    keep_chop();                  // Chop's slices with it (roadmap P3)
+    keep_chop();                  // Chop's slices into their WAV files (and older projects' chops)
     free_unused_samples();        // and no slot nothing uses (roadmap P3)
     PluginStates states;
     if (plugins) states = plugins->states(); // each plug-in's state as it is now, beside the project
@@ -1538,7 +1539,7 @@ int Context::sample_slot(const std::string& path, const std::string& name) {
     }
     if (free < 0 || !library) return -1;
     auto& ref = project.samples[size_t(free)];
-    project.chops[size_t(free)] = SampleChop {}; // a chop of what the slot held before is not this file's
+    project.chops[size_t(free)] = read_mpc_slices(path); // the file's own slices (an MPC's), not the slot's last file's
     std::strncpy(ref.path, path.c_str(), sizeof(ref.path) - 1);
     std::strncpy(ref.name, name.c_str(), sizeof(ref.name) - 1);
     ref.frames = 0; // known once loaded
@@ -1585,11 +1586,13 @@ void Context::chop_to_pads() {
     auto& t = track();
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (!frames) return;
-    // The pad chopped (the last pad, else the first holding the region): each slice takes its values.
+    // The pad chopped (the last pad, a region of the sample inside the chop's or the region itself; else the first
+    // holding the region): each slice takes its values.
     auto chopped = [&](const PadSound& p) { return p.sample == ui.chop_sample && p.start == ui.chop_from && p.end == ui.chop_to; };
     PadSound parent;
     parent.sample = ui.chop_sample;
-    if (chopped(t.pads[t.last_pad % sampler_pads])) parent = t.pads[t.last_pad % sampler_pads];
+    const auto& last = t.pads[t.last_pad % sampler_pads];
+    if (last.used() && last.sample == ui.chop_sample) parent = last;
     else for (const auto& p : t.pads) if (chopped(p)) { parent = p; break; }
     unsigned pad = 0;
     for (unsigned n = 0; n < ui.slices.count; ++n) {

@@ -9,6 +9,8 @@
 #include "melodee/shell/context.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
+#include "melodee/shell/mpc_wav_slices.h"
+#include <thread>
 
 namespace melodee {
 
@@ -35,7 +37,7 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         ui.chop_take_at = 0; // it has played out: the pads play slices again
     }
     if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) {
-        sl.count = 1; // the take starts from one slice, the whole region
+        if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // the take starts from one slice, the whole region
         ui.chop_slice = 0; ui.chop_armed = false;
         ui.chop_take_at = now ? now : 1;
         audition(sl.start[0], sl.end(0, frames));
@@ -47,26 +49,49 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
     audition(sl.start[pad], sl.end(pad, frames));
 }
 
-// Roadmap P3: the slices kept with the project, a sample's chop of one region each (the last region chopped).
+// The slices Chop holds as its sample's chop, written into the sample's WAV file when they changed (as the MPC
+// keeps them): before the region changes, and at a save.
 void Context::keep_chop() {
-    if (ui.chop_sample >= sample_slots || !ui.slices.count) return;
-    auto& kept = project.chops[ui.chop_sample];
-    SampleChop now;
-    now.from = ui.chop_from; now.to = ui.chop_to; now.mode = ui.chop_mode;
-    now.amount = int16_t(ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()]);
-    now.slices = ui.slices;
-    if (kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount && kept.slices.count == now.slices.count
-        && kept.slices.last == now.slices.last && kept.slices.start == now.slices.start)
-        return;
-    kept = now;
-    dirty = true;
+    if (ui.chop_sample < sample_slots && ui.slices.count) {
+        auto& kept = project.chops[ui.chop_sample];
+        SampleChop now;
+        now.from = ui.chop_from; now.to = ui.chop_to; now.mode = ui.chop_mode;
+        now.amount = int16_t(ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()]);
+        now.slices = ui.slices;
+        if (!(kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount && kept.slices.same(now.slices))) {
+            now.unwritten = true;
+            kept = now;
+        }
+    }
+    write_chops();
 }
 
+// Every chop not yet in its WAV file written there, on a thread of its own (a file is copied whole). A file that
+// cannot be written (not a WAV, read-only) keeps its chop while the project is open.
+void Context::write_chops() {
+    std::vector<std::pair<std::string, SampleChop>> due;
+    for (unsigned n = 0; n < sample_slots; ++n) {
+        auto& c = project.chops[n];
+        const auto& ref = project.samples[n];
+        if (!c.unwritten || !ref.used() || ref.instrument() || ref.path[0] != '/') continue;
+        c.unwritten = false;
+        due.emplace_back(ref.path, c);
+    }
+    if (due.empty()) return;
+    std::thread([due = std::move(due)] { for (const auto& [path, chop] : due) write_mpc_slices(path, chop); }).detach();
+}
+
+// The sample's chop, as the MPC shows a sample's slices: whatever region the pad plays, Chop opens the slices the
+// sample has (the region they span, the pad's slice selected). False: it has none.
 bool Context::restore_chop() {
     if (ui.chop_sample >= sample_slots) return false;
     const auto& kept = project.chops[ui.chop_sample];
-    if (!kept.used() || kept.from != ui.chop_from || kept.to != ui.chop_to) return false;
+    if (!kept.used()) return false;
+    const uint32_t frames = project.samples[ui.chop_sample].frames, pad_from = ui.chop_from;
+    ui.chop_from = kept.from; ui.chop_to = kept.to;
     ui.slices = kept.slices;
+    for (unsigned n = 0; n < ui.slices.count; ++n) // the slice the pad plays, selected
+        if (ui.slices.start[n] <= pad_from && pad_from < ui.slices.end(n, frames ? frames : UINT32_MAX)) ui.chop_slice = uint8_t(n);
     ui.chop_mode = kept.mode;
     ui.chop_amount[size_t(kept.mode) % ui.chop_amount.size()] = kept.amount;
     ui.chop_armed = false;

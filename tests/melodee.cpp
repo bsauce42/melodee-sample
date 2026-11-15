@@ -3301,6 +3301,25 @@ void chop_and_browser() {
     m.remove(3); // the last: the slice before now ends where it did
     CHECK(m.count == 3 && m.end(2, frames) == 48000);
     CHECK(!m.add(28100, frames)); // too close to a cut
+    // Slices with a gap between them (as an MPC file keeps them): edges across the gap move alone and stop at the
+    // neighbour, a cut in the gap is refused, and Merge takes the gap into the slice before.
+    Slices gap;
+    gap.whole(1000, 20000); gap.add(10000, frames);
+    gap.stop[0] = 8000;
+    CHECK(gap.end(0, frames) == 8000 && gap.start[1] == 10000 && !gap.touches(0, frames));
+    CHECK(!gap.add(9000, frames));
+    gap.move_end(0, 15000, frames); // up to the next slice, no further
+    CHECK(gap.end(0, frames) == 10000 && gap.touches(0, frames));
+    gap.move_end(0, 8000, frames); // touching: the next slice's start comes too
+    CHECK(gap.start[1] == 8000);
+    gap.stop[0] = 6000; gap.move_start(1, 7000, frames); // a gap again: the next slice's start moves alone
+    CHECK(gap.start[1] == 7000 && gap.end(0, frames) == 6000);
+    gap.move_start(1, 5000, frames); // and stops where the slice before ends; touching from then on
+    CHECK(gap.start[1] == 6000 && gap.touches(0, frames));
+    gap.move_start(1, 9000, frames);
+    CHECK(gap.start[1] == 9000 && gap.end(0, frames) == 9000);
+    gap.remove(1);
+    CHECK(gap.count == 1 && gap.start[0] == 1000 && gap.end(0, frames) == 20000);
     Slices tiny = chop(ChopMode::Manual, 0, 0, 1500, frames, hits, found, 1200);
     CHECK(!tiny.split(0, frames));
     // A tap a little after a hit lands on it; one far from any stays put.
@@ -9275,12 +9294,12 @@ void voice_heads() {
 // whole region while it is heard, and no slice.
 void chop_heads() {
     Slices sl;
-    sl.count = 3; sl.start[0] = 1000; sl.start[1] = 5000; sl.start[2] = 9000; sl.last = 12000;
+    sl.whole(1000, 12000); sl.add(5000, 20000); sl.add(9000, 20000);
     PlayHead h;
     h.serial = 3; h.pad = 128; h.slot = 4; h.from = 5000; h.to = 9000; h.at = 6000; h.step = 1; h.level = 0.8f; h.wake = 1;
     CHECK(chop_sound(&h, sl, 20000, false).slice == 1 && !chop_sound(&h, sl, 20000, false).take);
     CHECK(chop_sound(nullptr, sl, 20000, false).slice == -1 && chop_sound(&h, Slices {}, 20000, false).slice == -1);
-    h.from = 9000; h.to = 12000; // the last slice, up to `last`
+    h.from = 9000; h.to = 12000; // the last slice, up to its own end
     CHECK(chop_sound(&h, sl, 20000, false).slice == 2);
     h.from = 4000; h.to = 9000;  // a slice moved under it: none
     CHECK(chop_sound(&h, sl, 20000, false).slice == -1);
@@ -9291,7 +9310,7 @@ void chop_heads() {
     h.level = 0;                 // played out: no take, and no slice for it either
     take = chop_sound(&h, sl, 20000, true);
     CHECK(!take.take && take.slice == -1);
-    sl.count = 1; h.level = 0.8f; // one slice, the whole region: the take while armed, else that slice
+    sl.whole(1000, 12000); h.level = 0.8f; // one slice, the whole region: the take while armed, else that slice
     CHECK(chop_sound(&h, sl, 12000, true).take && chop_sound(&h, sl, 12000, false).slice == 0);
 }
 
@@ -12225,27 +12244,38 @@ void instrument_formats_p3() {
 
 // Roadmap P3: Chop's slices kept with the project (CHOP; older files: none, a damaged one dropped).
 void chop_kept() {
+    // A sample's chop is kept in its WAV file (shell/mpc_wav_slices.h), not in the project: a save leaves it out.
     auto project = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
     std::snprintf(project->samples[7].path, sizeof(project->samples[7].path), "break.wav");
     auto& c = project->chops[7];
     c.from = 1000; c.to = 90000; c.mode = ChopMode::Manual; c.amount = 0;
-    c.slices.count = 3; c.slices.start = {}; c.slices.start[0] = 1000; c.slices.start[1] = 20000; c.slices.start[2] = 51000; c.slices.last = 90000;
-    project->chops[9] = c; // a chop of a slot holding nothing is not kept
+    c.slices.whole(1000, 90000); c.slices.add(20000, 100000); c.slices.add(51000, 100000);
     auto file = save_project(*project, *bank);
     auto back = std::make_unique<Project>();
     auto back_bank = std::make_unique<PatternBank>();
-    CHECK(load_project(file, *back, *back_bank).empty());
-    const auto& k = back->chops[7];
-    CHECK(k.used() && k.from == 1000 && k.to == 90000 && k.mode == ChopMode::Manual && k.slices.count == 3 && k.slices.start[2] == 51000);
-    CHECK(k.slices.last == 90000 && k.slices.end(2, 100000) == 90000 && !back->chops[9].used());
-    std::string text(file.begin(), file.end());
-    auto damaged = file;
-    size_t at = text.find("CHOP") + 8 + 1 + 4 + 4 + 1 + 2 + 1 + 4; // to its first start
-    damaged[at + 4] = 0xff; damaged[at + 5] = 0xff; damaged[at + 6] = 0xff; damaged[at + 7] = 0x7f; // the second start before the first
-    CHECK(load_project(damaged, *back, *back_bank).empty() && !back->chops[7].used());
-    file[text.find("CHOP")] = 'X';
     CHECK(load_project(file, *back, *back_bank).empty() && !back->chops[7].used());
+    std::string text(file.begin(), file.end());
+    CHECK(text.find("CHOP") == std::string::npos && text.find("CHP2") == std::string::npos);
+    // A project from before: its CHOP (the starts and where the last slice ends, every slice touching the next)
+    // read, to be written into the WAV at the next save.
+    auto old_chop = [&](uint32_t second) {
+        std::vector<uint8_t> section {'C', 'H', 'O', 'P', 0, 0, 0, 0, 7};
+        auto u32 = [&](uint32_t v) { for (int b = 0; b < 4; ++b) section.push_back(uint8_t(v >> (8 * b))); };
+        u32(1000); u32(90000); section.push_back(uint8_t(ChopMode::Manual)); section.push_back(0); section.push_back(0);
+        section.push_back(3); u32(90000); u32(1000); u32(second); u32(51000);
+        uint32_t size = uint32_t(section.size() - 8);
+        for (int b = 0; b < 4; ++b) section[size_t(4 + b)] = uint8_t(size >> (8 * b));
+        auto old = file;
+        size_t at = text.find("SMPL");
+        old.insert(old.begin() + long(at), section.begin(), section.end());
+        return old;
+    };
+    CHECK(load_project(old_chop(20000), *back, *back_bank).empty());
+    const auto& o = back->chops[7];
+    CHECK(o.used() && o.unwritten && o.slices.count == 3 && o.slices.end(0, 100000) == 20000 && o.slices.end(1, 100000) == 51000
+          && o.slices.end(2, 100000) == 90000);
+    CHECK(load_project(old_chop(500), *back, *back_bank).empty() && !back->chops[7].used()); // the second start before the first
 }
 
 // Roadmap P3: the slots in use as a save frees the rest: pads and their layers, and whatever an undo or redo holds.

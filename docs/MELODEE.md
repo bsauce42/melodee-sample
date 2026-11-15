@@ -1348,10 +1348,20 @@ the file holds, to the bit.
   the strongest hit. Shift + B1 Extract (`Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
   takes a slice out. B3 TO PADS lays the slices on pads, B1 CANCEL drops
-  the chop. The slices are kept with the project (roadmap P3, the file's
-  `CHOP`): each sample keeps the chop of the region last chopped, its type,
-  amount and slices, so Chop on that region again, after a save and a load
-  too, finds them as they were left rather than cut afresh. The slices are bands, every other one a shade darker, the one
+  the chop. As on the MPC, slices belong to the sample and live in its WAV
+  file (the `atem` and `slic` chunks, `shell/mpc_wav_slices.cpp`): read
+  when the sample loads (a project opened or imported, a file from
+  Samples), written back on a worker thread when Chop changes them
+  (`Context::keep_chop`: before Chop's region changes, and at a save). The
+  project file keeps none; an older project's `CHOP` is read and written
+  into its WAV at the next save. Chop on any pad of a sample with slices
+  opens them (their region, the pad's slice selected); TO PADS takes the
+  last pad's values. Each slice has its own start and end, as the MPC 3
+  keeps them (`model/chop_slices.h`): slices cut here touch, slices from an
+  MPC file may leave gaps; K1 / K2 move a shared edge on both slices and an
+  edge across a gap alone. The type and amount last used stay while the
+  project is open (a file's slices open as Manual). MPC 3 export writes
+  each chop into the copied WAV too. The slices are bands, every other one a shade darker, the one
   in hand lit with the pad it lands on as a chip over it and its length at
   the bottom right; the header counts them (scissors).
   The slice a pad plays lights faintly in the track colour with a head

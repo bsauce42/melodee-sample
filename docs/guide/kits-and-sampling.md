@@ -233,8 +233,19 @@ sample with no steady beat uses the project's tempo.
 sample. Tap other pads while it plays to cut there.
 
 Slices put on pads keep the chopped pad's tune, Warp, mute group and other
-settings. Press **CHOP** again to return to **TRIM**. Melodee keeps each
-sample's slices with the project.
+settings. Press **CHOP** again to return to **TRIM**.
+
+As on the MPC, slices belong to the sample and are stored in its WAV file.
+Slices made on an MPC load with the file, from an MPC project or from
+**Samples**. When you change the slices, Melodee writes them back into the
+WAV file, so the MPC and other projects using the file see the same slices.
+**CHOP** on any pad of a chopped sample shows its slices, with the pad's
+slice selected.
+
+Each slice has its own start and end, so gaps between slices stay.
+**K1** or **K2** moves an edge alone across a gap, and moves both slices
+where two slices touch. A sample that is not a WAV file keeps its slices
+only while the project is open.
 
 ## Record a sample
 

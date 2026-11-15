@@ -90,7 +90,7 @@ void chop_button(Context& c) {
     if (c.refuse_instrument("Chop")) return;
     const auto& pad = c.pad();
     if (ui.chop_sample != pad.sample || ui.chop_from != pad.start || ui.chop_to != pad.end) {
-        c.keep_chop(); // roadmap P3: the region left keeps its slices in the project
+        c.keep_chop(); // the slices left into their sample's WAV file, if they changed
         ui.chop_sample = pad.sample; ui.chop_from = pad.start; ui.chop_to = pad.end;
         ui.chop_slice = 0; ui.chop_zoom = 0; ui.chop_fine = false; ui.chop_view = {};
         if (!c.restore_chop()) c.rechop(); // as it was left, else cut afresh

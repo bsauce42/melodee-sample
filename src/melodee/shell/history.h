@@ -120,7 +120,7 @@ struct ChopState {
     uint16_t sample = 0;
     uint32_t from = 0, to = 0;
     bool operator==(const ChopState& o) const {
-        return slices.start == o.slices.start && slices.count == o.slices.count && slices.last == o.slices.last && mode == o.mode
+        return slices.same(o.slices) && mode == o.mode
             && slice == o.slice && amount == o.amount && sample == o.sample && from == o.from && to == o.to;
     }
 };

@@ -2616,6 +2616,13 @@ static int mpc_import(const char* path) {
     std::printf("name=%s tracks=%u sequences=%u pads=%u notes=%u over_limit=%u missing=%u tempo=%u seq_tempo=%d signature=%u/%u ms=%lld\n", project->name, report.tracks,
                 report.sequences, report.pads, report.notes, report.over_limit, report.missing, project->tempo, project->seq_tempo,
                 project->time_signature().beats, project->time_signature().unit, (long long)ms);
+    for (unsigned n = 0; n < sample_slots; ++n) { // each file's chop, from its WAV
+        const auto& c = project->chops[n];
+        if (!c.used()) continue;
+        std::printf("chop file=%s from=%u to=%u slices=%u", project->samples[n].name, c.from, c.to, c.slices.count);
+        for (unsigned k = 0; k < c.slices.count; ++k) std::printf(" %u-%u", c.slices.start[k], c.slices.stop[k]);
+        std::printf("\n");
+    }
     for (unsigned t = 0; t < track_count; ++t) {
         const auto& track = project->tracks[t];
         if (!track.used()) continue;
@@ -2782,10 +2789,10 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
     error = export_mpc3_project(*project, *patterns, folder, name, report, prints.get(), prints_dir);
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - began).count();
     if (!error.empty()) { std::printf("error=%s\n", error.c_str()); return 1; }
-    std::printf("exported tracks=%u keygroups=%u audio=%u regions=%u midi=%u sequences=%u song=%u%s%s%s pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld\n",
+    std::printf("exported tracks=%u keygroups=%u audio=%u regions=%u midi=%u sequences=%u song=%u%s%s%s pads=%u notes=%u samples=%u skipped_tracks=%u skipped_pads=%u missing=%u ms=%lld chops=%u\n",
                 report.tracks, report.keygroups, report.audio, report.regions, report.midi, report.sequences, report.song_bars,
                 report.song_left_out ? " song_left_out" : "", report.song_full ? " song_full" : "", report.song_tempo_left_out ? " song_tempo_left_out" : "", report.pads, report.notes, report.samples, report.skipped_tracks, report.skipped_pads,
-                report.missing, (long long)ms);
+                report.missing, (long long)ms, report.chops);
     return 0;
 }
 
