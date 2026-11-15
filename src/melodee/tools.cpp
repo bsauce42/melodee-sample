@@ -1063,6 +1063,31 @@ const Preview previews[] {
          job.times_real = 5.8f; job.seconds_left = 9;
          for (unsigned n : {0u, 1u, 2u}) job.done[0] |= uint64_t(1) << n;
      }},
+    // The AUTO SAMPLE sheet on track 3 (a plug-in): its KEYS row, its SOUND row, and sampling (C2-C4 done, D#4 playing).
+    {"autosample", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2;
+         s.ui.auto_sheet.settings.layers = 2;
+     }},
+    {"autosamplesound", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 2; s.ui.auto_sheet.settings.loop = true;
+     }},
+    {"autosampling", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         auto& sheet = s.ui.auto_sheet;
+         sheet = UiState::AutoSheet {};
+         sheet.track = 2; sheet.sampling = true; sheet.settings.layers = 2;
+         auto& job = s.print;
+         job.busy = true; job.autosample = true; job.track = 2; job.count = 42; job.through = 17; job.pattern = 63; job.fraction = 0.4f;
+         job.times_real = 4.1f; job.seconds_left = 21;
+         for (unsigned k = 36; k <= 60; k += 3) job.done[0] |= uint64_t(1) << k;
+     }},
     {"printmidi", [](Shell&, Snapshot& s) {
          stage_midi(s, 0, 0);
          for (unsigned n : {0u, 1u, 2u, 3u}) { s.sketches[11][n].notes = true; s.sketches[11][n].length = 64 * sixteenth_ticks; }

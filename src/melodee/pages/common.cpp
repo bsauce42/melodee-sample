@@ -235,6 +235,15 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         c.value = names[unsigned(b.value) % unsigned(FollowAction::Count)];
         break;
     }
+    case Kind::AutoLow: c.label = "LOW"; c.value = juce::String(note_name(b.value)); break; // the AUTO SAMPLE sheet
+    case Kind::AutoHigh: c.label = "HIGH"; c.value = juce::String(note_name(b.value)); break;
+    case Kind::AutoStep: c.label = "STEP"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "semitone" : "semitones"; break;
+    case Kind::AutoLayers: c.label = "LAYERS"; c.value = juce::String(b.value); c.unit = "velocity"; break;
+    case Kind::AutoHold: c.label = "HOLD"; c.value = juce::String(b.value / 10.0, 1); c.unit = "s"; break;
+    case Kind::AutoTail: c.label = "TAIL"; c.value = b.value ? juce::String(b.value / 10.0, 1) : juce::String("Off"); c.unit = b.value ? "s" : ""; break;
+    case Kind::AutoTap: c.label = "TAP"; c.value = b.value ? "Post FX" : "Pre FX"; break;
+    case Kind::AutoLoop: c.label = "LOOP"; c.value = b.value ? "On" : "Off"; break;
+    case Kind::AutoLevel: c.label = "LEVEL"; c.value = b.value ? juce::String::fromUTF8("\xe2\x88\x92" "1") : juce::String("Played"); c.unit = b.value ? "dB peak" : ""; break;
     case Kind::PrintTapPick: c.label = "TAP"; c.value = b.value ? "Pre FX" : "Post FX"; break; // freeze plan F2c, the PRINT sheet
     case Kind::PrintTailPick: c.label = "TAIL"; c.value = b.value == 2 ? "Cut" : b.value == 1 ? "Ring" : "Loop"; break;
     case Kind::FollowAfter: c.label = "AFTER"; c.value = juce::String(b.value % 64 + 1); c.unit = b.value >= 64 ? (b.value == 64 ? "play" : "plays") : (b.value == 0 ? "bar" : "bars"); break;

@@ -30,6 +30,7 @@
 #include "melodee/shell/light_show.h"
 #include "melodee/shell/xpm_write.h"
 #include "melodee/shell/auto_sample.h"
+#include "melodee/engine/loop_find.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/print_player.h"
 #include "melodee/engine/print_render.h"
@@ -7181,19 +7182,25 @@ void xpm_writer() {
     program.release = 0.4;
     XpmKeygroup low;
     low.low = 0; low.high = 37;
-    low.layers = {{"Pad-C2-V63", 36, 1, 63, 48000}, {"Pad-C2-V127", 36, 64, 127, 50000}};
+    low.layers = {{"Pad-C2-V63", 36, 0, 63, 48000}, {"Pad-C2-V127", 36, 64, 127, 50000}};
+    low.layers[1].loop_start = 20000; low.layers[1].loop_end = 40000;
     XpmKeygroup high;
     high.low = 38; high.high = 127;
-    high.layers = {{"Pad-Eb2-V127", 39, 1, 127, 44100}};
+    high.layers = {{"Pad-Eb2-V127", 39, 0, 127, 44100}};
     program.keygroups = {low, high};
     const std::string text = xpm_text(program);
-    CHECK(text.find("<ProgramName>Pad &amp; &lt;Lead&gt;</ProgramName>") != std::string::npos);
     auto has = [&](const char* part) { return text.find(part) != std::string::npos; };
+    auto count = [&](const char* part) { size_t n = 0; for (size_t at = text.find(part); at != std::string::npos; at = text.find(part, at + 1)) ++n; return n; };
+    CHECK(has("<ProgramName>Pad &amp; &lt;Lead&gt;</ProgramName>"));
     CHECK(has("<Program type=\"Keygroup\">") && has("<KeygroupNumKeygroups>2</KeygroupNumKeygroups>"));
+    CHECK(count("<Instrument number=") == 128 && count("<Layer number=") == 512 && count("<PadNote number=") == 128); // as the MPC writes them
+    CHECK(has("&quot;ProgramPads-v2.10&quot;") && has("<AudioRoute>2</AudioRoute>"));
     CHECK(has("<LowNote>0</LowNote>") && has("<HighNote>37</HighNote>") && has("<LowNote>38</LowNote>") && has("<HighNote>127</HighNote>"));
     CHECK(has("<RootNote>37</RootNote>") && has("<RootNote>40</RootNote>")); // one past the MIDI note
     CHECK(has("<SampleName>Pad-C2-V63</SampleName>") && has("<VelEnd>63</VelEnd>") && has("<VelStart>64</VelStart>"));
-    CHECK(has("<SliceEnd>50000</SliceEnd>") && has("<TriggerMode>2</TriggerMode>"));
+    CHECK(has("<SliceEnd>47999</SliceEnd>") && has("<SliceEnd>44099</SliceEnd>") && has("<TriggerMode>2</TriggerMode>")); // the last frame
+    CHECK(has("<SliceLoop>1</SliceLoop>") && has("<SliceLoopStart>20000</SliceLoopStart>") && has("<SliceEnd>40000</SliceEnd>")); // the loop
+    CHECK(has("<VelocitySensitivity>0.000000</VelocitySensitivity>")); // layered
     char release[64];
     std::snprintf(release, sizeof(release), "<VolumeRelease>%.6f</VolumeRelease>", xpm_envelope_value(0.4));
     CHECK(has(release));
@@ -7205,6 +7212,24 @@ void xpm_writer() {
     CHECK(set.velocity(0) == 42 && set.velocity(1) == 84 && set.velocity(2) == 127);
     set.layers = 1;
     CHECK(set.velocity(0) == 127);
+}
+
+// The auto sampler's loops (engine/loop_find.h): on a steady tone, a start and end a whole number of periods apart and
+// a seamless join; none on silence or a short hold.
+void loop_finder() {
+    const float rate = 48000;
+    const double hz = 220;
+    std::vector<float> l(size_t(rate * 2)), r(size_t(rate * 2));
+    for (size_t f = 0; f < l.size(); ++f) l[f] = r[f] = float(0.5 * std::sin(2 * M_PI * hz * double(f) / rate + 0.3));
+    auto loop = find_loop(l, r, uint64_t(rate * 1.5), rate);
+    CHECK(loop.found() && loop.match > 0.99f);
+    CHECK(loop.end <= uint32_t(rate * 1.5) && loop.end - loop.start >= uint32_t(0.1f * rate) && loop.start >= uint32_t(rate * 1.5 / 4));
+    const double periods = double(loop.end - loop.start) * hz / rate;
+    CHECK(std::fabs(periods - std::round(periods)) < 0.05);
+    CHECK(std::fabs(l[loop.end - 1] - l[loop.start - 1]) < 0.02f); // the frame before the jump meets the one before the start
+    std::vector<float> quiet(size_t(rate), 0.0f), quiet2 = quiet;
+    CHECK(!find_loop(quiet, quiet2, uint64_t(rate), rate).found());
+    CHECK(!find_loop(l, r, uint64_t(0.2f * rate), rate).found());
 }
 
 void keygroup_reader() {
@@ -14697,6 +14722,7 @@ int main() {
     sfz_reader();
     keygroup_reader();
     xpm_writer();
+    loop_finder();
     exs_reader();
     kit_levels_octave();
     drum_program_pads();

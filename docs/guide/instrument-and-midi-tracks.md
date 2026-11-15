@@ -85,6 +85,43 @@ keyboard's pitch wheel and sustain pedal play it too.
 In an MPC 3 export a keygroup track is an MPC keygroup track, and an MPC 3
 project's keygroup tracks open as keygroup tracks.
 
+### Auto sample a plug-in
+
+Auto sample plays a plug-in track one key at a time and records each note.
+The result is an MPC keygroup program on a new keygroup track, which takes
+almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
+
+1. Select the plug-in track and set the sound you want.
+2. Press **SAMPLE RECORD** (the PRINT sheet), then **SAMPLE RECORD** again.
+3. Set the cards. **B2** (or the encoder) shows the next row.
+4. Press **B3 SAMPLE** (or push the encoder).
+
+| Row | K1 | K2 | K3 |
+| --- | --- | --- | --- |
+| **KEYS** | **LOW**: lowest note | **HIGH**: highest note | **STEP**: semitones between notes |
+| **NOTE** | **LAYERS**: velocity layers, 1–4 | **HOLD**: how long each key is held | **TAIL**: longest release kept |
+| **SOUND** | **TAP**: Pre FX or Post FX | **LOOP**: loop held notes | **LEVEL**: as played, or loudest at −1 dB |
+
+![The AUTO SAMPLE sheet](../images/screens/autosample.png)
+
+The pads play the plug-in so you can try the sound first; **−** / **+** move
+their octave. While it samples, the marks over the keys light as each note is
+done. **B1 CANCEL** stops it and deletes what was made.
+
+When it is done, the program is in **Samples/Keygroups/<name>/** and the first
+empty track becomes a keygroup track with the plug-in track's patterns, Song
+clips, mix and pitch bend. With **TAP** at Pre FX it also gets the plug-in
+track's effects (not plug-in effects); at Post FX the effects are in the
+samples. The plug-in track stays as it was. **SHIFT** + **−** undoes the new
+track; the files stay on the card.
+
+- Each key covers the notes halfway to the next sampled key.
+- **LOOP** finds a loop in the held part of each note and crossfades it, so
+  pads and organs sustain. Sounds that change all the time may not loop.
+- **LEVEL** at −1 dB raises every sample by the same amount, so velocity
+  layers keep their balance.
+- A key where the plug-in makes no sound is left out.
+
 ## Keys
 
 Hold **SAMPLE** on an instrument track to see **Keys**. The 16 pads fill the

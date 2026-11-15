@@ -21,7 +21,7 @@ Previous: [Exit and troubleshooting](exit-and-troubleshooting.md) · [Contents](
 | **TAP TEMPO** | Tap tempo. Hold: Tempo page. | Metronome Off, On, Rec |
 | Encoder push | Open, or next card | Back |
 | **−** / **+** | Octave, bank, or list | Undo / redo |
-| **SAMPLE RECORD** | On a kit: record onto a pad. On a plug-in or MIDI track: the PRINT sheet. With **SEQ** held: freeze patterns. | Audio Recall |
+| **SAMPLE RECORD** | On a kit: record onto a pad. On a plug-in or MIDI track: the PRINT sheet; again on a plug-in track: AUTO SAMPLE. With **SEQ** held: freeze patterns. | Audio Recall |
 | **SEQ RECORD** | Arm or stop recording | Recall |
 | **STOP** | Stop | All notes off |
 | **PLAY** | Play from the start (on Song, from the cursor). Held while playing: Fill. | Continue |

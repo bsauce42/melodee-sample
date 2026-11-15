@@ -102,6 +102,10 @@ struct Binding {
         SongTempo, SongTempoShape,
         PitchBend, // a PLUGIN track's pitch bend (the fader's Pitch Bend), -64..63 around the centre
         PatternProgram, // a MIDI track's PROGRAM K3: the program its pattern in hand sends as it starts (0: the track's)
+        // The AUTO SAMPLE sheet's rows: KEYS (lowest and highest root, MIDI notes; semitones between roots), NOTE
+        // (velocity layers 1-4; hold and tail in tenths of a second), SOUND (0 Pre FX, 1 Post FX; loop off or on;
+        // 0 the level as played, 1 normalized to -1 dB).
+        AutoLow, AutoHigh, AutoStep, AutoLayers, AutoHold, AutoTail, AutoTap, AutoLoop, AutoLevel,
         PrintTapPick, PrintTailPick, // freeze plan F2c, the PRINT sheet: K1 where prints are taken (PrintTap), K2 how they end (PrintTail)
         PadSend,  // Stage's SENDS on a kit, K2: the last pad's own send into bus id (PadSound::sends)
         PadColour, // Stage's COLOUR on a kit, K1: the last pad's colour, a place on shell/pad_colour.h's list

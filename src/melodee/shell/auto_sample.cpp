@@ -8,6 +8,7 @@
 #include "melodee/shell/print_engine.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/track_copy.h"
+#include <algorithm>
 #include <cstring>
 #include <filesystem>
 
@@ -47,6 +48,7 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings) {
     if (tr.engine != EngineKind::Plugin) { notice("Auto sample: plug-in tracks"); printer->note("autosample: track " + std::to_string(t + 1) + " is not a plug-in track"); return; }
     if (deep(t)) { notice("Track " + std::to_string(t + 1) + " is deep frozen"); return; }
     if (printer->busy()) { notice("A print is under way"); printer->note("busy: a print is under way"); return; }
+    if (settings.low > settings.high) { notice("LOW is above HIGH"); return; }
     const std::string root = library ? library->root() : std::string();
     if (root.empty()) { notice("No card"); return; }
     // Samples/Keygroups/<name>/, a number after the name when one is there already.
@@ -68,6 +70,7 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings) {
     job.card_top = fs::path(root).parent_path().string();
     if (!printer->start(std::move(job))) { notice("A print is under way"); return; }
     autosample_track = int8_t(t);
+    auto_last = settings;
     notice("Sampling " + name);
 }
 
@@ -76,22 +79,37 @@ void Context::autosample_tick() {
     AutoSampleResult r;
     while (printer->take_sampled(r)) {
         autosample_track = -1;
-        if (!r.error.empty()) { notice("Auto sample: " + r.error); continue; }
-        if (r.project_path != project_path) continue; // another project's: its files stay in Samples/Keygroups
+        auto& sheet = ui.auto_sheet;
+        const bool shown = sheet.sampling && sheet.track == r.track;
+        if (shown) sheet.sampling = false;
+        if (!r.error.empty()) {
+            notice(r.error == "stopped" ? std::string("Auto sample called off") : "Auto sample: " + r.error);
+            continue; // the sheet stays, to try again
+        }
+        if (r.project_path != project_path) { notice("Saved Keygroups/" + r.name); continue; } // another project's
+        const bool watching = shown && ui.page == PageId::AutoSample;
+        if (watching) back();
+        const int before = first_empty_track();
         autosample_landed(r);
+        if (watching && before >= 0 && project.tracks[unsigned(before)].engine == EngineKind::Keygroup) select_track(unsigned(before)); // the new track in hand
+
     }
+}
+
+int Context::first_empty_track() const {
+    for (unsigned k = 0; k < track_count; ++k) if (!project.tracks[k].used()) return int(k);
+    return -1;
 }
 
 // The program on the first empty track, a KEYGROUP track with the plug-in track's patterns, mix and name; one undo.
 void Context::autosample_landed(const AutoSampleResult& r) {
     const unsigned from = r.track % track_count;
-    int target = -1;
-    for (unsigned k = 0; k < track_count && target < 0; ++k) if (!project.tracks[k].used()) target = int(k);
+    const int target = first_empty_track();
     const std::string short_name = fs::path(r.program).parent_path().filename().string();
     if (target < 0) { notice("Saved Keygroups/" + short_name + ", no empty track"); return; }
     const unsigned t = unsigned(target);
     const Track source = project.tracks[from];
-    Edit edit = begin_edit("Auto sample", t, -1, false);
+    Edit edit = begin_edit("Auto sample", t, -1, true);
     edit.motion_before.reset();
     edit.track_before = std::make_unique<TrackState>(track_state(*this, t));
     load_sound(t, EngineKind::Keygroup, 0);
@@ -106,11 +124,15 @@ void Context::autosample_landed(const AutoSampleResult& r) {
     made.speed = source.speed;
     made.chain = source.chain; made.chain_count = source.chain_count; made.chain_at = source.chain_at;
     made.midi_channel = 0; // the plug-in track keeps its MIDI channel
-    made.fx.slots = {}; // its chain, but for plug-in effects (one plays on one track only), the rest moved up
+    // Pre FX: its chain, but for plug-in effects (one plays on one track only), the rest moved up. Post FX: the
+    // samples hold the chain already, so none.
+    made.fx.slots = {};
     made.fx.size = source.fx.size;
     unsigned kept = 0;
-    for (const auto& fx : source.fx.slots)
-        if (fx.used() && fx.kind != plugin_effect_kind && kept < made.fx.slots.size()) made.fx.slots[kept++] = fx;
+    if (!r.post_fx)
+        for (const auto& fx : source.fx.slots)
+            if (fx.used() && fx.kind != plugin_effect_kind && kept < made.fx.slots.size()) made.fx.slots[kept++] = fx;
+    made.bend = source.bend; // the fader's pitch bend, as on the plug-in
     PadSound pad;
     pad.sample = uint16_t(slot);
     pad.play = PadPlay::Gate; pad.decay = 100; pad.sustain = 100; pad.mono = false;
@@ -121,11 +143,82 @@ void Context::autosample_landed(const AutoSampleResult& r) {
     made.last_note = 60;
     after.patterns = patterns.at[from]; // the plug-in track's notes are MIDI notes, as a keygroup's are
     restore_track(*this, t, after);
+    // Its Song clips, the same on the keygroup track's lane.
+    const unsigned clips = project.song.count;
+    unsigned placed = 0;
+    for (unsigned c = 0; c < clips; ++c) {
+        Clip clip = project.song.clips[c];
+        if (clip.track != from) continue;
+        clip.track = uint8_t(t);
+        project.song.place(clip);
+        ++placed;
+    }
+    if (placed) { sync_song(); edit.song_after = std::make_unique<Song>(project.song); }
+    else edit.song_before.reset();
     landing_pads.push_back({uint8_t(t), 0, uint16_t(slot)}); // its envelope and velocity once the program is read
     edit.track_after = std::make_unique<TrackState>(after);
     edits.push(std::move(edit));
     dirty = true;
-    notice("Track " + std::to_string(t + 1) + ": " + r.name);
+    std::string said = "Track " + std::to_string(t + 1) + ": " + r.name;
+    if (r.loops) said += ", " + std::to_string(r.loops) + " loops";
+    notice(said);
+}
+
+// ---- the AUTO SAMPLE sheet
+
+void Context::open_auto_sheet() {
+    const unsigned t = ui.track % track_count;
+    if (project.tracks[t].engine != EngineKind::Plugin) { notice("Auto sample: plug-in tracks"); return; }
+    auto& sheet = ui.auto_sheet;
+    if (!(sheet.sampling && sheet.track == t)) { // one under way comes back as it is
+        const uint8_t row = sheet.row;
+        sheet = UiState::AutoSheet {};
+        sheet.track = uint8_t(t);
+        sheet.settings = auto_last;
+        sheet.row = row;
+    }
+    if (ui.page == PageId::Print) back(); // it stands in PRINT's place: B1 goes back where PRINT came from
+    open(PageId::AutoSample);
+}
+
+void Context::auto_sheet_go() {
+    auto& sheet = ui.auto_sheet;
+    if (sheet.sampling) return;
+    if (project.tracks[sheet.track % track_count].engine != EngineKind::Plugin) { notice("Auto sample: plug-in tracks"); return; }
+    if (first_empty_track() < 0) notice("No empty track: the program is only saved");
+    autosample(sheet.track, sheet.settings);
+    sheet.sampling = autosample_track == int8_t(sheet.track);
+}
+
+void Context::auto_sheet_cancel() {
+    auto& sheet = ui.auto_sheet;
+    if (!sheet.sampling) { back(); return; }
+    if (printer && printer->busy() && printer->progress().autosample) printer->cancel(); // its files go with it
+    // The sheet stays until the print engine has stopped (autosample_tick()); its result says so.
+}
+
+void Context::auto_sheet_row(int way) {
+    auto& sheet = ui.auto_sheet;
+    if (sheet.sampling) return;
+    sheet.row = uint8_t((sheet.row + 3 + (way < 0 ? 2 : 1)) % 3);
+}
+
+void Context::auto_sheet_set(Binding::Kind kind, int value) {
+    auto& a = ui.auto_sheet.settings;
+    if (ui.auto_sheet.sampling) return;
+    using Kind = Binding::Kind;
+    switch (kind) {
+    case Kind::AutoLow: a.low = uint8_t(std::clamp(value, 0, 127)); if (a.high < a.low) a.high = a.low; break; // HIGH moves along
+    case Kind::AutoHigh: a.high = uint8_t(std::clamp(value, 0, 127)); if (a.low > a.high) a.low = a.high; break;
+    case Kind::AutoStep: a.step = uint8_t(std::clamp(value, 1, 12)); break;
+    case Kind::AutoLayers: a.layers = uint8_t(std::clamp(value, 1, 4)); break;
+    case Kind::AutoHold: a.hold = std::clamp(value, 1, 100) / 10.0f; break;
+    case Kind::AutoTail: a.tail = std::clamp(value, 0, 200) / 10.0f; break;
+    case Kind::AutoTap: a.post_fx = value != 0; break;
+    case Kind::AutoLoop: a.loop = value != 0; break;
+    case Kind::AutoLevel: a.normalize = value != 0; break;
+    default: break;
+    }
 }
 
 } // namespace melodee

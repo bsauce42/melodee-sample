@@ -331,7 +331,16 @@ public:
     void autosample(unsigned track, const AutoSampleSettings& settings);
     void autosample_tick();
     void autosample_landed(const AutoSampleResult& result);
+    int first_empty_track() const; // -1: none
     int8_t autosample_track = -1;
+    // The AUTO SAMPLE sheet: Sample Record again on a plug-in track's PRINT. B3 (or Push) SAMPLE starts it, B1 or
+    // Sample Record calls it off, B2 the next row of cards.
+    void open_auto_sheet();
+    void auto_sheet_go();
+    void auto_sheet_cancel();
+    void auto_sheet_row(int way);
+    void auto_sheet_set(Binding::Kind kind, int value);
+    AutoSampleSettings auto_last {}; // the settings sampled with last, for the next sheet
     // Freeze plan F2b (shell/print_jobs.cpp): a track frozen plays its prints instead of its engine and chain (the
     // patterns asked; none: every pattern with notes). What is missing or changed is printed first; the track plays
     // live until every print is ready, then switches on a bar line. Unfreezing is at once and keeps the prints.

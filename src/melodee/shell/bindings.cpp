@@ -892,6 +892,18 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         auto feel = feel_cards(pattern, 0);
         return {Binding {Kind::Division, 0, 0, int(Division::Count) - 1, int(pattern.division)}, feel[0], feel[1]};
     }
+    case PageId::AutoSample: { // the AUTO SAMPLE sheet: its row of three; nothing while it runs
+        const auto& sheet = ui.auto_sheet;
+        const auto& a = sheet.settings;
+        if (sheet.sampling) return {};
+        switch (sheet.row % 3) {
+        case 0: return {Binding {Kind::AutoLow, 0, 0, 127, a.low}, Binding {Kind::AutoHigh, 0, 0, 127, a.high}, Binding {Kind::AutoStep, 0, 1, 12, a.step}};
+        case 1: return {Binding {Kind::AutoLayers, 0, 1, 4, a.layers}, Binding {Kind::AutoHold, 0, 1, 100, int(std::lround(a.hold * 10))},
+                        Binding {Kind::AutoTail, 0, 0, 200, int(std::lround(a.tail * 10))}};
+        default: return {Binding {Kind::AutoTap, 0, 0, 1, int(a.post_fx)}, Binding {Kind::AutoLoop, 0, 0, 1, int(a.loop)},
+                         Binding {Kind::AutoLevel, 0, 0, 1, int(a.normalize)}};
+        }
+    }
     case PageId::Print: { // freeze plan F2c: K1 TAP, K2 TAIL; K3 empty (no Song lane print yet); still while printing
         const auto& sheet = ui.print_sheet;
         if (sheet.printing || project.tracks[sheet.track % track_count].engine == EngineKind::Midi) return {};

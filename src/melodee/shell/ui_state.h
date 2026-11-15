@@ -5,6 +5,7 @@
 #include "melodee/model/print.h"
 #include "melodee/model/project.h"
 #include "melodee/plugin/plugin_panel.h"
+#include "melodee/shell/auto_sample.h"
 #include "melodee/shell/chop.h"
 #include "melodee/shell/name_entry.h"
 #include "melodee/shell/settings.h"
@@ -32,6 +33,7 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Roll, Motion, Patterns,
                             ModPage,                           // roadmap P4: modulators and macros (MOTION again on Motion)
                             Print,                             // freeze plan F2c: the PRINT sheet (Sample Record on a plug-in or MIDI track)
                             Scenes,                            // roadmap P5: the bank's scenes (B1 again on Patterns)
+                            AutoSample,                        // the AUTO SAMPLE sheet: Sample Record again on a plug-in track's PRINT
                             Count };
 
 // Takeover (shell/takeover.h): a pot or the fader drives its value once it has
@@ -411,6 +413,15 @@ struct UiState {
         }
     };
     PrintSheet print_sheet;
+    // The AUTO SAMPLE sheet (shell/auto_sample.h): the plug-in track it samples, how, which row of cards is on
+    // K1-K3 (0 KEYS: low, high, step; 1 NOTE: layers, hold, tail; 2 SOUND: tap, loop, level), and whether it runs.
+    struct AutoSheet {
+        uint8_t track = 0;
+        AutoSampleSettings settings;
+        uint8_t row = 0;
+        bool sampling = false;
+    };
+    AutoSheet auto_sheet;
     // Seq held + Sample Record: each pattern pad freezes or thaws its pattern of the selected track until Seq is let
     // go (`seq_frozen`: the patterns as they will be then); the prints are made on the release.
     bool seq_print = false;

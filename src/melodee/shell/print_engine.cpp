@@ -5,6 +5,7 @@
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/print_player.h"
 #include "melodee/engine/print_render.h"
+#include "melodee/engine/loop_find.h"
 #include "melodee/engine/stream_pager.h"
 #include "melodee/engine/sample_data.h"
 #include "melodee/plugin/plugin_rack.h"
@@ -569,11 +570,21 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
     r.project_path = job.project_path;
     r.track = job.track % track_count;
     r.name = job.sample_name;
+    r.post_fx = job.sampling.post_fx;
     auto t0 = Clock::now();
     const unsigned t = r.track;
     const auto& set = job.sampling;
     const auto roots = set.roots();
     const unsigned layers = std::clamp<unsigned>(set.layers, 1, 4);
+    const fs::path folder(job.sample_folder), parts = folder / ".parts";
+    std::error_code e;
+    auto fail = [&](std::string why) { // nothing half made is left on the card
+        fs::remove_all(folder, e);
+        r.error = std::move(why);
+        r.program.clear();
+        r.seconds = since(t0);
+        return r;
+    };
     if (roots.empty() || roots.size() > 128) { r.error = "no keys to sample"; return r; }
     {
         std::lock_guard<std::mutex> held(lock);
@@ -581,27 +592,35 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         shown.autosample = true;
         doing = "track=" + std::to_string(t + 1) + " autosample";
     }
+    const float rate = dsp::sample_rate();
+    const unsigned whole_rate = unsigned(std::lround(rate));
+    { // the card: room for every note at its longest, as 24-bit WAVs and the 32-bit float parts they are made from
+        const double most = double(roots.size()) * layers * (std::max(0.05f, set.hold) + set.tail + 0.01) * rate;
+        const uint64_t need = uint64_t(most * (6 + 8)) + (8u << 20);
+        fs::path probe = folder.parent_path();
+        while (!probe.empty() && !fs::exists(probe, e)) probe = probe.parent_path();
+        auto room = fs::space(probe.empty() ? fs::path("/") : probe, e);
+        if (!e && room.available < need)
+            return fail("card full: " + std::to_string(need >> 20) + " MB needed, " + std::to_string(room.available >> 20) + " MB free");
+    }
     auto project = std::make_unique<Project>(*job.project);
     auto bank = std::make_unique<PatternBank>(*job.bank);
     print_project(*project, *bank, t, project->tracks[t].pattern % pattern_count);
     const Track& track = project->tracks[t];
-    if (track.engine != EngineKind::Plugin) { r.error = "not a plug-in track"; r.seconds = since(t0); return r; }
+    if (track.engine != EngineKind::Plugin) return fail("not a plug-in track");
     PrintHost opened = open_print_host(*project, *bank, track, samples, job.states, job.card_top, cancelled);
-    if (!opened.error.empty()) { r.error = opened.error; r.seconds = since(t0); return r; }
+    if (!opened.error.empty()) return fail(opened.error);
     auto& host = *opened.host;
+    fs::create_directories(parts, e);
+    if (e) return fail("cannot make " + folder.filename().string());
 
-    const float rate = dsp::sample_rate();
-    const unsigned whole_rate = unsigned(std::lround(rate));
-    const fs::path folder(job.sample_folder);
-    std::error_code e;
-    fs::create_directories(folder, e);
-    if (e) { r.error = "cannot make " + folder.filename().string(); r.seconds = since(t0); return r; }
+    const PrintTap tap = set.post_fx ? PrintTap::PostFx : PrintTap::PreFx;
     const uint64_t hold = uint64_t(std::max(0.05f, set.hold) * rate);
     std::vector<int32_t> out(EngineHost::block * 2);
-    // Between notes: silence until what is left of the last has died away (2 s at most).
+    // Between notes: silence until what is left of the last (a delay's repeats too, at Post FX) has died away, 4 s at most.
     auto settle = [&] {
         unsigned quiet = 0;
-        for (unsigned b = 0; b < unsigned(2 * rate) / EngineHost::block && quiet < unsigned(0.1f * rate); ++b) {
+        for (unsigned b = 0; b < unsigned(4 * rate) / EngineHost::block && quiet < unsigned(0.1f * rate); ++b) {
             host.render(out.data(), EngineHost::block, 1.0f);
             const ProjectPack* done = nullptr;
             while (host.take_done_pack(done)) delete done;
@@ -612,18 +631,19 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             quiet = loud ? 0 : quiet + EngineHost::block;
         }
     };
-    host.set_print_tap(t, false); // the engine alone: the keygroup track gets its own chain
+    host.set_print_tap(t, tap == PrintTap::PostFx);
     settle();
 
     XpmProgram program;
     program.name = job.sample_name;
     std::vector<double> releases;
+    float peak_all = 0;
     unsigned blocks = 0;
-    for (size_t k = 0; k < roots.size() && r.error.empty(); ++k) {
+    uint64_t rendered = 0;
+    double rendering = 0;
+    for (size_t k = 0; k < roots.size(); ++k) {
         XpmKeygroup group;
-        group.low = uint8_t(k == 0 ? 0 : (roots[k - 1] + roots[k]) / 2 + 1);
-        group.high = uint8_t(k + 1 == roots.size() ? 127 : (roots[k] + roots[k + 1]) / 2);
-        for (unsigned v = 0; v < layers && r.error.empty(); ++v) {
+        for (unsigned v = 0; v < layers; ++v) {
             const uint8_t velocity = set.velocity(v);
             {
                 std::lock_guard<std::mutex> held(lock);
@@ -631,67 +651,99 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
                 shown.fraction = 0;
             }
             auto r0 = Clock::now();
-            NoteAudio audio = render_note(host, t, roots[k], velocity, hold, PrintTap::PreFx, set.tail, [&] {
+            NoteAudio audio = render_note(host, t, roots[k], velocity, hold, tap, set.tail, [&] {
                 if (opened.streams) {
                     double ahead = double(blocks) * EngineHost::block / rate - since(r0);
                     if (ahead > 0) std::this_thread::sleep_for(std::chrono::duration<double>(ahead));
                 }
                 ++blocks;
                 if (opened.rack && (blocks & 63) == 1) idle_new_threads(opened.threads_before, opened.threads_idle);
+                if ((blocks & 15) == 0) {
+                    std::lock_guard<std::mutex> held(lock);
+                    shown.fraction = std::min(0.95f, float(double(blocks) * EngineHost::block / (double(hold) + 0.5 * rate)));
+                }
                 return !cancelled.load();
             });
+            rendering += since(r0);
+            rendered += audio.left.size();
+            blocks = 0;
+            if (!audio.error.empty()) return fail(audio.error == "stopped" ? "stopped" : audio.error);
             settle();
-            if (!audio.error.empty()) { r.error = audio.error; break; }
+            if (opened.streams && host.streams().underruns()) return fail("the card's reads came late");
             float peak = 0;
             for (size_t f = 0; f < audio.left.size(); ++f) peak = std::max({peak, std::fabs(audio.left[f]), std::fabs(audio.right[f])});
             {
                 std::lock_guard<std::mutex> held(lock);
                 ++shown.through;
                 const double wall = since(t0);
-                shown.seconds_left = shown.through ? float(wall / shown.through * (shown.count - shown.through)) : 0;
+                shown.times_real = rendering > 0 ? float(double(rendered) / rate / rendering) : 0;
+                shown.seconds_left = float(wall / shown.through * (shown.count - shown.through));
+                if (v + 1 == layers) shown.done[roots[k] / 64 % shown.done.size()] |= uint64_t(1) << (roots[k] % 64);
             }
             if (peak < 0.000316f) continue; // silent here (a plug-in with a narrower range): the next keygroup's reaches
+            peak_all = std::max(peak_all, peak);
             releases.push_back(double(audio.release) / rate);
             XpmLayer layer;
             layer.sample = job.sample_name + "-" + key_word(roots[k]) + "-V" + std::to_string(velocity);
             layer.root = roots[k];
-            layer.low_velocity = uint8_t(v == 0 ? 1 : set.velocity(v - 1) + 1);
+            layer.low_velocity = uint8_t(v == 0 ? 0 : set.velocity(v - 1) + 1);
             layer.high_velocity = velocity;
-            layer.frames = uint32_t(audio.left.size());
-            const fs::path path = folder / (layer.sample + ".wav");
-            WavStream wav;
-            bool written = wav.open(path.string(), whole_rate, 24, 0, 2);
-            std::vector<float> interleaved(size_t(EngineHost::block) * 2);
-            for (size_t at = 0; written && at < audio.left.size(); at += EngineHost::block) {
-                unsigned n = unsigned(std::min<size_t>(EngineHost::block, audio.left.size() - at));
-                for (unsigned f = 0; f < n; ++f) { interleaved[2 * f] = audio.left[at + f]; interleaved[2 * f + 1] = audio.right[at + f]; }
-                written = wav.add(interleaved.data(), n);
+            if (set.loop) {
+                LoopPoints loop = find_loop(audio.left, audio.right, audio.held, rate);
+                if (loop.found()) { layer.loop_start = loop.start; layer.loop_end = loop.end; ++r.loops; }
             }
-            written = wav.close() && written;
-            if (!written) { r.error = "cannot write " + path.filename().string(); break; }
+            layer.frames = uint32_t(audio.left.size());
+            // Kept as 32-bit float until the program's gain is known.
+            std::ofstream part(parts / (layer.sample + ".f32"), std::ios::binary | std::ios::trunc);
+            std::vector<float> interleaved(audio.left.size() * 2);
+            for (size_t f = 0; f < audio.left.size(); ++f) { interleaved[2 * f] = audio.left[f]; interleaved[2 * f + 1] = audio.right[f]; }
+            part.write(reinterpret_cast<const char*>(interleaved.data()), std::streamsize(interleaved.size() * sizeof(float)));
+            if (!part) return fail("cannot write " + layer.sample);
             group.layers.push_back(layer);
             ++r.samples;
         }
         if (!group.layers.empty()) program.keygroups.push_back(std::move(group));
     }
-    if (r.error.empty() && program.keygroups.empty()) r.error = "the plug-in made no sound";
-    if (r.error.empty()) {
-        // The keygroups that are left cover every key: each reaches halfway to the next.
-        for (size_t k = 0; k < program.keygroups.size(); ++k) {
-            auto& g = program.keygroups[k];
-            const int root = g.layers.front().root;
-            g.low = uint8_t(k == 0 ? 0 : (program.keygroups[k - 1].layers.front().root + root) / 2 + 1);
-            g.high = uint8_t(k + 1 == program.keygroups.size() ? 127 : (root + program.keygroups[k + 1].layers.front().root) / 2);
-        }
-        // Let go early, a key fades as the plug-in's own release did (the middle one heard).
-        std::sort(releases.begin(), releases.end());
-        program.release = std::clamp(releases.empty() ? 0.05 : releases[releases.size() / 2], 0.01, 8.0);
-        const fs::path xpm = folder / (job.sample_name + ".xpm");
-        r.error = write_xpm(xpm.string(), program);
-        if (r.error.empty()) r.program = xpm.string();
+    if (program.keygroups.empty()) return fail("the plug-in made no sound");
+    // The keygroups that are left cover every key: each reaches halfway to the next. A silent layer leaves its
+    // velocities to the layer above (the loudest reaches 127).
+    for (size_t k = 0; k < program.keygroups.size(); ++k) {
+        auto& g = program.keygroups[k];
+        const int root = g.layers.front().root;
+        g.low = uint8_t(k == 0 ? 0 : (program.keygroups[k - 1].layers.front().root + root) / 2 + 1);
+        g.high = uint8_t(k + 1 == program.keygroups.size() ? 127 : (root + program.keygroups[k + 1].layers.front().root) / 2);
+        for (size_t l = 0; l < g.layers.size(); ++l) g.layers[l].low_velocity = uint8_t(l == 0 ? 0 : g.layers[l - 1].high_velocity + 1);
+        g.layers.back().high_velocity = 127;
     }
+    // One gain for every sample: the loudest at -1 dB (24 dB more at most), so the layers keep the balance played.
+    const float gain = set.normalize && peak_all > 0 ? std::min(0.891251f / peak_all, 15.8489f) : 1.0f;
+    r.gain_db = 20 * std::log10(gain);
+    for (const auto& g : program.keygroups)
+        for (const auto& l : g.layers) {
+            if (cancelled.load()) return fail("stopped");
+            std::ifstream part(parts / (l.sample + ".f32"), std::ios::binary);
+            std::vector<float> interleaved(size_t(l.frames) * 2);
+            part.read(reinterpret_cast<char*>(interleaved.data()), std::streamsize(interleaved.size() * sizeof(float)));
+            if (!part) return fail("cannot read " + l.sample);
+            for (auto& x : interleaved) x *= gain;
+            const fs::path path = folder / (l.sample + ".wav");
+            WavStream wav;
+            bool written = wav.open(path.string(), whole_rate, 24, 0, 2);
+            for (size_t at = 0; written && at < l.frames; at += EngineHost::block) {
+                unsigned n = unsigned(std::min<size_t>(EngineHost::block, l.frames - at));
+                written = wav.add(interleaved.data() + 2 * at, n);
+            }
+            written = wav.close() && written;
+            if (!written) return fail("cannot write " + path.filename().string());
+        }
+    fs::remove_all(parts, e);
+    // Let go early, a key fades as the plug-in's own release did (the middle one heard).
+    std::sort(releases.begin(), releases.end());
+    program.release = std::clamp(releases.empty() ? 0.05 : releases[releases.size() / 2], 0.01, 8.0);
+    const fs::path xpm = folder / (job.sample_name + ".xpm");
+    if (auto why = write_xpm(xpm.string(), program); !why.empty()) return fail(why);
+    r.program = xpm.string();
     r.seconds = since(t0);
     return r;
 }
-
 } // namespace melodee
