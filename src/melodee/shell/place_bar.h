@@ -82,7 +82,7 @@ inline PlaceBar place_bar_of(const Snapshot& s) {
     // The Song while it plays (or, stopped on the Song page, the bar it stopped in): its sections between markers.
     bool song = s.song_playing || (!s.playing && s.ui.page == PageId::Song);
     if (song) {
-        unsigned bars = std::max(project.song.length(), 1u);
+        unsigned bars = std::max(project.song.length(project.bar_ticks()), 1u);
         std::array<unsigned, PlaceBar::most + 1> cuts {};
         unsigned n = 0;
         cuts[n++] = 0;

@@ -32,7 +32,7 @@ using Type = Command::Type;
 void Context::resample() {
     if (ui.rendering) { notice("Rendering already"); return; }
     if (ui.resample_pick) { ui.resample_pick = false; notice("Resample off"); return; }
-    const bool song = ui.page == PageId::Song && project.song.length(); // roadmap P3: on Song, the song
+    const bool song = ui.page == PageId::Song && project.song.length(project.bar_ticks()); // roadmap P3: on Song, the song
     if ((track().engine == EngineKind::Plugin || track().engine == EngineKind::Midi) && !song) { // a plug-in or MIDI track: AUTO SAMPLE, its keys (the instrument outside's) into a keygroup program; again closes it
         if (ui.page == PageId::AutoSample) auto_sheet_cancel();
         else open_auto_sheet();
@@ -51,7 +51,7 @@ void Context::resample() {
 // a slot instead of a file; past 60 s its first 60 s, the song then stopped.
 void Context::resample_song(unsigned kit) {
     double tick_frames = 44100.0 * 60.0 / (tempo_now() / 10.0) / ticks_per_quarter;
-    double song_frames = double(project.song.length()) * project.bar_ticks() * tick_frames;
+    double song_frames = double(project.song.length(project.bar_ticks())) * project.bar_ticks() * tick_frames;
     bool cut = song_frames > TakeRecorder::max_frames;
     int slot = hold_file("RESAMPLE", ui.track, int(kit), 1);
     if (slot < 0) { notice("Resample: samples full"); return; }
@@ -110,7 +110,7 @@ void Context::mixdown(const std::string& name) {
     if (ui.export_kind == 4) { export_midi(*this, name); return; } // roadmap P4: a MIDI file, written at once
     if (ui.export_kind == 5) { export_mpc3(name); return; }        // an MPC 3 project, on a thread of its own
     if (ui.rendering) { notice("Rendering already"); return; }
-    if (!project.song.length()) { notice("Mixdown: the song is empty"); return; }
+    if (!project.song.length(project.bar_ticks())) { notice("Mixdown: the song is empty"); return; }
     if (library->card().empty()) { notice("Mixdown: no card"); return; }
     if (host_recording()) { notice("Mixdown: a take runs"); return; }
     SampleLibrary::Render job;

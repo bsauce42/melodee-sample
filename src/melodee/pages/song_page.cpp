@@ -118,7 +118,7 @@ void draw(Paint& p, const Snapshot& s) {
         frame(p, s, keys, h);
         p.dim_zone(zone::picture_y, zone::picture_h, 0.86f);
         p.dim_zone(zone::knobs_y, zone::knobs_h);
-        unsigned bars = song.length(), seconds = unsigned(song.tempo.seconds(bars, double(s.project.bar_ticks()) / ticks_per_quarter, std::max(300u, unsigned(s.project.tempo))) + 0.5);
+        unsigned bars = song.length(s.project.bar_ticks()), seconds = unsigned(song.tempo.seconds(bars, double(s.project.bar_ticks()) / ticks_per_quarter, std::max(300u, unsigned(s.project.tempo))) + 0.5);
         if (!bars && kind < 4) { // nothing to export yet (a MIDI file and an MPC 3 project take the patterns)
             icon(p, Icon::Pattern, zone::width / 2.0f - 14, zone::picture_y + 44, 28, colour::amber, 1.4f);
             p.text("EMPTY SONG", 0, zone::picture_y + 80, zone::width, 14, caps_text(colour::amber), juce::Justification::centred);
@@ -254,8 +254,8 @@ void draw(Paint& p, const Snapshot& s) {
         }
     }
     // The whole song, with the window on it, after its length in bars.
-    unsigned total = std::max({song.length(), view + zoom, 16u});
-    juce::String length = juce::String(song.length()) + (song.length() == 1 ? " BAR" : " BARS");
+    unsigned total = std::max({song.length(s.project.bar_ticks()), view + zoom, 16u});
+    juce::String length = juce::String(song.length(s.project.bar_ticks())) + (song.length(s.project.bar_ticks()) == 1 ? " BAR" : " BARS");
     auto length_style = caps_text(colour::dim);
     float oy = bottom + (song.punch_count ? 13 : 6), lw = p.width(length, length_style) + 1, sx = zone::pad + lw + 6, ow = x1 - sx;
     p.text(length, zone::pad, oy - 5.5f, lw, 11, length_style);

@@ -27,7 +27,7 @@ namespace melodee {
 void Context::song_export_soft(int key) {
     ui.song_export = false;
     if (key == 1) { // roadmap P4: the wheel picked what (a MIDI file needs no song: the patterns playing then)
-        if (!project.song.length() && ui.export_kind < 4) { notice("Mixdown: the song is empty"); return; }
+        if (!project.song.length(project.bar_ticks()) && ui.export_kind < 4) { notice("Mixdown: the song is empty"); return; }
         open_name(NameTarget::Mixdown, project.name[0] ? project.name : "Song", sizeof(project.name) - 1, false);
     }
     if (key == 2) song_to_pattern();
@@ -93,7 +93,7 @@ void Context::mpc3_tick() {
 
 void Context::song_to_pattern() {
     const auto& song = project.song;
-    unsigned bars = song.length();
+    unsigned bars = song.length(project.bar_ticks());
     if (!bars) { notice("Song: empty"); return; }
     bool cut = bars > max_bars;
     bars = std::min(bars, max_bars);

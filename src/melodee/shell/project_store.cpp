@@ -280,10 +280,11 @@ void ProjectStore::service(Hardware& hardware) {
     }
 }
 
-// A project's loops (docs/LOOPER.md) sit beside it in "<name> Loops", and its prints (freeze plan F2a, model/print.h)
-// in "<name> Prints"; those folders belong to the project, are not listed, and go wherever the project goes.
+// A project's loops (docs/LOOPER.md) sit beside it in "<name> Loops", its prints (freeze plan F2a, model/print.h)
+// in "<name> Prints" and its audio tracks' takes (freeze plan F3, model/audio_track.h) in "<name> Audio"; those
+// folders belong to the project, are not listed, and go wherever the project goes.
 namespace {
-constexpr const char* project_folders[] {" Loops", " Prints"};
+constexpr const char* project_folders[] {" Loops", " Prints", " Audio"};
 fs::path folder_of(const fs::path& project, const char* tail) { return project.parent_path() / (project.stem().string() + tail); }
 bool is_loops_folder(const fs::path& dir, const char* extension) {
     auto name = dir.filename().string();
@@ -336,17 +337,19 @@ void carry_loops(const fs::path& from, const fs::path& to, bool copy) {
     }
 }
 // Freeze plan F2d: Save As takes the prints along, so a frozen track plays them under the new name without printing
-// again (a print still being written, a .part, stays behind).
+// again, and (F3) the audio tracks' takes, which cannot be made again (a file still being written, a .part, stays behind).
 void copy_prints(const fs::path& from, const fs::path& to) {
-    std::error_code error;
-    auto source = folder_of(from, " Prints");
-    if (!fs::is_directory(source, error)) return;
-    auto target = folder_of(to, " Prints");
-    fs::create_directories(target, error);
-    for (const auto& entry : fs::directory_iterator(source, error)) {
-        std::error_code e;
-        if (!entry.is_regular_file(e) || entry.path().extension() == ".part") continue;
-        fs::copy_file(entry.path(), target / entry.path().filename(), fs::copy_options::overwrite_existing, e);
+    for (const char* tail : {" Prints", " Audio"}) {
+        std::error_code error;
+        auto source = folder_of(from, tail);
+        if (!fs::is_directory(source, error)) continue;
+        auto target = folder_of(to, tail);
+        fs::create_directories(target, error);
+        for (const auto& entry : fs::directory_iterator(source, error)) {
+            std::error_code e;
+            if (!entry.is_regular_file(e) || entry.path().extension() == ".part") continue;
+            fs::copy_file(entry.path(), target / entry.path().filename(), fs::copy_options::overwrite_existing, e);
+        }
     }
 }
 } // namespace

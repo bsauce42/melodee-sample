@@ -48,6 +48,7 @@ inline bool same_trims(const PadState& a, const PadState& b) {
 struct TrackState {
     Track track;
     std::array<Pattern, pattern_count> patterns;
+    std::vector<AudioRegion> regions; // an audio track's lane (freeze plan F3), each as if on track 0
 };
 
 // Parity phase 10: the rest a pot gesture or a page's button may change.

@@ -21,15 +21,30 @@ void send_track(Context& c, unsigned t) {
 
 TrackState track_state(const Context& c, unsigned t) {
     t %= track_count;
-    return {c.project.tracks[t], c.patterns.at[t]};
+    TrackState s {c.project.tracks[t], c.patterns.at[t], {}};
+    const auto& song = c.project.song;
+    for (unsigned n = 0; n < song.region_count; ++n)
+        if (song.regions[n].track == t) { s.regions.push_back(song.regions[n]); s.regions.back().track = 0; }
+    return s;
 }
 
 void restore_track(Context& c, unsigned t, const TrackState& state) {
     t %= track_count;
     c.project.tracks[t] = state.track;
     c.patterns.at[t] = state.patterns;
+    // Freeze plan F3: an audio track's regions go and come with it (its takes' files stay as they are).
+    auto& song = c.project.song;
+    bool lane = false;
+    for (unsigned n = 0; n < song.region_count && !lane; ++n) lane = song.regions[n].track == t;
+    song.drop_regions(t);
+    for (auto r : state.regions) {
+        if (song.region_count == song.regions.size()) break;
+        r.track = uint8_t(t);
+        song.regions[song.region_count++] = r;
+    }
     c.free_retired();
     send_track(c, t);
+    if (lane || !state.regions.empty()) c.sync_song();
     c.dirty = true;
 }
 

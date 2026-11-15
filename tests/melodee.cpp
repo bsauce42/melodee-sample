@@ -484,13 +484,60 @@ void pad_expression() {
     read_back.read(set.text());
     CHECK(!read_back.pressure);
 }
+// Freeze plan F3: audio tracks' regions on the Song lane. Recording over part of one replaces that part and keeps
+// the rest in its place in time; the song runs to the last region's end; a file keeps them and the track's settings.
+void audio_regions() {
+    const unsigned bar = 384; // 4/4
+    Song song;
+    AudioRegion take;
+    take.track = 3; take.take = 1; take.bar = 24; take.tempo = 1200;
+    take.frames = take.take_frames = uint32_t(ticks_to_frames(8 * bar, 1200)); // eight bars at 120 BPM
+    CHECK(take.frames == 705600 && region_ticks(take) == 8 * bar && region_end(take, bar) == 32 * bar);
+    CHECK(song.place_region(take, bar) && song.length(bar) == 32 && song.region_at(3, 24 * bar, bar) == 0 && song.region_at(2, 24 * bar, bar) < 0);
+    AudioRegion again = take;
+    again.take = 2; again.bar = 28; again.frames = again.take_frames = uint32_t(ticks_to_frames(4 * bar, 1200));
+    CHECK(song.place_region(again, bar) && song.region_count == 2);
+    const auto& head = song.regions[size_t(song.region_at(3, 24 * bar, bar))];
+    CHECK(head.take == 1 && head.frames == take.frames / 2 && region_end(head, bar) == 28 * bar);
+    CHECK(song.regions[size_t(song.region_at(3, 30 * bar, bar))].take == 2 && song.last_take() == 2);
+    // Bars 26-29 over both: the first keeps 24-25, the second goes on from 30 into the same part of its take.
+    AudioRegion middle = take;
+    middle.take = 3; middle.bar = 26; middle.frames = middle.take_frames = uint32_t(ticks_to_frames(4 * bar, 1200));
+    CHECK(song.place_region(middle, bar) && song.region_count == 3);
+    const auto& tail = song.regions[size_t(song.region_at(3, 30 * bar, bar))];
+    CHECK(tail.take == 2 && tail.bar == 30 && tail.tick == 0 && tail.offset == uint32_t(ticks_to_frames(2 * bar, 1200)) && region_end(tail, bar) == 32 * bar);
+    CHECK(song.regions[size_t(song.region_at(3, 25 * bar, bar))].frames == uint32_t(ticks_to_frames(2 * bar, 1200)));
+    CHECK(audio_take_name(7) == "Take 007.wav" && audio_take_of("Take 007.wav") == 7 && audio_take_of("Take 7.wav.part") == 0);
+    CHECK(audio_folder("/card/Melodee/Projects/Song.mlp") == "/card/Melodee/Projects/Song Audio");
+
+    auto project = std::make_unique<Project>();
+    auto bank = std::make_unique<PatternBank>();
+    project->tracks[3].engine = EngineKind::Audio; project->tracks[3].set_name("VOX");
+    project->tracks[3].audio.source = InputSource::Usb; project->tracks[3].audio.monitor = TrackMonitor::Merge;
+    project->song = song;
+    project->song.regions[0].gain = -35; project->song.regions[0].fade_in = 441; project->song.regions[0].warp = true;
+    project->song.regions[0].mode = WarpMode::Repitch; project->song.regions[0].semi = -3; project->song.regions[0].reverse = true;
+    AudioRegion stray = take; stray.track = 5; stray.bar = 40; // on a track that is not an audio track: dropped
+    project->song.regions[project->song.region_count++] = stray;
+    auto bytes = save_project(*project, *bank);
+    auto back = std::make_unique<Project>();
+    auto back_bank = std::make_unique<PatternBank>();
+    CHECK(load_project(bytes, *back, *back_bank).empty());
+    const auto& t = back->tracks[3];
+    CHECK(t.engine == EngineKind::Audio && std::string(t.name) == "VOX" && t.audio.source == InputSource::Usb && t.audio.monitor == TrackMonitor::Merge);
+    CHECK(back->song.region_count == 3);
+    bool same = true;
+    for (unsigned n = 0; n < 3; ++n) same = same && back->song.regions[n] == project->song.regions[n];
+    CHECK(same && back->song.regions[0].gain == -35 && back->song.regions[0].mode == WarpMode::Repitch && back->song.regions[0].reverse);
+}
+
 void arrange() {
     // The song store: placing a clip cuts what it covers; splits keep both sides.
     Song song;
     CHECK(song.place({0, 0, 0, 8, false}) && song.place({0, 1, 2, 2, false}));
     CHECK(song.count == 3 && song.clip_at(0, 1) >= 0 && song.clips[size_t(song.clip_at(0, 3))].pattern == 1);
     CHECK(song.clips[size_t(song.clip_at(0, 5))].pattern == 0 && song.clips[size_t(song.clip_at(0, 5))].bar == 4);
-    CHECK(song.clip_at(1, 0) < 0 && song.length() == 8);
+    CHECK(song.clip_at(1, 0) < 0 && song.length(384) == 8);
     song.erase(unsigned(song.clip_at(0, 3)));
     CHECK(song.clip_at(0, 3) < 0 && song.count == 2);
     // Markers: added at a bar, named after the one before, stepped through the names, then gone.
@@ -3751,10 +3798,10 @@ void audio_input_and_rendering() {
     Clip muted = a; muted.bar = 4; muted.bars = 1; muted.muted = true; song.place(muted);
     Clip other = a; other.track = 5; song.place(other);
     Pattern flat; bool full = false;
-    CHECK(flatten_lane(song, 4, lane, bar, song.length(), flat, full) && !full);
+    CHECK(flatten_lane(song, 4, lane, bar, song.length(bar), flat, full) && !full);
     CHECK(flat.length == 5 * bar && flat.events.size() == 8); // two bars of a half-bar pattern: four times two notes
     CHECK(flat.events.front().tick == bar && flat.events.back().tick == 3 * bar - 96 && flat.events.back().key == 38);
-    CHECK(!flatten_lane(song, 6, lane, bar, song.length(), flat, full));
+    CHECK(!flatten_lane(song, 6, lane, bar, song.length(bar), flat, full));
 }
 
 
@@ -15671,6 +15718,7 @@ int main() {
     preview_progressive();
     effects();
     arrange();
+    audio_regions();
     motion();
     layouts();
     bindings();
