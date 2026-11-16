@@ -336,8 +336,9 @@ its music (all other instruments) and its vocals.
 
 ![STEMS](../images/screens/stems.png)
 
-You can leave the sheet and keep playing while the job runs. To stop it,
-press **B1** (**CANCEL**) on the sheet.
+A 13-second sample takes about 15 seconds; a longer sample takes less
+than its own length. You can leave the sheet and keep playing while the
+job runs. To stop it, press **B1** (**CANCEL**) on the sheet.
 
 When the job is done, **DRUMS**, **BASS**, **MUSIC** and **VOCALS** are on
 the next four empty pads after the sample's pad. Each plays as the

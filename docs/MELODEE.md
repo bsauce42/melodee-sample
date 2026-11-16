@@ -1645,8 +1645,9 @@ the file holds, to the bit.
   on three threads at the lowest priority and removes it after; the model
   is read where it is. A job that would leave under 192 MB of memory free
   is refused; short of memory, the kernel ends the program before anything
-  else. At its fullest the program holds 478 MB for 13 s of sound and
-  656 MB for 60 s. SD card access waits for a job.
+  else. On the MPC the program takes 13 s for 13 s of sound and 36 s for
+  60 s (a whole job 15 s for 13 s, its files written after), and holds
+  478 MB and 656 MB at its fullest. SD card access waits for a job.
   `status` has `melodee_stems` (the percent done, or `idle`).
 
 ### Effects
