@@ -85,8 +85,9 @@ def collect(binary, version, commit, stems=ROOT / "build/stems"):
     device = base_device()
     if not binary.is_file():
         raise RuntimeError(f"Missing {binary}; run ./release.sh")
-    if not (stems / "melodee-stems").is_file():
-        raise RuntimeError(f"Missing {stems / 'melodee-stems'}; run ./release.sh")
+    for name in ("melodee-stems", "spleeter-4stems.f16"):
+        if not (stems / name).is_file():
+            raise RuntimeError(f"Missing {stems / name}; run ./release.sh")
     files = {f"{PACKAGE}/sample-base": binary.read_bytes()}
     for name in ("restore-stock.sh", "sd-boot.sh", "sd-worker.sh", "sd-update.sh"):
         files[f"{PACKAGE}/{name}"] = (BASE / "install" / name).read_bytes()
@@ -114,9 +115,11 @@ def collect(binary, version, commit, stems=ROOT / "build/stems"):
         files[f"{licenses}/LV2-{lib}-COPYING.txt"] = (lv2_sdk / lib / "COPYING").read_bytes()
     for path in sorted((ROOT / "build/plugin-support/licenses").glob("*")):
         files[f"{licenses}/armhf-runtime/{path.name}"] = path.read_bytes()
-    # Stems (src/melodee/shell/stems.h): the separating program stays on the card, in a folder of its own; Melodee
-    # copies it into RAM for a job. SpleeterRT, its Spleeter model and OpenBLAS: their licences beside the others.
+    # Stems (src/melodee/shell/stems.h): the separating program and its model stay on the card, in a folder of
+    # their own; Melodee copies the program into RAM for a job. SpleeterRT, Deezer's Spleeter model and OpenBLAS:
+    # their licences beside the others.
     files[f"{PACKAGE}/stems/melodee-stems"] = (stems / "melodee-stems").read_bytes()
+    files[f"{PACKAGE}/stems/spleeter-4stems.f16"] = (stems / "spleeter-4stems.f16").read_bytes()
     for path in sorted((stems / "licenses").glob("*")):
         files[f"{licenses}/stems/{path.name}"] = path.read_bytes()
     assert all(name.startswith("autorun/") for name in files), "the zip is the autorun folder alone"

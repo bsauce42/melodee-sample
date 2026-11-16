@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // Stems for the sample library (shell/stems.h), on the service thread: a
-// slot's sample copied to a job of the separator, the three files it writes
+// slot's sample copied to a job of the separator, the four files it writes
 // named and placed in the card's Samples/Stems, and what came of it handed
 // to the MIDI thread, which loads the files as it loads any other.
 #include "melodee/shell/sample_library.h"
@@ -79,9 +79,12 @@ void SampleLibrary::stems_service(const Platform& platform) {
     job.engine = stems_program(top);
     std::error_code error;
     if (job.engine.empty() || !fs::is_regular_file(job.engine, error)) { refuse("no program on the card"); return; }
+    const char* model = std::getenv("MELODEE_STEMS_MODEL"); // beside the program
+    job.model = model && *model ? std::string(model) : (fs::path(job.engine).parent_path() / "spleeter-4stems.f16").string();
+    if (!fs::is_regular_file(job.model, error)) { refuse("no model on the card"); return; }
     const uint64_t free = platform.memory().available_kb * 1024; // 0: a host, which does not say
     if (free && free < stems_memory(frames) + stems_headroom) { refuse("not enough memory"); return; }
-    // The three files share one free name: "LOOP DRUMS", "LOOP VOCALS", "LOOP MUSIC", else "LOOP 2 DRUMS" ...
+    // The four files share one free name: "LOOP DRUMS", "LOOP BASS", "LOOP MUSIC", "LOOP VOCALS", else "LOOP 2 DRUMS" ...
     const std::string folder = root + "/Stems", base = file_name(request.name);
     fs::create_directories(folder, error);
     bool found = false;

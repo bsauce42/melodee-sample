@@ -2498,7 +2498,7 @@ void button_remap() {
         m.settings.full_features = true;
         std::snprintf(kit->samples[0].path, sizeof(kit->samples[0].path), "/card/Samples/PIANO.sfz");
         CHECK(!offered() && !button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // an instrument: nothing to separate
-        CHECK(std::string(stem_name(0)) == "DRUMS" && std::string(stem_name(1)) == "VOCALS" && std::string(stem_name(2)) == "MUSIC");
+        CHECK(stem_count == 4 && std::string(stem_name(0)) == "DRUMS" && std::string(stem_name(1)) == "BASS" && std::string(stem_name(2)) == "MUSIC" && std::string(stem_name(3)) == "VOCALS");
     }
     // Background save (shell/autosave.h): a changed project, nothing running, the controls quiet for a moment.
     {

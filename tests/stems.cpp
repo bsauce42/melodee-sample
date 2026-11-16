@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Stems (src/melodee/shell/stems.h) with stand-ins for the separating program: shell scripts that take its
-// arguments, print its lines and write its three files. A job copies the program into its work folder, gives it the
-// sample as a WAV file, writes what it made to the paths asked for at the sample's length and leaves nothing else
-// behind; a job cancelled, a program that fails, one that makes too little and one that is not there each say so
+// arguments, print its lines and write its four files. A job copies the program into its work folder, gives it the
+// model and the sample as a WAV file, writes what it made to the paths asked for at the sample's length and leaves
+// nothing else behind; a job cancelled, a program that fails, one that makes too little and one that is not there each say so
 // and leave no file.
 #include "melodee/shell/stems.h"
 #include "melodee/engine/sample_data.h"
@@ -35,6 +35,7 @@ constexpr uint32_t frames = 88200; // 2 s
 StemsJob job(const fs::path& folder, const std::string& engine, const char* name, uint32_t length = frames) {
     StemsJob j;
     j.engine = engine;
+    j.model = (folder / "model.f16").string();
     j.work = (folder / "work").string();
     j.left.resize(length);
     j.right.resize(length);
@@ -64,18 +65,18 @@ bool none_left(const StemsResult& r) {
 int main(int argc, char** argv) {
     if (argc != 2) return 2;
     const fs::path folder = argv[1];
-    // The program's arguments are threads, time step, bin limit, stems and the file; it prints a line a step.
-    const char* lines = "[ \"$4\" = 3 ] || exit 9\n"
-                        "echo 'Audio & model file and sample rate conversion takes: 0.1 sec'\n"
-                        "echo 'Inference neural networks using 3 cores takes 0.1 sec'\n";
-    const auto good = script(folder, "good.sh", (std::string(lines) + "cp \"$5\" \"$5_Drum.wav\" && cp \"$5\" \"$5_Vocal.wav\" && cp \"$5\" \"$5_Accompaniment.wav\"\n").c_str());
+    // The program's arguments are the model, its threads and the file; it prints how far it is.
+    std::ofstream(folder / "model.f16") << "MLST";
+    const char* lines = "[ -f \"$1\" ] && [ \"$2\" = 3 ] || exit 9\n"
+                        "echo 'progress 5'\n"
+                        "echo 'progress 50'\n";
+    const auto good = script(folder, "good.sh", (std::string(lines) + "for stem in Drums Bass Music Vocals; do cp \"$3\" \"$3_$stem.wav\" || exit 8; done\n").c_str());
     const auto slow = script(folder, "slow.sh", (std::string(lines) + "sleep 30\n").c_str());
-    const auto failing = script(folder, "failing.sh", "echo 'Invalid audio sample rate / frame count'\nexit 3\n");
-    const auto half = script(folder, "half.sh", (std::string(lines) + "cp \"$5\" \"$5_Drum.wav\"\n").c_str());
+    const auto failing = script(folder, "failing.sh", "echo 'melodee-stems: cannot read the file' >&2\nexit 1\n");
+    const auto half = script(folder, "half.sh", (std::string(lines) + "cp \"$3\" \"$3_Drums.wav\"\n").c_str());
 
-    check(stems_memory(60 * 44100) > uint64_t(768) << 20, "a minute's job counts the 682 MB measured and its files in RAM");
-    check(stems_memory(60 * 44100) > stems_memory(10 * 44100), "a longer sample takes more memory");
-    check(stems_seconds(60 * 44100) >= 50 && stems_seconds(13 * 44100) >= 17, "the times are no shorter than those measured");
+    check(stems_memory(60 * 44100) > uint64_t(656 + 100) << 20 && stems_memory(13 * 44100) > uint64_t(478 + 22) << 20, "a job counts the memory measured and its files in RAM");
+    check(stems_seconds(60 * 44100) > stems_seconds(13 * 44100), "a longer sample takes longer");
 
     StemSeparator separator;
     StemsResult result;
@@ -94,7 +95,8 @@ int main(int argc, char** argv) {
                 same = std::fabs(stem.left[f] - 0.5f * std::sin(float(f) * 0.05f)) < 1e-4f && std::fabs(stem.right[f] - 0.25f * std::sin(float(f) * 0.031f)) < 1e-4f;
             check(same, "a stem holds what the program made, each side its own");
         }
-        check(fs::path(result.paths[0]).filename() == "LOOP DRUMS.wav" && fs::path(result.paths[2]).filename() == "LOOP MUSIC.wav", "the files are the ones asked for");
+        check(fs::path(result.paths[0]).filename() == "LOOP DRUMS.wav" && fs::path(result.paths[1]).filename() == "LOOP BASS.wav"
+              && fs::path(result.paths[2]).filename() == "LOOP MUSIC.wav" && fs::path(result.paths[3]).filename() == "LOOP VOCALS.wav", "the files are the ones asked for");
         check(!fs::exists(folder / "work"), "the work folder is gone");
     }
     {
@@ -113,7 +115,7 @@ int main(int argc, char** argv) {
     }
     {
         check(separator.start(job(folder, half, "HALF")), "a job with a program that makes one file starts");
-        check(finished(separator, result, 20) && result.error == "no VOCALS made", "the missing stem is named");
+        check(finished(separator, result, 20) && result.error == "no BASS made", "the missing stem is named");
         check(none_left(result), "the stem that was written goes too");
     }
     {
@@ -121,6 +123,9 @@ int main(int argc, char** argv) {
         check(finished(separator, result, 20) && result.error == "no program on the card", "the missing program is named");
         check(separator.start(job(folder, good, "TINY", stems_least_frames - 1)), "a job with too short a sample starts");
         check(finished(separator, result, 20) && result.error == "too short", "too short a sample is refused");
+        fs::remove(folder / "model.f16");
+        check(separator.start(job(folder, good, "BARE")), "a job without the model starts");
+        check(finished(separator, result, 20) && result.error == "no model on the card", "the missing model is named");
     }
     if (failures) return 1;
     std::printf("stems ok\n");

@@ -3,11 +3,11 @@
 // Stems for a kit pad (shell/stems.h): Shift + B3 on the pad's TRIM, or the
 // MENU's STEMS, opens the STEMS sheet for the pad in hand; B3 SEPARATE there
 // starts the job in the sample library (shell/sample_library_stems.cpp) and
-// B1 calls it off. The job goes on with the sheet closed. Its three files,
-// Samples/Stems/<name> DRUMS.wav, VOCALS and MUSIC, are loaded as any file
-// is and land together on the next three empty pads after the pad they came
-// from, as one undo. Each stem is as long as the sample to the frame, so a
-// stem's pad plays as the pad did: its start and end, loop, tune, warp,
+// B1 calls it off. The job goes on with the sheet closed. Its four files,
+// Samples/Stems/<name> DRUMS.wav, BASS, MUSIC and VOCALS, are loaded as any
+// file is and land together on the next four empty pads after the pad they
+// came from, as one undo. Each stem is as long as the sample to the frame, so
+// a stem's pad plays as the pad did: its start and end, loop, tune, warp,
 // envelope and filter, and the sample's slices in Chop. It leaves the pad's
 // layers, mute group and Pad Link behind, so the stems can play together.
 #include "melodee/shell/context.h"
@@ -17,7 +17,7 @@
 
 namespace melodee {
 namespace {
-constexpr uint8_t stems_land = 3; // pending_files' land for DRUMS; VOCALS and MUSIC follow
+constexpr uint8_t stems_land = 3; // pending_files' land for DRUMS; BASS, MUSIC and VOCALS follow
 
 // The sample's name with room after it for the longest stem's word, as the files' and the slots' name.
 std::string stems_base(const SampleRef& ref) {
@@ -27,7 +27,7 @@ std::string stems_base(const SampleRef& ref) {
     return base.empty() ? std::string("SAMPLE") : base;
 }
 
-// Empty pads of a track after pad `after`, going round: how many of the three there is room for.
+// Empty pads of a track after pad `after`, going round: how many of the four there is room for.
 unsigned empty_pads(const Track& track, unsigned after) {
     unsigned found = 0;
     for (unsigned k = 1; k < sampler_pads && found < stem_count; ++k) found += !track.pads[(after + k) % sampler_pads].used();
@@ -67,7 +67,7 @@ void Context::stems_sheet_go() {
     unsigned free = 0;
     for (const auto& ref : project.samples) free += !ref.used();
     if (free < stem_count) { notice("Stems: 64 samples"); return; }
-    if (empty_pads(t, sheet.pad) < stem_count) { notice("Stems: three empty pads"); return; }
+    if (empty_pads(t, sheet.pad) < stem_count) { notice("Stems: four empty pads"); return; }
     SampleLibrary::StemsRequest request;
     request.source = uint8_t(sheet.sample % sample_slots);
     std::snprintf(request.name, sizeof(request.name), "%s", stems_base(project.samples[sheet.sample % sample_slots]).c_str());
@@ -104,7 +104,7 @@ void Context::stems_tick() {
     }
 }
 
-// The stems' files as they come in: all three together, once each is read or could not be.
+// The stems' files as they come in: all four together, once each is read or could not be.
 void Context::stems_landed() {
     if (!library) return;
     std::array<PendingFile*, stem_count> held {};

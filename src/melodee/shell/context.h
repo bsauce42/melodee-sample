@@ -599,8 +599,8 @@ public:
     void drop_file(int slot);                            // a held slot nothing came for: free again
     void take_landed(unsigned track, unsigned kit, unsigned slot, const LoadedSample& loaded); // Sample Record's take onto its pads
     // Stems (shell/stems_jobs.cpp, shell/stems.h): the STEMS sheet for the kit pad in hand, B3 SEPARATE, B1 (which
-    // calls a running job off), the job's result each pass, and its three files, once read, onto the next empty
-    // pads after the pad they came from (pending_files' land 3, 4 and 5: DRUMS, VOCALS, MUSIC; one undo).
+    // calls a running job off), the job's result each pass, and its four files, once read, onto the next empty
+    // pads after the pad they came from (pending_files' land 3 to 6: DRUMS, BASS, MUSIC, VOCALS; one undo).
     void open_stems_sheet();
     void stems_sheet_go();
     void stems_sheet_cancel();

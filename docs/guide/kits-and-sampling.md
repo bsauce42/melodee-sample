@@ -325,29 +325,28 @@ the pads play that track.
 
 ## Stems
 
-Stems separates a pad's sample into three new samples: its drums, its
-vocals and its music (the bass and all other instruments).
+Stems separates a pad's sample into four new samples: its drums, its bass,
+its music (all other instruments) and its vocals.
 
 1. Select the pad and open **TRIM**.
-2. Press **SHIFT** + **B3** (**STEMS**). The STEMS sheet shows the three
+2. Press **SHIFT** + **B3** (**STEMS**). The STEMS sheet shows the four
    empty pads the stems go on, the sample's length and how long the job
    takes. **STEMS** in the Menu on Stage opens the same sheet.
 3. Press **B3** (**SEPARATE**) or **Push**.
 
 ![STEMS](../images/screens/stems.png)
 
-A 13-second sample takes about 17 seconds, a one-minute sample about 50
-seconds. You can leave the sheet and keep playing while it runs. To stop
-the job, press **B1** (**CANCEL**) on the sheet.
+You can leave the sheet and keep playing while the job runs. To stop it,
+press **B1** (**CANCEL**) on the sheet.
 
-When the job is done, **DRUMS**, **VOCALS** and **MUSIC** are on the next
-three empty pads after the sample's pad. Each plays as the sample's pad
-does: the same start, end, loop, tuning, warp, envelope and filter, and the
-same slices in Chop. One Undo removes all three. The files are in
-`Samples/Stems`.
+When the job is done, **DRUMS**, **BASS**, **MUSIC** and **VOCALS** are on
+the next four empty pads after the sample's pad. Each plays as the
+sample's pad does: the same start, end, loop, tuning, warp, envelope and
+filter, and the same slices in Chop. Played together, the four give the
+sample back. One Undo removes all four. The files are in `Samples/Stems`.
 
-Stems needs a sample of one second or more, three empty pads and room for
-three more samples in the project (a project holds 64). It does not work
+Stems needs a sample of one second or more, four empty pads and room for
+four more samples in the project (a project holds 64). It does not work
 on a sampled instrument.
 
 ## 16 Levels

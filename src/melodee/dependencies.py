@@ -1,18 +1,20 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Fetch Melodee's pinned dependencies into ignored build storage: its typefaces,
 Rubik and the faces Settings' Font offers (SIL OFL 1.1), the CLAP plug-in headers (MIT), and the
-stem separator's sources: SpleeterRT (GPL-3.0) with its Spleeter model (MIT) and OpenBLAS (BSD-3-Clause).
+stem separator's sources: SpleeterRT (GPL-3.0), OpenBLAS (BSD-3-Clause) and Deezer's Spleeter 4-stem model (MIT).
 
 The build embeds build/deps/rubik/Rubik-VF.ttf and build/deps/fonts/*/ in the binary
 (src/melodee/ui/font_data.cpp); every weight comes from a face's wght axis.
 The CLAP host (src/melodee/plugin/clap_instance.cpp) includes
 build/deps/clap/include. tools/stems/build.py builds the stem separator from
-build/deps/spleeterrt and build/deps/openblas.
+build/deps/spleeterrt, build/deps/openblas and build/deps/spleeter-4stems.
 """
 from pathlib import Path
 import hashlib
 import importlib.util
+import shutil
 import subprocess
+import tarfile
 import urllib.request
 
 REVISION = "5bb28733cec313b63fbd415b574b5ae35c8aa8b8"  # google/fonts
@@ -64,13 +66,15 @@ def prepare_clap(root):
         raise RuntimeError("CLAP revision mismatch; remove build/deps/clap and rebuild")
 
 
-# The stem separator (tools/stems/build.py, src/melodee/shell/stems.h): james34602/SpleeterRT's offline program, its
-# model unpacked from Executable/model.7z, and OpenMathLib/OpenBLAS for its matrix products.
+# The stem separator (tools/stems/build.py, src/melodee/shell/stems.h): the network and STFT code of
+# james34602/SpleeterRT, OpenMathLib/OpenBLAS for its matrix products, and Deezer's Spleeter 4-stem model, a
+# TensorFlow checkpoint in a release of deezer/spleeter (tools/stems/convert_model.py lays its weights out anew).
 SPLEETERRT_REVISION = "d818fb9ca826d31cb7dda60409f3f14e6e789597"
-SPLEETERRT_MODEL_7Z = "a877a5514061acab37d4f5c14013c79499bccf9dc8f93b170cc70a7212c93a81"
-SPLEETERRT_MODEL_C = "3704c5d2720942fc37f4846d08689071775ace503f87c10dd9ad222a79c99f3b"
 OPENBLAS_TAG = "v0.3.28"
 OPENBLAS_REVISION = "5ef8b1964658f9cb6a6324a06f6a1a022609b0c5"
+SPLEETER_MODEL = "https://github.com/deezer/spleeter/releases/download/v1.4.0/4stems.tar.gz"
+SPLEETER_MODEL_SHA256 = "3adb4a50ad4eb18c7c4d65fcf4cf2367a07d48408a5eb7d03cd20067429dfaa8"
+SPLEETER_MODEL_FILES = ("model.index", "model.data-00000-of-00001")
 
 
 def file_digest(path):
@@ -81,18 +85,6 @@ def file_digest(path):
     return digest.hexdigest()
 
 
-def unpack_7z(archive, folder):
-    """With bsdtar (libarchive: macOS has it) or 7-Zip, whichever is there."""
-    for tool in (["bsdtar", "-xf", str(archive), "-C", str(folder)], ["7z", "x", "-y", f"-o{folder}", str(archive)],
-                 ["7zz", "x", "-y", f"-o{folder}", str(archive)], ["7zr", "x", "-y", f"-o{folder}", str(archive)]):
-        try:
-            if subprocess.run(tool, capture_output=True).returncode == 0:
-                return
-        except OSError:
-            continue
-    raise RuntimeError(f"Unpacking {archive.name} needs bsdtar (libarchive-tools) or 7z (p7zip)")
-
-
 def head_of(path):
     return subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip()
 
@@ -100,7 +92,7 @@ def head_of(path):
 def prepare_stems(root):
     quiet = ["git", "-c", "advice.detachedHead=false"]
     spleeter = Path(root) / "build/deps/spleeterrt"
-    if not (spleeter / "MELODEE_REVISION").is_file() or not (spleeter / "Executable/model.c").is_file():
+    if not (spleeter / "MELODEE_REVISION").is_file():
         if not spleeter.exists(): # it has no tags: the commit itself is fetched
             spleeter.mkdir(parents=True)
             subprocess.run(["git", "init", "-q", str(spleeter)], check=True)
@@ -109,14 +101,6 @@ def prepare_stems(root):
             subprocess.run([*quiet, "-C", str(spleeter), "checkout", "-q", "FETCH_HEAD"], check=True)
         if head_of(spleeter) != SPLEETERRT_REVISION:
             raise RuntimeError("SpleeterRT revision mismatch; remove build/deps/spleeterrt and rebuild")
-        model = spleeter / "Executable/model.c"
-        if not model.is_file() or file_digest(model) != SPLEETERRT_MODEL_C:
-            archive = spleeter / "Executable/model.7z"
-            if file_digest(archive) != SPLEETERRT_MODEL_7Z:
-                raise RuntimeError("SpleeterRT model.7z checksum mismatch")
-            unpack_7z(archive, archive.parent)
-            if file_digest(model) != SPLEETERRT_MODEL_C:
-                raise RuntimeError("SpleeterRT model.c checksum mismatch")
         (spleeter / "MELODEE_REVISION").write_text(SPLEETERRT_REVISION + "\n")
     openblas = Path(root) / "build/deps/openblas"
     if not (openblas / "MELODEE_REVISION").is_file():
@@ -126,6 +110,23 @@ def prepare_stems(root):
         if head_of(openblas) != OPENBLAS_REVISION:
             raise RuntimeError("OpenBLAS revision mismatch; remove build/deps/openblas and rebuild")
         (openblas / "MELODEE_REVISION").write_text(OPENBLAS_REVISION + "\n")
+    # The model: the archive checked against its digest, then the checkpoint's two files taken out of it by name.
+    model = Path(root) / "build/deps/spleeter-4stems"
+    marker = model / "MELODEE_REVISION"
+    if not (marker.is_file() and marker.read_text().strip() == SPLEETER_MODEL_SHA256 and all((model / name).is_file() for name in SPLEETER_MODEL_FILES)):
+        model.mkdir(parents=True, exist_ok=True)
+        archive = model / "4stems.tar.gz"
+        if not archive.is_file() or file_digest(archive) != SPLEETER_MODEL_SHA256:
+            with urllib.request.urlopen(SPLEETER_MODEL, timeout=120) as response, open(archive, "wb") as file:
+                shutil.copyfileobj(response, file)
+        if file_digest(archive) != SPLEETER_MODEL_SHA256:
+            raise RuntimeError("Spleeter 4stems.tar.gz checksum mismatch")
+        with tarfile.open(archive) as tar:
+            for name in SPLEETER_MODEL_FILES:
+                member = tar.extractfile(tar.getmember(name))
+                with open(model / name, "wb") as file:
+                    shutil.copyfileobj(member, file)
+        marker.write_text(SPLEETER_MODEL_SHA256 + "\n")
 
 
 def prepare(root):

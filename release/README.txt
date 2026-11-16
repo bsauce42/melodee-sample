@@ -102,6 +102,6 @@ Melodee is free software under the GNU Affero General Public License,
 version 3 (licenses/LICENSE-AGPL-3.0.txt, in this folder). It uses JUCE
 under the AGPLv3 and embeds the Rubik typeface and the other screen fonts
 under the SIL Open Font License 1.1; see licenses/. Stems runs a separate
-program, stems/melodee-stems: SpleeterRT (GPL 3.0) with Deezer's Spleeter
-model (MIT) and OpenBLAS (BSD); see licenses/stems/. Not affiliated with or endorsed by inMusic or
+program, stems/melodee-stems, built on SpleeterRT (GPL 3.0) and OpenBLAS
+(BSD), with Deezer's Spleeter model (MIT) beside it; see licenses/stems/. Not affiliated with or endorsed by inMusic or
 Akai Professional.

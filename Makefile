@@ -71,11 +71,11 @@ build/obj/plugin_support_pack.o: src/melodee/plugin/bridge32/support_pack.S buil
 	@mkdir -p build/obj
 	$(CC) -c $< -o $@
 
-# Stems (src/melodee/shell/stems.h): the separating program, a file of its own in the release, not linked into
-# Melodee (tools/stems/build.py: SpleeterRT with its model, and OpenBLAS, from build/deps). `make stems` builds it;
-# the first time takes a few minutes.
+# Stems (src/melodee/shell/stems.h): the separating program and its model, files of their own in the release, not
+# linked into Melodee (tools/stems/build.py: stems_engine.c on SpleeterRT's network code and OpenBLAS, and Deezer's
+# 4-stem model, from build/deps). `make stems` builds them; the first time takes a few minutes.
 STEMS := build/stems/melodee-stems
 .PHONY: stems
 stems: $(STEMS)
-$(STEMS): tools/stems/build.py tools/stems/stems_main.c
+$(STEMS): tools/stems/build.py tools/stems/stems_engine.c tools/stems/convert_model.py
 	python3 tools/stems/build.py build/stems

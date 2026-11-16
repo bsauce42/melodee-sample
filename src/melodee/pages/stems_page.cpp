@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // STEMS (shell/stems_jobs.cpp): Shift + B3 on a kit pad's TRIM. The pad's
-// sample separated into DRUMS, VOCALS and MUSIC, each a tile naming the
+// sample separated into DRUMS, BASS, MUSIC and VOCALS, each a tile naming the
 // empty pad it lands on; under them the sample's length and the time the job
 // takes. B3 SEPARATE (or Push) starts it: then the tiles fill as it goes, the
 // time left counts down and B1 calls it off. The pads play the kit meanwhile,
@@ -51,9 +51,9 @@ void draw(Paint& p, const Snapshot& s) {
     const juce::String name = name_case(juce::String(ref.name));
     p.text(name, x0 + fw + 8, y0, full - fw - 8, 18, p.fit(name, plain(colour::text, type::list, Weight::SemiBold), full - fw - 8, type::floor));
 
-    // The three stems as tiles, each with the empty pad it lands on: the next three after the sample's pad.
+    // The four stems as tiles, each with the empty pad it lands on: the next four after the sample's pad.
     constexpr float gap = 6, th = 58;
-    const float tw = (full - 2 * gap) / stem_count, ty = y0 + 26;
+    const float tw = (full - (stem_count - 1) * gap) / stem_count, ty = y0 + 26;
     unsigned after = sheet.pad % sampler_pads;
     const float done = running ? std::clamp(job.fraction, 0.0f, 1.0f) : 0;
     for (unsigned n = 0; n < stem_count; ++n) {
@@ -63,7 +63,7 @@ void draw(Paint& p, const Snapshot& s) {
             if (!track.pads[(after + k) % sampler_pads].used()) kit = int((after + k) % sampler_pads);
         if (kit >= 0) after = unsigned(kit);
         p.fill(x, ty, tw, th, c.withAlpha(0.16f), 6);
-        // While it runs, the tiles fill from the left as one bar: the job makes the three together.
+        // While it runs, the tiles fill from the left as one bar: the job makes the four together.
         if (running) {
             const float filled = std::clamp(done * stem_count - float(n), 0.0f, 1.0f);
             if (filled > 0) p.fill(x, ty, std::max(6.0f, tw * filled), th, c.withAlpha(0.45f), 6);

@@ -272,7 +272,7 @@ void Context::files_landed() {
         else if (!melodee::load_bank(bank_bytes.bytes, bank)) notice("Load Bank: not a bank file");
         else load_bank(bank, name);
     }
-    stems_landed(); // a sample's three stems together (shell/stems_jobs.cpp)
+    stems_landed(); // a sample's four stems together (shell/stems_jobs.cpp)
     for (auto& p : pending_files) {
         if (p.slot < 0 || p.land >= 3) continue; // 3 and up: stems, landed above
         auto loaded = library->slot(unsigned(p.slot));

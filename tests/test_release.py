@@ -24,6 +24,7 @@ class ReleaseTests(unittest.TestCase):
             stems = Path(temp) / "stems" # as tools/stems/build.py leaves it
             (stems / "licenses").mkdir(parents=True)
             (stems / "melodee-stems").write_bytes(b"\x7fELF nor this")
+            (stems / "spleeter-4stems.f16").write_bytes(b"MLST and no weights")
             (stems / "licenses/README.txt").write_text("where its sources are\n")
             return make_release.collect(binary, "v0.1.0-alpha.1", "0123456789ab", stems)
 
@@ -58,6 +59,7 @@ class ReleaseTests(unittest.TestCase):
     def test_the_stem_separator_ships_in_a_folder_of_its_own(self):
         files = self.collect()
         self.assertEqual(files["autorun/melodee/stems/melodee-stems"], b"\x7fELF nor this") # where Melodee looks for it
+        self.assertEqual(files["autorun/melodee/stems/spleeter-4stems.f16"], b"MLST and no weights") # its model beside it
         self.assertIn("autorun/melodee/licenses/stems/README.txt", files)
         self.assertNotIn("melodee-stems", files["autorun/melodee/SHA256SUMS"].decode()) # not among what sd-worker.sh copies into RAM
 
