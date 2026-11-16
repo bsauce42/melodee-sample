@@ -1053,17 +1053,12 @@ bool Context::refuse_instrument(const char* job) {
     return true;
 }
 
-bool Context::refuse_streamed(const char* job, unsigned slot) {
-    if (slot >= sample_slots || !project.samples[slot].streamed) return false;
-    notice(std::string(job) + ": not on a long sample");
-    return true;
-}
 
 void Context::save_sample() {
     auto& t = track();
     const auto& sound = pad();
     if (t.engine != EngineKind::Sampler || !sound.used()) { notice("Save Sample: no sample"); return; }
-    if (refuse_instrument("Save Sample") || refuse_streamed("Save Sample", sound.sample)) return;
+    if (refuse_instrument("Save Sample")) return;
     const auto& ref = project.samples[sound.sample % sample_slots];
     open_name(NameTarget::Sample, ref.name, sizeof(project.name) - 1, false); // a file's name may run as long as a project's
 }

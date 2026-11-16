@@ -748,6 +748,13 @@ void Shell::end_copy_away() {
     if (ui_.copying != UiState::Copying::Off && !here) ui_.stop_copying();
 }
 
+FrameView Shell::zoomed_view() const {
+    const auto& t = project_->tracks[ui_.track % track_count];
+    if (ui_.page == PageId::Chop && ui_.chop_zoom) return chop_view(*project_, ui_);
+    if (ui_.page == PageId::Stage && ui_.trim_zoom && stage_page_now(ui_, t, stage_skip(*project_, ui_, t)).kind == StageKind::Trim) return trim_view(*project_, ui_);
+    return {};
+}
+
 void Shell::snapshot(Snapshot& out, uint32_t now) {
     std::lock_guard<std::mutex> guard(lock);
     auto bindings = page_bindings(*project_, ui_, context_.pattern());
@@ -805,9 +812,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
         out.sample = slot < sample_slots ? library_->slot(slot) : LoadedSample {};
         out.zone_file = out.sample.instrument && ui_.page != PageId::Chop ? library_->zone_file(slot, ui_.zone) : std::string();
         // Trim and Chop zoomed in: the view's own peaks, from the audio (the overview's 512 are too few that close).
-        FrameView view;
-        if (ui_.page == PageId::Chop && ui_.chop_zoom) view = chop_view(*project_, ui_);
-        if (ui_.page == PageId::Stage && ui_.trim_zoom && stage_page_now(ui_, t, stage_skip(*project_, ui_, t)).kind == StageKind::Trim) view = trim_view(*project_, ui_);
+        const FrameView view = zoomed_view();
         out.detail_from = out.detail_to = 0;
         uint8_t* const sides[2] = {out.detail_sides[0].data(), out.detail_sides[1].data()};
         if (view.width() && slot < sample_slots && library_->detail(slot, view.from, view.to, out.detail.data(), unsigned(out.detail.size()), sides)) {

@@ -1276,9 +1276,17 @@ the card as it plays, as an instrument's files are (`engine/stream_pager.h`,
 read in place). The chunks where its pads start, end (reversed) and loop
 are held, so a hit sounds at once, and the pager reads ahead of each voice
 (`shell/stream_holds.h`; Chop's slices too while Chop is on it). It plays
-as soon as it is opened; its waveform and hits are read from the file a
-moment later. Trim Sample, Save Sample, Normalize and Extract are not
-offered on one, and a CLOUD pad on one plays it plainly. A sample is held once, at its file's own rate: never converted, with
+as soon as it is opened; its waveform, hits and a table of its peaks (the
+loudest of each 1024 frames) are read from the file a moment later.
+Normalize reads that table; Trim and Chop zoomed in draw from it, or, within
+12 s, from the frames themselves, held while the view is open; Zero Snap
+reads the few frames around a cut from the file. Trim Sample, Extract and
+Save Sample copy the region from file to file a piece at a time, at its rate
+and as many bits, undithered; a long result is read from the card as it
+plays too. Chop's slices are written into the WAV without moving its audio
+(over the old ones before it when they fit, else after it), so a file
+playing from the card is never rewritten. A CLOUD pad on one plays it
+plainly. A sample is held once, at its file's own rate: never converted, with
 no copy at the device's rate or at 44.1 kHz, in memory or on the card
 (`engine/sample_data.h`). The project counts positions in 44.1 kHz frames (a
 region, a slice, the hits); a voice turns those into the sample's own frames

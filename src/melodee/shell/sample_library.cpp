@@ -4,6 +4,7 @@
 #include "melodee/model/card_folders.h"
 #include "melodee/shell/sf2_file.h"
 #include "melodee/shell/chop.h"
+#include "melodee/engine/stream_pager.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/sample_decode.h"
 #include "melodee/shell/sample_memory.h"
@@ -102,7 +103,15 @@ bool SampleLibrary::thumbnail(unsigned n, uint32_t from, uint32_t to, uint8_t* o
 float SampleLibrary::peak(unsigned n, uint32_t from, uint32_t to) const {
     std::lock_guard<std::mutex> guard(lock);
     const SampleData* data = data_of[n % sample_slots];
-    if (!data || !data->frames || data->left.empty()) return -1; // a long sample is not in memory
+    if (!data || !data->frames) return -1;
+    if (data->stream) { // a long sample, not in memory: its peaks table, whole blocks (a few frames either side more)
+        const auto& shown = slot_shown[n % sample_slots];
+        if (!shown || shown->peaks.empty()) return -1; // not read yet
+        const uint32_t a = data->own(from) / peak_block, b = ((to ? data->own(to) : data->frames) + peak_block - 1) / peak_block;
+        float top = 0;
+        for (uint32_t k = a; k < b && 2 * size_t(k) + 1 < shown->peaks.size(); ++k) top = std::max({top, shown->peaks[2 * k], shown->peaks[2 * k + 1]});
+        return top;
+    }
     to = to ? data->own(to) : data->frames; // its own frames between the two
     from = data->own(from);
     float top = 0;
@@ -110,22 +119,54 @@ float SampleLibrary::peak(unsigned n, uint32_t from, uint32_t to) const {
     return top;
 }
 
+// A long sample's frames around `frame` (44.1 kHz) read from its file, `back` before and `ahead` after, as a sample of
+// their own, with where `frame` falls in them and the first's place; none when it is not a long sample.
+SampleLibrary::Around SampleLibrary::around(unsigned n, uint32_t frame, uint32_t back, uint32_t ahead) const {
+    Around out;
+    std::shared_ptr<ZonePart> part;
+    unsigned rate = 44100;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        const SampleData* data = data_of[n % sample_slots];
+        if (!data || !data->stream) return out;
+        part = data->stream; rate = data->rate;
+        out.own = data->own(frame);
+    }
+    out.first = out.own > back ? out.own - back : 0;
+    const uint32_t last = std::min<uint64_t>(part->total, uint64_t(out.own) + ahead + 1);
+    if (last <= out.first) return out;
+    out.part.frames = last - out.first; out.part.rate = rate;
+    out.part.left.resize(out.part.frames); out.part.right.resize(out.part.frames);
+    out.read = read_frames(*part, out.first, out.part.frames, out.part.left.data(), out.part.right.data()); // off the lock: the card's time
+    return out;
+}
+
 uint32_t SampleLibrary::zero_crossing(unsigned n, uint32_t frame) const {
+    if (auto a = around(n, frame, zero_back, zero_ahead); a.read) {
+        const uint32_t at = melodee::zero_crossing(a.part.left.data(), a.part.right.data(), a.part.frames, a.own - a.first) + a.first;
+        return at == a.own ? frame : a.part.model(at);
+    }
     std::lock_guard<std::mutex> guard(lock);
     const SampleData* data = data_of[n % sample_slots];
-    return data && data->frames ? melodee::zero_crossing(*data, frame) : frame;
+    return data && data->frames && !data->stream ? melodee::zero_crossing(*data, frame) : frame;
 }
 
 uint32_t SampleLibrary::zero_crossing_toward(unsigned n, uint32_t frame, int way) const {
+    if (auto a = around(n, frame, zero_reach + 1, zero_reach + 1); a.read) {
+        const uint32_t at = melodee::zero_crossing_toward(a.part.left.data(), a.part.right.data(), a.part.frames, a.own - a.first, way) + a.first;
+        if (at == a.own) return frame;
+        return way > 0 ? std::max(a.part.model(at), frame) : std::min(a.part.model(at), frame);
+    }
     std::lock_guard<std::mutex> guard(lock);
     const SampleData* data = data_of[n % sample_slots];
-    return data && data->frames ? melodee::zero_crossing_toward(*data, frame, way) : frame;
+    return data && data->frames && !data->stream ? melodee::zero_crossing_toward(*data, frame, way) : frame;
 }
 
 bool SampleLibrary::detail(unsigned n, uint32_t from, uint32_t to, uint8_t* out, unsigned columns, uint8_t* const* sides) const {
     std::lock_guard<std::mutex> guard(lock);
     const SampleData* data = data_of[n % sample_slots];
     if (!data || !data->frames || !columns) return false;
+    if (data->stream) return detail_streamed(n, *data, from, to, out, columns, sides);
     uint32_t frames = std::min<uint32_t>(data->frames, uint32_t(data->left.size()));
     to = std::min(data->own(to), frames); // its own frames between the two
     from = std::min(data->own(from), to);
@@ -141,6 +182,51 @@ bool SampleLibrary::detail(unsigned n, uint32_t from, uint32_t to, uint8_t* out,
         auto byte = [](float v) { return uint8_t(std::lround(std::min(1.0f, v) * 255)); };
         out[c] = byte(std::max(l, r));
         if (sides) { sides[0][c] = byte(l); sides[1][c] = byte(r); }
+    }
+    return true;
+}
+
+bool SampleLibrary::detail_streamed(unsigned n, const SampleData& data, uint32_t from, uint32_t to, uint8_t* out, unsigned columns,
+                                    uint8_t* const* sides) const {
+    const ZonePart& part = *data.stream;
+    to = std::min(data.own(to), part.total);
+    from = std::min(data.own(from), to);
+    if (to <= from) return false;
+    auto byte = [](float v) { return uint8_t(std::lround(std::min(1.0f, v) * 255)); };
+    auto column = [&](unsigned c, float l, float r) {
+        out[c] = byte(std::max(l, r));
+        if (sides) { sides[0][c] = byte(l); sides[1][c] = byte(r); }
+    };
+    auto edges = [&](unsigned c) {
+        const uint32_t a = from + uint32_t(uint64_t(to - from) * c / columns), b = from + uint32_t(uint64_t(to - from) * (c + 1) / columns);
+        return std::pair<uint32_t, uint32_t> {a, std::max(b, a + 1)};
+    };
+    if (uint64_t(to - from) >= uint64_t(columns) * peak_block) { // a block or more a column: its peaks
+        const auto& shown = slot_shown[n % sample_slots];
+        if (!shown || shown->peaks.empty()) return false; // not read yet
+        const auto& peaks = shown->peaks;
+        for (unsigned c = 0; c < columns; ++c) {
+            const auto [a, b] = edges(c);
+            float l = 0, r = 0;
+            for (uint32_t k = a / peak_block; k <= (b - 1) / peak_block && 2 * size_t(k) + 1 < peaks.size(); ++k) {
+                l = std::max(l, peaks[2 * size_t(k)]);
+                r = std::max(r, peaks[2 * size_t(k) + 1]);
+            }
+            column(c, l, r);
+        }
+        return true;
+    }
+    { // closer: its frames, where every chunk of the view is in memory (held while the view is open)
+        std::lock_guard<std::mutex> held(part.source->lock);
+        for (uint32_t c = from / stream_chunk; c <= (to - 1) / stream_chunk; ++c)
+            if (c >= part.pins.size() || !part.pins[c]) return false;
+    }
+    for (unsigned c = 0; c < columns; ++c) {
+        const auto [a, b] = edges(c);
+        float l = 0, r = 0;
+        const uint32_t stride = std::max<uint32_t>(1, (b - a) / 128);
+        for (uint32_t f = a; f < b && f < to; f += stride) { l = std::max(l, std::fabs(part.left[f])); r = std::max(r, std::fabs(part.right[f])); }
+        column(c, l, r);
     }
     return true;
 }
@@ -536,6 +622,7 @@ void SampleLibrary::make(const SampleJob& job) {
     auto fail = [&](const std::string& why) { // the MIDI thread lets go of the slot it held
         finish(std::string(what) + ": " + why, job.kind == SampleJob::Kind::Derive ? int(job.target % sample_slots) : -1);
     };
+    if (source && source->stream) { make_streamed(job, *source); return; }
     if (!source || !source->frames || source->left.empty()) { fail("not loaded"); return; }
     // The region (44.1 kHz frames, as the project counts them; `to` 0 the end) in the source's own frames.
     const uint32_t all = source->frames, end = job.to && job.to < source->model_frames() ? source->own(job.to) : all;
@@ -580,6 +667,65 @@ void SampleLibrary::make(const SampleJob& job) {
     show(job.target).sample = loaded;
     data_of[job.target % sample_slots] = held;
     changes.fetch_add(1, std::memory_order_release);
+}
+
+// Save Sample, Trim Sample and Extract on a long sample (read from the card, not in memory): its region copied from its
+// file into the new one a piece at a time, at its rate and as many bits (no dither: the same values), Extract's edges
+// faded as in make(). Trim and Extract then load the new file into their slot as any file is loaded: a long one is
+// read from the card as it plays.
+void SampleLibrary::make_streamed(const SampleJob& job, const SampleData& source) {
+    const char* what = job.kind == SampleJob::Kind::Save ? "Save Sample" : "Sample";
+    auto fail = [&](const std::string& why) {
+        finish(std::string(what) + ": " + why, job.kind == SampleJob::Kind::Derive ? int(job.target % sample_slots) : -1);
+    };
+    std::string from_path, root;
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        from_path = shown_at(job.source).path;
+        root = known.root;
+    }
+    const uint32_t all = source.frames, end = job.to && job.to < source.model_frames() ? source.own(job.to) : all;
+    const uint32_t first = std::min(source.own(job.from), end);
+    if (end - first < 2) { fail("too short"); return; }
+    if (root.empty()) { fail("no card"); return; } // its region is copied from card to card
+    WavReader in;
+    if (!in.open(from_path, stream_most_seconds).empty() || !in.seek(first)) { fail("cannot read it"); return; }
+    const WavLayout layout = in.layout();
+    const std::string folder = job.folder[0] ? root + "/" + job.folder : root;
+    std::error_code made;
+    fs::create_directories(folder, made);
+    const std::string path = free_name(folder, job.name);
+    if (path.empty()) { fail("no free name"); return; }
+    WavStream out;
+    out.set_dither(false);
+    const unsigned channels = std::clamp(layout.channels, 1u, 2u);
+    if (!out.open(path, source.rate, layout.floating || layout.bits > 24 ? 32 : layout.bits, 0, channels)) { fail("cannot write"); return; }
+    const uint32_t frames = end - first, edge = std::min<uint32_t>(source.rate / 500, frames / 2); // 2 ms fades
+    const bool fade_in = job.edges && first > 0, fade_out = job.edges && end < all;
+    constexpr uint32_t piece = 16384;
+    std::vector<float> l(piece), r(piece), both(2 * piece);
+    for (uint32_t done = 0; done < frames;) {
+        const uint32_t got = in.read(l.data(), r.data(), std::min(piece, frames - done));
+        if (!got) break;
+        for (uint32_t k = 0; k < got; ++k) {
+            const uint32_t at = done + k;
+            float g = 1.0f;
+            if (fade_in && at < edge) g = float(at) / float(edge);
+            if (fade_out && frames - 1 - at < edge) g = std::min(g, float(frames - 1 - at) / float(edge));
+            if (channels == 1) both[k] = l[k] * g;
+            else { both[2 * k] = l[k] * g; both[2 * k + 1] = r[k] * g; }
+        }
+        if (!out.add(both.data(), got)) break;
+        done += got;
+    }
+    if (!out.close() || out.frames() != frames) { fs::remove(path, made); fail("cannot write"); return; }
+    scan_wanted.store(true); // it shows in the browser
+    if (job.kind == SampleJob::Kind::Save) { finish("Saved " + upper(fs::path(path).stem().string())); return; }
+    Request again; // into its slot as a file asked for (dispatch()); the MIDI thread puts it on its pad once it is in
+    again.slot = uint16_t(job.target % sample_slots);
+    std::snprintf(again.path, sizeof(again.path), "%s", path.c_str());
+    asked.fetch_add(1, std::memory_order_relaxed);
+    dispatch(again);
 }
 
 // The browser's preview (B3): the file in the preview slot, at most 30 s of it. It plays once its first piece is
@@ -851,6 +997,7 @@ void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out) {
     std::vector<float> mono;
     if (memory_allows(memory_free(), uint64_t(model) * sizeof(float) * 2)) mono.resize(model); // and as much again to find hits in
     std::array<float, std::tuple_size_v<Overview>> left_peak {}, right_peak {};
+    out.peaks.assign(size_t((uint64_t(frames) + peak_block - 1) / peak_block) * 2, 0.0f);
     constexpr uint32_t piece = 16384;
     std::vector<float> l(piece), r(piece);
     uint32_t n = 0;
@@ -861,6 +1008,9 @@ void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out) {
             const auto column = size_t(uint64_t(n) * left_peak.size() / frames);
             left_peak[column] = std::max(left_peak[column], std::fabs(l[k]));
             right_peak[column] = std::max(right_peak[column], std::fabs(r[k]));
+            float* block = &out.peaks[size_t(n / peak_block) * 2];
+            block[0] = std::max(block[0], std::fabs(l[k]));
+            block[1] = std::max(block[1], std::fabs(r[k]));
             if (l[k] != r[k]) out.stereo = true;
             if (mono.empty()) continue;
             const float v = l[k] + r[k];
@@ -946,7 +1096,7 @@ void SampleLibrary::take_loaded() {
             shapes_read.erase(shapes_read.begin() + std::ptrdiff_t(n));
         }
     }
-    for (const auto& s : shapes) {
+    for (auto& s : shapes) {
         if (s.serial != slot_serial[s.slot % sample_slots]) continue; // asked for again since
         std::lock_guard<std::mutex> guard(lock);
         auto& shown = show(s.slot).sample;
@@ -954,6 +1104,7 @@ void SampleLibrary::take_loaded() {
         shown.overview = s.overview; shown.sides = s.sides; shown.stereo = s.stereo;
         shown.hits = s.hits; shown.hit_count = s.hit_count; shown.beats = s.beats;
         shown.shaped = true;
+        show(s.slot).peaks = std::move(s.peaks);
         changes.fetch_add(1, std::memory_order_release);
     }
     for (auto& f : files) handovers.push_back(std::move(f));

@@ -690,7 +690,6 @@ public:
     std::vector<LandingPad> landing_pads;
     void land_instruments();
     bool refuse_instrument(const char* job);                 // true, and says so, when the last pad holds one
-    bool refuse_streamed(const char* job, unsigned slot);    // the same for a long sample read from the card
     // Stage's ZONES (round 3 "instrument C"): a press of kit pad `kit` of the selected track, `semitones` from its
     // note, at `velocity`: when the pad holds an instrument, the zone it reaches is the zone in hand.
     void follow_zone(unsigned kit, int semitones, int velocity);

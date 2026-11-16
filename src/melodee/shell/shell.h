@@ -17,6 +17,7 @@
 #include "melodee/shell/pad_context.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
+#include "melodee/shell/zoom_view.h"
 #include "melodee/shell/snapshot.h"
 #include "melodee/shell/ui_state.h"
 #include "runtime/app.h"
@@ -161,6 +162,7 @@ private:
     SampleLibrary* library_ = nullptr;
     unsigned library_seen = ~0u;
     uint32_t holds_at = 0;      // when the long samples' held chunks were last looked at (lights.cpp)
+    FrameView zoomed_view() const; // Trim's or Chop's view zoomed in, in 44.1 kHz frames; none when not zoomed
     StreamHolds holds_sent;     // what the library was last asked to hold
     unsigned format_seen = 0; // the engine's format_changes() the project was last sent again for
     EncoderHold enc; // the encoder's push: a tap is the page's, a hold opens the MENU (shell/menu.h)

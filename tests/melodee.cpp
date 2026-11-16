@@ -13688,6 +13688,54 @@ void long_samples_streamed() {
     ref.streamed = false;
     CHECK(stream_holds(*p).empty());
 
+    // A zoomed view of a long sample is held while it is narrow enough to draw from its frames; wider, it is not.
+    ref.streamed = true;
+    holds = stream_holds(*p, nullptr, no_sample, 3, HeldRange {100000, 100000 + view_most, false});
+    CHECK(holds[0].second.size() == want.size() + 1);
+    CHECK(stream_holds(*p, nullptr, no_sample, 3, HeldRange {100000, 100001 + view_most, false})[0].second == want);
+    CHECK(stream_holds(*p, nullptr, no_sample, 4, HeldRange {0, 1000, false})[0].second == want); // a sample in memory
+    ref.streamed = false;
+
+    // Edits of a long sample read its file: WavReader from any frame on, a few frames straight from the file (zero
+    // snap), and a region copied into a WAV of as many bits with no dither (the same values).
+    {
+        const std::string wav16 = "/tmp/melodee-long16-" + std::to_string(::getpid()) + ".wav";
+        const unsigned n = 50000;
+        {
+            std::ofstream f(wav16, std::ios::binary);
+            f.write("RIFF", 4); put32(f, 36 + n * 4); f.write("WAVEfmt ", 8); put32(f, 16); put16(f, 1); put16(f, 2);
+            put32(f, 48000); put32(f, 48000 * 4); put16(f, 4); put16(f, 16); f.write("data", 4); put32(f, n * 4);
+            for (unsigned k = 0; k < n; ++k) { put16(f, uint16_t(int16_t(k % 30000))); put16(f, uint16_t(int16_t(-int(k % 20000)))); }
+        }
+        WavReader reader;
+        CHECK(reader.open(wav16, 60).empty() && reader.seek(40000));
+        std::vector<float> l(100), r(100);
+        CHECK(reader.read(l.data(), r.data(), 100) == 100 && l[0] == float(int16_t(40000 % 30000)) / 32768.0f && r[99] == float(int16_t(-int(40099 % 20000))) / 32768.0f);
+        CHECK(!reader.seek(n + 1));
+        ZonePart part;
+        CHECK(reader.open(wav16, 60).empty() && read_in_place(wav16, reader.layout(), part));
+        std::vector<float> fl(10), fr(10);
+        CHECK(read_frames(part, 12345, 10, fl.data(), fr.data()) && fl[3] == float(int16_t(12348)) / 32768.0f && fr[9] == float(int16_t(-12354)) / 32768.0f);
+        CHECK(read_frames(part, n - 4, 10, fl.data(), fr.data()) && !read_frames(part, n, 1, fl.data(), fr.data())); // cut at its end
+        // A region copied undithered at 16 bits: the same values.
+        const std::string copy = wav16 + ".copy.wav";
+        WavStream out;
+        out.set_dither(false);
+        CHECK(out.open(copy, 48000, 16, 0, 2));
+        std::vector<float> both(2 * 1000);
+        CHECK(reader.seek(20000) && reader.read(l.data(), r.data(), 1) == 1);
+        CHECK(reader.seek(20000));
+        std::vector<float> rl(1000), rr(1000);
+        CHECK(reader.read(rl.data(), rr.data(), 1000) == 1000);
+        for (unsigned k = 0; k < 1000; ++k) { both[2 * k] = rl[k]; both[2 * k + 1] = rr[k]; }
+        CHECK(out.add(both.data(), 1000) && out.close());
+        SampleData back;
+        CHECK(read_wav(copy, back).empty() && back.frames == 1000 && back.rate == 48000);
+        for (unsigned k = 0; k < 1000; ++k) CHECK(back.left[k] == rl[k] && back.right[k] == rr[k]);
+        std::remove(copy.c_str());
+        std::remove(wav16.c_str());
+    }
+
     // Hits found in a given sum, as in the sample itself.
     SampleData clicks;
     clicks.frames = 44100 * 2; clicks.left.assign(clicks.frames, 0.0f); clicks.right.assign(clicks.frames, 0.0f);

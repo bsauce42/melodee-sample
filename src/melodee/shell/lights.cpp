@@ -309,7 +309,11 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     if (library_ && now - holds_at >= 100) {
         holds_at = now;
         const bool chop = ui_.page == PageId::Chop && ui_.slices.count;
-        auto holds = stream_holds(*project_, chop ? &ui_.slices : nullptr, chop ? ui_.chop_sample : no_sample);
+        const auto& t = project_->tracks[ui_.track % track_count];
+        const FrameView view = zoomed_view(); // a close view's frames too, drawn from memory (SampleLibrary::detail())
+        const unsigned view_sample = ui_.page == PageId::Chop ? ui_.chop_sample : t.pads[t.last_pad % sampler_pads].sample;
+        auto holds = stream_holds(*project_, chop ? &ui_.slices : nullptr, chop ? ui_.chop_sample : no_sample,
+                                  view.width() ? view_sample : no_sample, HeldRange {view.from, view.to, false});
         auto find = [](const StreamHolds& in, unsigned slot) {
             auto at = std::lower_bound(in.begin(), in.end(), slot, [](const auto& e, unsigned s) { return e.first < s; });
             return at != in.end() && at->first == slot ? &at->second : nullptr;
