@@ -38,7 +38,11 @@ page and control, read the [user guide](docs/GUIDE.md).
   follow), Cloud (granular) and a kit filter. Each pad has its own effects
   and sends to the four buses.
 - **Sampling**: Chop, Sample Record, Audio Recall, Resample and 16 Levels.
-  Samples load from WAV, MP3, FLAC, Ogg Vorbis and AIFF files.
+  Samples load from WAV, MP3, FLAC, Ogg Vorbis and AIFF files. A sample
+  longer than 10 seconds plays from the card, up to 6 hours; a project holds
+  as many samples as fit in memory.
+- **Stems**: separate a pad's sample into drums, bass, music and vocals on
+  four new pads, on the MPC itself.
 - **Sampled instruments**: SFZ, MPC keygroup and drum programs (`.xpm`,
   `.xty`), MPC expansions (`.xpn`), Logic EXS24 (`.exs`), SoundFont (`.sf2`)
   and DecentSampler (`.dspreset`), streamed from the card, on a keygroup
