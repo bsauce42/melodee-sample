@@ -13914,6 +13914,151 @@ void long_samples_streamed() {
     for (unsigned n = 0; n < found; ++n) CHECK(a[n].frame == b[n].frame && a[n].strength == b[n].strength);
 }
 
+// A long sample of a kind that is not read in place (MP3, FLAC, Ogg, AIFF) is laid out once as a PCM WAV in the card's
+// cache and read from there as it plays (shell/sample_cache.h's wav_copy(), the load in shell/sample_library.cpp). The
+// host tests link no decoder, so here one stands in that hands on known frames: the WAV holds them at the source's rate
+// and bits, to the value; it is read in place as any long WAV, and a pad on it plays as on the same frames in memory; a
+// second load finds the WAV and decodes nothing; a changed source misses it; a mono source takes one side; a source
+// that ends before the length it gave ends the WAV there; 16 bits from a source that keeps none are dithered; one
+// that gives nothing leaves no file; tidy() ages the WAVs as the rest.
+void long_samples_copied() {
+    namespace fs = std::filesystem;
+    const auto base = fs::temp_directory_path() / ("melodee-copy-" + std::to_string(getpid()));
+    fs::create_directories(base / "Samples");
+    SampleCache cache;
+    cache.set_folder((base / "Melodee/Cache").string()); // made by the first copy
+    const std::string source = (base / "Samples/SET.flac").string();
+    { std::ofstream(source) << "not decoded here"; }
+    const unsigned rate = 48000, frames = rate * 12;
+    auto left_of = [](uint32_t n) { return float(std::lround(3000000 * std::sin(n * 0.013))) / 8388608.0f; }; // on 24-bit steps
+    auto right_of = [](uint32_t n) { return float(std::lround(-1500000 * std::sin(n * 0.007))) / 8388608.0f; };
+    unsigned calls = 0;
+    uint32_t at = 0;
+    const FrameReader read = [&](float* l, float* r, uint32_t n) {
+        ++calls;
+        n = std::min(n, frames - at);
+        for (uint32_t k = 0; k < n; ++k) { l[k] = left_of(at + k); r[k] = right_of(at + k); }
+        at += n;
+        return n;
+    };
+    WavCopy what;
+    what.rate = rate; what.frames = frames; what.channels = 2; what.bits = wav_copy_bits(24, false);
+    bool made = false;
+    const std::string copy = cache.wav_copy(source, what, read, &made);
+    CHECK(made && !copy.empty() && copy == cache.wav_of(source) && fs::path(copy).parent_path() == base / "Melodee/Cache");
+    CHECK(fs::path(copy).extension() == ".wav" && copy != cache.file_of(source) && !fs::exists(copy + ".part") && at == frames);
+    CHECK(fs::file_size(copy) == 44 + uint64_t(frames) * 6 && fs::file_size(copy) <= SampleCache::wav_bytes(what));
+
+    // It is a long PCM WAV as any other: 24-bit, at the source's rate, read in place, its values the source's.
+    WavReader wav;
+    CHECK(wav.open(copy, stream_most_seconds).empty() && wav.frames() == frames && wav.rate() == rate);
+    CHECK(wav.layout().bits == 24 && wav.layout().channels == 2 && !wav.layout().floating);
+    CHECK(streams_from_card(wav.frames(), wav.rate(), true));
+    auto data = std::make_unique<SampleData>();
+    data->stream = std::make_shared<ZonePart>();
+    CHECK(read_in_place(copy, wav.layout(), *data->stream));
+    data->stream->frames.store(data->stream->total);
+    data->frames = data->stream->total; data->rate = rate;
+    std::vector<float> l(1000), r(1000);
+    CHECK(read_frames(*data->stream, 400000, 1000, l.data(), r.data()));
+    for (unsigned k = 0; k < 1000; ++k) CHECK(l[k] == left_of(400000 + k) && r[k] == right_of(400000 + k));
+
+    // A pad on it plays what a pad on the same frames read into memory plays.
+    {
+        SampleData memory;
+        std::vector<float> ml(frames), mr(frames);
+        for (uint32_t n = 0; n < frames; ++n) { ml[n] = left_of(n); mr[n] = right_of(n); }
+        adopt(memory, std::move(ml), std::move(mr), rate);
+        const float was = dsp::device_rate.load();
+        dsp::device_rate.store(48000);
+        StreamPager pager;
+        SamplerEngine::Table from_card {}, from_memory {};
+        from_card[0] = data.get(); from_memory[0] = &memory;
+        PadSound pad; pad.sample = 0; pad.start = 220500; // 5 s in
+        const uint32_t start = data->own(pad.start);
+        CHECK(start == 240000);
+        for (uint32_t c = start / stream_chunk; c <= (start + stream_chunk - 1) / stream_chunk; ++c) CHECK(pager.hold_chunk(*data->stream, c));
+        auto render = [&](const SamplerEngine::Table& table, bool paged) {
+            SamplerEngine engine;
+            engine.set_samples(&table);
+            if (paged) engine.set_pager(&pager);
+            engine.set_tempo(1200);
+            engine.set_pad(0, pad);
+            engine.note_on(int(sampler_first_note), 127);
+            std::vector<float> out, bl(128), br(128);
+            for (unsigned b = 0; b < 800; ++b) { // 2.1 s: well past what is held
+                std::fill(bl.begin(), bl.end(), 0.0f); std::fill(br.begin(), br.end(), 0.0f);
+                engine.render_stereo(bl.data(), br.data(), 128);
+                out.insert(out.end(), bl.begin(), bl.end());
+                out.insert(out.end(), br.begin(), br.end());
+                while (pager.pump()) {}
+            }
+            return out;
+        };
+        const auto card = render(from_card, true), mem = render(from_memory, false);
+        CHECK(card == mem && peak_of(mem) > 0.1f && pager.underruns() == 0);
+        dsp::device_rate.store(was);
+    }
+
+    // A second load finds the WAV: nothing is decoded. A source that changed misses it.
+    const unsigned before = calls;
+    at = 0;
+    CHECK(cache.wav_copy(source, what, read, &made) == copy && !made && calls == before && cache.wav_ready(copy));
+    CHECK(!cache.wav_ready(source) && !cache.wav_ready(copy + ".gone"));
+    { std::ofstream(source, std::ios::app) << ", and longer now"; }
+    CHECK(cache.wav_of(source) != copy);
+
+    // A mono source takes one side. One that ends before the length it gave (an MP3's may be a guess) ends the WAV
+    // there. It keeps no bits of its own: 16, dithered, each value within a step and a half of the source's.
+    const std::string talk = (base / "Samples/TALK.mp3").string();
+    { std::ofstream(talk) << "nor this"; }
+    auto tone = [](uint32_t n) { return 0.4f * float(std::sin(n * 0.01)); };
+    const uint32_t said = 44100 * 11, held = said - 1000;
+    uint32_t given = 0;
+    WavCopy one;
+    one.rate = 44100; one.frames = said; one.channels = 1; one.bits = wav_copy_bits(0, false); one.dither = true;
+    const std::string spoken = cache.wav_copy(talk, one, [&](float* bl, float* br, uint32_t n) {
+        n = std::min(n, held - given);
+        for (uint32_t k = 0; k < n; ++k) bl[k] = br[k] = tone(given + k);
+        given += n;
+        return n;
+    }, &made);
+    CHECK(made && wav.open(spoken, stream_most_seconds).empty() && wav.frames() == held && wav.rate() == 44100);
+    CHECK(wav.layout().channels == 1 && wav.layout().bits == 16 && fs::file_size(spoken) == 44 + uint64_t(held) * 2);
+    {
+        ZonePart part;
+        CHECK(read_in_place(spoken, wav.layout(), part) && part.right == part.left);
+        CHECK(read_frames(part, 300000, 1000, l.data(), r.data()));
+        bool dithered = false;
+        for (unsigned k = 0; k < 1000; ++k) {
+            CHECK(std::fabs(l[k] - tone(300000 + k)) <= 1.5f / 32768.0f && r[k] == l[k]);
+            dithered = dithered || l[k] != float(std::floor(double(tone(300000 + k)) * 32768.0 + 0.5)) / 32768.0f;
+        }
+        CHECK(dithered);
+    }
+
+    // A source that gives nothing leaves no file; with no folder (no card) there is no WAV to go to.
+    const std::string empty = (base / "Samples/EMPTY.ogg").string();
+    { std::ofstream(empty) << "x"; }
+    CHECK(cache.wav_copy(empty, one, [](float*, float*, uint32_t) { return uint32_t(0); }, &made).empty() && !made);
+    CHECK(!fs::exists(cache.wav_of(empty)) && !fs::exists(cache.wav_of(empty) + ".part"));
+    SampleCache nowhere;
+    CHECK(nowhere.wav_of(talk).empty() && nowhere.wav_copy(talk, one, read, &made).empty() && !made && calls == before);
+
+    // The bits a WAV takes for its source's, and the frames one holds.
+    CHECK(wav_copy_bits(16, false) == 16 && wav_copy_bits(24, false) == 24 && wav_copy_bits(20, false) == 24 && wav_copy_bits(8, false) == 16);
+    CHECK(wav_copy_bits(32, false) == 32 && wav_copy_bits(32, true) == 32 && wav_copy_bits(0, false) == 16);
+    CHECK(SampleCache::wav_most_frames(what) == (0xffffffffu - 4096) / 6 && SampleCache::wav_most_frames(one) == (0xffffffffu - 4096) / 2);
+
+    // tidy(): a WAV not played for a long time goes, and a .part a stop left; one played lately stays.
+    fs::last_write_time(copy, fs::file_time_type::clock::now() - std::chrono::hours(24 * (cache_unplayed_days + 1)));
+    { std::ofstream(copy + ".part") << "x"; }
+    cache.tidy();
+    CHECK(!fs::exists(copy) && !fs::exists(copy + ".part") && fs::exists(spoken));
+    data.reset();
+    fs::remove_all(base);
+}
+
 // A project's samples have no count to run out of: the tables keep the slots written (model/slot_table.h), the file
 // keeps the slots past the first 64 in SMPX, the engine plays them, and a load is refused only where memory cannot
 // take it (shell/sample_memory.h).
@@ -16583,6 +16728,7 @@ int main() {
     samples_unlimited();
     stream_cache_keeps();
     long_samples_streamed();
+    long_samples_copied();
     levels_cutoff_kept();
     pad_link_chains();
     loop_seams();

@@ -125,7 +125,7 @@ the drive, Melodee asks whether to eject anyway.
 | `Melodee/MPC 3/` | MPC 3 projects exported from Song |
 | `Melodee/Progressions/` | Chord progressions you make |
 | `Melodee/Sounds/` | Sounds you save |
-| `Melodee/Cache/` | Decoded instrument samples. Safe to delete: Melodee makes them again. |
+| `Melodee/Cache/` | Decoded instrument samples, and long MP3, FLAC, Ogg and AIFF samples as WAV. Safe to delete: Melodee makes them again. |
 | `Melodee/Plugins/` | VST3, LV2, CLAP and VST2 plug-ins |
 | `Melodee/Plugin Data/` | Plug-in settings and presets |
 | `Melodee/Crashes/` | Crash reports, one file a crash (see [Troubleshooting](exit-and-troubleshooting.md#troubleshooting)) |

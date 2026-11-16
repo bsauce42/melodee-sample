@@ -1263,22 +1263,33 @@ project's samples. A project has no count of samples to run out of: it has
 a slot for every layer of every pad of every track (8192,
 `model/sampler.h`), and the tables kept for each slot hold only the slots
 in use (`model/slot_table.h`). What limits a project is memory. A kit pad's
-sample is read whole into memory, so before a file is read the memory it
-will take is worked out from its length and rate, and it is refused where
+sample is read whole into memory unless it is long (below), so before a file
+is read the memory it will take is worked out from its length and rate, and it is refused where
 that would leave less than 256 MB free (`shell/sample_memory.h`; the MPC
 has 2 GB and no swap): the pad stays silent, its TRIM page says `Memory
 full`, and a notice says so once for the load. Samples are WAV (16, 24 or 32-bit PCM or float), MP3,
 FLAC, Ogg Vorbis or AIFF (any rate; an MP3's encoder delay and padding, from its
-LAME tag, trimmed). A WAV up to 10 s, and a file of any other kind whatever
-its length (as memory allows), is read on the service thread and handed
-whole to the audio thread. A WAV longer than 10 s (up to 6 hours) is not
-read into memory: it is read from
+LAME tag, trimmed). A sample up to 10 s is read on the service thread and
+handed whole to the audio thread. One longer than 10 s (up to 6 hours) is
+not read into memory: it is read from
 the card as it plays, as an instrument's files are (`engine/stream_pager.h`,
-read in place). Half a second where each of its pads starts, ends (reversed)
+read in place). A WAV is read where it lies. A long MP3, FLAC, Ogg or AIFF
+is first decoded, a piece at a time, into a PCM WAV in the card's
+`Melodee/Cache` (`shell/sample_cache.h`, `wav_copy()`; the load is
+`SampleLibrary::card_copy()`), and that WAV is read from the card as it
+plays. The WAV is at the file's own rate, in the bits a FLAC or an AIFF
+keeps (16, 24, or 32-bit float, the same values), in 16 bits, dithered, for
+an MP3 or an Ogg, and has one side for a mono file. It is named by the
+file's path, size and date: a later load finds it and decodes nothing, and
+a file that changed gets a new one. The project keeps the path of the file
+itself, which is never changed; the first load takes as long as the
+decoding. With no card, or no room on it, such a file is read whole into
+memory, as memory allows. Half a second where each of its pads starts, ends (reversed)
 and loops is held, so a hit sounds at once, and the pager reads ahead of
 each voice (`shell/stream_holds.h`; Chop's slices too while Chop is on it).
-A WAV of 2 to 10 s that memory has no room for is read from the card so
-too, not refused. What the pager has read stays in memory after the voice
+A sample of 2 to 10 s that memory has no room for is read from the card so
+too, not refused (an MP3, FLAC, Ogg or AIFF from its WAV in the cache, made
+then). What the pager has read stays in memory after the voice
 has gone, up to 200 MB of it over all files: a pad hit again or a loop
 come round reads nothing from the card twice. Past 200 MB the chunks no
 voice or pad needs are given back, the one longest unused first, and all
@@ -1289,10 +1300,12 @@ card is late all the same, the voice is silent and its time goes on: it
 comes back where it would have been, in time with what else plays (a
 warped pad waits and plays on from where it stopped), and Settings counts
 it in the card's row. These follow the MPC's own app, which streams every
-sample longer than 2 s from a 200 MB pool of buffers it keeps after use;
+sample longer than 2 s from a 200 MB pool of buffers it keeps after use,
+and copies every file that is not a WAV to a temporary WAV to stream it;
 Melodee keeps short samples in memory while memory has room, reads
-further ahead (two chunks, 0.7 s at 44.1 kHz) and takes memory for what
-it keeps only as it is read. It plays
+further ahead (two chunks, 0.7 s at 44.1 kHz), takes memory for what
+it keeps only as it is read, and makes a WAV only of the long files, kept
+for the next load. A long sample plays
 as soon as it is opened; its waveform, hits and a table of its peaks (the
 loudest of each 1024 frames) are read from the file a moment later.
 Normalize reads that table; Trim and Chop zoomed in draw from it, or, within
@@ -1300,9 +1313,11 @@ Normalize reads that table; Trim and Chop zoomed in draw from it, or, within
 reads the few frames around a cut from the file. Trim Sample, Extract and
 Save Sample copy the region from file to file a piece at a time, at its rate
 and as many bits, undithered; a long result is read from the card as it
-plays too. Chop's slices are written into the WAV without moving its audio
+plays too. For a long MP3, FLAC, Ogg or AIFF these, and Stems, read its WAV
+in the cache. Chop's slices are written into the WAV without moving its audio
 (over the old ones before it when they fit, else after it), so a file
-playing from the card is never rewritten. Warp reads ahead of the pager's
+playing from the card is never rewritten; a sample that is not a WAV has
+no slices written, long or short, and its WAV in the cache is not touched. Warp reads ahead of the pager's
 limit no further than it is ready. A CLOUD pad on one takes its grains from
 the first 30 s of its region, held in memory while it is a cloud. A sample is held once, at its file's own rate: never converted, with
 no copy at the device's rate or at 44.1 kHz, in memory or on the card
@@ -2404,6 +2419,10 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
   played go past 4 GB, and any not played for 30 days. Safe to delete: they
   are made again. Files from earlier builds (decoded to 44.1 kHz) are no
   longer read: each instrument is decoded again once, and the old files age out.
+- `Melodee/Cache/*.wav`: a kit pad's MP3, FLAC, Ogg or AIFF sample longer
+  than 10 s as a PCM WAV at its own rate, read from the card as it plays
+  (above, "Sampler"). Named, counted in the 4 GB and aged as the `.f32`
+  files are. Safe to delete: each is made again when its sample next loads.
 - `Melodee/Projects/**/<project> Loops/Loop N.wav`: a project's loops.
   `Melodee/Mixdowns/` holds song mixdowns, `Melodee/Stems/` stems,
   `Melodee/MIDI/` MIDI files, `SysEx/` (at the card's top) a MIDI track's

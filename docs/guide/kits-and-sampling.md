@@ -4,8 +4,8 @@ Previous: [Tracks](tracks.md) · [Contents](../GUIDE.md) · Next: [Plug-ins](plu
 
 A kit has 128 pads in 8 banks (A–H). Each pad plays a region of a sample, or
 a sampled instrument. A project holds as many samples as fit in memory. When
-memory is full, a WAV longer than 2 seconds plays from the card instead. Any
-other sample is not loaded: its pad stays silent and **Memory full** shows on
+memory is full, a sample longer than 2 seconds plays from the card instead. A
+shorter one is not loaded: its pad stays silent and **Memory full** shows on
 the screen.
 
 ## Stage on a kit
@@ -158,8 +158,12 @@ you hit.
 
 Put your samples in a folder named `Samples` at the top level of the card.
 Melodee reads WAV (16, 24 or 32-bit), MP3, FLAC, Ogg Vorbis and AIFF files, any sample
-rate. A WAV file can be up to 6 hours long: a WAV longer than 10 seconds plays
-straight from the card. Other kinds are read into memory whole. MP3, FLAC, Ogg and AIFF rows show their format at
+rate. A sample can be up to 6 hours long. One longer than 10 seconds plays
+from the card, not from memory: a WAV straight from its file, an MP3, FLAC,
+Ogg or AIFF from a WAV that Melodee makes of it in `Melodee/Cache` on the
+card. Making that WAV takes a moment the first time the sample loads; later
+loads use it again. Your own file is not changed. Without a card, or with no
+room on it, a long MP3, FLAC, Ogg or AIFF is read into memory whole. MP3, FLAC, Ogg and AIFF rows show their format at
 the right. A row with a pad chip is a sample this kit already plays. Melodee
 writes recordings and edits into `Samples` too.
 

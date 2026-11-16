@@ -459,7 +459,7 @@ void SampleLibrary::service(Hardware& hardware) {
         if (changed) { root_seen = root; std::lock_guard<std::mutex> guard(lock); card_top = top; known.root = root; }
         if (changed) {
             cache.set_folder(top.empty() ? std::string() : top + "/Melodee/Cache");
-            if (!top.empty() && !cache_tidied) { cache_tidied = true; pool.post([tidied = cache] { tidied.tidy(); }); } // a stat a file: not on this thread
+            if (!top.empty() && !cache_tidied) { cache_tidied = true; pool.post([this, tidied = cache] { std::lock_guard<std::mutex> one(copying); tidied.tidy(); }); } // a stat a file: not on this thread
         }
         scan_wanted.store(false);
         scan();
@@ -669,21 +669,18 @@ void SampleLibrary::make(const SampleJob& job) {
     changes.fetch_add(1, std::memory_order_release);
 }
 
-// Save Sample, Trim Sample and Extract on a long sample (read from the card, not in memory): its region copied from its
-// file into the new one a piece at a time, at its rate and as many bits (no dither: the same values), Extract's edges
-// faded as in make(). Trim and Extract then load the new file into their slot as any file is loaded: a long one is
-// read from the card as it plays.
+// Save Sample, Trim Sample and Extract on a long sample (read from the card, not in memory): its region copied from the
+// file it plays from (its own, or the WAV made of an MP3, FLAC, Ogg or AIFF) into the new one a piece at a time, at
+// its rate and as many bits (no dither: the same values), Extract's edges faded as in make(). Trim and Extract then
+// load the new file into their slot as any file is loaded: a long one is read from the card as it plays.
 void SampleLibrary::make_streamed(const SampleJob& job, const SampleData& source) {
     const char* what = job.kind == SampleJob::Kind::Save ? "Save Sample" : "Sample";
     auto fail = [&](const std::string& why) {
         finish(std::string(what) + ": " + why, job.kind == SampleJob::Kind::Derive ? int(job.target % sample_slots) : -1);
     };
-    std::string from_path, root;
-    {
-        std::lock_guard<std::mutex> guard(lock);
-        from_path = shown_at(job.source).path;
-        root = known.root;
-    }
+    const std::string from_path = source.stream->source ? source.stream->source->path : std::string(); // the file it plays from
+    std::string root;
+    { std::lock_guard<std::mutex> guard(lock); root = known.root; }
     const uint32_t all = source.frames, end = job.to && job.to < source.model_frames() ? source.own(job.to) : all;
     const uint32_t first = std::min(source.own(job.from), end);
     if (end - first < 2) { fail("too short"); return; }
@@ -933,6 +930,38 @@ void SampleLibrary::set_slot_state(unsigned slot, bool settled, bool instrument,
                                           std::memory_order_relaxed);
 }
 
+// A pool thread. A file that is not a PCM WAV, before it is read. Where a WAV of its length would be read from the
+// card as it plays (streams_from_card()): its PCM WAV in the card's Melodee/Cache, found there, or decoded into it
+// now a piece at a time, at its own rate and in its own bits (shell/sample_cache.h); that WAV's path. Empty where
+// the file is to be read into memory as before (a short one, no card, no room on it), and `error` then says why it is
+// not to be read at all: memory has no room for it (`refused`, shell/sample_memory.h), or it broke off while it was
+// decoded.
+std::string SampleLibrary::card_copy(const std::string& path, const SampleCache& copies, std::string& error, bool& refused) {
+    AudioReader file;
+    if (!file.open(path, stream_most_seconds).empty()) return {}; // read_audio() says what is wrong with it
+    const uint64_t bytes = kit_sample_bytes(file.frames(), file.rate());
+    const bool lasting = uint64_t(file.frames()) > uint64_t(stream_seconds) * file.rate();
+    const bool room = !lasting && memory_for(bytes); // not asked of a long one unless it has to be read whole
+    if (file.decoded() && !copies.folder().empty() && streams_from_card(file.frames(), file.rate(), room)) {
+        WavCopy what;
+        what.rate = file.rate(); what.frames = file.frames(); what.channels = file.channels();
+        what.bits = wav_copy_bits(file.bits(), file.floating());
+        what.dither = !file.bits();
+        std::lock_guard<std::mutex> one(copying); // one at a time: two slots asked for one file write one WAV
+        bool made = false;
+        const std::string copy = copies.wav_copy(path, what, [&](float* left, float* right, uint32_t frames) { return file.read(left, right, frames); }, &made);
+        if (made && file.failed()) { // what was read of it is not the sample
+            std::error_code gone;
+            fs::remove(copy, gone);
+            error = "cannot read it";
+            return {};
+        }
+        if (!copy.empty()) return copy;
+    }
+    if (!(lasting ? memory_for(bytes) : room)) { error = "Memory full"; refused = true; }
+    return {};
+}
+
 void SampleLibrary::dispatch(const Request& request) {
     const unsigned slot = request.slot % sample_slots;
     const uint32_t serial = ++slot_serial[slot]; // what an earlier load of this slot still brings is dropped
@@ -966,21 +995,32 @@ void SampleLibrary::dispatch(const Request& request) {
         return;
     }
     ++load_log.files;
-    pool.post([this, request, serial] {
+    pool.post([this, request, serial, copies = cache] {
         now_loading.store(request.slot, std::memory_order_relaxed);
         Handover h;
         h.slot = request.slot; h.serial = serial;
         h.data = std::make_unique<SampleData>();
         Lap lap;
+        std::string error;
+        bool weighed = false; // the memory it would take looked at already (card_copy())
         { // A long PCM WAV is not read into memory: it is read from the card as it plays, where its pads start held
           // (holds_service()). It plays at once; its waveform and hits follow, read from the file a piece at a time.
           // A shorter one that memory has no room for is read so too, where it is long enough (streams_from_card()).
+          // A file of another kind (MP3, FLAC, Ogg, AIFF) that long is read so from a PCM WAV of it in the card's
+          // Melodee/Cache (card_copy()); the slot keeps the path asked for.
             WavReader wav;
             auto part = std::make_shared<ZonePart>();
-            const bool pcm = wav.open(request.path, stream_most_seconds).empty();
-            const bool room = pcm && (uint64_t(wav.frames()) > uint64_t(stream_seconds) * wav.rate() // not asked of a long one
-                                      || memory_for(kit_sample_bytes(wav.frames(), wav.rate())));
-            if (pcm && streams_from_card(wav.frames(), wav.rate(), room) && read_in_place(request.path, wav.layout(), *part)) {
+            std::string from = request.path; // the file read in place
+            bool pcm = wav.open(from, stream_most_seconds).empty();
+            bool copied = false;
+            if (!pcm) {
+                from = card_copy(request.path, copies, error, h.refused);
+                weighed = from.empty();
+                pcm = copied = !from.empty() && wav.open(from, stream_most_seconds).empty();
+            }
+            const bool room = pcm && !copied && (uint64_t(wav.frames()) > uint64_t(stream_seconds) * wav.rate() // not asked of a long one
+                                                 || memory_for(kit_sample_bytes(wav.frames(), wav.rate())));
+            if (pcm && (copied || streams_from_card(wav.frames(), wav.rate(), room)) && read_in_place(from, wav.layout(), *part)) {
                 part->frames.store(part->total, std::memory_order_release);
                 h.data->stream = part; h.data->frames = part->total; h.data->rate = wav.rate();
                 h.loaded.path = request.path;
@@ -994,15 +1034,14 @@ void SampleLibrary::dispatch(const Request& request) {
                 }
                 ShapeRead shape;
                 shape.slot = request.slot; shape.serial = serial;
-                stream_shape(request.path, shape);
+                stream_shape(from, shape);
                 lap.into(load_times.analyse);
                 std::lock_guard<std::mutex> guard(loaded_lock);
                 shapes_read.push_back(std::move(shape));
                 return;
             }
         }
-        std::string error;
-        { // what it will hold, found before it is read: refused where that would leave memory short (shell/sample_memory.h)
+        if (error.empty() && !weighed) { // what it will hold, found before it is read: refused where that would leave memory short (shell/sample_memory.h)
             AudioReader file;
             if (file.open(request.path, stream_most_seconds).empty()
                 && !memory_for(kit_sample_bytes(file.frames(), file.rate()))) {

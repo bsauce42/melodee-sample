@@ -108,8 +108,7 @@ void SampleLibrary::stems_service(const Platform& platform) {
     SampleData whole;
     const SampleData* from = source;
     if (source->stream) {
-        std::string path;
-        { std::lock_guard<std::mutex> guard(lock); path = shown_at(request.source).path; }
+        const std::string path = source->stream->source ? source->stream->source->path : std::string(); // the file it plays from
         if (path.empty() || !read_wav(path, whole, stream_most_seconds).empty()) { refuse("cannot read it"); return; }
         from = &whole;
     }
