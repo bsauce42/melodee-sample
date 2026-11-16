@@ -1606,8 +1606,15 @@ const Preview previews[] {
          auto& pad = s.project.tracks[3].pads[8]; pad.start = 18000; pad.end = 150000;
          s.ui.turning = 0; s.ui.turned_at = s.now;
      }},
-    // The STEMS sheet (Shift + B3 on a kit pad's TRIM): before SEPARATE, and the job two thirds done.
+    // The STEMS sheet (Shift + B3 on a kit pad's TRIM): before SEPARATE, with no room for four more samples, and the
+    // job two thirds done.
     {"stems", [](Shell&, Snapshot& s) { stems_scene(s); }},
+    {"stemsfull", [](Shell&, Snapshot& s) { // 61 of the project's 64 samples in use: no room for four more
+         stems_scene(s);
+         unsigned used = 0;
+         for (const auto& ref : s.project.samples) used += ref.used();
+         for (auto& ref : s.project.samples) if (!ref.used() && used < 61) { std::snprintf(ref.path, sizeof(ref.path), "/card/Samples/Loop %u.wav", used); ++used; }
+     }},
     {"stemsrun", [](Shell&, Snapshot& s) {
          stems_scene(s);
          s.ui.stems_sheet.running = true;

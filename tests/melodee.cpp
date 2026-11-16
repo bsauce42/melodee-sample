@@ -94,6 +94,7 @@
 #include "melodee/shell/levels_keys.h"
 #include "melodee/shell/menu.h"
 #include "melodee/shell/stems.h"
+#include "melodee/shell/stems_room.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
@@ -2498,6 +2499,18 @@ void button_remap() {
         m.settings.full_features = true;
         std::snprintf(kit->samples[0].path, sizeof(kit->samples[0].path), "/card/Samples/PIANO.sfz");
         CHECK(!offered() && !button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // an instrument: nothing to separate
+        // A job's room (shell/stems_room.h): four free samples of the project's 64, four empty pads after the pad.
+        auto room = stems_room(*kit, 0, 0);
+        CHECK(room.samples == 1 && room.free_samples() == 63 && room.pads == 4 && room.enough());
+        for (unsigned n = 1; n < 61; ++n) std::snprintf(kit->samples[n].path, sizeof(kit->samples[n].path), "/card/Samples/S%u.wav", n);
+        room = stems_room(*kit, 0, 0);
+        CHECK(room.samples == 61 && room.free_samples() == 3 && !room.enough_samples() && room.enough_pads() && !room.enough()); // 61 of 64: one short
+        kit->samples[60] = SampleRef {};
+        CHECK(stems_room(*kit, 0, 0).enough()); // 60 of 64: the four fit
+        for (unsigned n = 1; n < sampler_pads - 3; ++n) track.pads[n].sample = 0;
+        room = stems_room(*kit, 0, 0);
+        CHECK(room.pads == 3 && !room.enough_pads() && room.enough_samples()); // three empty pads left on the track
+        for (unsigned n = 1; n < sampler_pads; ++n) track.pads[n] = PadSound {};
         CHECK(stem_count == 4 && std::string(stem_name(0)) == "DRUMS" && std::string(stem_name(1)) == "BASS" && std::string(stem_name(2)) == "MUSIC" && std::string(stem_name(3)) == "VOCALS");
     }
     // Background save (shell/autosave.h): a changed project, nothing running, the controls quiet for a moment.

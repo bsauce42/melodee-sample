@@ -5,10 +5,13 @@
 // empty pad it lands on; under them the sample's length and the time the job
 // takes. B3 SEPARATE (or Push) starts it: then the tiles fill as it goes, the
 // time left counts down and B1 calls it off. The pads play the kit meanwhile,
-// and the job goes on when the sheet is left.
+// and the job goes on when the sheet is left. A project holds 64 samples and
+// a job adds four: with fewer free, the samples in use show in amber where
+// the time was (61/64) and SEPARATE is dim.
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/shell/stems.h"
+#include "melodee/shell/stems_room.h"
 #include <cmath>
 
 namespace melodee {
@@ -38,8 +41,12 @@ void draw(Paint& p, const Snapshot& s) {
     if (running) h.left.push_back(pill(Icon::Layers, "SEPARATING", c));
     else h.left.push_back(chip(Icon::Layers, "STEMS", c));
     h.right.push_back(tag_of(s, t));
+    const auto room = stems_room(s.project, t, sheet.pad);
     SoftKeys keys {{running ? "CANCEL" : "BACK", "", running ? "" : "SEPARATE"}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
-    if (!running) keys.glyphs[2] = Icon::Layers;
+    if (!running) {
+        keys.glyphs[2] = Icon::Layers;
+        if (!room.enough()) keys.tints[2] = colour::dim; // no room for the four: B3 says why
+    }
     frame(p, s, keys, h);
 
     // The sample, and the pad it is on.
@@ -78,6 +85,7 @@ void draw(Paint& p, const Snapshot& s) {
     const float by = ty + th + 10, bw = full / 2;
     block(p, x0, by, bw, "LENGTH", clock(float(sheet.frames) / 44100.0f), colour::text);
     if (running) block(p, x0 + bw, by, bw, "LEFT", job.busy ? clock(float(job.seconds_left)) : juce::String::fromUTF8("\xe2\x80\x94"), c);
+    else if (!room.enough_samples()) block(p, x0 + bw, by, bw, "SAMPLES", juce::String(room.samples) + "/" + juce::String(sample_slots), colour::amber);
     else block(p, x0 + bw, by, bw, "TAKES", clock(float(stems_seconds(sheet.frames))), colour::text);
 }
 

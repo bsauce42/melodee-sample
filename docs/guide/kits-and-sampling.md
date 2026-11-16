@@ -347,8 +347,9 @@ filter, and the same slices in Chop. Played together, the four give the
 sample back. One Undo removes all four. The files are in `Samples/Stems`.
 
 Stems needs a sample of one second or more, four empty pads and room for
-four more samples in the project (a project holds 64). It does not work
-on a sampled instrument.
+four more samples in the project (a project holds 64). Without that room,
+the sheet shows the samples in use (**SAMPLES** 61/64) in place of the
+time. It does not work on a sampled instrument.
 
 ## 16 Levels
 

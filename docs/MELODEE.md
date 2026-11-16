@@ -1628,7 +1628,10 @@ the file holds, to the bit.
   was at SEPARATE: its region, loop, tune, warp, envelope and filter, and
   the sample's slices in Chop; without its layers, mute group and Pad Link,
   so the stems play together. Not for an instrument, nor a sample under a
-  second; it needs four empty pads and four free sample slots.
+  second; it needs four empty pads and four free sample slots. Short of
+  slots, those nothing plays any more are freed first (as a save frees
+  them); still short, the sheet shows the samples in use where the time
+  was (`61/64`, amber) and SEPARATE is dim (`shell/stems_room.h`).
   The separating is a program of its own, `melodee-stems`
   (`tools/stems/stems_engine.c`; `shell/stems.h`): Spleeter's 4-stem
   separation as Deezer's own program does it, on SpleeterRT's network

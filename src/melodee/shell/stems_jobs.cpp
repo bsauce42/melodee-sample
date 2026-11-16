@@ -12,6 +12,7 @@
 // layers, mute group and Pad Link behind, so the stems can play together.
 #include "melodee/shell/context.h"
 #include "melodee/shell/sample_library.h"
+#include "melodee/shell/stems_room.h"
 #include <cstdio>
 #include <filesystem>
 
@@ -25,13 +26,6 @@ std::string stems_base(const SampleRef& ref) {
     base = base.substr(0, sizeof(ref.name) - 1 - 7); // " VOCALS"
     while (!base.empty() && base.back() == ' ') base.pop_back();
     return base.empty() ? std::string("SAMPLE") : base;
-}
-
-// Empty pads of a track after pad `after`, going round: how many of the four there is room for.
-unsigned empty_pads(const Track& track, unsigned after) {
-    unsigned found = 0;
-    for (unsigned k = 1; k < sampler_pads && found < stem_count; ++k) found += !track.pads[(after + k) % sampler_pads].used();
-    return found;
 }
 } // namespace
 
@@ -55,6 +49,8 @@ void Context::open_stems_sheet() {
     sheet.pad = uint8_t(kit);
     sheet.sample = sound.sample;
     sheet.frames = ref.frames;
+    // Samples nothing plays any more (a pad erased since the last save) make room now, so the sheet counts true.
+    if (!stems_room(project, sheet.track, sheet.pad).enough_samples()) free_unused_samples();
     if (ui.page != PageId::Stems) open(PageId::Stems);
 }
 
@@ -64,10 +60,11 @@ void Context::stems_sheet_go() {
     const auto& t = project.tracks[sheet.track % track_count];
     const auto& sound = t.pads[sheet.pad % sampler_pads];
     if (!sound.used() || sound.sample != sheet.sample) { notice("Stems: the pad changed"); back(); return; }
-    unsigned free = 0;
-    for (const auto& ref : project.samples) free += !ref.used();
-    if (free < stem_count) { notice("Stems: 64 samples"); return; }
-    if (empty_pads(t, sheet.pad) < stem_count) { notice("Stems: four empty pads"); return; }
+    // A project holds 64 samples and a job adds four: those nothing plays any more go first (as a save frees them).
+    if (!stems_room(project, sheet.track, sheet.pad).enough_samples()) free_unused_samples();
+    const auto room = stems_room(project, sheet.track, sheet.pad);
+    if (!room.enough_samples()) { notice("Stems: 4 free samples needed"); return; } // the sheet shows how many there are
+    if (!room.enough_pads()) { notice("Stems: 4 empty pads needed"); return; }
     SampleLibrary::StemsRequest request;
     request.source = uint8_t(sheet.sample % sample_slots);
     std::snprintf(request.name, sizeof(request.name), "%s", stems_base(project.samples[sheet.sample % sample_slots]).c_str());
@@ -97,7 +94,7 @@ void Context::stems_tick() {
             unsigned held = 0;
             while (held < pending_files.size() && pending_files[held].slot >= 0) ++held;
             const int slot = held < pending_files.size() ? sample_slot(made.paths[n], std::filesystem::path(made.paths[n]).stem().string()) : -1;
-            if (slot < 0) { notice(held < pending_files.size() ? "Stems: 64 samples" : "Stems: busy"); break; }
+            if (slot < 0) { notice(held < pending_files.size() ? "Stems: 4 free samples needed" : "Stems: busy"); break; }
             pending_files[held] = {int16_t(slot), stems_from.track, int16_t(stems_from.pad), false, stems_from.sound, uint8_t(stems_land + n)};
         }
         if (ui.page == PageId::Stems) back();
