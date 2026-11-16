@@ -83,7 +83,9 @@ void SampleLibrary::stems_service(const Platform& platform) {
     const char* model = std::getenv("MELODEE_STEMS_MODEL"); // beside the program
     job.model = model && *model ? std::string(model) : (fs::path(job.engine).parent_path() / "spleeter-4stems.f16").string();
     if (!fs::is_regular_file(job.model, error)) { refuse("no model on the card"); return; }
-    const uint64_t free = platform.memory().available_kb * 1024; // 0: a host, which does not say
+    uint64_t free = platform.memory().available_kb * 1024; // 0: a host, which does not say
+    // Short of it: what the pager keeps of files it has read is given back first (engine/stream_pager.h).
+    if (free && free < stems_memory(frames) + stems_headroom && stream_cache_give_back()) free = memory_free();
     if (free && free < stems_memory(frames) + stems_headroom) { refuse("not enough memory"); return; }
     // The four files share one free name: "LOOP DRUMS", "LOOP BASS", "LOOP MUSIC", "LOOP VOCALS", else "LOOP 2 DRUMS" ...
     const std::string folder = root + "/Stems", base = file_name(request.name);

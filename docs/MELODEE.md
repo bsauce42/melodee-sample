@@ -1274,9 +1274,25 @@ its length (as memory allows), is read on the service thread and handed
 whole to the audio thread. A WAV longer than 10 s (up to 6 hours) is not
 read into memory: it is read from
 the card as it plays, as an instrument's files are (`engine/stream_pager.h`,
-read in place). The chunks where its pads start, end (reversed) and loop
-are held, so a hit sounds at once, and the pager reads ahead of each voice
-(`shell/stream_holds.h`; Chop's slices too while Chop is on it). It plays
+read in place). Half a second where each of its pads starts, ends (reversed)
+and loops is held, so a hit sounds at once, and the pager reads ahead of
+each voice (`shell/stream_holds.h`; Chop's slices too while Chop is on it).
+A WAV of 2 to 10 s that memory has no room for is read from the card so
+too, not refused. What the pager has read stays in memory after the voice
+has gone, up to 200 MB of it over all files: a pad hit again or a loop
+come round reads nothing from the card twice. Past 200 MB the chunks no
+voice or pad needs are given back, the one longest unused first, and all
+of them are given back before a load is refused for memory. The pager
+keeps each file open between reads (256 at most) and its reads go to the
+card ahead of every other thread's (the real-time I/O class). When the
+card is late all the same, the voice is silent and its time goes on: it
+comes back where it would have been, in time with what else plays (a
+warped pad waits and plays on from where it stopped), and Settings counts
+it in the card's row. These follow the MPC's own app, which streams every
+sample longer than 2 s from a 200 MB pool of buffers it keeps after use;
+Melodee keeps short samples in memory while memory has room, reads
+further ahead (two chunks, 0.7 s at 44.1 kHz) and takes memory for what
+it keeps only as it is read. It plays
 as soon as it is opened; its waveform, hits and a table of its peaks (the
 loudest of each 1024 frames) are read from the file a moment later.
 Normalize reads that table; Trim and Chop zoomed in draw from it, or, within

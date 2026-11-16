@@ -4,8 +4,9 @@ Previous: [Tracks](tracks.md) · [Contents](../GUIDE.md) · Next: [Plug-ins](plu
 
 A kit has 128 pads in 8 banks (A–H). Each pad plays a region of a sample, or
 a sampled instrument. A project holds as many samples as fit in memory. When
-memory is full, the next sample is not loaded: its pad stays silent and
-**Memory full** shows on the screen.
+memory is full, a WAV longer than 2 seconds plays from the card instead. Any
+other sample is not loaded: its pad stays silent and **Memory full** shows on
+the screen.
 
 ## Stage on a kit
 

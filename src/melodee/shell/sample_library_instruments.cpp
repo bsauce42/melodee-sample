@@ -298,7 +298,7 @@ bool SampleLibrary::begin_landing(InstrumentRead& from) {
     if (cache.folder().empty()) return finish_with("No card");
     uint64_t held = 0; // what stays in memory: each zone's start, and its loop's
     for (const auto& r : from.read.regions) held += stream_chunk_bytes * 4 * (1 + (r.zone.loop != ZoneLoop::Off || r.zone.loop_end));
-    if (!memory_allows(memory_free(), held)) return finish_with("Too big for memory");
+    if (!memory_for(held)) return finish_with("Too big for memory");
     l.read = from.read; // kept in `from` too, should the audio thread's queue be full
     auto multi = std::make_shared<Multisample>();
     std::map<std::string, uint16_t> part_of;

@@ -13607,6 +13607,75 @@ void samples_used() {
     CHECK(samples_in_use(*project, edits)[20]);
 }
 
+// What the pager reads from a file stays in memory once nothing counts on it (engine/stream_pager.h): a chunk let
+// go and held again is not read again; past the budget the chunk longest unused is given back, and read again when
+// it is wanted; a chunk counted on is never given back; the file stays open between reads; and a part's end takes
+// its chunks out of the count.
+void stream_cache_keeps() {
+    const std::string path = "/tmp/melodee-cache-" + std::to_string(::getpid()) + ".wav";
+    const unsigned frames = stream_chunk * 8;
+    auto write = [&](std::ofstream& f, int add) { for (unsigned n = 0; n < frames; ++n) put16(f, uint16_t(int16_t(n % 20000 + add))); };
+    {
+        std::ofstream f(path, std::ios::binary);
+        f.write("RIFF", 4); put32(f, 36 + frames * 2); f.write("WAVEfmt ", 8); put32(f, 16); put16(f, 1); put16(f, 1);
+        put32(f, 44100); put32(f, 44100 * 2); put16(f, 2); put16(f, 16); f.write("data", 4); put32(f, frames * 2);
+        write(f, 0);
+    }
+    auto was = [](uint32_t n) { return float(int16_t(n % 20000)) / 32768.0f; };
+    auto now = [](uint32_t n) { return float(int16_t(n % 20000 + 100)) / 32768.0f; };
+    const uint64_t before = stream_cache_held(), one = stream_chunk_bytes;
+    {
+        WavReader wav;
+        ZonePart part;
+        CHECK(wav.open(path, 60).empty() && read_in_place(path, wav.layout(), part));
+        StreamPager pager;
+        CHECK(pager.hold_chunk(part, 0) && pager.hold_chunk(part, 1));
+        CHECK(stream_cache_held() == before + 2 * one && part.left[5] == was(5) && part.left[stream_chunk + 5] == was(stream_chunk + 5));
+        pager.let_go(part, 0);
+        CHECK(stream_cache_held() == before + 2 * one); // nothing counts on it: it stays
+        { // the file's frames changed where it lies: a read would show
+            std::ofstream f(path, std::ios::binary | std::ios::in | std::ios::out); // not cut short
+            f.seekp(44);
+            write(f, 100);
+        }
+        CHECK(pager.hold_chunk(part, 0) && part.left[5] == was(5)); // held again: not read again
+        pager.let_go(part, 0);
+        pager.let_go(part, 1);
+        stream_cache_budget(before + one); // room for one: the one longest unused goes
+        CHECK(stream_cache_held() == before + one);
+        CHECK(pager.hold_chunk(part, 1) && part.left[stream_chunk + 5] == was(stream_chunk + 5)); // the later one stayed
+        CHECK(pager.hold_chunk(part, 0) && part.left[5] == now(5));                               // the earlier is read again
+        CHECK(stream_cache_held() == before + 2 * one); // both counted on: neither is given back
+        pager.let_go(part, 1);
+        CHECK(stream_cache_held() == before + one && part.left[5] == now(5)); // let go past the budget: given back at once
+        // The file stays open: moved away, a chunk not read yet is still read.
+        CHECK(std::rename(path.c_str(), (path + ".moved").c_str()) == 0);
+        CHECK(pager.hold_chunk(part, 3) && part.left[3 * stream_chunk + 7] == now(3 * stream_chunk + 7));
+        CHECK(stream_cache_held() == before + 2 * one);
+    }
+    CHECK(stream_cache_held() == before); // the part gone: its chunks counted no more
+    stream_cache_budget(stream_cache_bytes);
+    // What is given back for a load that needs the memory: every chunk nothing counts on.
+    {
+        CHECK(std::rename((path + ".moved").c_str(), path.c_str()) == 0);
+        WavReader wav;
+        ZonePart part;
+        CHECK(wav.open(path, 60).empty() && read_in_place(path, wav.layout(), part));
+        StreamPager pager;
+        CHECK(pager.hold_chunk(part, 0) && pager.hold_chunk(part, 1) && pager.hold_chunk(part, 2));
+        pager.let_go(part, 0);
+        pager.let_go(part, 2);
+        CHECK(stream_cache_give_back() == 2 * one && stream_cache_held() == before + one && part.left[stream_chunk + 5] == now(stream_chunk + 5));
+        CHECK(std::rename(path.c_str(), (path + ".moved").c_str()) == 0);
+    }
+    // Which WAVs play from the card: the long ones, and with no room in memory those past two seconds.
+    CHECK(streams_from_card(11 * 44100, 44100, true) && !streams_from_card(10 * 44100, 44100, true));
+    CHECK(!streams_from_card(5 * 48000, 48000, true) && streams_from_card(5 * 48000, 48000, false));
+    CHECK(!streams_from_card(2 * 48000, 48000, false) && !streams_from_card(44100, 44100, false));
+    CHECK(stream_head_frames(44100) == 22050 && stream_head_frames(96000) == 48000 && stream_head_frames(22050) == stream_chunk);
+    std::remove((path + ".moved").c_str());
+}
+
 // A long WAV read from the card as it plays (SampleData::stream, read in place): a pad on it plays its file's own
 // frames from where it starts (held: at once, no wait), on past the held chunk as the pager reads ahead, reversed from
 // its held end, and round its loop from the held loop point; where a project's pads on long samples need holding
@@ -13724,6 +13793,31 @@ void long_samples_streamed() {
         CHECK(streamed_cloud == mem_cloud && peak_of(mem_cloud) > 0.05f);
     }
     CHECK(pager.underruns() == under);
+    { // The card late for a while: the voice plays what was read ahead, is silent, and comes back in time, where it
+      // would have been by then, once the pager reads again (SamplerEngine::pass()).
+        PadSound pad; pad.sample = 0; pad.start = 88200; // 2 s in
+        const uint32_t start = data->own(pad.start);
+        hold(start, false);
+        SamplerEngine engine;
+        engine.set_samples(&table);
+        engine.set_pager(&pager);
+        engine.set_tempo(1200);
+        engine.set_pad(0, pad);
+        engine.note_on(int(sampler_first_note), 127);
+        std::vector<float> out, l(128), r(128);
+        for (unsigned b = 0; b < 1000; ++b) {
+            std::fill(l.begin(), l.end(), 0.0f); std::fill(r.begin(), r.end(), 0.0f);
+            engine.render_stereo(l.data(), r.data(), 128);
+            out.insert(out.end(), l.begin(), l.end());
+            if (b < 5 || b >= 700) while (pager.pump()) {} // no reads from block 5 to block 700
+        }
+        CHECK(pager.underruns() == under + 1 && engine.sounding());
+        float early = 0, gap = 0;
+        for (unsigned f = 200; f < 128 * 100; ++f) early = std::max(early, std::fabs(out[f]));
+        for (unsigned f = 128 * 600; f < 128 * 690; ++f) gap = std::max(gap, std::fabs(out[f]));
+        CHECK(early > 0.1f && gap == 0.0f);
+        CHECK(matches(out, [&](unsigned f) { return double(start) + f; }, 128 * 730)); // in time: not where it stopped
+    }
     dsp::device_rate.store(was);
     std::remove(path.c_str());
 
@@ -16487,6 +16581,7 @@ int main() {
     chop_kept();
     samples_used();
     samples_unlimited();
+    stream_cache_keeps();
     long_samples_streamed();
     levels_cutoff_kept();
     pad_link_chains();

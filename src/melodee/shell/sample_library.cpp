@@ -974,10 +974,13 @@ void SampleLibrary::dispatch(const Request& request) {
         Lap lap;
         { // A long PCM WAV is not read into memory: it is read from the card as it plays, where its pads start held
           // (holds_service()). It plays at once; its waveform and hits follow, read from the file a piece at a time.
+          // A shorter one that memory has no room for is read so too, where it is long enough (streams_from_card()).
             WavReader wav;
             auto part = std::make_shared<ZonePart>();
-            if (wav.open(request.path, stream_most_seconds).empty() && uint64_t(wav.frames()) > uint64_t(stream_seconds) * wav.rate()
-                && read_in_place(request.path, wav.layout(), *part)) {
+            const bool pcm = wav.open(request.path, stream_most_seconds).empty();
+            const bool room = pcm && (uint64_t(wav.frames()) > uint64_t(stream_seconds) * wav.rate() // not asked of a long one
+                                      || memory_for(kit_sample_bytes(wav.frames(), wav.rate())));
+            if (pcm && streams_from_card(wav.frames(), wav.rate(), room) && read_in_place(request.path, wav.layout(), *part)) {
                 part->frames.store(part->total, std::memory_order_release);
                 h.data->stream = part; h.data->frames = part->total; h.data->rate = wav.rate();
                 h.loaded.path = request.path;
@@ -1002,7 +1005,7 @@ void SampleLibrary::dispatch(const Request& request) {
         { // what it will hold, found before it is read: refused where that would leave memory short (shell/sample_memory.h)
             AudioReader file;
             if (file.open(request.path, stream_most_seconds).empty()
-                && !memory_allows(memory_free(), kit_sample_bytes(file.frames(), file.rate()))) {
+                && !memory_for(kit_sample_bytes(file.frames(), file.rate()))) {
                 error = "Memory full";
                 h.refused = true;
             }
@@ -1068,7 +1071,7 @@ void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out) {
     const double step = double(file.rate()) / 44100.0; // its frames a 44.1 kHz frame
     const auto model = size_t(std::llround(double(frames) / step));
     std::vector<float> mono;
-    if (memory_allows(memory_free(), uint64_t(model) * sizeof(float) * 2)) mono.resize(model); // and as much again to find hits in
+    if (memory_for(uint64_t(model) * sizeof(float) * 2)) mono.resize(model); // and as much again to find hits in
     std::array<float, std::tuple_size_v<Overview>> left_peak {}, right_peak {};
     out.peaks.assign(size_t((uint64_t(frames) + peak_block - 1) / peak_block) * 2, 0.0f);
     constexpr uint32_t piece = 16384;
@@ -1105,7 +1108,9 @@ void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out) {
 }
 
 // The long samples' held chunks brought in line with where their pads start, end and loop (hold()): a few chunks
-// read a pass (each a read of the card), those no longer wanted let go.
+// read a pass (each a read of the card), those no longer wanted let go. At each such point half a second is held
+// (stream_head_frames()), whatever the file's rate: a hit sounds from memory while the pager's first reads are on
+// their way.
 void SampleLibrary::holds_service() {
     {
         std::lock_guard<std::mutex> guard(lock);
@@ -1122,12 +1127,13 @@ void SampleLibrary::holds_service() {
         const SampleData* data = data_of[slot]; // only this thread writes it
         if (!data || !data->stream) { holds_due.erase(holds_due.begin()); continue; }
         ZonePart& part = *data->stream;
+        const uint32_t head = stream_head_frames(part.rate);
         std::vector<uint32_t> want;
         if (slot < holds_known.size())
             for (const auto& range : holds_known[slot]) {
                 uint32_t from = data->own(range.from), to = data->own(range.to);
-                if (range.back) from = std::min(from, to > stream_chunk ? to - stream_chunk : 0);
-                else to = std::max(to, from + stream_chunk);
+                if (range.back) from = std::min(from, to > head ? to - head : 0);
+                else to = std::max(to, from + head);
                 to = std::min(to, part.total);
                 for (uint32_t c = from / stream_chunk; from < to && c <= (to - 1) / stream_chunk; ++c) want.push_back(c);
             }
