@@ -1285,8 +1285,9 @@ Save Sample copy the region from file to file a piece at a time, at its rate
 and as many bits, undithered; a long result is read from the card as it
 plays too. Chop's slices are written into the WAV without moving its audio
 (over the old ones before it when they fit, else after it), so a file
-playing from the card is never rewritten. A CLOUD pad on one plays it
-plainly. A sample is held once, at its file's own rate: never converted, with
+playing from the card is never rewritten. Warp reads ahead of the pager's
+limit no further than it is ready. A CLOUD pad on one takes its grains from
+the first 30 s of its region, held in memory while it is a cloud. A sample is held once, at its file's own rate: never converted, with
 no copy at the device's rate or at 44.1 kHz, in memory or on the card
 (`engine/sample_data.h`). The project counts positions in 44.1 kHz frames (a
 region, a slice, the hits); a voice turns those into the sample's own frames

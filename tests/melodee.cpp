@@ -13653,6 +13653,37 @@ void long_samples_streamed() {
             return at;
         }, 200));
     }
+    { // Warp (Tones) and CLOUD on a long sample play as on the same sample in memory, to the frame
+        SampleData mem;
+        CHECK(read_wav(path, mem, 60).empty() && mem.frames == frames && mem.rate == rate);
+        SamplerEngine::Table mem_table {};
+        mem_table[0] = &mem;
+        auto render = [&](const SamplerEngine::Table& t, const PadSound& pad, bool streamed) {
+            SamplerEngine engine;
+            engine.set_samples(&t);
+            if (streamed) engine.set_pager(&pager);
+            engine.set_tempo(1200);
+            engine.set_pad(0, pad);
+            engine.note_on(int(sampler_first_note), 127);
+            std::vector<float> out, l(128), r(128);
+            for (unsigned b = 0; b < 600; ++b) {
+                std::fill(l.begin(), l.end(), 0.0f); std::fill(r.begin(), r.end(), 0.0f);
+                engine.render_stereo(l.data(), r.data(), 128);
+                out.insert(out.end(), l.begin(), l.end());
+                out.insert(out.end(), r.begin(), r.end());
+                while (pager.pump()) {}
+            }
+            return out;
+        };
+        PadSound warp; warp.sample = 0; warp.start = 441000; warp.end = 661500; warp.warp = 150;
+        hold(data->own(warp.start), false);
+        const auto streamed_warp = render(table, warp, true), mem_warp = render(mem_table, warp, false);
+        CHECK(streamed_warp == mem_warp && peak_of(mem_warp) > 0.1f);
+        PadSound cloud; cloud.sample = 0; cloud.start = 441000; cloud.end = 661500; cloud.cloud = true;
+        for (uint32_t c = data->own(cloud.start) / stream_chunk; c <= (data->own(cloud.end) - 1) / stream_chunk; ++c) CHECK(pager.hold_chunk(*data->stream, c));
+        const auto streamed_cloud = render(table, cloud, true), mem_cloud = render(mem_table, cloud, false);
+        CHECK(streamed_cloud == mem_cloud && peak_of(mem_cloud) > 0.05f);
+    }
     CHECK(pager.underruns() == under);
     dsp::device_rate.store(was);
     std::remove(path.c_str());
@@ -13675,9 +13706,10 @@ void long_samples_streamed() {
     kit.pads[3].sample = 4;
     kit.pads[3].layers[0].sample = 3; kit.pads[3].layers[0].start = 7000;
     kit.pads[4].sample = 3; kit.pads[4].start = 1000; // the same start as pad 1: held once
+    kit.pads[5].sample = 3; kit.pads[5].start = 100000; kit.pads[5].cloud = true; // a cloud: its region, up to 30 s of it
     auto holds = stream_holds(*p);
     const std::vector<HeldRange> want {{1000, 1000, false}, {3000, 3000, false}, {7000, 7000, false}, {8559, 9000, false},
-                                       {50000, 50000, true}, {882000, 882441, false}};
+                                       {50000, 50000, true}, {100000, 882000, false}, {882000, 882441, false}}; // the cloud: to its end, short of 30 s
     CHECK(holds.size() == 1 && holds[0].first == 3 && holds[0].second == want);
     Slices slices;
     slices.whole(10000, 20000);
