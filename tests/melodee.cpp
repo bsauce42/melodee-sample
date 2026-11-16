@@ -2363,6 +2363,9 @@ void button_remap() {
         u.menu = menu_go_view; // the MENU over it: B1 and pad 16 (LEAVE) only
         CHECK(!lesson_takes_button(u, B::Play) && lesson_takes_button(u, B::TopLeft) && lesson_takes_pad(u, 15) && !lesson_takes_pad(u, 0));
         u.menu = menu_closed;
+        lesson_button(u, B::Play, true, 450); // Play: then the count-in, where nothing acts
+        CHECK(u.lesson_step == 5 && lesson_step(u)->kind == LessonKind::Count && !lesson_takes_pad(u, 0) && !lesson_takes_button(u, B::Stop) && !lesson_lights_pad(u, 0));
+        lesson_next(u, 460); CHECK(lesson_takes_pad(u, 0));
         u.lesson_step = lesson_at(0).count; CHECK(lesson_finished(u) && !lesson_step(u) && !lesson_takes_button(u, B::Stop));
         // Sequences: Seq opens its page (the step is done once the page is open); Seq held + pad 2.
         u.lesson = 2; u.lesson_step = 2; u.page = PageId::Stage;

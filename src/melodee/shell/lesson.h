@@ -21,6 +21,7 @@ constexpr const char* factory_kit_name = "MPC60 Bang";
 
 enum class LessonKind : uint8_t {
     Wait,   // nothing to press: the kit loads
+    Count,  // nothing to press: Seq Record's count-in runs out (Shift + Pad 4; off, the step passes at once)
     Button, // id: a SurfaceButton, pressed
     Pad,    // id: the pad, 0-15, hit
     Knob,   // id: K1-K3 as 0-2, turned a little
@@ -47,6 +48,7 @@ constexpr unsigned lesson_count = 4;
 constexpr uint8_t lesson_knob_travel = 10;    // a knob's step is done once it has moved this far (of 127)
 constexpr uint32_t lesson_wait_ms = 15000;    // the kit not there by then: the lesson ends
 constexpr uint32_t lesson_done_ms = 1500;     // DONE stays this long before the project opens again
+constexpr uint32_t lesson_count_ms = 200;     // a count-in step looks for the count this long after Play at the earliest
 
 inline const Lesson& lesson_at(unsigned n) {
     using K = LessonKind;
@@ -60,6 +62,7 @@ inline const Lesson& lesson_at(unsigned n) {
         {"TAP PAD 2", K::Pad, 1},
         {"PRESS SEQ RECORD", K::Button, b(B::SeqRecord)},
         {"PRESS PLAY", K::Button, b(B::Play)},
+        {"COUNT-IN", K::Count}, // a pad hit in the count-in is not recorded: the pads wait for the take
         {"TAP PAD 1", K::Pad, 0},
         {"TAP PAD 2", K::Pad, 1},
         {"PRESS SEQ RECORD", K::Button, b(B::SeqRecord)},

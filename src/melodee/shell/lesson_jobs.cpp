@@ -85,6 +85,10 @@ void lesson_tick(Context& c, uint32_t now) {
     }
     lesson_page(ui, now); // a step that opens a page: done once it is open
     const LessonStep* s = lesson_step(ui);
+    if (s && s->kind == LessonKind::Count) { // the take has begun: playing, the count-in over (or off)
+        if (now - ui.lesson_at >= lesson_count_ms && c.host.playing() && !c.host.count_in()) lesson_next(ui, now);
+        return;
+    }
     if (!s || s->kind != LessonKind::Wait) return;
     const bool loaded = !ui.loading && c.kit_from.empty() && c.samples_to_load >= sample_slots && kit_track(c.project) >= 0;
     if (loaded) lesson_next(ui, now);
