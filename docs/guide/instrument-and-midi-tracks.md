@@ -235,6 +235,13 @@ The key and scale belong to the project. The layout belongs to each track.
 
 ## Chord progressions
 
+The quickest way to chords, on any track: hold **16 LEVELS** and press
+**B2** (**CHORDS**). The pads then play the track's chord progression. Hold
+**16 LEVELS** again for **B2** (**FILE**), the progression files on the
+card, and **B3** (**SET**), to make chords of your own. See
+[16 Levels](kits-and-sampling.md#16-levels). The encoder Menu's **HERE** on
+Stage has **CHORDS** and **CHORD FILE** too.
+
 The **Prog** layout plays a chord progression: each pad plays one chord.
 Melodee reads MPC 3 progression files (`.progression`). A progression has up
 to 48 chords, 16 in each of pad banks A to C.

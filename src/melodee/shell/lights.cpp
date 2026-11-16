@@ -302,6 +302,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     }
     if (encoder_tick(enc, now)) menu_open(context_); // the encoder held: the MENU (shell/menu.h)
     lesson_tick(context_, now); // a lesson: its kit loaded, or its last step done (shell/lesson_jobs.h)
+    if (ui_.levels_sheet && ui_.track != ui_.levels_sheet_track) ui_.levels_sheet = 0; // 16 Levels' FILE or SET (shell/levels_keys.h): another track selected closes it
     // Tap Tempo held half a second with nothing turned: the Tempo page; held on it, back to the page under it.
     switch (tap_tick(tap, now, ui_.page == PageId::Tempo)) {
     case TapDo::Open: context_.open(PageId::Tempo); break;

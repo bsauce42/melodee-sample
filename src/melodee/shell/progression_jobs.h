@@ -15,5 +15,11 @@ bool prog_can_store(const Context& c);   // Keys: pads held on a layout that pla
 void prog_store_begin(Context& c);       // B2 STORE
 void prog_store_back(Context& c);        // B1 BACK: no store, the layout as it was
 bool prog_store_pad(Context& c, unsigned pad); // a pad while storing: the chord goes on it (true: it took it)
+// 16 Levels held's keys (shell/levels_keys.h):
+void prog_ready(Context& c);              // the track's progression, or the card's first when it has none
+unsigned prog_files(Context& c);          // the card listed again: how many, UiState::prog_at the track's own
+std::string prog_file_name(const Context& c, unsigned at); // a file's name as the list shows it
+bool prog_pick(Context& c, unsigned at);  // that file onto the track
+void prog_save(Context& c, unsigned pad, unsigned index); // the track's progression to Melodee/Progressions (a new one: Mine 1 ...), saying the pad's chord
 
 } // namespace melodee

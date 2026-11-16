@@ -28,6 +28,8 @@ Icon job_icon(MenuJob job) {
     case J::SequenceLaunch: return Icon::Play;
     case J::SequenceClear: case J::PatternClear: case J::TrackClear: return Icon::Trash;
     case J::PatternDouble: case J::ModAdd: return Icon::Plus;
+    case J::Chords: return Icon::Chord;
+    case J::ChordFile: return Icon::File;
     case J::PatternHalf: return Icon::Minus;
     case J::TrackMove: return Icon::Swap;
     case J::TrackCopy: return Icon::Copy;

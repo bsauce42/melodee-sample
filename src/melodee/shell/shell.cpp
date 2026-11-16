@@ -8,6 +8,7 @@
 #include "melodee/shell/p4_status.h"
 #include "melodee/plugin/plugin_rack.h"
 #include "melodee/shell/lesson_jobs.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/looper_jobs.h"
 #include "melodee/shell/looper_chord.h"
 #include "melodee/shell/input_route.h"
@@ -274,6 +275,8 @@ void Shell::press(Button b, bool pressed) {
         return;
     }
     if (pressed && ask_button(context_, b)) return; // a question open (shell/ask.cpp): B1 Cancel, B3 Do it
+    // 16 Levels' FILE or SET open (shell/levels_keys.h): B1 back, B3 or Push picks or is done; the other buttons wait.
+    if (pressed && ui.levels_sheet && !ui.exit_open && !ui.name.open() && levels_sheet_button(context_, b)) return;
     if (new_track_lock(context_, b, pressed)) return; // an empty track in hand: made or left first (shell/new_track.h)
     if (ui.name.open()) { // the Name sheet takes the controls it uses; Play and Stop still work
         if (!pressed) { if (b == Button::TapTempo) tap.down = false; let_go(context_, b); return; }
@@ -494,6 +497,11 @@ void Shell::press(Button b, bool pressed) {
     // Note Repeat on: B1-B3 are its rate (Shift: triplets), except on Arp and Chord.
     case Button::TopLeft: case Button::TopMiddle: case Button::TopRight: {
         int key = b == Button::TopLeft ? 0 : b == Button::TopMiddle ? 1 : 2;
+        if (levels_held_cards(*project_, ui)) { // 16 Levels held: its keys, by the type (shell/levels_keys.h); its release toggles nothing
+            ui.levels_used = true;
+            levels_key(context_, unsigned(key));
+            break;
+        }
         ui.key_list_key = uint8_t(key); ui.key_list_at = context_.now; // a key of several pages names them for a moment
         if (!track_soft(context_, key) && !repeat_soft(context_, key)) page.soft(context_, key);
         break;
@@ -581,6 +589,7 @@ void Shell::wheel(int delta) {
         return;
     }
     if (ui_.menu) { menu_wheel(context_, delta); return; } // the MENU: the wheel walks its cards or tiles
+    if (ui_.levels_sheet) { levels_sheet_wheel(context_, delta); return; } // 16 Levels' FILE: its rows (SET: nothing)
     if (levels_held_cards(*project_, ui_) && LevelsKind(context_.track().levels_kind % unsigned(LevelsKind::Count)) == LevelsKind::Chords) {
         ui_.levels_used = true; // 16 Levels held, of type Chords: the encoder picks the progression from the card, as on Keys' Prog layout
         prog_wheel(context_, delta);
@@ -632,6 +641,7 @@ void Shell::pad(unsigned pad, uint8_t velocity, bool down) {
         context_.close_hold(pad);
         return;
     }
+    if (ui_.levels_sheet == levels_sheet_pad) levels_set_pad(context_, pad); // 16 Levels' SET: this pad takes the chord (and plays what it has)
     context_.open_hold(pad); // Roll, Steps, Step Edit: press to release is one step (then PageEdit stands aside)
     PageEdit step(context_, Button::Count, true);
     hit(pad, velocity, down);

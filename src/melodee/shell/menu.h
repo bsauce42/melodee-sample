@@ -4,6 +4,7 @@
 #include "melodee/model/project.h"
 #include "melodee/shell/features.h"
 #include "melodee/shell/lesson.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/ui_state.h"
 #include "surface/controls.h"
 #include <algorithm>
@@ -93,7 +94,7 @@ inline unsigned menu_tile_turn(const UiState& ui, unsigned tile, int delta) {
 // HERE: a page's jobs that no printed key says.
 enum class MenuJob : uint8_t {
     None, SequenceCapture, SequenceName, SequenceFollowAll, SequenceLaunch, SequenceClear,
-    PatternDouble, PatternHalf, PatternClear, TrackMove, TrackCopy, TrackClear, Looper, Freeze, ModAdd,
+    PatternDouble, PatternHalf, PatternClear, TrackMove, TrackCopy, TrackClear, Looper, Freeze, ModAdd, Chords, ChordFile,
 };
 struct MenuItem {
     MenuJob job = MenuJob::None;
@@ -151,6 +152,10 @@ inline unsigned menu_here(const Project& project, const UiState& ui, std::array<
         add(J::ModAdd, "ADD TARGET", "SHIFT + B3");
         break;
     case PageId::Tracks: case PageId::Sends: case PageId::Rack: case PageId::Bus: case PageId::Master: case PageId::PadFx: case PageId::Stage:
+        if (ui.page == PageId::Stage && levels_keys(track).key[0] != LevelsKey::None) { // the pads as chords (shell/levels_keys.h), and their file
+            add(J::Chords, "CHORDS", "16 LEVELS + B2");
+            add(J::ChordFile, "CHORD FILE", "16 LEVELS + B2, B2");
+        }
         add(J::TrackMove, "MOVE TRACK", "PAD BANK + B2");
         add(J::TrackCopy, "COPY TRACK", "PAD BANK + B3");
         if (looper_shown(ui)) add(J::Looper, "LOOPER", "LOOP + 16 LEVELS");

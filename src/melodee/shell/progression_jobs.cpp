@@ -76,6 +76,39 @@ void prog_layout_on(Context& c) {
     show(c);
 }
 
+void prog_ready(Context& c) {
+    auto& t = c.track();
+    if (c.prog_paths.empty()) list(c);
+    if (t.prog.empty() && !t.prog.file[0] && !c.prog_paths.empty()) load(c, 0);
+    show(c);
+}
+
+unsigned prog_files(Context& c) {
+    list(c);
+    show(c);
+    return unsigned(c.prog_paths.size());
+}
+
+std::string prog_file_name(const Context& c, unsigned at) { return at < c.prog_paths.size() ? progression_stem(c.prog_paths[at]) : std::string(); }
+
+bool prog_pick(Context& c, unsigned at) {
+    if (at >= c.prog_paths.size() || !load(c, at)) return false;
+    show(c);
+    return true;
+}
+
+void prog_save(Context& c, unsigned pad, unsigned index) {
+    auto& t = c.track();
+    std::string folder = own_progression_folder(card_of(c));
+    if (!t.prog.file[0]) std::snprintf(t.prog.file, sizeof(t.prog.file), "%s", fresh_name(folder).c_str());
+    if (!t.prog.name[0]) std::memcpy(t.prog.name, t.prog.file, sizeof(t.prog.name));
+    c.dirty = true;
+    const std::string chord = index < prog_chords ? std::string(t.prog.chords[index].name) : std::string();
+    if (!folder.empty() && write_progression(folder + "/" + t.prog.file + ".progression", t.prog)) c.notice("Pad " + std::to_string(pad + 1) + ": " + chord);
+    else c.notice("Not saved: no card");
+    c.prog_paths.clear(); // listed again on the next wheel turn, with this one
+}
+
 bool prog_can_store(const Context& c) {
     const auto& t = c.project.tracks[c.ui.track % track_count];
     if (c.ui.prog_storing || !t.used() || t.engine == EngineKind::Sampler || t.levels) return false;

@@ -473,6 +473,17 @@ struct UiState {
     std::array<uint8_t, notes_per_step> prog_store_keys {};
     uint8_t prog_store_count = 0;
     uint8_t prog_store_from = 0; // the layout to go back to on B1 BACK
+    // 16 Levels held's keys (shell/levels_keys.h): the sheet FILE or SET opened (0 none, 1 the progression files,
+    // 2 SET waiting for its pad, 3 the chord being built). FILE: the rows in view, the first of them and the row in
+    // hand. SET: the chord's place in the progression, its root (as heard), type and inversion on the cards, and
+    // the chord as it was, for B1 BACK.
+    uint8_t levels_sheet = 0;
+    uint8_t levels_sheet_track = 0; // the track it was opened on: another track selected closes it
+    std::array<std::array<char, 40>, 6> prog_rows {};
+    uint8_t prog_rows_count = 0;
+    uint16_t prog_rows_first = 0, prog_cursor = 0;
+    uint8_t chord_index = 0, chord_root = 0, chord_type = 0, chord_invert = 0;
+    ProgChord chord_before;
     // A word over the header for a moment: what an undo, redo, delete or copy did.
     char notice[32] {};
     uint32_t notice_at = 0;   // ms

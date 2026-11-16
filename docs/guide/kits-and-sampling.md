@@ -351,6 +351,33 @@ to choose the type:
   chords; pads with no chord stay dark. On an instrument track the chords
   are those of the bank in view, as on the Keys page's Prog layout.
 
+While you hold **16 LEVELS**, **B1**–**B3** are its keys. They change with
+the type:
+
+| Type | B1 | B2 | B3 |
+| --- | --- | --- | --- |
+| Any type but Chords | **SCALE** | **CHORDS** | |
+| Chords | **SCALE** | **FILE** | **SET** |
+
+- **SCALE** and **CHORDS** choose that type and turn 16 Levels on, in one
+  press.
+- **FILE** lists the progression files on the card. Turn the encoder to a
+  file and push it, or press **B3** (**PICK**). **B1** (**BACK**) leaves the
+  progression as it was. The file the track plays has a check. You can let
+  go of **16 LEVELS** while the list is open.
+- **SET** makes a chord of your own. Tap the pad the chord goes on. Then
+  **K1** (**ROOT**), **K2** (**CHORD**: m7, maj9, 7sus4 and so on) and **K3**
+  (**INVERSION**) set it; tap the pad to hear it. **B3** (**DONE**) saves the
+  progression and waits for the next pad. **B1** (**BACK**) puts the chord
+  back as it was; pressed again it leaves SET. A track with no progression
+  starts a new one, named Mine 1, Mine 2 and so on, in
+  `Melodee/Progressions`. A progression from another folder is saved there
+  as a copy.
+
+With Chords on, holding **16 LEVELS** shows the chord of each pad, laid out
+as the pads. The header's first chip reads **CHORDS** on every page while
+the pads play chords.
+
 For Velocity, Filter and Tune, **K2** (**LOW**) sets pad 1's value and **K3**
 (**HIGH**) pad 16's. Hold **16 LEVELS** and press **−** / **+** to change the
 octave in Scale, Tune and Chords. Letting go after a hold does not turn 16

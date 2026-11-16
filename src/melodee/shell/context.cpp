@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/note_jobs.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/midi_track_jobs.h"
 #include "melodee/shell/context.h"
@@ -604,6 +605,9 @@ void Context::apply(const Binding& b, int value) {
         break;
     case Kind::ProgKey: t.prog_shift = int8_t(((value - int(t.prog.root)) % 12 + 12 + 6) % 12 - 6); break; // the nearest way: -6..5
     case Kind::ProgVoicing: t.prog_voicing = uint8_t(value % int(ProgVoicing::Count)); break;
+    case Kind::BuildRoot: levels_chord_card(*this, 0, value); break; // 16 Levels' SET (shell/levels_keys.h)
+    case Kind::BuildChord: levels_chord_card(*this, 1, value); break;
+    case Kind::BuildInvert: levels_chord_card(*this, 2, value); break;
     case Kind::Transpose: t.transpose = int8_t(std::clamp(value, -12, 12)); break;
     case Kind::Engine: {
         std::array<EngineKind, size_t(EngineKind::Count)> engines {};

@@ -7,6 +7,7 @@
 #include "melodee/shell/card_access.h"
 #include "melodee/shell/context.h"
 #include "melodee/shell/lesson_jobs.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/project_store.h"
@@ -105,6 +106,11 @@ void run(Context& c, MenuJob job) {
     case J::Looper: c.open(PageId::Looper); break;
     case J::Freeze: c.open_print_sheet(); break;
     case J::ModAdd: mod_add(c); break;
+    case J::Chords: levels_chords_on_now(c); break; // as 16 Levels held + B2
+    case J::ChordFile: // as 16 Levels held + B2 FILE, with Chords on
+        levels_chords_on_now(c);
+        if (levels_chords_on(c.track())) levels_key(c, 1);
+        break;
     default: break;
     }
 }
@@ -113,7 +119,7 @@ void run(Context& c, MenuJob job) {
 
 void menu_open(Context& c) {
     auto& ui = c.ui;
-    if (ui.menu || ui.ask != UiState::Ask::None || ui.name.open() || ui.exit_open || ui.loading || card_owns_controls(ui)) return;
+    if (ui.menu || ui.ask != UiState::Ask::None || ui.name.open() || ui.exit_open || ui.loading || card_owns_controls(ui) || ui.levels_sheet) return;
     ui.stop_copying(); // a copy or a move waiting for its pads gives way
     ui.scene_capture = false;
     ui.menu = here_count(c) ? menu_here_view : menu_go_view;

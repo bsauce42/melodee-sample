@@ -27,6 +27,7 @@
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/progression_jobs.h"
 #include "melodee/ui/widgets.h"
 
@@ -75,6 +76,8 @@ void draw_pick(Paint& p, const Snapshot& s) {
     }
 }
 
+void chord_grid(Paint& p, const Snapshot& s);
+
 void draw_prog(Paint& p, const Snapshot& s) {
     const auto& track = s.track();
     auto c = colour_of(s);
@@ -93,20 +96,31 @@ void draw_prog(Paint& p, const Snapshot& s) {
     h.right.push_back(tag_of(s, s.ui.track));
     frame(p, s, keys_of(s), h);
     if (picking(s) && !s.ui.prog_storing) { draw_pick(p, s); return; }
+    chord_grid(p, s);
+}
 
+// The chords as the pads sit: each pad its chord's name short, a slash bass small under it, the file's Root chord in
+// the track's colour, a pad with no chord dark. On a kit (16 Levels' Chords) the first sixteen chords.
+void chord_grid(Paint& p, const Snapshot& s) {
+    const auto& track = s.track();
+    auto c = colour_of(s);
     constexpr float gap = 4, top = zone::picture_y + 2;
     constexpr float w = (zone::width - 2 * zone::pad - 3 * gap) / 4, ch = (zone::picture_h - 4 - 3 * gap) / 4;
     for (unsigned pad = 0; pad < 16; ++pad) {
         unsigned row = 3 - pad / 4, column = pad % 4;
         float x = zone::pad + column * (w + gap), y = top + row * (ch + gap);
         bool held = s.ui.held_pads & (1u << pad);
-        unsigned index = prog_index(track, pad);
+        unsigned index = track.engine == EngineKind::Sampler ? pad % 16 : prog_index(track, pad);
         const auto& chord = track.prog.chords[index];
+        // 16 Levels' SET (shell/levels_keys.h): the pad whose chord is on the cards
+        const bool building = s.ui.levels_sheet == levels_sheet_chord && index == s.ui.chord_index;
         if (!chord.used()) {
             p.fill(x, y, w, ch, colour::quiet, 3);
-            if (s.ui.prog_storing) p.ring(x, y, w, ch, c, 3, 1.5f); // a free pad for the chord
+            if (s.ui.prog_storing || s.ui.levels_sheet == levels_sheet_pad) p.ring(x, y, w, ch, c, 3, 1.5f); // a free pad for the chord
+            if (building) p.ring(x, y, w, ch, colour::text, 3, 2);
             continue;
         }
+        if (building) p.ring(x - 1.5f, y - 1.5f, w + 3, ch + 3, colour::text, 4, 2);
         bool root = chord.root;
         p.fill(x, y, w, ch, held ? colour::text : root ? c : colour::surf, 3);
         auto fg = held || root ? colour::bg : colour::text;
@@ -176,6 +190,71 @@ void draw(Paint& p, const Snapshot& s) {
     }
 }
 } // namespace
+
+// 16 Levels held with Chords on (shell/sample_mode.h): the picture shows what each pad plays, the track's chords as
+// the pads sit, or for a moment after the encoder turned, the progression's name. The page's header and the held
+// cards stay as they are.
+void draw_levels_chords(ui::Paint& p, const Snapshot& s) {
+    using namespace ui;
+    p.fill(0, zone::picture_y, zone::width, zone::picture_h, colour::bg);
+    if (picking(s)) { draw_pick(p, s); return; }
+    if (s.track().prog.empty()) {
+        p.text("No chords yet: B2 FILE, or B3 SET", 0, zone::picture_y, zone::width, zone::picture_h, plain(colour::mid, type::body), juce::Justification::centred);
+        return;
+    }
+    chord_grid(p, s);
+}
+
+// 16 Levels' FILE and SET (shell/levels_keys.h), over the soft keys, the header and the picture; the knob strip
+// under them stays the page's (SET's cards: ROOT, CHORD, INVERSION).
+//   FILE  the card's progression files, six rows at a time, the row in hand raised, the track's own file checked
+//   SET   the chords as the pads sit: first the free pads ringed (tap the pad the chord goes on), then that pad
+//         ringed in white, its chord named in the header
+void draw_levels_sheet(ui::Paint& p, const Snapshot& s) {
+    using namespace ui;
+    const auto& track = s.track();
+    auto c = colour_of(s);
+    p.fill(0, zone::soft_y, zone::width, zone::knobs_y - zone::soft_y, colour::bg);
+    Header h = header_of(s); // its first chip says CHORDS (shell/pad_job.h)
+    h.right.push_back(tag_of(s, s.ui.track));
+    if (s.ui.levels_sheet == levels_sheet_files) {
+        soft_keys(p, SoftKeys {{"BACK", "", "PICK"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}});
+        h.left.push_back(pill("FILE " + juce::String(s.ui.prog_cursor + 1) + " / " + juce::String(s.ui.prog_count)));
+        header(p, h);
+        constexpr float row_h = 22, row_gap = 1.5f, x = zone::pad, w = zone::width - 2 * zone::pad;
+        for (unsigned k = 0; k < s.ui.prog_rows_count; ++k) {
+            const unsigned at = s.ui.prog_rows_first + k;
+            float y = zone::picture_y + 2 + k * (row_h + row_gap);
+            bool cursor = at == s.ui.prog_cursor, own = int(at) == s.ui.prog_at;
+            if (cursor) { p.fill(x, y, w, row_h, colour::raised, 3); p.fill(x, y, 2.5f, row_h, c, 1); }
+            juce::String name = juce::String::fromUTF8(s.ui.prog_rows[k].data());
+            float room = w - 20 - (own ? 20 : 0);
+            p.text(name, x + 10, y, room, row_h, p.fit(name, plain(cursor ? colour::text : colour::sec, type::body, cursor ? Weight::Medium : Weight::Regular), room, type::floor));
+            if (own) icon(p, Icon::Check, x + w - 20, y + 5, 12, c, 1.5f); // the file the track plays now
+        }
+        if (s.ui.prog_count > s.ui.prog_rows_count) { // more than the screen holds: where the rows in view sit in the list
+            float top = zone::picture_y + 4, height = zone::picture_h - 8, bx = zone::width - 3;
+            p.fill(bx, top, 2, height, colour::line, 1);
+            p.fill(bx, top + height * float(s.ui.prog_rows_first) / float(s.ui.prog_count), 2,
+                   std::max(8.0f, height * float(s.ui.prog_rows_count) / float(s.ui.prog_count)), colour::text, 1);
+        }
+        return;
+    }
+    if (s.ui.levels_sheet == levels_sheet_pad) {
+        soft_keys(p, SoftKeys {{"BACK", "", ""}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}});
+        h.left.push_back(pill("SET: TAP A PAD", colour::text));
+        header(p, h);
+        chord_grid(p, s);
+        return;
+    }
+    soft_keys(p, SoftKeys {{"BACK", "", "DONE"}, 2, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}});
+    const unsigned index = s.ui.chord_index % prog_chords;
+    auto name = prog_pad_name(track, index);
+    juce::String chord = juce::String::fromUTF8(name.chord.c_str()) + (name.bass.empty() ? juce::String() : "/" + juce::String::fromUTF8(name.bass.c_str()));
+    h.left.push_back(pill("PAD " + juce::String(index % 16 + 1) + (chord.isEmpty() ? juce::String() : "  " + chord), colour::text));
+    header(p, h);
+    chord_grid(p, s);
+}
 
 void push(Context& c) { if (c.track().used()) c.open(PageId::Edit); } // the engine's every page (Stage holds the quick ones)
 void wheel(Context& c, int delta) { if (prog_pads(c.track()) && !c.ui.prog_storing) prog_wheel(c, delta); }

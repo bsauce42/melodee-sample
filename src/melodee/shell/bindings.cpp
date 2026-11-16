@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/bindings.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/features.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/model/note_edits.h"
@@ -619,7 +620,7 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
     if (ui.name.open()) return {};
     if (ui.seq_held) return pattern_shift_cards(project, ui, pattern); // Seq held: the pattern's, on any page
     if (ui.pad_bank || ui.copying == UiState::Copying::Tracks) return {}; // Pad Bank held (or a track move): the track's strip has one row
-    if (ui.levels_held) return {}; // 16 Levels held: its cards have no Shift row
+    if (ui.levels_held || ui.levels_sheet) return {}; // 16 Levels held, or its FILE or SET: no Shift row
     if (auto pads = sample_held_page(project, ui); pads != PageId::Count) { // Sample held: its pads' (Pads, Keys)
         UiState on = ui; on.page = pads; on.sample_held = false;
         return shift_bindings(project, on, pattern);
@@ -751,7 +752,8 @@ std::array<Binding, 3> page_bindings(const Project& project, const UiState& ui, 
     if (ui.page == PageId::CardAccess || ui.card.state != 0) return {};
     // Knob FX on: the pots are its, on every page (as on the MPC), but for the Name sheet and Seq held.
     // A held key's cards win as well: Seq held (the pattern's), Pad Bank held (the track's strip), Sample held (the pad's).
-    bool held_key = ui.seq_held || ui.pad_bank || ui.copying == UiState::Copying::Tracks || sample_held_page(project, ui) != PageId::Count;
+    bool held_key = ui.seq_held || ui.pad_bank || ui.copying == UiState::Copying::Tracks || sample_held_page(project, ui) != PageId::Count
+                 || ui.levels_sheet; // 16 Levels' SET: the chord's cards
     if (knob_owns(project, ui) && !(held_key && !ui.name.open())) return knob_bindings(project, shift);
     auto cards = base_bindings(project, ui, pattern);
     if (!shift) return cards;
@@ -782,6 +784,10 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         UiState on = ui; on.page = pads; on.sample_held = false;
         return base_bindings(project, on, pattern);
     }
+    if (ui.levels_sheet == levels_sheet_chord) // 16 Levels' SET: the chord on the pad picked
+        return {Binding {Kind::BuildRoot, 0, 0, 11, ui.chord_root}, Binding {Kind::BuildChord, 0, 0, int(built_chord_count) - 1, ui.chord_type},
+                Binding {Kind::BuildInvert, 0, 0, int(built_inversions) - 1, ui.chord_invert}};
+    if (ui.levels_sheet) return {}; // FILE's list, or SET waiting for its pad: no cards
     if (levels_held_cards(project, ui)) return levels_cards(project, track); // 16 Levels held: its settings, on any page
     if (ui.page == PageId::Looper) { // the Looper (docs/LOOPER.md): LOOPS, the loop tracks' MIX, or the loop's sheet
         unsigned l = ui.loop % loop_tracks;

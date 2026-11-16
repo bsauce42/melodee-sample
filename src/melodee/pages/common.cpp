@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/lesson.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/features.h"
 #include "melodee/shell/pad_bank.h"
@@ -231,6 +232,9 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::Layout: c.label = "LAYOUT"; c.value = layout_name(PadLayout(b.value)); break;
     case Kind::ProgKey: c.label = "KEY"; c.value = note_letter(unsigned(b.value)); break;
     case Kind::ProgVoicing: c.label = "VOICING"; c.value = prog_voicing_name(unsigned(b.value)); break;
+    case Kind::BuildRoot: c.label = "ROOT"; c.value = note_letter(unsigned(b.value)); break;
+    case Kind::BuildChord: c.label = "CHORD"; c.value = juce::String::fromUTF8(short_chord_name(built_chords()[unsigned(b.value) % built_chord_count].name).c_str()); if (c.value.isEmpty()) c.value = "maj"; break;
+    case Kind::BuildInvert: c.label = "INVERSION"; c.value = chord_invert_name(unsigned(b.value)); break;
     case Kind::Transpose:
         c.label = "TRANSPOSE"; c.bipolar = true; c.unit = "st";
         c.value = (b.value > 0 ? "+" : b.value < 0 ? juce::String::fromUTF8("\xe2\x88\x92") : juce::String()) + juce::String(std::abs(b.value));
@@ -815,6 +819,10 @@ void frame(ui::Paint& p, const Snapshot& s, const ui::SoftKeys& keys, const ui::
     if (s.ui.pad_bank && !track_overlay_shown(s.ui)) { // Pad Bank held: its keys over the page's (shell/pad_bank.h)
         ui::SoftKeys held {{"TRACKS", "MOVE", "COPY"}, -1, colour_of(s)};
         held.glyphs[1] = ui::Icon::Swap; held.glyphs[2] = ui::Icon::Copy;
+        ui::soft_keys(p, held);
+    } else if (auto k = levels_keys(s.track()); levels_held_cards(s.project, s.ui) && k.key[0] != LevelsKey::None
+               && (s.ui.levels_used || s.now - s.ui.levels_down >= levels_hold_ms)) { // 16 Levels held: its keys, by the type (shell/levels_keys.h)
+        ui::SoftKeys held {{levels_key_name(k.key[0]), levels_key_name(k.key[1]), levels_key_name(k.key[2])}, k.lit, colour_of(s)};
         ui::soft_keys(p, held);
     } else {
         ui::soft_keys(p, keys);

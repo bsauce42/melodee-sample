@@ -91,6 +91,7 @@
 #include "melodee/shell/autosave.h"
 #include "melodee/shell/features.h"
 #include "melodee/shell/lesson.h"
+#include "melodee/shell/levels_keys.h"
 #include "melodee/shell/menu.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
@@ -2395,6 +2396,58 @@ void button_remap() {
         UiState full; CHECK(full_features(full)); full.lesson = 1; CHECK(!full_features(full) && new_types_shown(full) == 3);
         // GO's pad 16 is LEARN.
         CHECK(std::string(menu_places()[15].name) == "LEARN" && menu_tile_shown(full, 15));
+    }
+    // 16 Levels held's keys (shell/levels_keys.h): SCALE and CHORDS by the type; on Chords FILE and SET; SET's chords.
+    {
+        Track kit; kit.engine = EngineKind::Sampler;
+        auto keys = levels_keys(kit);
+        CHECK(keys.key[0] == LevelsKey::Scale && keys.key[1] == LevelsKey::Chords && keys.key[2] == LevelsKey::None && keys.lit == -1);
+        kit.levels = true; kit.levels_kind = uint8_t(LevelsKind::Scale);
+        CHECK(levels_keys(kit).lit == 0 && !levels_chords_on(kit)); // Scale in use: its key lit
+        kit.levels_kind = uint8_t(LevelsKind::Chords);
+        keys = levels_keys(kit);
+        CHECK(keys.key[0] == LevelsKey::Scale && keys.key[1] == LevelsKey::File && keys.key[2] == LevelsKey::Set && keys.lit == -1 && levels_chords_on(kit));
+        CHECK(std::string(levels_key_name(keys.key[1])) == "FILE" && std::string(levels_key_name(keys.key[2])) == "SET");
+        kit.levels = false; CHECK(!levels_chords_on(kit) && levels_keys(kit).key[1] == LevelsKey::File); // the type stays while off
+        CHECK(levels_keys(Track {}).key[0] == LevelsKey::None); // an empty track: no keys
+        Track audio; audio.engine = EngineKind::Audio; CHECK(levels_keys(audio).key[0] == LevelsKey::None);
+        // The pads chip says CHORDS.
+        UiState j; j.track = 0; j.page = PageId::Stage;
+        auto with = std::make_unique<Project>(*project);
+        with->tracks[0].levels = true; with->tracks[0].levels_kind = uint8_t(LevelsKind::Chords);
+        CHECK(std::string(pad_job(*with, j)) == "CHORDS");
+        with->tracks[0].levels_kind = uint8_t(LevelsKind::Scale); CHECK(std::string(pad_job(*with, j)) == "LEVELS");
+        // FILE's rows: the row in hand two from the top where the list allows.
+        CHECK(prog_rows_first(0, 3) == 0 && prog_rows_first(2, 20) == 0 && prog_rows_first(5, 20) == 3 && prog_rows_first(19, 20) == 14 && prog_rows_first(4, 6) == 0);
+        // SET: D minor 7 as the cards give it, named as progression files name chords; inverted, a slash bass.
+        ProgChord dm7 = build_prog_chord(2, 4, 0);
+        CHECK(dm7.count == 4 && dm7.notes[0] == 50 && dm7.notes[1] == 53 && dm7.notes[2] == 57 && dm7.notes[3] == 60 && std::string(dm7.name) == "Dmin7");
+        CHECK(pad_chord_name(dm7.name).chord == "Dm7" && pad_chord_name(dm7.name).bass.empty());
+        ProgChord first = build_prog_chord(2, 4, 1);
+        CHECK(first.notes[0] == 53 && first.notes[3] == 62 && std::string(first.name) == "Dmin7/F" && pad_chord_name(first.name).chord == "Dm7" && pad_chord_name(first.name).bass == "F");
+        CHECK(build_prog_chord(0, 0, 0).count == 3 && std::string(build_prog_chord(0, 0, 0).name) == "CMaj" && pad_chord_name("CMaj").chord == "C");
+        CHECK(build_prog_chord(11, 11, 3).count == 6 && build_prog_chord(11, 11, 9).notes[0] > 48); // an inversion past its notes stops one short
+        for (unsigned root = 0; root < 12; ++root) // every chord of the table in root position is found again as itself
+            for (unsigned type = 0; type < built_chord_count; ++type) {
+                BuiltPick pick;
+                CHECK(find_built_chord(build_prog_chord(root, type, 0), pick) && pick.root == root && pick.type == type && pick.inversion == 0);
+                CHECK(std::strlen(build_prog_chord(root, type, 3).name) < prog_chord_name);
+            }
+        BuiltPick none;
+        ProgChord odd; odd.count = 3; odd.notes = {60, 61, 62};
+        CHECK(!find_built_chord(odd, none) && !find_built_chord(ProgChord {}, none));
+        // The cards: SET's chord on K1-K3 over any page, and nothing under FILE's list.
+        Pattern pat;
+        UiState b; b.track = 0; b.page = PageId::Stage; b.levels_sheet = levels_sheet_chord; b.chord_root = 2; b.chord_type = 4; b.chord_invert = 1;
+        auto cards = base_bindings(*project, b, pat);
+        CHECK(cards[0].kind == Binding::Kind::BuildRoot && cards[0].value == 2 && cards[1].kind == Binding::Kind::BuildChord && cards[1].value == 4 && cards[2].kind == Binding::Kind::BuildInvert && cards[2].value == 1);
+        b.levels_sheet = levels_sheet_files; CHECK(!base_bindings(*project, b, pat)[0].bound());
+        // The MENU's HERE on Stage: CHORDS and CHORD FILE first.
+        std::array<MenuItem, menu_here_max> items {};
+        UiState m; m.track = 0; m.page = PageId::Stage;
+        unsigned count = menu_here(*with, m, items);
+        CHECK(count >= 4 && items[0].job == MenuJob::Chords && items[1].job == MenuJob::ChordFile);
+        m.page = PageId::Tracks; menu_here(*with, m, items); CHECK(items[0].job == MenuJob::TrackMove);
     }
     // The MENU (shell/menu.h): the encoder held opens it, a tap stays the page's Push; GO's tiles and HERE's cards.
     {
