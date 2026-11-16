@@ -96,7 +96,8 @@ float SampleLibrary::peak(unsigned n, uint32_t from, uint32_t to) const {
     std::lock_guard<std::mutex> guard(lock);
     const SampleData* data = data_of[n % sample_slots];
     if (!data || !data->frames) return -1;
-    to = std::min(to ? to : data->frames, data->frames);
+    to = to ? data->own(to) : data->frames; // its own frames between the two
+    from = data->own(from);
     float top = 0;
     for (uint32_t f = std::min(from, to); f < to; ++f) top = std::max({top, std::fabs(data->left[f]), std::fabs(data->right[f])});
     return top;
@@ -119,8 +120,8 @@ bool SampleLibrary::detail(unsigned n, uint32_t from, uint32_t to, uint8_t* out,
     const SampleData* data = data_of[n % sample_slots];
     if (!data || !data->frames || !columns) return false;
     uint32_t frames = std::min<uint32_t>(data->frames, uint32_t(data->left.size()));
-    to = std::min(to, frames);
-    from = std::min(from, to);
+    to = std::min(data->own(to), frames); // its own frames between the two
+    from = std::min(data->own(from), to);
     if (to <= from) return false;
     for (unsigned c = 0; c < columns; ++c) {
         uint32_t a = from + uint32_t(uint64_t(to - from) * c / columns), b = from + uint32_t(uint64_t(to - from) * (c + 1) / columns);
@@ -332,7 +333,6 @@ void SampleLibrary::service(Hardware& hardware) {
     loop_service(); // the Looper's commit and files (shell/looper_files.cpp)
     host.streams().start();
     reap(); // samples the audio thread has let go of
-    refresh_playback();
     // Loads: what the pool's threads have read is handed on, and every file asked for since is begun there.
     take_loaded();
     Request request;
@@ -508,14 +508,13 @@ void SampleLibrary::bank_files() {
 // Save Sample, Trim Sample, Extract: a slot's region as a WAV file on the
 // card. Derive also puts the new file in a slot of its own (in memory when
 // there is no card), as a load would.
-// The region is cut from the source's own frames when those are what plays (a
-// take, a 48 kHz file at 48 kHz) and written at their rate, so nothing is
-// converted; else from its 44.1 kHz frames, written at 44.1 kHz.
+// The region is cut from the source's frames and written at its rate, so
+// nothing is converted.
 // Extract's slice: 2 ms fades at the ends that were cut inside the source,
 // as the sampler plays a region's (engine/sampler.cpp), so the file does not
 // click where the slice was cut mid-wave.
-static void fade_edges(SampleData& data, unsigned rate, bool in, bool out) {
-    uint32_t edge = std::min<uint32_t>(rate / 500, data.frames / 2);
+static void fade_edges(SampleData& data, bool in, bool out) {
+    uint32_t edge = std::min<uint32_t>(data.rate / 500, data.frames / 2);
     for (uint32_t k = 0; k < edge; ++k) {
         float g = float(k) / float(edge);
         if (in) { data.left[k] *= g; data.right[k] *= g; }
@@ -530,22 +529,14 @@ void SampleLibrary::make(const SampleJob& job) {
         finish(std::string(what) + ": " + why, job.kind == SampleJob::Kind::Derive ? int(job.target % sample_slots) : -1);
     };
     if (!source || !source->frames) { fail("not loaded"); return; }
-    uint32_t to = job.to && job.to <= source->frames ? job.to : source->frames, from = std::min(job.from, to);
-    if (to - from < 2) { fail("too short"); return; }
+    // The region (44.1 kHz frames, as the project counts them; `to` 0 the end) in the source's own frames.
+    const uint32_t all = source->frames, end = job.to && job.to < source->model_frames() ? source->own(job.to) : all;
+    const uint32_t first = std::min(source->own(job.from), end);
+    if (end - first < 2) { fail("too short"); return; }
     auto data = std::make_unique<SampleData>();
-    unsigned rate = unsigned(dsp::model_rate);
-    const float *l = source->left.data(), *r = source->right.data();
-    uint32_t first = from, end = to, all = source->frames;
-    if (source->plays_own()) { // the region's 44.1 kHz frames as the source's own
-        rate = source->source_rate; all = source->play_frames;
-        auto own = [&](uint32_t f) { return uint32_t(std::min<uint64_t>(all, (uint64_t(f) * rate + 22050) / 44100)); };
-        first = own(from); end = to == source->frames ? all : own(to);
-        l = source->play_left.data(); r = source->play_right.data();
-    }
-    data->frames = end - first;
-    data->left.assign(l + first, l + end);
-    data->right.assign(r + first, r + end);
-    if (job.edges) fade_edges(*data, rate, first > 0, end < all);
+    adopt(*data, std::vector<float>(source->left.begin() + first, source->left.begin() + end),
+          std::vector<float>(source->right.begin() + first, source->right.begin() + end), source->rate);
+    if (job.edges) fade_edges(*data, first > 0, end < all);
     as_written(*data); // what plays is what the file holds
     std::string root;
     { std::lock_guard<std::mutex> guard(lock); root = known.root; }
@@ -555,7 +546,7 @@ void SampleLibrary::make(const SampleJob& job) {
         std::error_code made;
         fs::create_directories(folder, made);
         path = free_name(folder, name);
-        error = path.empty() ? std::string("no free name") : write_wav(path, *data, rate);
+        error = path.empty() ? std::string("no free name") : write_wav(path, *data);
         if (!error.empty()) path.clear();
         else name = fs::path(path).stem().string();
     } else error = "no card";
@@ -565,11 +556,10 @@ void SampleLibrary::make(const SampleJob& job) {
         scan_wanted.store(true); // it shows in the browser
         return;
     }
-    adopt(*data, std::move(data->left), std::move(data->right), rate, dsp::sample_rate()); // its 44.1 kHz frames, its own playing
     LoadedSample loaded;
     loaded.name = upper(name).substr(0, 27);
     loaded.path = path;
-    loaded.frames = data->frames;
+    loaded.frames = data->model_frames();
     loaded.stereo = make_overview(*data, loaded.overview, &loaded.sides);
     loaded.hit_count = find_hits(*data, loaded.hits, loaded.beats);
     if (!offer(job.target % sample_slots, data.get())) { fail("busy, try again"); return; }
@@ -597,9 +587,7 @@ void SampleLibrary::hear(const std::string& path) {
     auto h = std::make_unique<Hearing>();
     if (!h->file.open(preview.empty() ? path : preview, 30).empty()) return;
     auto data = std::make_unique<SampleData>();
-    size_t held = 0; // the device's copy as offer() makes one: none past the budget
-    for (const auto& d : owned) held += d->play_bytes();
-    h->fill.begin(*data, h->file.frames(), h->file.rate(), dsp::sample_rate(), held < playback_budget ? playback_budget - held : 0);
+    h->fill.begin(*data, h->file.frames(), h->file.rate());
     h->path = path;
     hearing = std::move(h);
     if (!hear_piece() && !data->growth->whole.load(std::memory_order_relaxed) && !data->growth->frames.load(std::memory_order_relaxed))
@@ -650,44 +638,7 @@ void SampleLibrary::save_take() {
 
 bool SampleLibrary::offer(unsigned slot, SampleData* data) {
     if (data && slot < sample_slots) slot_held[slot].store(true, std::memory_order_relaxed);
-    if (data && !data->multi && !data->growth) { // a preview being read has its device copy laid out already (hear())
-        const float rate = dsp::sample_rate();
-        size_t held = 0;
-        for (const auto& d : owned) held += d->play_bytes();
-        size_t wanted = size_t(double(data->frames) * rate / dsp::model_rate) * 2 * sizeof(float);
-        if (held + wanted > playback_budget) prepare_playback(*data, dsp::model_rate); // past the budget: none
-        else if (!data->plays_at(rate)) prepare_playback(*data, rate);                 // read from the file already, or made here
-    }
     return host.offer_sample(slot, data);
-}
-
-void SampleLibrary::refresh_playback() {
-    const float rate = dsp::sample_rate();
-    size_t held = 0;
-    for (const auto& d : owned) held += d->play_bytes();
-    for (unsigned s = 0; s < sample_slots; ++s) {
-        const SampleData* now = data_of[s]; // only this thread writes it
-        if (!now || now->multi || now->plays_at(rate)) continue;
-        bool stale = now->play_frames > 0; // made at another rate: none at 44.1 kHz, a new one elsewhere
-        bool fits = rate != dsp::model_rate && held + size_t(double(now->frames) * rate / dsp::model_rate) * 2 * sizeof(float) <= playback_budget;
-        if (!stale && !fits) continue;
-        std::string path;
-        { std::lock_guard<std::mutex> guard(lock); path = shown_at(s).path; }
-        // From its file again when it still reads the same (one conversion at most), else from its own frames when
-        // those played (a take with no card), else from its 44.1 kHz frames.
-        auto again = std::make_unique<SampleData>();
-        bool read = !path.empty() && !is_instrument(path) && read_audio(path, *again, kit_sample_seconds, nullptr, rate).empty() && again->frames == now->frames
-                 && again->left == now->left;
-        if (!read) {
-            again = std::make_unique<SampleData>();
-            if (now->plays_own()) adopt(*again, now->play_left, now->play_right, now->source_rate, rate);
-            else { again->left = now->left; again->right = now->right; again->frames = now->frames; }
-        }
-        if (!offer(s, again.get())) return; // the queue is full: next pass
-        { std::lock_guard<std::mutex> guard(lock); data_of[s] = again.get(); }
-        owned.push_back(std::move(again));
-        return; // one a pass
-    }
 }
 
 void SampleLibrary::land(unsigned slot, std::unique_ptr<SampleData> data, unsigned rate, const char* folder, const char* stem,
@@ -710,10 +661,10 @@ void SampleLibrary::land(unsigned slot, std::unique_ptr<SampleData> data, unsign
             path = name;
         }
     }
-    // Written at its own rate; its own frames play, its 44.1 kHz frames are what the project counts.
-    auto failed = keep_capture(*data, rate, path, dsp::sample_rate());
+    // Kept and written at its own rate.
+    auto failed = keep_capture(*data, rate, path);
     if (!path.empty()) { if (failed.empty()) loaded.path = path; else loaded.error = "not saved: " + failed; }
-    loaded.frames = data->frames;
+    loaded.frames = data->model_frames();
     loaded.stereo = make_overview(*data, loaded.overview, &loaded.sides);
     loaded.hit_count = find_hits(*data, loaded.hits, loaded.beats);
     const SampleData* held = nullptr;
@@ -788,8 +739,7 @@ void SampleLibrary::dispatch(const Request& request) {
         return;
     }
     ++load_log.files;
-    const float rate = dsp::sample_rate();
-    pool.post([this, request, serial, rate] {
+    pool.post([this, request, serial] {
         now_loading.store(request.slot, std::memory_order_relaxed);
         Handover h;
         h.slot = request.slot; h.serial = serial;
@@ -799,12 +749,12 @@ void SampleLibrary::dispatch(const Request& request) {
         { // what it will hold, found before it is read: refused where that would leave memory short (shell/sample_memory.h)
             AudioReader file;
             if (file.open(request.path, kit_sample_seconds).empty()
-                && !memory_allows(memory_free(), kit_sample_bytes(file.frames(), file.rate(), unsigned(std::lround(rate))))) {
+                && !memory_allows(memory_free(), kit_sample_bytes(file.frames(), file.rate()))) {
                 error = "Memory full";
                 h.refused = true;
             }
         }
-        if (error.empty()) error = read_audio(request.path, *h.data, kit_sample_seconds, nullptr, rate); // the copy the device plays, from the file
+        if (error.empty()) error = read_audio(request.path, *h.data, kit_sample_seconds, nullptr); // at the file's own rate
         lap.into(load_times.read);
         LoadedSample& loaded = h.loaded;
         loaded.path = request.path;
@@ -812,7 +762,7 @@ void SampleLibrary::dispatch(const Request& request) {
         if (!error.empty()) {
             loaded.error = error;
         } else {
-            loaded.frames = h.data->frames;
+            loaded.frames = h.data->model_frames();
             loaded.stereo = make_overview(*h.data, loaded.overview, &loaded.sides);
             loaded.hit_count = find_hits(*h.data, loaded.hits, loaded.beats);
             lap.into(load_times.analyse);

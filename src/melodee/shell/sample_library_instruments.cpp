@@ -197,7 +197,7 @@ SfzRead read_sf2_preset(const std::string& file, unsigned index, std::string* er
     return mapped->sf2.read(*preset);
 }
 
-// A sound of an .sf2 as the cache lays out a file: at the project's rate, its loop at its own.
+// A sound of an .sf2 as the cache lays out a file: at its own rate, its loop too.
 bool sf2_sound(const std::string& file, const std::string& name, SampleData& out, WavInfo& info) {
     auto mapped = open_sf2(file);
     if (!mapped->error.empty()) return false;
@@ -207,7 +207,7 @@ bool sf2_sound(const std::string& file, const std::string& name, SampleData& out
     info.channels = right.empty() ? 1 : 2;
     info.rate = rate;
     if (right.empty()) right = left;
-    adopt(out, std::move(left), std::move(right), rate, 0);
+    adopt(out, std::move(left), std::move(right), rate);
     return out.frames > 0;
 }
 
@@ -430,9 +430,9 @@ SampleLibrary::PartLanded SampleLibrary::land_part(const std::shared_ptr<Landing
             out.laid_out = true;
         }
         if (!in_place && !SampleCache::map(file, info, part)) { why = "Cannot map"; break; }
-        if (!in_place) part.rate = float(dsp::model_rate);
+        if (!in_place) part.rate = float(info.source_rate ? info.source_rate : 44100); // laid out at the source's own rate
         part.total = info.frames;
-        // The region's numbers are the source's frames: the audio laid out is at the project's rate, read in place at its own.
+        // The region's numbers are the source's frames, and so are the part's, laid out or read in place.
         const double ratio = info.source_rate ? double(part.rate) / info.source_rate : 1.0;
         auto scaled = [&](int64_t frame) { return uint32_t(std::clamp<double>(std::llround(double(frame) * ratio), 0.0, double(info.frames))); };
         bool held = true;

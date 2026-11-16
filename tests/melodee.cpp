@@ -723,9 +723,9 @@ void put32(std::ofstream& f, uint32_t v) { for (int n = 0; n < 4; ++n) f.put(cha
 void put16(std::ofstream& f, uint16_t v) { f.put(char(v)); f.put(char(v >> 8)); }
 
 // The browser's preview read a piece at a time: WavReader's pieces filled into a SampleFill make read_wav()'s sample to
-// the bit, at every file and device rate, each copy published as it lands; a fill stopped short is cut there; and a
-// voice on a sample still being read plays what has landed, waits silent at its edge, goes on when more lands and
-// ends where a cut one stops.
+// the bit, at every file rate (its own frames, never converted), published as they land; a fill stopped short is cut
+// there; and a voice on a sample still being read plays what has landed, waits silent at its edge, goes on when more
+// lands and ends where a cut one stops.
 void preview_progressive() {
     const std::string path = "/tmp/melodee-progressive-" + std::to_string(::getpid()) + ".wav";
     auto write = [&](unsigned rate, unsigned channels, unsigned bits, unsigned frames) {
@@ -745,46 +745,43 @@ void preview_progressive() {
     struct Kind { unsigned rate, channels, bits; };
     for (Kind k : {Kind {22050, 2, 16}, Kind {44100, 2, 16}, Kind {48000, 1, 24}, Kind {96000, 2, 24}}) {
         write(k.rate, k.channels, k.bits, k.rate * 13 / 10);
-        for (float play_at : {0.0f, 44100.0f, 48000.0f, 96000.0f}) {
-            SampleData whole;
-            CHECK(read_wav(path, whole, 60, nullptr, play_at).empty());
-            WavReader reader;
-            CHECK(reader.open(path, 60).empty() && reader.rate() == k.rate && reader.frames() == k.rate * 13 / 10);
-            SampleData grown;
-            SampleFill fill;
-            fill.begin(grown, reader.frames(), reader.rate(), play_at);
-            CHECK(grown.growth && grown.frames == whole.frames && grown.play_frames == whole.play_frames && grown.play_rate == whole.play_rate);
-            CHECK(grown.left.size() == whole.left.size() && grown.play_left.size() == whole.play_left.size());
-            std::vector<float> l(777), r(777);
-            uint32_t landed = 0, play_landed = 0, got;
-            while ((got = reader.read(l.data(), r.data(), 777))) {
-                fill.add(l.data(), r.data(), got);
-                uint32_t now = grown.growth->frames.load(), play_now = grown.growth->play_frames.load();
-                CHECK(now >= landed && now <= grown.frames && play_now >= play_landed && play_now <= grown.play_frames);
-                landed = now; play_landed = play_now;
-            }
-            CHECK(!fill.to_come() && fill.filling() && !grown.growth->whole.load());
-            fill.finish();
-            CHECK(!fill.filling() && grown.growth->whole.load() && !grown.growth->cut.load());
-            CHECK(grown.growth->frames.load() == grown.frames && grown.growth->play_frames.load() == grown.play_frames);
-            CHECK(grown.left == whole.left && grown.right == whole.right);
-            CHECK(grown.play_left == whole.play_left && grown.play_right == whole.play_right);
-            CHECK(grown.source_rate == whole.source_rate);
+        SampleData whole;
+        CHECK(read_wav(path, whole, 60, nullptr).empty());
+        CHECK(whole.rate == k.rate && whole.frames == k.rate * 13 / 10 && whole.left.size() == whole.frames); // its own frames
+        CHECK(whole.model_frames() == uint32_t(std::llround(whole.frames * 44100.0 / k.rate)));
+        WavReader reader;
+        CHECK(reader.open(path, 60).empty() && reader.rate() == k.rate && reader.frames() == k.rate * 13 / 10);
+        SampleData grown;
+        SampleFill fill;
+        fill.begin(grown, reader.frames(), reader.rate());
+        CHECK(grown.growth && grown.frames == whole.frames && grown.rate == whole.rate && grown.left.size() == whole.left.size());
+        std::vector<float> l(777), r(777);
+        uint32_t landed = 0, got;
+        while ((got = reader.read(l.data(), r.data(), 777))) {
+            fill.add(l.data(), r.data(), got);
+            uint32_t now = grown.growth->frames.load();
+            CHECK(now == landed + got && now <= grown.frames); // as it comes: nothing held back to convert
+            landed = now;
         }
+        CHECK(!fill.to_come() && fill.filling() && !grown.growth->whole.load());
+        fill.finish();
+        CHECK(!fill.filling() && grown.growth->whole.load() && !grown.growth->cut.load());
+        CHECK(grown.growth->frames.load() == grown.frames);
+        CHECK(grown.left == whole.left && grown.right == whole.right);
     }
-    { // Stopped after a piece: cut where it got to, the rest silent; a device copy past the budget is not made.
+    { // Stopped after a piece: cut where it got to, the rest silent.
         write(48000, 2, 16, 48000);
         WavReader reader;
         CHECK(reader.open(path, 60).empty());
         SampleData grown;
         SampleFill fill;
-        fill.begin(grown, reader.frames(), reader.rate(), 48000.0f, 1000);
-        CHECK(grown.play_frames == 0 && grown.play_left.empty() && grown.frames == 44100);
+        fill.begin(grown, reader.frames(), reader.rate());
+        CHECK(grown.frames == 48000 && grown.rate == 48000);
         std::vector<float> l(6000), r(6000);
         fill.add(l.data(), r.data(), reader.read(l.data(), r.data(), 6000));
         fill.finish();
         const uint32_t landed = grown.growth->frames.load();
-        CHECK(grown.growth->cut.load() && !grown.growth->whole.load() && landed > 5000 && landed < 6000);
+        CHECK(grown.growth->cut.load() && !grown.growth->whole.load() && landed == 6000);
         CHECK(std::all_of(grown.left.begin() + landed, grown.left.end(), [](float v) { return v == 0.0f; }));
         CHECK(reader.open(path, 0) == "no audio" && reader.open(path + ".none", 60) == "cannot open");
         WavReader second;
@@ -839,7 +836,7 @@ void preview_progressive() {
 }
 
 void sampler_kit() {
-    // A 16-bit stereo WAV at 22.05 kHz: four clicks a quarter second apart, read back at 44.1 kHz.
+    // A 16-bit stereo WAV at 22.05 kHz: four clicks a quarter second apart, kept at its rate.
     std::string path = "/tmp/melodee-test-" + std::to_string(::getpid()) + ".wav";
     {
         std::ofstream f(path, std::ios::binary);
@@ -855,7 +852,7 @@ void sampler_kit() {
     SampleData data;
     CHECK(read_wav(path, data).empty());
     std::remove(path.c_str());
-    CHECK(data.frames == 44100 && data.left.size() == 44100);
+    CHECK(data.frames == 22050 && data.rate == 22050 && data.left.size() == 22050 && data.model_frames() == 44100);
     CHECK(!read_wav("/nonexistent.wav", data).empty());
     Overview overview;
     make_overview(data, overview);
@@ -865,15 +862,15 @@ void sampler_kit() {
     unsigned found = find_hits(data, hits);
     CHECK(found >= 4 && hits[0].frame == 0);
     // Chop: hits at the clicks, even parts, beats at 120 BPM (22050 frames each).
-    auto even = chop(ChopMode::Regions, 4, data.frames, hits, found, 1200);
+    auto even = chop(ChopMode::Regions, 4, data.model_frames(), hits, found, 1200);
     CHECK(even.count == 4 && even.start[2] == 22050);
-    auto beats = chop(ChopMode::Beats, 1, data.frames, hits, found, 1200);
+    auto beats = chop(ChopMode::Beats, 1, data.model_frames(), hits, found, 1200);
     CHECK(beats.count == 2 && beats.start[1] == 22050);
-    auto clicks = chop(ChopMode::Threshold, 0, data.frames, hits, found, 1200);
+    auto clicks = chop(ChopMode::Threshold, 0, data.model_frames(), hits, found, 1200);
     CHECK(clicks.count >= 4);
     for (unsigned n = 1; n < 4; ++n) CHECK(std::abs(int(clicks.start[n]) - int(n * 11024)) < 600);
     Slices edited = even;
-    CHECK(edited.add(1000, data.frames) && edited.count == 5 && edited.start[1] == 1000);
+    CHECK(edited.add(1000, data.model_frames()) && edited.count == 5 && edited.start[1] == 1000);
     edited.remove(1);
     CHECK(edited.count == 4 && edited.start[1] == 11025);
 
@@ -5826,9 +5823,8 @@ void device_rates() {
         for (unsigned b = 0; b < 75; ++b) take->process(quiet.data(), quiet.data(), 128); // 0.1 s
         CHECK(std::fabs(take->level() - std::pow(0.95f, 75 * 128 / (96000.0f / 44100.0f) / 128)) < 1e-3f);
     }
-    // A take at 96 kHz is kept as it came, never converted on its way in: a second is 96000 frames of its own, 44100
-    // as the project counts them. As a sample its 44.1 kHz frames are converted once, band-limited: 1 kHz stays
-    // 1 kHz, 30 kHz (above what 44.1 kHz holds) is filtered out, not folded down; its own frames are what plays.
+    // A take at 96 kHz is kept as it came, never converted: a second is 96000 frames of its own, 44100 as the project
+    // counts them, and as a sample it is those frames, at 96 kHz (no copy at another rate).
     {
         dsp::device_rate.store(96000.0f);
         for (float hz : {1000.0f, 30000.0f}) {
@@ -5847,14 +5843,16 @@ void device_rates() {
             SampleData kept;
             kept.left.assign(take->left(), take->left() + take->taken());
             kept.right.assign(take->right(), take->right() + take->taken());
-            CHECK(keep_capture(kept, take->take_rate(), "", 96000).empty());
-            CHECK(kept.frames == 44100 && kept.plays_at(96000) && kept.plays_own() && kept.play_frames == 96000);
+            CHECK(keep_capture(kept, take->take_rate(), "").empty());
+            CHECK(kept.frames == 96000 && kept.rate == 96000 && kept.model_frames() == 44100 && kept.left.size() == 96000);
+            float worst = 0; // its frames are what was heard, on 24-bit steps
+            for (uint32_t n = 0; n < 96000; ++n) worst = std::max(worst, std::fabs(kept.left[n] - heard[n]));
+            CHECK(worst <= 1.0f / 8388607);
             if (hz < 2000) {
                 unsigned crossings = 0;
-                for (unsigned n = 1001; n < 41000; ++n) crossings += (kept.left[n - 1] < 0) != (kept.left[n] < 0);
-                CHECK(std::fabs(crossings / 2.0f / (40000 / 44100.0f) - 1000) < 5);
-                CHECK(peak_of(kept.left, 1000) > 0.45f);
-            } else CHECK(peak_of(kept.left, 1000) < 0.03f);
+                for (unsigned n = 1001; n < 90000; ++n) crossings += (kept.left[n - 1] < 0) != (kept.left[n] < 0);
+                CHECK(std::fabs(crossings / 2.0f / (88999 / 96000.0f) - 1000) < 5);
+            }
         }
         // Resample at 96 kHz: a second rendered is 96000 frames of its own, 44100 as the project counts them.
         auto bounce = std::make_unique<Bounce>();
@@ -5887,8 +5885,8 @@ void device_rates() {
         CHECK(ring->filled() == 0 && ring->rate() == 96000);
     }
     // A take at 48 kHz (Settings' rate), round trip: saved as a 48 kHz file whose frames are what was heard (to the
-    // 24-bit step), read back with its own frames playing, and its region and a cut made while it ran line up with
-    // the sound, counted in the project's 44.1 kHz frames.
+    // 24-bit step), read back as those frames, and its region and a cut made while it ran line up with the sound,
+    // counted in the project's 44.1 kHz frames.
     {
         dsp::device_rate.store(48000.0f);
         auto take = std::make_unique<TakeRecorder>();
@@ -5913,19 +5911,17 @@ void device_rates() {
         SampleData kept; // as SampleLibrary::land keeps it
         kept.left.assign(take->left(), take->left() + take->taken());
         kept.right.assign(take->right(), take->right() + take->taken());
-        CHECK(keep_capture(kept, take->take_rate(), path, 48000).empty());
-        CHECK(kept.frames == take->frames() && kept.plays_at(48000) && kept.plays_own() && kept.play_frames == own);
+        CHECK(keep_capture(kept, take->take_rate(), path).empty());
+        CHECK(kept.frames == own && kept.rate == 48000 && kept.model_frames() == take->frames());
         SampleData read;
         WavInfo info;
-        CHECK(read_wav(path, read, 60, &info, 48000).empty() && info.rate == 48000 && info.channels == 2);
-        CHECK(read.plays_at(48000) && read.plays_own() && read.play_frames == own && read.play_left == kept.play_left
-              && read.play_right == kept.play_right);
+        CHECK(read_wav(path, read, 60, &info).empty() && info.rate == 48000 && info.channels == 2);
+        CHECK(read.rate == 48000 && read.frames == own && read.left == kept.left && read.right == kept.right);
         float worst = 0;
         for (uint32_t n = 0; n < own; ++n)
-            worst = std::max({worst, std::fabs(read.play_left[n] - heard_l[n]), std::fabs(read.play_right[n] - heard_r[n])});
+            worst = std::max({worst, std::fabs(read.left[n] - heard_l[n]), std::fabs(read.right[n] - heard_r[n])});
         CHECK(worst <= 2.0f / 8388607);
-        // Its 44.1 kHz frames read back the same (a new rate reads it again from the file), the hit where the cut was.
-        CHECK(read.frames == kept.frames && read.left == kept.left && read.right == kept.right);
+        // The hit where the cut was, as the project counts it.
         std::array<Hit, max_hits> hits {};
         unsigned count = find_hits(read, hits);
         bool found = false;
@@ -5955,7 +5951,7 @@ void device_rates() {
         WavStream wav;
         CHECK(wav.open(path, 48000) && wav.add(std::vector<float>(256, 0.1f).data(), 128) && wav.close());
         SampleData mix;
-        CHECK(read_wav(path, mix, 60, &info, 48000).empty() && info.rate == 48000 && mix.play_frames == 128 && mix.plays_own());
+        CHECK(read_wav(path, mix, 60, &info).empty() && info.rate == 48000 && mix.frames == 128 && mix.rate == 48000);
         std::remove(path.c_str());
     }
     dsp::device_rate.store(44100.0f);
@@ -8933,10 +8929,10 @@ void overload_guard() {
     CHECK(tail(0.75f, 0.75f) > 0.01f);                                   // 75 % from below: no guard, the whole release
 }
 
-// Roadmap P2, samples at the device's rate: converted once, band-limited, never per voice. A copy lines up with its
-// 44.1 kHz frames (an impulse lands where its time says), passes DC and the audible band whole and keeps images out;
-// a file at the device's rate keeps its own frames; a voice at 48 kHz reads the copy a frame each frame, unpitched,
-// and its taps come back in 44.1 kHz frames.
+// Samples at their own rate: resample() (for what needs another rate for a while: the stems program) lines up with its
+// input (an impulse lands where its time says), passes DC and the audible band whole and keeps images out; a file is
+// held at its own rate, never converted, with no copy at the device's; a voice reads it at its rate over the
+// device's, and its taps come back in 44.1 kHz frames.
 void sample_rates_p2() {
     // The converter: an impulse at 44.1 kHz frame 1000 lands at 48 kHz frame 1088 (1000 x 48000 / 44100 = 1088.4).
     std::vector<float> l(4410, 0.0f), r(4410, 0.0f), out_l, out_r;
@@ -8957,14 +8953,8 @@ void sample_rates_p2() {
     CHECK(std::fabs(tone(0, 44100, 48000) - 1.0) < 1e-3);
     CHECK(std::fabs(tone(10000, 44100, 48000) - std::sqrt(0.5)) < 0.01);
     CHECK(tone(30000, 96000, 44100) < 1e-3); // above 44.1 kHz's band: kept out, not folded down to 14.1 kHz
-    // A sample's copy for 48 kHz, none at 44.1 kHz, none for an instrument.
-    SampleData s;
-    s.frames = 4410; s.left = l; s.right = r;
-    prepare_playback(s, 48000);
-    CHECK(s.plays_at(48000) && !s.plays_at(96000) && s.play_frames == 4800 && s.play_left[peak] == out_l[peak]);
-    prepare_playback(s, 44100);
-    CHECK(!s.play_frames && s.play_left.empty());
-    // A 48 kHz WAV read for a 48 kHz device: the copy it plays is the file's own frames; its 44.1 kHz frames the time.
+    // A 48 kHz WAV is read as it is: its own frames at 48 kHz, no copy at any other rate; 4410 frames as the project
+    // counts them.
     const auto path = std::filesystem::temp_directory_path() / "melodee_p2_48k.wav";
     {
         std::ofstream file(path, std::ios::binary);
@@ -8976,20 +8966,19 @@ void sample_rates_p2() {
         for (unsigned n = 0; n < frames; ++n) { int16_t v = int16_t((n % 100) * 300 - 15000); put(uint16_t(v), 2); put(uint16_t(v), 2); }
     }
     SampleData read;
-    CHECK(read_wav(path.string(), read, 60, nullptr, 48000).empty());
-    CHECK(read.frames == 4410 && read.plays_at(48000) && read.play_frames == 4800);
-    for (unsigned n = 0; n < 4800; ++n) CHECK(read.play_left[n] == float(int16_t((n % 100) * 300 - 15000)) / 32768.0f);
-    SampleData plain;
-    CHECK(read_wav(path.string(), plain).empty() && !plain.play_frames && plain.frames == 4410); // none asked for
+    CHECK(read_wav(path.string(), read).empty());
+    CHECK(read.frames == 4800 && read.rate == 48000 && read.model_frames() == 4410 && read.left.size() == 4800 && read.bytes() == 4800 * 8);
+    for (unsigned n = 0; n < 4800; ++n) CHECK(read.left[n] == float(int16_t((n % 100) * 300 - 15000)) / 32768.0f);
+    CHECK(read.own(4410) == 4800 && read.own(2205) == 2400 && read.model(2400) == 2205 && read.own(9999) == 4800);
     std::filesystem::remove(path);
-    // A voice at 48 kHz: the copy, a frame each device frame, unpitched; its taps in 44.1 kHz frames.
+    // A voice reads a sample's own frames, its rate over the device's each device frame; its taps in 44.1 kHz frames.
     const float was = dsp::device_rate.load();
-    dsp::device_rate.store(48000);
-    {
+    struct Case { unsigned sample, device; };
+    for (Case c : {Case {48000, 48000}, Case {44100, 48000}, Case {48000, 44100}, Case {96000, 48000}}) {
+        dsp::device_rate.store(float(c.device));
         SampleData ramp;
-        ramp.frames = 44100; ramp.left.resize(44100); ramp.right.resize(44100);
-        for (unsigned n = 0; n < 44100; ++n) ramp.left[n] = ramp.right[n] = float(std::sin(n * 0.01) * 0.5);
-        prepare_playback(ramp, 48000);
+        ramp.rate = c.sample; ramp.frames = c.sample; ramp.left.resize(c.sample); ramp.right.resize(c.sample);
+        for (unsigned n = 0; n < c.sample; ++n) ramp.left[n] = ramp.right[n] = float(std::sin(n * 0.01) * 0.5);
         SamplerEngine::Table table {};
         table[0] = &ramp;
         SamplerEngine engine;
@@ -8998,17 +8987,25 @@ void sample_rates_p2() {
         PadSound pad; pad.sample = 0; pad.play = PadPlay::OneShot; pad.start = 4410; // a tenth of a second in
         engine.set_pad(0, pad);
         engine.note_on(int(sampler_first_note), 127);
-        std::vector<float> a(4800, 0.0f), b(4800, 0.0f);
-        for (unsigned at = 0; at < 4800; at += 128) engine.render_stereo(a.data() + at, b.data() + at, std::min(128u, 4800 - at));
+        const unsigned out = c.device / 10; // a tenth of a second at the device's rate
+        std::vector<float> a(out, 0.0f), b(out, 0.0f);
+        for (unsigned at = 0; at < out; at += 128) engine.render_stereo(a.data() + at, b.data() + at, std::min(128u, out - at));
         TrackTaps taps;
         engine.taps(taps);
         CHECK(taps.count == 1 && taps.voice[0].from == 4410 && std::abs(int(taps.voice[0].at) - (4410 + 4410)) <= 1); // 0.1 s on
-        CHECK(std::fabs(taps.voice[0].step - 44100.0f / 48000) < 1e-4f);
-        // What it played is the copy's own frames from 4800 (0.1 s at 48 kHz), only shaped by the pad's level and pan.
+        CHECK(std::fabs(taps.voice[0].step - 44100.0f / float(c.device)) < 1e-4f);
+        // What it played is its own frames from 0.1 s on, a device frame reading rate / device of them, read between
+        // two frames where that falls between, only shaped by the pad's level and pan.
+        const double step = double(c.sample) / c.device, first = c.sample / 10.0;
+        auto own_at = [&](double x) {
+            const auto i = size_t(x);
+            const float t = float(x - double(i));
+            return ramp.left[i] + (ramp.left[i + 1] - ramp.left[i]) * t;
+        };
         float ratio = 0;
-        for (unsigned f = 2400; f < 4800; ++f) if (std::fabs(ramp.play_left[4800 + f]) > 0.2f) { ratio = a[f] / ramp.play_left[4800 + f]; break; }
+        for (unsigned f = out / 2; f < out; ++f) if (std::fabs(own_at(first + f * step)) > 0.2f) { ratio = a[f] / own_at(first + f * step); break; }
         CHECK(ratio > 0.1f);
-        for (unsigned f = 2400; f < 4800; ++f) CHECK(std::fabs(a[f] - ramp.play_left[4800 + f] * ratio) < 1e-4f);
+        for (unsigned f = out / 2; f < out; ++f) CHECK(std::fabs(a[f] - own_at(first + f * step) * ratio) < 1e-4f);
     }
     dsp::device_rate.store(was);
 }
@@ -13701,18 +13698,18 @@ void samples_unlimited() {
     CHECK(memory_allows(0, 500 * mb));
     CHECK(memory_allows(memory_headroom + 10 * mb, 10 * mb) && !memory_allows(memory_headroom + 10 * mb, 10 * mb + 1));
     CHECK(!memory_allows(memory_headroom - 1, 0) && !memory_allows(100 * mb, 1) && memory_allows(memory_headroom, 0));
-    // What a kit sample takes: a second of stereo floats at 44.1 kHz is 352800 bytes, at 48 kHz 384000.
-    CHECK(kit_sample_bytes(44100, 44100, 44100) == 352800);                       // the device at 44.1 kHz: no copy
-    CHECK(kit_sample_bytes(44100, 44100, 48000) == 352800 + 384000);              // and its copy at the device's 48 kHz
-    CHECK(kit_sample_bytes(48000, 48000, 48000) == 352800 + 384000);              // a 48 kHz file: its own frames are the copy
-    CHECK(kit_sample_bytes(96000, 96000, 48000) == 352800 + 384000 + 768000);     // a 96 kHz file: its own frames while it is converted
-    CHECK(kit_sample_bytes(uint64_t(600) * 44100, 44100, 44100) == uint64_t(60) * 352800); // no more than 60 s is read
-    CHECK(kit_sample_bytes(1000, 0, 48000) == 0);
-    // With 1.5 GB free at 48 kHz, one-second hits are let in until 256 MB is left: 1770 of them.
+    // What a kit sample takes: its own frames, a second of stereo floats 352800 bytes at 44.1 kHz, 384000 at 48 kHz,
+    // whatever the device's rate (no copy at another rate).
+    CHECK(kit_sample_bytes(44100, 44100) == 352800);
+    CHECK(kit_sample_bytes(48000, 48000) == 384000);
+    CHECK(kit_sample_bytes(96000, 96000) == 768000);
+    CHECK(kit_sample_bytes(uint64_t(600) * 44100, 44100) == uint64_t(60) * 352800); // no more than 60 s is read
+    CHECK(kit_sample_bytes(1000, 0) == 0);
+    // With 1.5 GB free, one-second 44.1 kHz hits are let in until 256 MB is left: 3697 of them.
     uint64_t free = 1500 * mb;
     unsigned taken = 0;
-    while (memory_allows(free, kit_sample_bytes(44100, 44100, 48000))) { free -= kit_sample_bytes(44100, 44100, 48000); ++taken; }
-    CHECK(taken == (1500 * mb - memory_headroom) / (352800 + 384000) && taken > 1024 && free >= memory_headroom);
+    while (memory_allows(free, kit_sample_bytes(44100, 44100))) { free -= kit_sample_bytes(44100, 44100); ++taken; }
+    CHECK(taken == (1500 * mb - memory_headroom) / 352800 && taken == 3697 && free >= memory_headroom);
 }
 
 // Roadmap P3: a 16 Levels Filter note kept by Seq Record plays at its cutoff (LVCF), the pad's own filter otherwise.

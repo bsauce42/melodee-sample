@@ -1270,21 +1270,17 @@ has 2 GB and no swap): the pad stays silent, its TRIM page says `Memory
 full`, and a notice says so once for the load. Samples are WAV (16, 24 or 32-bit PCM or float), MP3,
 FLAC, Ogg Vorbis or AIFF (any rate, up to 60 s; an MP3's encoder delay and padding, from its
 LAME tag, trimmed), read on the service thread and handed whole to the audio
-thread. Each is kept at 44.1 kHz (the unit a project counts frames in) and,
-at 48 or 96 kHz, also as a copy at the device's rate made once as it is
-read: from the file itself, its own frames when the rates agree, else one
-band-limited conversion (the base's windowed sinc). A pad plays the copy a
-frame each frame, only its pitch moving the read; nothing converts per
-voice. The copies share a 256 MB budget; past it, and for instruments
-streamed from the card, a voice reads the 44.1 kHz frames that much
-further each frame, as before. A rate change makes each copy again from
-its file, a sample at a time. Takes, Audio Recall and Resample are kept as
-they came, at the device's rate, never converted on their way in: saved at
-it, their own frames are what the pad plays, and their 44.1 kHz frames,
-made once, are what the project counts (a region, a cut). Save Sample,
-Trim and Extract cut a sample's own frames when those are what plays, so a
-48 kHz take trimmed stays 48 kHz. Loops are taken and saved at the
-device's rate too (LOOPER.md).
+thread. A sample is held once, at its file's own rate: never converted, with
+no copy at the device's rate or at 44.1 kHz, in memory or on the card
+(`engine/sample_data.h`). The project counts positions in 44.1 kHz frames (a
+region, a slice, the hits); a voice turns those into the sample's own frames
+and reads its rate over the device's rate each frame (a 44.1 kHz sample at
+48 kHz reads 0.919 of a frame a frame), between two frames by a straight
+line, as an instrument's zones always have. A rate change converts nothing.
+Takes, Audio Recall and Resample are kept as they came, at the device's
+rate, and play so. Save Sample, Trim and Extract cut a sample's own frames
+and write them at its rate, so a 48 kHz take trimmed stays 48 kHz. Loops
+are taken and saved at the device's rate too (LOOPER.md).
 These are saved 24-bit, or 32-bit float when they go past full scale (a
 resampled mix can), so a file never clips what played; what plays is what
 the file holds, to the bit.
@@ -1980,7 +1976,7 @@ while following.
   gadget reconnects: USB audio, MIDI and the network drop for a second; not
   while the card is lent). Every frame count in a project stays in 44.1 kHz
   frames whatever the rate, so projects open the same at any rate; samples
-  play from a copy at the device's rate, and takes, Audio Recall, Resample,
+  play at their own rate (Sampler), and takes, Audio Recall, Resample,
   mixdowns and loops are recorded and saved at it (Sampler, Looper). Plug-ins are loaded
   again at the new rate, Monitor hears the source at it, and effects keep
   their timing at it (Effects). Kept in `Melodee/settings` with the project to open at
@@ -2364,9 +2360,11 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
 - `autorun/melodee/stems/`: the program Stems runs and its model (above,
   "Stems"), part of the release.
 - `Melodee/Cache/*.f32`: an instrument's FLAC, Ogg, AIFF and SoundFont
-  samples decoded for streaming (WAV files are streamed as they are), named
-  by the source's name, size and date; the least lately played go past
-  4 GB, and any not played for 30 days. Safe to delete: they are made again.
+  samples decoded for streaming at their own rate (WAV files are streamed as
+  they are), named by the source's name, size and date; the least lately
+  played go past 4 GB, and any not played for 30 days. Safe to delete: they
+  are made again. Files from earlier builds (decoded to 44.1 kHz) are no
+  longer read: each instrument is decoded again once, and the old files age out.
 - `Melodee/Projects/**/<project> Loops/Loop N.wav`: a project's loops.
   `Melodee/Mixdowns/` holds song mixdowns, `Melodee/Stems/` stems,
   `Melodee/MIDI/` MIDI files, `SysEx/` (at the card's top) a MIDI track's

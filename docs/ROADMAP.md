@@ -225,6 +225,18 @@ behaviour changed.
   the way (2026-11-12): nothing may force 44.1 kHz on what plays; it
   doesn't, playback follows Settings' rate; takes and renders are still
   saved at 44.1 kHz (follow-up below).
+- P2 reversed (2026-11-16, Kerem: "we shouldn't keep copies"): a sample is
+  held once, at its own rate, with no copy at the device's rate and no
+  44.1 kHz conversion, in memory or on the card. The device-rate copy, its
+  256 MB budget and the remake at a rate change are gone; voices read a
+  sample's own frames at its rate over the device's, by a straight line
+  between frames, as instruments' zones did. Hits are found in a 44.1 kHz
+  mono sum made for the analysis only; the stems program gets a 44.1 kHz
+  conversion for its job only. Instruments' `Melodee/Cache` files are laid
+  out at the source's own rate (cache version 3). The by-ear check at
+  48 kHz of a 44.1 kHz sample (linear reading where the copy was
+  band-limited) is owed; a 4-point read in the voice is the fix if it is
+  heard, not a copy.
 - P2 follow-up (2026-11-12): nothing Melodee records is converted to
   44.1 kHz any more. Takes, Audio Recall, Resample and the song's mixdown
   are captured at the device's rate (`TakeRecorder`, `RecallRing`,

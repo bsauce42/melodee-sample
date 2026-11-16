@@ -73,7 +73,7 @@ void SampleLibrary::stems_service(const Platform& platform) {
     if (root.empty()) { refuse("no card"); return; }
     const SampleData* source = data_of[request.source % sample_slots]; // only this thread writes it
     if (!source || !source->frames || source->multi || source->growth) { refuse("not loaded"); return; }
-    const uint32_t frames = uint32_t(std::min<size_t>({source->frames, source->left.size(), source->right.size()}));
+    const uint32_t frames = source->model_frames(); // 44.1 kHz frames: what the program takes, and the stems' length
     if (frames < stems_least_frames) { refuse("under a second"); return; }
     StemsJob job;
     job.engine = stems_program(top);
@@ -99,8 +99,15 @@ void SampleLibrary::stems_service(const Platform& platform) {
     if (!found) { refuse("no free name"); return; }
     const char* work = std::getenv("MELODEE_STEMS_WORK");
     job.work = work && *work ? work : "/run/melodee-stems";
-    job.left.assign(source->left.begin(), source->left.begin() + frames);   // its 44.1 kHz frames: the stems come
-    job.right.assign(source->right.begin(), source->right.begin() + frames); // out at the same length, to the frame
+    // Its frames at 44.1 kHz, as the program takes them: the stems come out at the same length, to the frame. A sample
+    // at another rate is converted for the job alone; the conversion goes with it.
+    if (source->rate == 44100) {
+        job.left.assign(source->left.begin(), source->left.begin() + frames);
+        job.right.assign(source->right.begin(), source->right.begin() + frames);
+    } else {
+        resample(source->left.data(), source->right.data(), source->frames, source->rate, 44100, job.left, job.right);
+        job.left.resize(frames, 0.0f); job.right.resize(frames, 0.0f);
+    }
     if (!separator.start(std::move(job))) refuse("busy");
 }
 
