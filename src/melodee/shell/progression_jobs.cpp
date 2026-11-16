@@ -103,7 +103,8 @@ void prog_save(Context& c, unsigned pad, unsigned index) {
     if (!t.prog.file[0]) std::snprintf(t.prog.file, sizeof(t.prog.file), "%s", fresh_name(folder).c_str());
     if (!t.prog.name[0]) std::memcpy(t.prog.name, t.prog.file, sizeof(t.prog.name));
     c.dirty = true;
-    const std::string chord = index < prog_chords ? std::string(t.prog.chords[index].name) : std::string();
+    const auto shown = prog_pad_name(t, index); // as the pad names it, in the key K2 KEY moved it to
+    const std::string chord = shown.bass.empty() ? shown.chord : shown.chord + "/" + shown.bass;
     if (!folder.empty() && write_progression(folder + "/" + t.prog.file + ".progression", t.prog)) c.notice("Pad " + std::to_string(pad + 1) + ": " + chord);
     else c.notice("Not saved: no card");
     c.prog_paths.clear(); // listed again on the next wheel turn, with this one
