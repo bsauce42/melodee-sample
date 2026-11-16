@@ -71,6 +71,32 @@ own code, under the same licence; the MP3 patents ran out in 2017.
 - Plug-ins themselves are not part of Melodee and none ship with it: each
   is the user's own, under its own licence.
 
+## Stem separator
+
+Stems (`src/melodee/shell/stems.h`) runs a program of its own,
+`melodee-stems`, which release zips carry as a file beside Melodee
+(`autorun/melodee/stems/`); none of it is linked into Melodee's binary.
+`tools/stems/build.py` builds it from sources `src/melodee/dependencies.py`
+fetches into ignored `build/deps/` at pinned commits:
+
+- SpleeterRT's offline program, James Fung, GPL-3.0, commit
+  `d818fb9ca826d31cb7dda60409f3f14e6e789597` of
+  https://github.com/james34602/SpleeterRT, unchanged. It carries dr_wav,
+  dr_flac and dr_mp3 (David Reid, public domain or MIT No Attribution) and
+  libsamplerate (Erik de Castro Lopo, BSD-2-Clause).
+- The Spleeter model inside it (SpleeterRT's `model.7z`, checked against a
+  pinned SHA-256), trained by Deezer, MIT licence
+  (https://github.com/deezer/spleeter).
+- OpenBLAS 0.3.28, the OpenBLAS project, BSD-3-Clause, commit
+  `5ef8b1964658f9cb6a6324a06f6a1a022609b0c5`, linked in statically.
+- Its entry, `tools/stems/stems_main.c`, is Melodee's own (AGPL-3.0-only).
+
+Release zips carry the GPL, MIT and BSD texts and these addresses in
+`licenses/stems/`. The idea of running SpleeterRT on a sampler this way
+comes from Charles Vestal's Stems module for Schwung
+(https://github.com/charlesvestal/schwung-stems, MIT); none of its code or
+binaries is used.
+
 ## Rubik
 
 Melodee embeds Rubik, Copyright 2015 The Rubik Project Authors, under the

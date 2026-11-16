@@ -94,7 +94,7 @@ inline unsigned menu_tile_turn(const UiState& ui, unsigned tile, int delta) {
 // HERE: a page's jobs that no printed key says.
 enum class MenuJob : uint8_t {
     None, SequenceCapture, SequenceName, SequenceFollowAll, SequenceLaunch, SequenceClear,
-    PatternDouble, PatternHalf, PatternClear, TrackMove, TrackCopy, TrackClear, Looper, Freeze, ModAdd, Chords, ChordFile,
+    PatternDouble, PatternHalf, PatternClear, TrackMove, TrackCopy, TrackClear, Looper, Freeze, ModAdd, Chords, ChordFile, Stems,
 };
 struct MenuItem {
     MenuJob job = MenuJob::None;
@@ -155,6 +155,10 @@ inline unsigned menu_here(const Project& project, const UiState& ui, std::array<
         if (ui.page == PageId::Stage && levels_keys(track).key[0] != LevelsKey::None) { // the pads as chords (shell/levels_keys.h), and their file
             add(J::Chords, "CHORDS", "16 LEVELS + B2");
             add(J::ChordFile, "CHORD FILE", "16 LEVELS + B2, B2");
+        }
+        if (ui.page == PageId::Stage && track.engine == EngineKind::Sampler) { // a kit pad's sample into its stems (shell/stems_jobs.cpp)
+            const auto& sound = track.pads[track.last_pad % sampler_pads];
+            if (sound.used() && !project.samples[sound.sample % sample_slots].instrument()) add(J::Stems, "STEMS", "TRIM, SHIFT + B3");
         }
         add(J::TrackMove, "MOVE TRACK", "PAD BANK + B2");
         add(J::TrackCopy, "COPY TRACK", "PAD BANK + B3");

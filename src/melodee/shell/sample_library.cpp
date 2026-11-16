@@ -309,6 +309,7 @@ void SampleLibrary::service(Hardware& hardware) {
     drain_render(); // a render's frames, as they come, every pass
     RecallJob recall_job;
     if (recalls.pop(recall_job)) save_recall(recall_job);
+    stems_service(platform); // a sample's stems asked for, and the job that ended (shell/sample_library_stems.cpp)
     loop_service(); // the Looper's commit and files (shell/looper_files.cpp)
     host.streams().start();
     reap(); // samples the audio thread has let go of

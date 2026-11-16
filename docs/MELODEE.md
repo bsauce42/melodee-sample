@@ -1616,6 +1616,30 @@ the file holds, to the bit.
   on through its tails as the mixdown plays it, onto the pad tapped (the
   header says SONG: TAP A PAD); a song past 60 s gives its first 60 s and
   stops there.
+- **Stems** (Shift + B3 on a kit pad's TRIM, or STEMS in the MENU on
+  Stage): the pad's sample separated into its drums, its vocals and its
+  music (the bass and every other instrument). The STEMS sheet shows the
+  three empty pads after the pad, the sample's length and the time the job
+  takes; B3 SEPARATE (or Push) starts it, B1 calls it off, and it goes on
+  with the sheet closed (the pads play the kit meanwhile). The files are
+  `Samples/Stems/<NAME> DRUMS.wav`, `<NAME> VOCALS.wav` and
+  `<NAME> MUSIC.wav`, 44.1 kHz and as long as the sample to the frame. They
+  land together on those pads, one undo, each pad as the sample's pad was
+  at SEPARATE: its region, loop, tune, warp, envelope and filter, and the
+  sample's slices in Chop; without its layers, mute group and Pad Link, so
+  the stems play together. Not for an instrument, nor a sample under a
+  second; it needs three empty pads and three free sample slots.
+  The separating is a program of its own, SpleeterRT's offline one with
+  Deezer's Spleeter model (`tools/stems/build.py`; `shell/stems.h`). It is
+  a file on the card, `autorun/melodee/stems/melodee-stems` (40 MB; with
+  `device.py install-sd`, `sample-base/stems/melodee-stems`), not part of
+  the binary; a job copies it into RAM (`/run/melodee-stems`, the
+  card being `noexec`), runs it there on three threads at the lowest
+  priority and removes it after. A job that would leave under 192 MB of
+  memory free is refused; short of memory, the kernel ends the program
+  before anything else. On the MPC 13 s of sound take 15 to 18 s and
+  366 MB, 60 s 48 to 50 s and 682 MB. SD card access waits for a job.
+  `status` has `melodee_stems` (the percent done, or `idle`).
 
 ### Effects
 
@@ -2309,8 +2333,10 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
   favourites, the project to open at start (`start=`) and the one last
   opened or saved (`last=`), opened at start when none is set.
 - `Samples/`: loaded from anywhere under it; Melodee writes `Recorded/`,
-  `Edits/` and saved samples there, bank files in `Banks/`, and committed
-  loops in `Looper/`.
+  `Edits/` and saved samples there, bank files in `Banks/`, committed
+  loops in `Looper/`, and a sample's stems in `Stems/`.
+- `autorun/melodee/stems/melodee-stems`: the program Stems runs (above,
+  "Stems"), part of the release.
 - `Melodee/Cache/*.f32`: an instrument's FLAC, Ogg, AIFF and SoundFont
   samples decoded for streaming (WAV files are streamed as they are), named
   by the source's name, size and date; the least lately played go past
@@ -2322,7 +2348,9 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
 
 Nothing is created on the card until something is saved. On a host,
 `$MELODEE_PROJECTS`, `$MELODEE_SAMPLES`, `$MELODEE_INTERNAL` and
-`$MELODEE_INTERNAL_PROJECTS` stand in for the card and the internal drive.
+`$MELODEE_INTERNAL_PROJECTS` stand in for the card and the internal drive;
+`$MELODEE_STEMS_ENGINE` names the Stems program and `$MELODEE_STEMS_WORK`
+the folder it works in.
 
 ## Remote
 

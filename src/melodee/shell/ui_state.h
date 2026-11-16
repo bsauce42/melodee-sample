@@ -34,6 +34,7 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Roll, Motion, Patterns,
                             Print,                             // freeze plan F2c: the PRINT sheet (Sample Record on a plug-in or MIDI track)
                             Scenes,                            // roadmap P5: the bank's scenes (B1 again on Patterns)
                             AutoSample,                        // the AUTO SAMPLE sheet: Resample (Shift + Pad 11) on a plug-in track
+                            Stems,                             // the STEMS sheet: Shift + B3 on a kit pad's TRIM (shell/stems_jobs.cpp)
                             Count };
 
 // Takeover (shell/takeover.h): a pot or the fader drives its value once it has
@@ -457,6 +458,15 @@ struct UiState {
         bool check_wanted = false;
     };
     AutoSheet auto_sheet;
+    // The STEMS sheet (shell/stems_jobs.cpp): the kit pad whose sample is separated, the sample it held when the
+    // sheet opened and its length, and whether the job runs (B1 then calls it off).
+    struct StemsSheet {
+        uint8_t track = 0, pad = 0;
+        uint16_t sample = 0;
+        uint32_t frames = 0;
+        bool running = false;
+    };
+    StemsSheet stems_sheet;
     // Seq held + Sample Record: each pattern pad freezes or thaws its pattern of the selected track until Seq is let
     // go (`seq_frozen`: the patterns as they will be then); the prints are made on the release.
     bool seq_print = false;

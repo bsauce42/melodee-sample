@@ -35,6 +35,7 @@ Icon job_icon(MenuJob job) {
     case J::TrackCopy: return Icon::Copy;
     case J::Looper: return Icon::Loop;
     case J::Freeze: return Icon::Snow;
+    case J::Stems: return Icon::Layers;
     default: return Icon::None;
     }
 }

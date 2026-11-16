@@ -120,7 +120,7 @@ the drive, Melodee asks whether to eject anyway.
 | `autorun/` | Melodee itself. Do not change it. |
 | `Melodee/Projects/` | Projects (`.mldp`), and each project's `Loops`, `Prints` and `Audio` folders |
 | `Melodee/Mixdowns/` | Song mixdowns |
-| `Melodee/Stems/` | Stems |
+| `Melodee/Stems/` | A song's stems |
 | `Melodee/MIDI/` | Exported MIDI files |
 | `Melodee/MPC 3/` | MPC 3 projects exported from Song |
 | `Melodee/Progressions/` | Chord progressions you make |
@@ -130,7 +130,7 @@ the drive, Melodee asks whether to eject anyway.
 | `Melodee/Plugin Data/` | Plug-in settings and presets |
 | `Melodee/Crashes/` | Crash reports, one file a crash (see [Troubleshooting](exit-and-troubleshooting.md#troubleshooting)) |
 | `Melodee/settings` | Melodee's settings |
-| `Samples/` | Your samples. Melodee writes `Recorded/`, `Edits/`, `Banks/`, `Looper/`, `Expansions/` and `Keygroups/` (auto sampled programs) here. |
+| `Samples/` | Your samples. Melodee writes `Recorded/`, `Edits/`, `Banks/`, `Looper/`, `Expansions/`, `Keygroups/` (auto sampled programs) and `Stems/` (a sample's stems) here. |
 | `SysEx/` | `.syx` files for MIDI tracks |
 
 ## The web page

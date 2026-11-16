@@ -809,6 +809,17 @@ void surge_presets(Snapshot& s) {
     s.presets.list = PluginProgramList(std::move(list));
 }
 
+// The STEMS sheet (pages/stems_page.cpp) for the kit's pad in hand, its sample 13 s long.
+void stems_scene(Snapshot& s) {
+    on_stage(s, 3, 0, 0);
+    s.ui.page = PageId::Stems;
+    auto& sheet = s.ui.stems_sheet;
+    sheet.track = 3;
+    sheet.pad = uint8_t(s.project.tracks[3].last_pad % sampler_pads);
+    sheet.sample = s.project.tracks[3].pads[sheet.pad].sample;
+    sheet.frames = 13 * 44100;
+}
+
 struct Preview {
     const char* name;
     void (*set)(Shell&, Snapshot&);
@@ -1594,6 +1605,13 @@ const Preview previews[] {
          on_stage(s, 3, 0, 0); s.playing = true; s.sample = break_sample();
          auto& pad = s.project.tracks[3].pads[8]; pad.start = 18000; pad.end = 150000;
          s.ui.turning = 0; s.ui.turned_at = s.now;
+     }},
+    // The STEMS sheet (Shift + B3 on a kit pad's TRIM): before SEPARATE, and the job two thirds done.
+    {"stems", [](Shell&, Snapshot& s) { stems_scene(s); }},
+    {"stemsrun", [](Shell&, Snapshot& s) {
+         stems_scene(s);
+         s.ui.stems_sheet.running = true;
+         s.stems.busy = true; s.stems.fraction = 0.64f; s.stems.seconds_left = 6;
      }},
     // Keygroup tracks: Stage on the one sound, B1 ZONES (or TRIM on a WAV), TUNE, AMP ENV, FILTER, FILT ENV; B2 PLAY,
     // ARP, CHORD; B3 the track's MIX, SENDS, FX.

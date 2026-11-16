@@ -161,7 +161,8 @@ StemRing* SampleLibrary::stem_ring() {
 }
 
 bool SampleLibrary::busy() const {
-    return rendering || !landings.empty() || pool.pending() || host.recorder().state() != TakeRecorder::State::Idle; // an instrument still being laid out writes to it too
+    return rendering || !landings.empty() || pool.pending() || host.recorder().state() != TakeRecorder::State::Idle // an instrument still being laid out writes to it too
+           || separator.busy(); // stems are read from the card and written to it
 }
 
 } // namespace melodee

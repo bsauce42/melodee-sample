@@ -598,6 +598,15 @@ public:
     int hold_file(const std::string& name, unsigned track, int pad, uint8_t land);
     void drop_file(int slot);                            // a held slot nothing came for: free again
     void take_landed(unsigned track, unsigned kit, unsigned slot, const LoadedSample& loaded); // Sample Record's take onto its pads
+    // Stems (shell/stems_jobs.cpp, shell/stems.h): the STEMS sheet for the kit pad in hand, B3 SEPARATE, B1 (which
+    // calls a running job off), the job's result each pass, and its three files, once read, onto the next empty
+    // pads after the pad they came from (pending_files' land 3, 4 and 5: DRUMS, VOCALS, MUSIC; one undo).
+    void open_stems_sheet();
+    void stems_sheet_go();
+    void stems_sheet_cancel();
+    void stems_tick();
+    void stems_landed();
+    struct StemsFrom { uint8_t track = 0, pad = 0; PadSound sound {}; } stems_from; // the pad as it was at SEPARATE
     // Knob FX and the master compressor (parity phase 7, shell/knob_fx.cpp).
     void knob_fx_button();                                // Knob FX: the mode on (its page) or off
     void knob_fx_load(unsigned entry);                    // Push on the list: the entry's effect at its initial values

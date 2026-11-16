@@ -21,7 +21,11 @@ class ReleaseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             binary = Path(temp) / "melodee"
             binary.write_bytes(b"\x7fELF not really")
-            return make_release.collect(binary, "v0.1.0-alpha.1", "0123456789ab")
+            stems = Path(temp) / "stems" # as tools/stems/build.py leaves it
+            (stems / "licenses").mkdir(parents=True)
+            (stems / "melodee-stems").write_bytes(b"\x7fELF nor this")
+            (stems / "licenses/README.txt").write_text("where its sources are\n")
+            return make_release.collect(binary, "v0.1.0-alpha.1", "0123456789ab", stems)
 
     def test_autorun_is_signed_and_starts_the_melodee_folder(self):
         files = self.collect()
@@ -50,6 +54,12 @@ class ReleaseTests(unittest.TestCase):
         files = self.collect()
         self.assertEqual({name.split("/")[0] for name in files}, {"autorun"})
         self.assertIn("autorun/melodee/licenses/LICENSE-AGPL-3.0.txt", files)
+
+    def test_the_stem_separator_ships_in_a_folder_of_its_own(self):
+        files = self.collect()
+        self.assertEqual(files["autorun/melodee/stems/melodee-stems"], b"\x7fELF nor this") # where Melodee looks for it
+        self.assertIn("autorun/melodee/licenses/stems/README.txt", files)
+        self.assertNotIn("melodee-stems", files["autorun/melodee/SHA256SUMS"].decode()) # not among what sd-worker.sh copies into RAM
 
     def test_release_list_covers_every_file_and_is_signed(self):
         try:

@@ -38,6 +38,7 @@ For the complete control reference, see [MELODEE.md](MELODEE.md).
    - [Chop](guide/kits-and-sampling.md#chop)
    - [Record a sample](guide/kits-and-sampling.md#record-a-sample)
    - [Audio Recall and Resample](guide/kits-and-sampling.md#audio-recall-and-resample)
+   - [Stems](guide/kits-and-sampling.md#stems)
    - [16 Levels](guide/kits-and-sampling.md#16-levels)
    - [Loop, reverse and Note On](guide/kits-and-sampling.md#loop-reverse-and-note-on)
 6. [Plug-ins](guide/plug-ins.md)

@@ -132,6 +132,7 @@ struct Snapshot {
     std::array<TrackFreeze, track_count> freeze {};
     std::array<uint16_t, track_count> prints_kept {};
     PrintProgress print {};
+    StemsProgress stems {}; // the STEMS sheet's job (shell/stems.h)
     std::array<float, track_count> live_load {};
     uint32_t printing_tracks = 0;
     uint32_t thawing = 0; // freeze plan F2d: deep-frozen tracks whose plug-ins load again (a bit each)

@@ -955,6 +955,7 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         }
         }
     }
+    case PageId::Stems: return {}; // the STEMS sheet: no cards
     case PageId::Print: { // freeze plan F2c: K1 TAP, K2 TAIL; K3 empty (no Song lane print yet); still while printing
         const auto& sheet = ui.print_sheet;
         if (sheet.printing || project.tracks[sheet.track % track_count].engine == EngineKind::Midi) return {};

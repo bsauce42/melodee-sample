@@ -93,6 +93,7 @@
 #include "melodee/shell/lesson.h"
 #include "melodee/shell/levels_keys.h"
 #include "melodee/shell/menu.h"
+#include "melodee/shell/stems.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
@@ -2470,6 +2471,34 @@ void button_remap() {
         CHECK(count >= 4 && items[0].job == MenuJob::TrackMove && items[count - 1].job == MenuJob::TrackClear);
         m.page = PageId::Tempo;
         CHECK(menu_here(*project, m, items) == 0 && std::string(menu_page_name(PageId::Tempo)).empty());
+    }
+    // Stems (shell/stems_jobs.cpp): a kit pad that holds a sample offers STEMS in the MENU on Stage and on Shift + B3
+    // of its TRIM, in Basic as in Full; an empty pad and an instrument do not.
+    {
+        auto kit = std::make_unique<Project>();
+        auto& track = kit->tracks[0];
+        track.engine = EngineKind::Sampler;
+        track.last_pad = 0;
+        std::array<MenuItem, menu_here_max> items {};
+        UiState m; m.track = 0; m.page = PageId::Stage;
+        auto offered = [&] {
+            unsigned count = menu_here(*kit, m, items);
+            for (unsigned n = 0; n < count; ++n) if (items[n].job == MenuJob::Stems) return true;
+            return false;
+        };
+        CHECK(stage_page_now(m, track, StageSkip {}).kind == StageKind::Trim); // Stage opens on a kit pad's TRIM
+        CHECK(!offered() && !button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // nothing on the pad
+        track.pads[0].sample = 0;
+        std::snprintf(kit->samples[0].path, sizeof(kit->samples[0].path), "/card/Samples/LOOP.wav");
+        kit->samples[0].frames = 4 * 44100;
+        CHECK(offered() && button_has_shift_job(*kit, m, SurfaceButton::TopRight, true));
+        m.page = PageId::Tracks; CHECK(!offered()); // the pad's job: on Stage alone
+        m.page = PageId::Stage;
+        m.settings.full_features = false; CHECK(offered() && button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // Basic too
+        m.settings.full_features = true;
+        std::snprintf(kit->samples[0].path, sizeof(kit->samples[0].path), "/card/Samples/PIANO.sfz");
+        CHECK(!offered() && !button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // an instrument: nothing to separate
+        CHECK(std::string(stem_name(0)) == "DRUMS" && std::string(stem_name(1)) == "VOCALS" && std::string(stem_name(2)) == "MUSIC");
     }
     // Background save (shell/autosave.h): a changed project, nothing running, the controls quiet for a moment.
     {

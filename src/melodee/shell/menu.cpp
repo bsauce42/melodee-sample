@@ -105,6 +105,7 @@ void run(Context& c, MenuJob job) {
     }
     case J::Looper: c.open(PageId::Looper); break;
     case J::Freeze: c.open_print_sheet(); break;
+    case J::Stems: c.open_stems_sheet(); break;
     case J::ModAdd: mod_add(c); break;
     case J::Chords: levels_chords_on_now(c); break; // as 16 Levels held + B2
     case J::ChordFile: // as 16 Levels held + B2 FILE, with Chords on

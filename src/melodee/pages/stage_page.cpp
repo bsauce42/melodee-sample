@@ -1185,7 +1185,11 @@ void draw(Paint& p, const Snapshot& s) {
         if (!deep) { keys.glyphs[2] = Icon::DeepSnow; keys.tints[2] = colour::ice; }
     }
     if (s.ui.shift && page.kind == StageKind::Trim && t.engine == EngineKind::Sampler && !instrument_pad(s)) // the old Trim's Shift jobs on B1 and B2
-        { keys = SoftKeys {{"LOOP LOCK", "NORMALIZE", ""}, -1, c}; keys.toggles = 1; keys.lit = sampler_pad(s).loop_lock ? 1 : 0; keys.leds[0] = c; }
+        { // and STEMS on B3 (shell/stems_jobs.cpp), where the pad holds a sample
+            const bool stems = sampler_pad(s).used();
+            keys = SoftKeys {{"LOOP LOCK", "NORMALIZE", stems ? "STEMS" : ""}, -1, c}; keys.toggles = 1; keys.lit = sampler_pad(s).loop_lock ? 1 : 0; keys.leds[0] = c;
+            if (stems) keys.glyphs[2] = Icon::Layers;
+        }
     if (s.ui.shift && page.kind == StageKind::Layers && t.engine == EngineKind::Sampler) keys = layers_keys(s);
     if (!t.used()) { // what it becomes: B1 BACK to the types, or CANCEL to the nearest track that is not empty
         bool any = s.ui.new_sources;
@@ -1230,6 +1234,7 @@ void soft(Context& c, int key) {
     if (c.ui.shift && page.kind == StageKind::Trim && c.track().engine == EngineKind::Sampler && !zones) {
         if (key == 0) c.toggle_loop_lock(); // Shift + B1, as on the MPC's Trim
         if (key == 1) c.normalize();        // Shift + B2
+        if (key == 2) c.open_stems_sheet(); // Shift + B3: the pad's sample into its stems
         return;
     }
     if (c.ui.shift && page.kind == StageKind::Layers && c.track().engine == EngineKind::Sampler) {

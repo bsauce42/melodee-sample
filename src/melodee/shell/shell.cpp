@@ -841,6 +841,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
     out.prints_kept = {};
     for (const auto& r : context_.prints.records) ++out.prints_kept[r.track % track_count];
     out.print = context_.printer ? context_.printer->progress() : PrintProgress {};
+    out.stems = library_ ? library_->stems_progress() : StemsProgress {};
     out.live_load = context_.live_load;
     out.printing_tracks = host.printing_tracks();
     out.thawing = context_.thawing; // freeze plan F2d
@@ -1026,6 +1027,8 @@ std::string Shell::input_summary() const {
          + " melodee_recall_frames=" + std::to_string(uint64_t(host.recall().filled()) * 44100 / std::max(1u, host.recall().rate()))
          + " melodee_render=" + renders[unsigned(host.bounce().state()) % 7] + " melodee_render_frames=" + std::to_string(host.bounce().frames())
          + " melodee_rendering=" + std::to_string((r >> 21) & 3) + " melodee_resample_pick=" + std::to_string((r >> 23) & 1)
+         // Stems (shell/stems.h): the job's percent done, or idle.
+         + " melodee_stems=" + (library_ && library_->stems_progress().busy ? std::to_string(int(library_->stems_progress().fraction * 100)) : std::string("idle"))
          // Freeze plan F3: an audio track's take (its ring's state, frames at the device's rate, track) and its regions' runs.
          + " melodee_audio_take=" + renders[unsigned(host.audio_take().state()) % 7] + " melodee_audio_take_frames=" + std::to_string(host.audio_take().taken())
          + " melodee_audio_take_track=" + std::to_string(host.audio_take_track()) + " melodee_audio_underruns=" + std::to_string(host.audio_underruns())

@@ -54,7 +54,8 @@ switch: what a project holds keeps playing, and Full shows it again.
 
 These still work in Basic by their own keys: Step Edit's **TRIG** and
 **EUCLID** cards, freeze (**SAMPLE RECORD** on a plug-in track), the auto
-sampler, stems and MPC export on Song, the buses' effect chains.
+sampler, a sample's stems (**SHIFT** + **B3** on **TRIM**), stems and MPC
+export on Song, the buses' effect chains.
 
 ## Palette and Font
 
