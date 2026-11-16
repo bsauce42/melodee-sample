@@ -96,6 +96,8 @@
 #include "melodee/shell/stems.h"
 #include "melodee/shell/stems_room.h"
 #include "melodee/shell/sample_memory.h"
+#include "melodee/shell/stream_holds.h"
+#include "melodee/engine/stream_pager.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
@@ -9122,8 +9124,14 @@ void stream_pager() {
         pager.close(t);
         while (pager.pump()) {}
     }
-    { // reversed: nothing is safe until pinned, then downwards
-        int t = pager.open(part, 9 * c + 7, true, 1.0f);
+    { // reversed, its end held (a long kit sample's reversed pad): a chunk down from where it starts, at once
+        int t = pager.open(part, 9 * c + 7, true, 1.0f, c);
+        CHECK(pager.limit(t) == 8 * c + 8);
+        pager.close(t);
+        while (pager.pump()) {}
+    }
+    { // reversed, nothing held there (a zone's end): nothing is safe until pinned, then downwards
+        int t = pager.open(part, 9 * c + 7, true, 1.0f, 0);
         CHECK(pager.limit(t) == UINT32_MAX);
         while (pager.pump()) {}
         CHECK(pager.limit(t) == 7 * c);
@@ -13560,6 +13568,139 @@ void samples_used() {
     CHECK(samples_in_use(*project, edits)[20]);
 }
 
+// A long WAV read from the card as it plays (SampleData::stream, read in place): a pad on it plays its file's own
+// frames from where it starts (held: at once, no wait), on past the held chunk as the pager reads ahead, reversed from
+// its held end, and round its loop from the held loop point; where a project's pads on long samples need holding
+// (shell/stream_holds.h); and hits found in a given 44.1 kHz sum as in a sample in memory.
+void long_samples_streamed() {
+    const std::string path = "/tmp/melodee-long-" + std::to_string(::getpid()) + ".wav";
+    const unsigned rate = 48000, frames = rate * 20;
+    auto value = [](uint32_t n) { return float(int16_t(12000 * std::sin(n * 0.013))) / 32768.0f; };
+    {
+        std::ofstream f(path, std::ios::binary);
+        f.write("RIFF", 4); put32(f, 36 + frames * 4); f.write("WAVEfmt ", 8); put32(f, 16); put16(f, 1); put16(f, 2);
+        put32(f, rate); put32(f, rate * 4); put16(f, 4); put16(f, 16); f.write("data", 4); put32(f, frames * 4);
+        for (unsigned n = 0; n < frames; ++n) { int16_t v = int16_t(12000 * std::sin(n * 0.013)); put16(f, uint16_t(v)); put16(f, uint16_t(int16_t(-v / 2))); }
+    }
+    WavReader wav;
+    CHECK(wav.open(path, stream_most_seconds).empty() && wav.frames() == frames && uint64_t(wav.frames()) > uint64_t(stream_seconds) * wav.rate());
+    auto data = std::make_unique<SampleData>();
+    data->stream = std::make_shared<ZonePart>();
+    CHECK(read_in_place(path, wav.layout(), *data->stream));
+    data->stream->frames.store(data->stream->total);
+    data->frames = data->stream->total; data->rate = rate;
+    CHECK(data->left.empty() && data->model_frames() == 44100 * 20 && data->stream->rate == 48000.0f);
+    const float was = dsp::device_rate.load();
+    dsp::device_rate.store(48000);
+    StreamPager pager;
+    SamplerEngine::Table table {};
+    table[0] = data.get();
+    auto hold = [&](uint32_t own, bool back) { // as SampleLibrary::holds_service holds a range
+        uint32_t from = own, to = own + stream_chunk;
+        if (back) { to = own; from = own > stream_chunk ? own - stream_chunk : 0; }
+        for (uint32_t c = from / stream_chunk; c <= (to - 1) / stream_chunk; ++c) CHECK(pager.hold_chunk(*data->stream, c));
+    };
+    auto play = [&](const PadSound& pad, unsigned blocks) {
+        SamplerEngine engine;
+        engine.set_samples(&table);
+        engine.set_pager(&pager);
+        engine.set_tempo(1200);
+        engine.set_pad(0, pad);
+        engine.note_on(int(sampler_first_note), 127);
+        std::vector<float> out, l(128), r(128);
+        for (unsigned b = 0; b < blocks; ++b) {
+            std::fill(l.begin(), l.end(), 0.0f); std::fill(r.begin(), r.end(), 0.0f);
+            engine.render_stereo(l.data(), r.data(), 128);
+            out.insert(out.end(), l.begin(), l.end());
+            while (pager.pump()) {}
+        }
+        return out;
+    };
+    // What a voice plays, against where it reads (its own frames, a frame each device frame here): the same sound
+    // scaled by the pad's level and pan, from the first block.
+    auto matches = [&](const std::vector<float>& out, const std::function<double(unsigned)>& at, unsigned from) {
+        float ratio = 0;
+        for (unsigned f = from; f < out.size() && !ratio; ++f) if (std::fabs(value(uint32_t(at(f)))) > 0.2f) ratio = out[f] / value(uint32_t(at(f)));
+        if (ratio < 0.1f) return false;
+        for (unsigned f = from; f < out.size(); ++f) if (std::fabs(out[f] - value(uint32_t(at(f))) * ratio) > 1e-4f) return false;
+        return true;
+    };
+    const unsigned under = pager.underruns();
+    { // forward from a held start, 2.7 s: well past the held chunk
+        PadSound pad; pad.sample = 0; pad.start = 441000; // 10 s in
+        const uint32_t start = data->own(pad.start);
+        CHECK(start == 480000);
+        hold(start, false);
+        const auto out = play(pad, 1000);
+        CHECK(matches(out, [&](unsigned f) { return double(start) + f; }, 200)); // past its 2 ms fade in
+        CHECK(std::fabs(out[300]) > 0 || std::fabs(out[301]) > 0);
+    }
+    { // reversed from a held end
+        PadSound pad; pad.sample = 0; pad.start = 441000; pad.end = 661500; pad.reverse = true;
+        const uint32_t end = data->own(pad.end);
+        hold(end, true);
+        const auto out = play(pad, 500);
+        CHECK(matches(out, [&](unsigned f) { return double(end - 1) - f; }, 200));
+    }
+    { // round a one second loop, its loop point held: on from the loop point, no gap
+        PadSound pad; pad.sample = 0; pad.start = 441000; pad.end = 494100; pad.loop = true; pad.loop_lock = false; pad.loop_start = 450000;
+        const uint32_t start = data->own(pad.start), end = data->own(pad.end), point = data->own(pad.loop_start);
+        hold(start, false); hold(point, false);
+        const auto out = play(pad, 940); // 2.5 s: round twice
+        CHECK(matches(out, [&](unsigned f) {
+            double at = double(start) + f;
+            while (at >= end) at -= double(end - point);
+            return at;
+        }, 200));
+    }
+    CHECK(pager.underruns() == under);
+    dsp::device_rate.store(was);
+    std::remove(path.c_str());
+
+    // Where a project's pads on a long sample need holding: each start (a reversed one's end, below it), a loop point
+    // with its seam's crossfade before it and the frames past its end, a layer's start, Chop's slices; a sample in
+    // memory needs none.
+    auto p = std::make_unique<Project>();
+    load_sound(p->tracks[0], EngineKind::Sampler, 0);
+    auto& ref = p->samples.edit(3);
+    std::snprintf(ref.path, sizeof(SampleRef::path), "/card/Samples/Long.wav");
+    ref.frames = 882000; ref.streamed = true;
+    std::snprintf(p->samples.edit(4).path, sizeof(SampleRef::path), "/card/Samples/Hit.wav");
+    p->samples.edit(4).frames = 44100;
+    auto& kit = p->tracks[0];
+    kit.pads[0].sample = 3; kit.pads[0].start = 1000;
+    kit.pads[1].sample = 3; kit.pads[1].start = 2000; kit.pads[1].end = 50000; kit.pads[1].reverse = true;
+    kit.pads[2].sample = 3; kit.pads[2].start = 3000; kit.pads[2].loop = true; kit.pads[2].loop_lock = false; kit.pads[2].loop_start = 9000;
+    kit.pads[2].loop_xfade = 10; // 441 frames
+    kit.pads[3].sample = 4;
+    kit.pads[3].layers[0].sample = 3; kit.pads[3].layers[0].start = 7000;
+    kit.pads[4].sample = 3; kit.pads[4].start = 1000; // the same start as pad 1: held once
+    auto holds = stream_holds(*p);
+    const std::vector<HeldRange> want {{1000, 1000, false}, {3000, 3000, false}, {7000, 7000, false}, {8559, 9000, false},
+                                       {50000, 50000, true}, {882000, 882441, false}};
+    CHECK(holds.size() == 1 && holds[0].first == 3 && holds[0].second == want);
+    Slices slices;
+    slices.whole(10000, 20000);
+    CHECK(slices.add(15000, 882000));
+    holds = stream_holds(*p, &slices, 3);
+    CHECK(holds.size() == 1 && holds[0].second.size() == want.size() + 2 && holds[0].second[4] == (HeldRange {10000, 10000, false}));
+    CHECK(stream_holds(*p, &slices, 4)[0].second == want); // Chop on a sample in memory: nothing more
+    ref.streamed = false;
+    CHECK(stream_holds(*p).empty());
+
+    // Hits found in a given sum, as in the sample itself.
+    SampleData clicks;
+    clicks.frames = 44100 * 2; clicks.left.assign(clicks.frames, 0.0f); clicks.right.assign(clicks.frames, 0.0f);
+    for (unsigned n = 0; n < clicks.frames; ++n) if (n % 11025 < 300) clicks.left[n] = clicks.right[n] = float(std::exp(-double(n % 11025) / 60.0) * std::sin(n * 0.3));
+    std::vector<float> sum(clicks.frames);
+    for (unsigned n = 0; n < clicks.frames; ++n) sum[n] = clicks.left[n] + clicks.right[n];
+    std::array<Hit, max_hits> a {}, b {};
+    BeatGrid ga, gb;
+    const unsigned found = find_hits(clicks, a, ga);
+    CHECK(found >= 8 && find_hits_in(sum, b, gb) == found);
+    for (unsigned n = 0; n < found; ++n) CHECK(a[n].frame == b[n].frame && a[n].strength == b[n].strength);
+}
+
 // A project's samples have no count to run out of: the tables keep the slots written (model/slot_table.h), the file
 // keeps the slots past the first 64 in SMPX, the engine plays them, and a load is refused only where memory cannot
 // take it (shell/sample_memory.h).
@@ -16227,6 +16368,7 @@ int main() {
     chop_kept();
     samples_used();
     samples_unlimited();
+    long_samples_streamed();
     levels_cutoff_kept();
     pad_link_chains();
     loop_seams();

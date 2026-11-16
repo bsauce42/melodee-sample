@@ -229,7 +229,7 @@ void Context::layer_clear() {
 // touched), one undo.
 void Context::normalize() {
     auto* pad = kit_pad(*this, "Normalize");
-    if (!pad || refuse_instrument("Normalize")) return;
+    if (!pad || refuse_instrument("Normalize") || refuse_streamed("Normalize", pad->sample)) return;
     float peak = library ? library->peak(pad->sample, pad->start, pad->end) : -1.0f;
     if (peak < 0) { notice("Normalize: still loading"); return; }
     if (peak < 1e-5f) { notice("Normalize: silent"); return; }

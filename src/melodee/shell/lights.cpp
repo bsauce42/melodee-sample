@@ -193,6 +193,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                     }
                 ref.keys = keys;
                 ref.one_key_zones = one_key && zone_key_count(ref) >= 2;
+                ref.streamed = shown.streamed;
             }
         ui_.files_count = uint16_t(std::min<size_t>(library_->files().size(), 0xffff));
         if (ui_.files_cursor >= ui_.files_count) ui_.files_cursor = uint16_t(ui_.files_count ? ui_.files_count - 1 : 0); // a row deleted: the last one left
@@ -302,6 +303,23 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if ((real || library_->held(slot)) && !library_->load(slot, real ? ref.path : "")) break;
         if (real && !project_->chops[slot].unwritten) project_->chops.edit(slot) = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
         ++context_.samples_to_load;
+    }
+    // Long samples (read from the card as they play): the chunks where their pads start, end and loop held, a tenth of
+    // a second at most after a pad changes; what no pad needs any more let go (shell/stream_holds.h).
+    if (library_ && now - holds_at >= 100) {
+        holds_at = now;
+        const bool chop = ui_.page == PageId::Chop && ui_.slices.count;
+        auto holds = stream_holds(*project_, chop ? &ui_.slices : nullptr, chop ? ui_.chop_sample : no_sample);
+        auto find = [](const StreamHolds& in, unsigned slot) {
+            auto at = std::lower_bound(in.begin(), in.end(), slot, [](const auto& e, unsigned s) { return e.first < s; });
+            return at != in.end() && at->first == slot ? &at->second : nullptr;
+        };
+        for (const auto& [slot, ranges] : holds) {
+            const auto* sent = find(holds_sent, slot);
+            if (!sent || *sent != ranges) library_->hold(slot, ranges);
+        }
+        for (const auto& [slot, ranges] : holds_sent) if (!find(holds, slot)) library_->hold(slot, {});
+        holds_sent = std::move(holds);
     }
     if (encoder_tick(enc, now)) menu_open(context_); // the encoder held: the MENU (shell/menu.h)
     lesson_tick(context_, now); // a lesson: its kit loaded, or its last step done (shell/lesson_jobs.h)

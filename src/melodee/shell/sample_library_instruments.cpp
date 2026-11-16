@@ -530,6 +530,8 @@ bool SampleLibrary::reap() {
                 l->cancelled.store(true, std::memory_order_relaxed); // a file of it still being read keeps its own mapping until it ends
                 return true;
             }), landings.end());
+        } else if ((*it)->stream) {
+            host.streams().flush(); // nothing may still be reading into it when its memory goes
         }
         if (held) held_back.push_back(std::move(*it)); // a print host may still play it
         owned.erase(it);
@@ -542,7 +544,10 @@ bool SampleLibrary::release_instruments() {
     // Nothing of a load may be reading the card or holding a mapping of it: the instruments still landing stop where
     // they are (they are put down and asked for again below), and what the pool is in the middle of is waited for.
     for (const auto& l : landings) l->cancelled.store(true, std::memory_order_relaxed);
-    if (!pool.wait_idle(8000)) { // a file still being laid out: the card stays, and what was stopped is asked for again
+    shapes_stopped.store(true, std::memory_order_relaxed); // a long sample's shape: read again when it is (below)
+    const bool idle = pool.wait_idle(8000);
+    shapes_stopped.store(false, std::memory_order_relaxed);
+    if (!idle) { // a file still being laid out: the card stays, and what was stopped is asked for again
         std::vector<std::pair<uint16_t, std::string>> stopped;
         {
             std::lock_guard<std::mutex> guard(lock);
@@ -556,7 +561,7 @@ bool SampleLibrary::release_instruments() {
     {
         std::lock_guard<std::mutex> guard(lock);
         for (unsigned n = 0; n < sample_slots; ++n)
-            if (data_of[n] && data_of[n]->multi) putting.emplace_back(uint16_t(n), shown_at(n).path);
+            if (data_of[n] && (data_of[n]->multi || data_of[n]->stream)) putting.emplace_back(uint16_t(n), shown_at(n).path); // read from the card
     }
     // Each put down as the audio thread's queue has room (it takes them a block at a time), what it lets go of
     // taken back meanwhile. One it does not take in half a second (it is not running): those put down come back.
@@ -581,7 +586,7 @@ bool SampleLibrary::release_instruments() {
     // The audio thread lets them go on its next block; the mappings must be gone before the card is unmounted.
     for (unsigned n = 0; n < 500; ++n) {
         reap();
-        if (std::none_of(owned.begin(), owned.end(), [](const auto& p) { return bool(p->multi); })) return true;
+        if (std::none_of(owned.begin(), owned.end(), [](const auto& p) { return p->multi || p->stream; })) return true;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     restore_instruments();

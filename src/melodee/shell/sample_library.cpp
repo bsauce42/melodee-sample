@@ -60,7 +60,14 @@ LoadedSample SampleLibrary::slot(unsigned n) const { std::lock_guard<std::mutex>
 SampleLibrary::Measure SampleLibrary::measure(unsigned n) const {
     std::lock_guard<std::mutex> guard(lock);
     const auto& s = shown_at(n);
-    return {s.frames, s.shapes};
+    return {s.frames, s.streamed, s.shapes};
+}
+void SampleLibrary::hold(unsigned n, std::vector<HeldRange> ranges) {
+    std::lock_guard<std::mutex> guard(lock);
+    n %= sample_slots;
+    for (auto& [slot, wanted] : holds_wanted)
+        if (slot == n) { wanted = std::move(ranges); return; }
+    holds_wanted.emplace_back(uint16_t(n), std::move(ranges));
 }
 int SampleLibrary::zone_at(unsigned n, int key, int velocity) const {
     std::lock_guard<std::mutex> guard(lock);
@@ -95,7 +102,7 @@ bool SampleLibrary::thumbnail(unsigned n, uint32_t from, uint32_t to, uint8_t* o
 float SampleLibrary::peak(unsigned n, uint32_t from, uint32_t to) const {
     std::lock_guard<std::mutex> guard(lock);
     const SampleData* data = data_of[n % sample_slots];
-    if (!data || !data->frames) return -1;
+    if (!data || !data->frames || data->left.empty()) return -1; // a long sample is not in memory
     to = to ? data->own(to) : data->frames; // its own frames between the two
     from = data->own(from);
     float top = 0;
@@ -333,6 +340,7 @@ void SampleLibrary::service(Hardware& hardware) {
     loop_service(); // the Looper's commit and files (shell/looper_files.cpp)
     host.streams().start();
     reap(); // samples the audio thread has let go of
+    holds_service(); // the long samples' chunks the pads start on
     // Loads: what the pool's threads have read is handed on, and every file asked for since is begun there.
     take_loaded();
     Request request;
@@ -528,7 +536,7 @@ void SampleLibrary::make(const SampleJob& job) {
     auto fail = [&](const std::string& why) { // the MIDI thread lets go of the slot it held
         finish(std::string(what) + ": " + why, job.kind == SampleJob::Kind::Derive ? int(job.target % sample_slots) : -1);
     };
-    if (!source || !source->frames) { fail("not loaded"); return; }
+    if (!source || !source->frames || source->left.empty()) { fail("not loaded"); return; }
     // The region (44.1 kHz frames, as the project counts them; `to` 0 the end) in the source's own frames.
     const uint32_t all = source->frames, end = job.to && job.to < source->model_frames() ? source->own(job.to) : all;
     const uint32_t first = std::min(source->own(job.from), end);
@@ -745,6 +753,32 @@ void SampleLibrary::dispatch(const Request& request) {
         h.slot = request.slot; h.serial = serial;
         h.data = std::make_unique<SampleData>();
         Lap lap;
+        { // A long PCM WAV is not read into memory: it is read from the card as it plays, where its pads start held
+          // (holds_service()). It plays at once; its waveform and hits follow, read from the file a piece at a time.
+            WavReader wav;
+            auto part = std::make_shared<ZonePart>();
+            if (wav.open(request.path, stream_most_seconds).empty() && uint64_t(wav.frames()) > uint64_t(stream_seconds) * wav.rate()
+                && read_in_place(request.path, wav.layout(), *part)) {
+                part->frames.store(part->total, std::memory_order_release);
+                h.data->stream = part; h.data->frames = part->total; h.data->rate = wav.rate();
+                h.loaded.path = request.path;
+                h.loaded.name = upper(fs::path(request.path).stem().string());
+                h.loaded.frames = h.data->model_frames();
+                h.loaded.streamed = true;
+                lap.into(load_times.read);
+                {
+                    std::lock_guard<std::mutex> guard(loaded_lock);
+                    files_loaded.push_back(std::move(h));
+                }
+                ShapeRead shape;
+                shape.slot = request.slot; shape.serial = serial;
+                stream_shape(request.path, shape);
+                lap.into(load_times.analyse);
+                std::lock_guard<std::mutex> guard(loaded_lock);
+                shapes_read.push_back(std::move(shape));
+                return;
+            }
+        }
         std::string error;
         { // what it will hold, found before it is read: refused where that would leave memory short (shell/sample_memory.h)
             AudioReader file;
@@ -796,18 +830,131 @@ bool SampleLibrary::hand_over(Handover& h) {
         if (held || h.clear) data_of[slot] = held;
         changes.fetch_add(1, std::memory_order_release);
     }
+    if (held && held->stream && std::find(holds_due.begin(), holds_due.end(), slot) == holds_due.end())
+        holds_due.push_back(uint16_t(slot)); // its pads' starts held as known
     set_slot_state(slot, true);
     answered.fetch_add(1, std::memory_order_release);
     return true;
+}
+
+// A long WAV's waveform and hits, from its file a piece at a time (it is not in memory): the overview's columns over
+// its own frames, as make_overview() makes them, and, where memory allows, its sides summed at 44.1 kHz for
+// find_hits_in() (read between frames by a straight line where its rate is another, as model_mono() reads).
+void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out) {
+    out.hit_count = 1;
+    out.hits[0] = Hit {0, 255};
+    WavReader file;
+    if (!file.open(path, stream_most_seconds).empty() || !file.frames() || !file.rate()) return;
+    const uint32_t frames = file.frames();
+    const double step = double(file.rate()) / 44100.0; // its frames a 44.1 kHz frame
+    const auto model = size_t(std::llround(double(frames) / step));
+    std::vector<float> mono;
+    if (memory_allows(memory_free(), uint64_t(model) * sizeof(float) * 2)) mono.resize(model); // and as much again to find hits in
+    std::array<float, std::tuple_size_v<Overview>> left_peak {}, right_peak {};
+    constexpr uint32_t piece = 16384;
+    std::vector<float> l(piece), r(piece);
+    uint32_t n = 0;
+    size_t m = 0;
+    float before = 0;
+    for (uint32_t got; !shapes_stopped.load(std::memory_order_relaxed) && (got = file.read(l.data(), r.data(), piece)) > 0;)
+        for (uint32_t k = 0; k < got; ++k, ++n) {
+            const auto column = size_t(uint64_t(n) * left_peak.size() / frames);
+            left_peak[column] = std::max(left_peak[column], std::fabs(l[k]));
+            right_peak[column] = std::max(right_peak[column], std::fabs(r[k]));
+            if (l[k] != r[k]) out.stereo = true;
+            if (mono.empty()) continue;
+            const float v = l[k] + r[k];
+            for (; m < mono.size() && double(m) * step <= double(n); ++m) {
+                const double at = double(m) * step;
+                const auto i = uint32_t(at);
+                mono[m] = i == n ? v : before + (v - before) * float(at - double(i));
+            }
+            before = v;
+        }
+    for (; m < mono.size(); ++m) mono[m] = before;
+    auto byte = [](float v) { return uint8_t(std::lround(std::min(1.0f, v) * 255)); };
+    for (size_t c = 0; c < left_peak.size(); ++c) {
+        out.overview[c] = byte(std::max(left_peak[c], right_peak[c]));
+        out.sides[0][c] = byte(left_peak[c]);
+        out.sides[1][c] = byte(right_peak[c]);
+    }
+    if (!mono.empty()) out.hit_count = find_hits_in(mono, out.hits, out.beats);
+}
+
+// The long samples' held chunks brought in line with where their pads start, end and loop (hold()): a few chunks
+// read a pass (each a read of the card), those no longer wanted let go.
+void SampleLibrary::holds_service() {
+    {
+        std::lock_guard<std::mutex> guard(lock);
+        for (auto& [slot, ranges] : holds_wanted) {
+            if (holds_known.size() <= slot) holds_known.resize(size_t(slot) + 1);
+            holds_known[slot] = std::move(ranges);
+            if (std::find(holds_due.begin(), holds_due.end(), slot) == holds_due.end()) holds_due.push_back(slot);
+        }
+        holds_wanted.clear();
+    }
+    unsigned reads = 16;
+    while (!holds_due.empty()) {
+        const unsigned slot = holds_due.front();
+        const SampleData* data = data_of[slot]; // only this thread writes it
+        if (!data || !data->stream) { holds_due.erase(holds_due.begin()); continue; }
+        ZonePart& part = *data->stream;
+        std::vector<uint32_t> want;
+        if (slot < holds_known.size())
+            for (const auto& range : holds_known[slot]) {
+                uint32_t from = data->own(range.from), to = data->own(range.to);
+                if (range.back) from = std::min(from, to > stream_chunk ? to - stream_chunk : 0);
+                else to = std::max(to, from + stream_chunk);
+                to = std::min(to, part.total);
+                for (uint32_t c = from / stream_chunk; from < to && c <= (to - 1) / stream_chunk; ++c) want.push_back(c);
+            }
+        std::sort(want.begin(), want.end());
+        want.erase(std::unique(want.begin(), want.end()), want.end());
+        auto& held = data->held;
+        for (size_t i = 0; i < held.size();) {
+            if (std::binary_search(want.begin(), want.end(), held[i])) { ++i; continue; }
+            host.streams().let_go(part, held[i]);
+            held.erase(held.begin() + std::ptrdiff_t(i));
+        }
+        bool done = true;
+        for (uint32_t c : want) {
+            if (std::binary_search(held.begin(), held.end(), c)) continue;
+            if (!reads) { done = false; break; }
+            --reads;
+            if (host.streams().hold_chunk(part, c)) held.insert(std::lower_bound(held.begin(), held.end(), c), c);
+        }
+        if (!done) break; // the rest next pass
+        holds_due.erase(holds_due.begin());
+    }
 }
 
 void SampleLibrary::take_loaded() {
     std::vector<Handover> files;
     std::vector<InstrumentRead> instruments;
     std::vector<PartLanded> parts;
+    std::vector<ShapeRead> shapes;
     {
         std::lock_guard<std::mutex> guard(loaded_lock);
         files.swap(files_loaded); instruments.swap(instruments_read); parts.swap(parts_landed);
+        // A long sample's shape once the sample itself is with the audio thread (else it waits for the next pass).
+        for (size_t n = 0; n < shapes_read.size();) {
+            const unsigned slot = shapes_read[n].slot;
+            const bool waiting = std::any_of(handovers.begin(), handovers.end(), [&](const Handover& h) { return h.slot == slot; })
+                              || std::any_of(files.begin(), files.end(), [&](const Handover& h) { return h.slot == slot; });
+            if (waiting) { ++n; continue; }
+            shapes.push_back(std::move(shapes_read[n]));
+            shapes_read.erase(shapes_read.begin() + std::ptrdiff_t(n));
+        }
+    }
+    for (const auto& s : shapes) {
+        if (s.serial != slot_serial[s.slot % sample_slots]) continue; // asked for again since
+        std::lock_guard<std::mutex> guard(lock);
+        auto& shown = show(s.slot).sample;
+        if (!shown.streamed) continue;
+        shown.overview = s.overview; shown.sides = s.sides; shown.stereo = s.stereo;
+        shown.hits = s.hits; shown.hit_count = s.hit_count; shown.beats = s.beats;
+        shown.shaped = true;
+        changes.fetch_add(1, std::memory_order_release);
     }
     for (auto& f : files) handovers.push_back(std::move(f));
     for (auto& i : instruments) instruments_waiting.push_back(std::move(i));

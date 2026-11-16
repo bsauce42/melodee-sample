@@ -5,6 +5,7 @@
 // named and placed in the card's Samples/Stems, and what came of it handed
 // to the MIDI thread, which loads the files as it loads any other.
 #include "melodee/shell/sample_library.h"
+#include "melodee/shell/sample_memory.h"
 #include "drivers/platform.h"
 #include <algorithm>
 #include <cstdlib>
@@ -100,14 +101,23 @@ void SampleLibrary::stems_service(const Platform& platform) {
     const char* work = std::getenv("MELODEE_STEMS_WORK");
     job.work = work && *work ? work : "/run/melodee-stems";
     // Its frames at 44.1 kHz, as the program takes them: the stems come out at the same length, to the frame. A sample
-    // at another rate is converted for the job alone; the conversion goes with it.
-    if (source->rate == 44100) {
-        job.left.assign(source->left.begin(), source->left.begin() + frames);
-        job.right.assign(source->right.begin(), source->right.begin() + frames);
-    } else {
-        resample(source->left.data(), source->right.data(), source->frames, source->rate, 44100, job.left, job.right);
-        job.left.resize(frames, 0.0f); job.right.resize(frames, 0.0f);
+    // at another rate is converted for the job alone; the conversion goes with it. A long sample read from the card
+    // (not in memory) is read from its file for the job.
+    SampleData whole;
+    const SampleData* from = source;
+    if (source->stream) {
+        std::string path;
+        { std::lock_guard<std::mutex> guard(lock); path = shown_at(request.source).path; }
+        if (path.empty() || !read_wav(path, whole, stream_most_seconds).empty()) { refuse("cannot read it"); return; }
+        from = &whole;
     }
+    if (from->rate == 44100) {
+        job.left.assign(from->left.begin(), from->left.begin() + std::min<uint32_t>(frames, from->frames));
+        job.right.assign(from->right.begin(), from->right.begin() + std::min<uint32_t>(frames, from->frames));
+    } else {
+        resample(from->left.data(), from->right.data(), from->frames, from->rate, 44100, job.left, job.right);
+    }
+    job.left.resize(frames, 0.0f); job.right.resize(frames, 0.0f);
     if (!separator.start(std::move(job))) refuse("busy");
 }
 

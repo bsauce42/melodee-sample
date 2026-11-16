@@ -1268,9 +1268,17 @@ will take is worked out from its length and rate, and it is refused where
 that would leave less than 256 MB free (`shell/sample_memory.h`; the MPC
 has 2 GB and no swap): the pad stays silent, its TRIM page says `Memory
 full`, and a notice says so once for the load. Samples are WAV (16, 24 or 32-bit PCM or float), MP3,
-FLAC, Ogg Vorbis or AIFF (any rate, up to 60 s; an MP3's encoder delay and padding, from its
-LAME tag, trimmed), read on the service thread and handed whole to the audio
-thread. A sample is held once, at its file's own rate: never converted, with
+FLAC, Ogg Vorbis or AIFF (any rate; an MP3's encoder delay and padding, from its
+LAME tag, trimmed). Up to 10 s, or of any kind but WAV up to 60 s, a sample
+is read on the service thread and handed whole to the audio thread. A WAV
+longer than 10 s (up to 6 hours) is not read into memory: it is read from
+the card as it plays, as an instrument's files are (`engine/stream_pager.h`,
+read in place). The chunks where its pads start, end (reversed) and loop
+are held, so a hit sounds at once, and the pager reads ahead of each voice
+(`shell/stream_holds.h`; Chop's slices too while Chop is on it). It plays
+as soon as it is opened; its waveform and hits are read from the file a
+moment later. Trim Sample, Save Sample, Normalize and Extract are not
+offered on one, and a CLOUD pad on one plays it plainly. A sample is held once, at its file's own rate: never converted, with
 no copy at the device's rate or at 44.1 kHz, in memory or on the card
 (`engine/sample_data.h`). The project counts positions in 44.1 kHz frames (a
 region, a slice, the hits); a voice turns those into the sample's own frames

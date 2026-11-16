@@ -157,7 +157,8 @@ you hit.
 
 Put your samples in a folder named `Samples` at the top level of the card.
 Melodee reads WAV (16, 24 or 32-bit), MP3, FLAC, Ogg Vorbis and AIFF files, any sample
-rate, up to 60 seconds. MP3, FLAC, Ogg and AIFF rows show their format at
+rate. A WAV file can be up to 6 hours long: a WAV longer than 10 seconds plays
+straight from the card. Other kinds play up to 60 seconds. MP3, FLAC, Ogg and AIFF rows show their format at
 the right. A row with a pad chip is a sample this kit already plays. Melodee
 writes recordings and edits into `Samples` too.
 

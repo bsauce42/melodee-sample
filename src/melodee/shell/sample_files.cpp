@@ -94,7 +94,7 @@ void Context::trim_sample() {
     unsigned kit = t.last_pad % sampler_pads;
     const auto& pad = t.pads[kit];
     if (t.engine != EngineKind::Sampler || !pad.used()) { notice("Trim Sample: no sample"); return; }
-    if (refuse_instrument("Trim Sample")) return;
+    if (refuse_instrument("Trim Sample") || refuse_streamed("Trim Sample", pad.sample)) return;
     if (!library) return;
     const auto& ref = project.samples[pad.sample % sample_slots];
     uint32_t frames = ref.frames, end = pad.end && pad.end < frames ? pad.end : frames;
@@ -119,6 +119,7 @@ void Context::extract_slice() {
     const auto& sl = ui.slices;
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (t.engine != EngineKind::Sampler || !frames || ui.chop_slice >= sl.count) { notice("Extract: no slice"); return; }
+    if (refuse_streamed("Extract", ui.chop_sample)) return;
     if (!library) return;
     unsigned free = 0;
     while (free < pending_files.size() && pending_files[free].slot >= 0) ++free;

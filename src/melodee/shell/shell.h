@@ -160,6 +160,8 @@ private:
     std::atomic<bool> leave {false}, power_off {false};
     SampleLibrary* library_ = nullptr;
     unsigned library_seen = ~0u;
+    uint32_t holds_at = 0;      // when the long samples' held chunks were last looked at (lights.cpp)
+    StreamHolds holds_sent;     // what the library was last asked to hold
     unsigned format_seen = 0; // the engine's format_changes() the project was last sent again for
     EncoderHold enc; // the encoder's push: a tap is the page's, a hold opens the MENU (shell/menu.h)
     TapHold tap; // Tap Tempo held: the tempo on the encoder, or the Tempo page (shell/tap_hold.h)
