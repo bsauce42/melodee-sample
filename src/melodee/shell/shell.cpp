@@ -1035,7 +1035,7 @@ std::string Shell::input_summary() const {
 // Phase 4: the last pad's Sample Mode values, for remote checks.
 std::string Shell::pad_summary() const {
     uint32_t b = pad_bits.load(std::memory_order_relaxed);
-    static const char* const kinds[] {"velocity", "scale", "tune", "filter", "loop", "zones", "-", "-"};
+    static const char* const kinds[] {"velocity", "scale", "tune", "filter", "chords", "zones", "-", "-"};
     return " melodee_last_pad=" + std::to_string(((b >> 8) & 0xff) + 1) + " melodee_pad_loop=" + std::to_string(b & 1) +
            " melodee_pad_lock=" + std::to_string((b >> 1) & 1) + " melodee_pad_note_on=" + std::to_string((b >> 2) & 1) +
            " melodee_pad_reverse=" + std::to_string((b >> 3) & 1) + " melodee_pad_mono=" + std::to_string((b >> 4) & 1) +
