@@ -50,7 +50,7 @@ inline const std::array<MenuPlace, 16>& menu_places() {
     static const std::array<MenuPlace, 16> places {{
         {"STAGE", "SAMPLE", 0, PageId::Stage}, {"BROWSER", "SAMPLE SELECT", 0, PageId::Samples},
         {"RECORD", "SAMPLE RECORD", 0, PageId::Record}, {"CHOP", "CHOP", 0, PageId::Chop},
-        {"SEQUENCES", "SEQ", 1, PageId::Scenes}, {"ROLL", "SEQ, B2", 1, PageId::Roll},
+        {"SEQUENCE", "SEQ", 1, PageId::Scenes}, {"ROLL", "SEQ, B2", 1, PageId::Roll}, // SEQUENCES is wider than a tile's label at the text floor
         {"STEP EDIT", "SHIFT + SEQ", 1, PageId::StepEdit}, {"MOTION", "SEQ, B3", 1, PageId::Motion},
         {"MIXER", "PAD FX + KNOB FX", 2, PageId::Tracks}, {"SENDS", "PAD FX + KNOB FX, B2", 2, PageId::Sends},
         {"EFFECTS", "SHIFT + KNOB FX", 2, PageId::Rack}, {"LOOPER", "LOOP + 16 LEVELS", 2, PageId::Looper},

@@ -81,7 +81,7 @@ the lit place opens without the Menu.
 | 2 | Browser | 10 | Sends |
 | 3 | Record | 11 | Effects |
 | 4 | Chop | 12 | Looper |
-| 5 | Sequences | 13 | Song |
+| 5 | Sequence | 13 | Song |
 | 6 | Roll | 14 | Project |
 | 7 | Step Edit | 15 | Settings |
 | 8 | Motion | 16 | Learn |
