@@ -85,10 +85,13 @@ void draw(Paint& p, const Snapshot& s) {
             else if (path.endsWithIgnoreCase(".flac")) r.fact = "FLAC";
             else if (path.endsWithIgnoreCase(".ogg") || path.endsWithIgnoreCase(".oga")) r.fact = "OGG";
             else if (path.endsWithIgnoreCase(".aif") || path.endsWithIgnoreCase(".aiff")) r.fact = "AIFF";
-            for (unsigned n = 0; n < sample_slots && r.pad.isEmpty(); ++n) // which pad of this kit plays it
-                if (file.path == s.project.samples[n].path)
-                    for (unsigned k = 0; k < sampler_pads; ++k)
-                        if (track.pads[k].plays(uint16_t(n))) { char label[4]; pad_label(k, label); r.pad = juce::String(label); break; }
+            for (unsigned k = 0; k < sampler_pads && r.pad.isEmpty(); ++k) // which pad of this kit plays it, on any layer
+                for (unsigned l = 0; l < pad_layers; ++l) {
+                    const PadLayer layer = track.pads[k].layer(l);
+                    if (!layer.used() || file.path != s.project.samples[layer.sample].path) continue;
+                    char label[4]; pad_label(k, label); r.pad = juce::String(label);
+                    break;
+                }
         }
         if (r.current && heard.shown && !file.folder && !file.bank) { // the time heard of its length
             char now[16], of[24];

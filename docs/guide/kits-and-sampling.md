@@ -3,7 +3,9 @@
 Previous: [Tracks](tracks.md) · [Contents](../GUIDE.md) · Next: [Plug-ins](plug-ins.md)
 
 A kit has 128 pads in 8 banks (A–H). Each pad plays a region of a sample, or
-a sampled instrument. A project holds up to 64 samples.
+a sampled instrument. A project holds as many samples as fit in memory. When
+memory is full, the next sample is not loaded: its pad stays silent and
+**Memory full** shows on the screen.
 
 ## Stage on a kit
 
@@ -346,10 +348,8 @@ sample's pad does: the same start, end, loop, tuning, warp, envelope and
 filter, and the same slices in Chop. Played together, the four give the
 sample back. One Undo removes all four. The files are in `Samples/Stems`.
 
-Stems needs a sample of one second or more, four empty pads and room for
-four more samples in the project (a project holds 64). Without that room,
-the sheet shows the samples in use (**SAMPLES** 61/64) in place of the
-time. It does not work on a sampled instrument.
+Stems needs a sample of one second or more and four empty pads on the
+track. It does not work on a sampled instrument.
 
 ## 16 Levels
 

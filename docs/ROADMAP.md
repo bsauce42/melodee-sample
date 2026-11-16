@@ -302,7 +302,7 @@ behaviour changed.
   slots hold all its layers' files (its streamed instrument's slot given
   back); a pad of more layers, a note-off pad, or one that no longer fits
   stays the streamed `<file>#<pad>` instrument as before. Why: a pad that
-  loads today never fails to load (64 slots across the whole project), and
+  loads today never fails to load (the slots are the whole project's), and
   where it fits it becomes editable on LAYERS.
 - P3: Chop keeps one chop a sample, of the region last chopped
   (`Project::chops`, CHOP), copied in when Chop moves to another region and

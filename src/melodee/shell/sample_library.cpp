@@ -6,6 +6,7 @@
 #include "melodee/shell/chop.h"
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/sample_decode.h"
+#include "melodee/shell/sample_memory.h"
 #include "drivers/mixer.h"
 #include "drivers/platform.h"
 #include "runtime/app.h"
@@ -35,31 +36,49 @@ SampleLibrary::~SampleLibrary() = default;
 
 bool SampleLibrary::load(unsigned slot, const std::string& path) {
     Request r;
-    r.slot = uint8_t(slot % sample_slots);
+    r.slot = uint16_t(slot % sample_slots);
     std::strncpy(r.path, path.c_str(), sizeof(r.path) - 1);
     if (!requests.push(r)) return false;
     slot_state[r.slot].store(0, std::memory_order_relaxed); // what it held is no longer how its load stands
+    slot_held[r.slot].store(!path.empty(), std::memory_order_relaxed);
     asked.fetch_add(1, std::memory_order_relaxed);
     return true;
 }
 
 void SampleLibrary::view(View& out) const { std::lock_guard<std::mutex> guard(lock); out = known; }
-LoadedSample SampleLibrary::slot(unsigned n) const { std::lock_guard<std::mutex> guard(lock); return known.slots[n % sample_slots]; }
+const LoadedSample& SampleLibrary::shown_at(unsigned slot) const {
+    static const LoadedSample none;
+    const auto& shown = slot_shown[slot % sample_slots];
+    return shown ? shown->sample : none;
+}
+SampleLibrary::Shown& SampleLibrary::show(unsigned slot) {
+    auto& shown = slot_shown[slot % sample_slots];
+    if (!shown) shown = std::make_unique<Shown>();
+    return *shown;
+}
+LoadedSample SampleLibrary::slot(unsigned n) const { std::lock_guard<std::mutex> guard(lock); return shown_at(n); }
+SampleLibrary::Measure SampleLibrary::measure(unsigned n) const {
+    std::lock_guard<std::mutex> guard(lock);
+    const auto& s = shown_at(n);
+    return {s.frames, s.shapes};
+}
 int SampleLibrary::zone_at(unsigned n, int key, int velocity) const {
     std::lock_guard<std::mutex> guard(lock);
-    const auto& s = known.slots[n % sample_slots];
+    const auto& s = shown_at(n);
     return s.instrument ? melodee::zone_at(s.shapes, key, velocity) : -1;
 }
 std::string SampleLibrary::zone_file(unsigned n, unsigned zone) const {
     std::lock_guard<std::mutex> guard(lock);
-    const auto& s = known.slots[n % sample_slots];
-    const auto& names = part_names[n % sample_slots];
+    const auto& shown = slot_shown[n % sample_slots];
+    if (!shown) return {};
+    const auto& s = shown->sample;
+    const auto& names = shown->parts;
     if (!s.instrument || zone >= s.shapes.size() || s.shapes[zone].part >= names.size()) return {};
     return names[s.shapes[zone].part];
 }
 bool SampleLibrary::thumbnail(unsigned n, uint32_t from, uint32_t to, uint8_t* out, unsigned columns) const {
     std::lock_guard<std::mutex> guard(lock);
-    const auto& s = known.slots[n % sample_slots];
+    const auto& s = shown_at(n);
     if (!s.ready || !s.frames || !columns) return false;
     to = std::min(to ? to : s.frames, s.frames);
     from = std::min(from, to);
@@ -560,7 +579,7 @@ void SampleLibrary::make(const SampleJob& job) {
     if (!path.empty()) scan_wanted.store(true);
     else finish("Not on the card: " + error);
     std::lock_guard<std::mutex> guard(lock);
-    known.slots[job.target % sample_slots] = loaded;
+    show(job.target).sample = loaded;
     data_of[job.target % sample_slots] = held;
     changes.fetch_add(1, std::memory_order_release);
 }
@@ -630,6 +649,7 @@ void SampleLibrary::save_take() {
 }
 
 bool SampleLibrary::offer(unsigned slot, SampleData* data) {
+    if (data && slot < sample_slots) slot_held[slot].store(true, std::memory_order_relaxed);
     if (data && !data->multi && !data->growth) { // a preview being read has its device copy laid out already (hear())
         const float rate = dsp::sample_rate();
         size_t held = 0;
@@ -646,17 +666,17 @@ void SampleLibrary::refresh_playback() {
     size_t held = 0;
     for (const auto& d : owned) held += d->play_bytes();
     for (unsigned s = 0; s < sample_slots; ++s) {
-        const SampleData* now = nullptr;
-        std::string path;
-        { std::lock_guard<std::mutex> guard(lock); now = data_of[s]; path = known.slots[s].path; }
+        const SampleData* now = data_of[s]; // only this thread writes it
         if (!now || now->multi || now->plays_at(rate)) continue;
         bool stale = now->play_frames > 0; // made at another rate: none at 44.1 kHz, a new one elsewhere
         bool fits = rate != dsp::model_rate && held + size_t(double(now->frames) * rate / dsp::model_rate) * 2 * sizeof(float) <= playback_budget;
         if (!stale && !fits) continue;
+        std::string path;
+        { std::lock_guard<std::mutex> guard(lock); path = shown_at(s).path; }
         // From its file again when it still reads the same (one conversion at most), else from its own frames when
         // those played (a take with no card), else from its 44.1 kHz frames.
         auto again = std::make_unique<SampleData>();
-        bool read = !path.empty() && !is_instrument(path) && read_audio(path, *again, 60, nullptr, rate).empty() && again->frames == now->frames
+        bool read = !path.empty() && !is_instrument(path) && read_audio(path, *again, kit_sample_seconds, nullptr, rate).empty() && again->frames == now->frames
                  && again->left == now->left;
         if (!read) {
             again = std::make_unique<SampleData>();
@@ -701,7 +721,7 @@ void SampleLibrary::land(unsigned slot, std::unique_ptr<SampleData> data, unsign
     else { finish(std::string(what) + ": busy, try again", int(slot)); return; }
     if (!loaded.path.empty()) scan_wanted.store(true); // it shows in the browser
     std::lock_guard<std::mutex> guard(lock);
-    known.slots[slot] = loaded;
+    show(slot).sample = loaded;
     data_of[slot] = held;
     changes.fetch_add(1, std::memory_order_release);
 }
@@ -742,7 +762,7 @@ void SampleLibrary::dispatch(const Request& request) {
     set_slot_state(slot, false);
     if (!request.path[0]) { // an empty slot in the project now: nothing plays from it
         Handover h;
-        h.slot = uint8_t(slot); h.serial = serial; h.clear = true;
+        h.slot = uint16_t(slot); h.serial = serial; h.clear = true;
         handovers.push_back(std::move(h));
         return;
     }
@@ -775,7 +795,16 @@ void SampleLibrary::dispatch(const Request& request) {
         h.slot = request.slot; h.serial = serial;
         h.data = std::make_unique<SampleData>();
         Lap lap;
-        auto error = read_audio(request.path, *h.data, 60, nullptr, rate); // the copy the device plays, from the file
+        std::string error;
+        { // what it will hold, found before it is read: refused where that would leave memory short (shell/sample_memory.h)
+            AudioReader file;
+            if (file.open(request.path, kit_sample_seconds).empty()
+                && !memory_allows(memory_free(), kit_sample_bytes(file.frames(), file.rate(), unsigned(std::lround(rate))))) {
+                error = "Memory full";
+                h.refused = true;
+            }
+        }
+        if (error.empty()) error = read_audio(request.path, *h.data, kit_sample_seconds, nullptr, rate); // the copy the device plays, from the file
         lap.into(load_times.read);
         LoadedSample& loaded = h.loaded;
         loaded.path = request.path;
@@ -808,10 +837,12 @@ bool SampleLibrary::hand_over(Handover& h) {
         h.loaded.ready = true;
     } else {
         ++load_log.failed;
+        if (h.refused && !load_log.refused++) finish("Memory full: sample not loaded"); // once for a project's or a kit's load
     }
     {
         std::lock_guard<std::mutex> guard(lock);
-        known.slots[slot] = h.clear ? LoadedSample {} : std::move(h.loaded);
+        if (h.clear) slot_shown[slot].reset();
+        else show(slot).sample = std::move(h.loaded);
         if (held || h.clear) data_of[slot] = held;
         changes.fetch_add(1, std::memory_order_release);
     }
@@ -832,7 +863,10 @@ void SampleLibrary::take_loaded() {
     for (auto& i : instruments) instruments_waiting.push_back(std::move(i));
     // In order, as the audio thread's queue has room (it takes them a block at a time). One refused for three
     // seconds (the audio thread is not running) is given up, as a load that found the queue full always was.
+    // What the audio thread lets go of is taken back before each: a project of hundreds of samples switched to
+    // replaces hundreds, and its queue of those let go holds 128.
     while (!handovers.empty()) {
+        reap();
         if (hand_over(handovers.front())) { handovers.pop_front(); handover_refused = false; continue; }
         const auto now = std::chrono::steady_clock::now();
         if (!handover_refused) { handover_refused = true; handover_since = now; }
@@ -842,7 +876,7 @@ void SampleLibrary::take_loaded() {
             h.loaded.error = "busy, try again";
             ++load_log.failed;
             std::lock_guard<std::mutex> guard(lock);
-            known.slots[h.slot % sample_slots] = std::move(h.loaded);
+            show(h.slot).sample = std::move(h.loaded);
             changes.fetch_add(1, std::memory_order_release);
         }
         set_slot_state(h.slot, true);
@@ -851,7 +885,10 @@ void SampleLibrary::take_loaded() {
         handover_refused = false;
     }
     size_t begun = 0;
-    while (begun < instruments_waiting.size() && begin_landing(instruments_waiting[begun])) ++begun;
+    for (; begun < instruments_waiting.size(); ++begun) {
+        reap(); // as above
+        if (!begin_landing(instruments_waiting[begun])) break;
+    }
     instruments_waiting.erase(instruments_waiting.begin(), instruments_waiting.begin() + std::ptrdiff_t(begun));
     for (auto& p : parts) {
         Landing& l = *p.landing;
@@ -864,7 +901,7 @@ void SampleLibrary::take_loaded() {
         unsigned in = 0;
         {
             std::lock_guard<std::mutex> guard(lock);
-            auto& shown = known.slots[slot];
+            auto& shown = show(slot).sample;
             if (p.landed) ++shown.parts_ready;
             else { ++shown.parts_failed; if (shown.error.empty()) shown.error = p.why; }
             if (p.index < shown.part_state.size()) shown.part_state[p.index] = p.landed ? PartState::Landed : PartState::Failed;

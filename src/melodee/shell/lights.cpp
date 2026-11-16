@@ -178,11 +178,12 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     // The library found files or finished a sample: the lengths go into the project.
     if (library_ && library_->generation() != library_seen) {
         library_seen = library_->generation();
-        for (unsigned n = 0; n < sample_slots; ++n)
+        for (unsigned n = 0, span = unsigned(project_->samples.span()); n < span; ++n)
             if (project_->samples[n].used()) {
-                const auto shown = library_->slot(n);
-                project_->samples[n].frames = shown.frames;
-                project_->samples[n].zones = uint16_t(std::min<size_t>(shown.shapes.size(), 0xffff));
+                const auto shown = library_->measure(n); // its length and zones alone: not its waveform and hits, a slot at a time
+                auto& ref = project_->samples.edit(n);
+                ref.frames = shown.frames;
+                ref.zones = uint16_t(std::min<size_t>(shown.shapes.size(), 0xffff));
                 std::array<uint64_t, 2> keys {}; // 16 Levels' Zones: the keys a press sounds
                 bool one_key = true; // and whether each such zone has a key of its own (16 Levels opens in Zones)
                 for (const auto& z : shown.shapes)
@@ -190,8 +191,8 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                         one_key = one_key && z.low_key == z.high_key;
                         for (unsigned k = z.low_key; k <= z.high_key && k < 128; ++k) keys[k / 64] |= uint64_t(1) << (k % 64);
                     }
-                project_->samples[n].keys = keys;
-                project_->samples[n].one_key_zones = one_key && zone_key_count(project_->samples[n]) >= 2;
+                ref.keys = keys;
+                ref.one_key_zones = one_key && zone_key_count(ref) >= 2;
             }
         ui_.files_count = uint16_t(std::min<size_t>(library_->files().size(), 0xffff));
         if (ui_.files_cursor >= ui_.files_count) ui_.files_cursor = uint16_t(ui_.files_count ? ui_.files_count - 1 : 0); // a row deleted: the last one left
@@ -292,13 +293,14 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (ref.used() && !library_->load(slot, ref.path)) break;
         context_.slots_waiting.erase(context_.slots_waiting.begin());
     }
-    // After a switch, every sample slot loads again (or empties), a few each pass.
+    // After a switch, every sample slot loads again (or empties), a few each pass. A slot the project leaves empty
+    // and the library holds nothing in is passed over: nothing to ask for.
     while (library_ && context_.samples_to_load < sample_slots) {
-        const auto& ref = project_->samples[context_.samples_to_load];
+        const unsigned slot = context_.samples_to_load;
+        const auto& ref = project_->samples[slot];
         bool real = ref.used() && ref.path[0] == '/';
-        if (!library_->load(context_.samples_to_load, real ? ref.path : "")) break;
-        auto& chop = project_->chops[context_.samples_to_load];
-        if (real && !chop.unwritten) chop = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
+        if ((real || library_->held(slot)) && !library_->load(slot, real ? ref.path : "")) break;
+        if (real && !project_->chops[slot].unwritten) project_->chops.edit(slot) = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
         ++context_.samples_to_load;
     }
     if (encoder_tick(enc, now)) menu_open(context_); // the encoder held: the MENU (shell/menu.h)

@@ -45,7 +45,7 @@ void draw(Paint& p, const Snapshot& s) {
     SoftKeys keys {{running ? "CANCEL" : "BACK", "", running ? "" : "SEPARATE"}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
     if (!running) {
         keys.glyphs[2] = Icon::Layers;
-        if (!room.enough()) keys.tints[2] = colour::dim; // no room for the four: B3 says why
+        if (!room.enough()) keys.tints[2] = colour::dim; // no four empty pads: B3 says so
     }
     frame(p, s, keys, h);
 
@@ -85,7 +85,6 @@ void draw(Paint& p, const Snapshot& s) {
     const float by = ty + th + 10, bw = full / 2;
     block(p, x0, by, bw, "LENGTH", clock(float(sheet.frames) / 44100.0f), colour::text);
     if (running) block(p, x0 + bw, by, bw, "LEFT", job.busy ? clock(float(job.seconds_left)) : juce::String::fromUTF8("\xe2\x80\x94"), c);
-    else if (!room.enough_samples()) block(p, x0 + bw, by, bw, "SAMPLES", juce::String(room.samples) + "/" + juce::String(sample_slots), colour::amber);
     else block(p, x0 + bw, by, bw, "TAKES", clock(float(stems_seconds(sheet.frames))), colour::text);
 }
 

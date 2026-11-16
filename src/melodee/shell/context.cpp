@@ -91,8 +91,8 @@ unsigned Context::free_unused_samples() {
     unsigned freed = 0;
     for (unsigned n = 0; n < sample_slots; ++n) {
         if (!project.samples[n].used() || used[n]) continue;
-        project.samples[n] = SampleRef {};
-        project.chops[n] = SampleChop {};
+        project.samples.edit(n) = SampleRef {};
+        if (project.chops[n].used()) project.chops.edit(n) = SampleChop {};
         if (library) library->load(n, ""); // its audio let go (a full queue: replaced when the slot is next used)
         ++freed;
     }
@@ -156,11 +156,11 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     send_reload(new ProjectPack(project, patterns), false);
     ui.loading = true; // the Loading sheet until it is built and its samples are in (reload_tick)
     ui.loading_since = loading_moved = now;
-    loading_instruments = 0;
+    loading_instruments.reset();
     for (unsigned n = 0; n < sample_slots; ++n) {
         const auto& ref = project.samples[n];
         if (!ref.used() || ref.path[0] != '/') continue;
-        if (SampleLibrary::instrument_path(ref.path)) { loading_instruments |= uint64_t(1) << n; ++ui.loading_instruments; ++ui.loading_files; }
+        if (SampleLibrary::instrument_path(ref.path)) { loading_instruments.set(n); ++ui.loading_instruments; ++ui.loading_files; }
         else ++ui.loading_samples;
     }
     ui.loading_total = ui.loading_left = uint16_t(ui.loading_samples + ui.loading_files);
@@ -235,11 +235,11 @@ void Context::reload_tick() {
     unsigned asked = library ? std::min<unsigned>(samples_to_load, sample_slots) : sample_slots;
     unsigned unasked = sample_slots - asked;
     unsigned samples_in = 0, files = 0, files_in = 0;
-    for (unsigned n = 0; n < sample_slots; ++n) {
+    for (unsigned n = 0, span = unsigned(project.samples.span()); n < span; ++n) {
         const auto& ref = project.samples[n];
         if (!ref.used() || ref.path[0] != '/') continue;
         const SampleLibrary::SlotLoad load = library && n < asked ? library->slot_load(n) : SampleLibrary::SlotLoad {};
-        if (!((loading_instruments >> n) & 1)) { samples_in += load.settled; continue; }
+        if (!loading_instruments.test(n)) { samples_in += load.settled; continue; }
         if (load.parts) { files += load.parts; files_in += load.parts_in; } // its own file read: its files counted
         else { files += 1; files_in += load.settled; }                      // not read yet, or it could not be
     }
@@ -251,7 +251,7 @@ void Context::reload_tick() {
     ui.loading_total = uint16_t(ui.loading_samples + files);
     ui.loading_left = uint16_t(ui.loading_total - std::min<unsigned>(samples_in + files_in, ui.loading_total));
     if (ui.loading_total) ui.loading_bar = std::max<uint16_t>(ui.loading_bar, uint16_t(1000u * (ui.loading_total - ui.loading_left) / ui.loading_total));
-    ui.loading_slot = library ? int8_t(library->loading_now()) : int8_t(-1);
+    ui.loading_slot = library ? int16_t(library->loading_now()) : int16_t(-1);
     bool in = !reloading.pack && !unasked && slots_waiting.empty() && !waiting;
     if (!in && now - loading_moved < loading_most_ms) return;
     ui.loading = false;
@@ -767,7 +767,7 @@ void Context::apply(const Binding& b, int value) {
         (b.kind == Kind::ZoneTune ? tune : level) = value;
         if (!set_trim(t.zone_trims, kit, zone, slot, tune, level)) { notice("Zone trims full"); break; }
         ZoneTrim sent;
-        sent.pad = uint8_t(kit); sent.zone = uint16_t(zone); sent.slot = uint8_t(slot);
+        sent.pad = uint8_t(kit); sent.zone = uint16_t(zone); sent.slot = uint16_t(slot);
         if (const ZoneTrim* kept = find_trim(t.zone_trims, kit, zone, slot)) sent = *kept;
         else { sent.tune = 0; sent.level = 0; } // none left: the engine lets it go
         send(zone_trim_command(ui.track, sent));
@@ -1631,12 +1631,12 @@ int Context::sample_slot(const std::string& path, const std::string& name) {
         if (free < 0 && !project.samples[n].used()) free = int(n);
     }
     if (free < 0 || !library || path.size() >= sizeof(SampleRef::path)) return -1; // a path cut short opens nothing
-    auto& ref = project.samples[size_t(free)];
-    project.chops[size_t(free)] = read_mpc_slices(path); // the file's own slices (an MPC's), not the slot's last file's
+    auto& ref = project.samples.edit(size_t(free));
+    project.chops.edit(size_t(free)) = read_mpc_slices(path); // the file's own slices (an MPC's), not the slot's last file's
     std::strncpy(ref.path, path.c_str(), sizeof(ref.path) - 1);
     std::strncpy(ref.name, name.c_str(), sizeof(ref.name) - 1);
     ref.frames = 0; // known once loaded
-    if (!library->load(unsigned(free), path)) slots_waiting.push_back(uint8_t(free)); // a kit of many: the rest as the queue drains
+    if (!library->load(unsigned(free), path)) slots_waiting.push_back(uint16_t(free)); // a kit of many: the rest as the queue drains
     return free;
 }
 

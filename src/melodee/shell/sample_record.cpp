@@ -65,7 +65,7 @@ bool arm_take(Context& c, unsigned kit) {
     }
     kit %= sampler_pads;
     int slot = c.hold_file("TAKE", c.ui.track, int(kit), 2);
-    if (slot < 0) { c.notice("Record: samples full (64)"); return false; }
+    if (slot < 0) { c.notice("Record: samples full"); return false; }
     c.ui.rec_slot = int16_t(slot); c.ui.rec_pad = int16_t(kit); c.ui.rec_track = c.ui.track; c.ui.rec_chops = 0;
     c.rec_armed_at = c.now;
     t.last_pad = uint8_t(kit);

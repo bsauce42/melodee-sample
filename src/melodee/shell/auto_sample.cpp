@@ -225,7 +225,7 @@ void Context::autosample_landed(const AutoSampleResult& r) {
     edit.track_before = std::make_unique<TrackState>(track_state(*this, t));
     load_sound(t, EngineKind::Keygroup, 0);
     int slot = sample_slot(r.program, r.name.substr(0, sizeof(SampleRef::name) - 1));
-    if (slot < 0) { restore_track(*this, t, *edit.track_before); notice("Samples full (64)"); return; }
+    if (slot < 0) { restore_track(*this, t, *edit.track_before); notice("Samples full"); return; }
     TrackState after = track_state(*this, t);
     Track& made = after.track;
     made.set_name(r.name.c_str());

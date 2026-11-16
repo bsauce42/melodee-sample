@@ -755,7 +755,11 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
     fader_check(context_);
     edit_loop_check(context_); // an editor's loop ends with the editor (shell/note_jobs.h)
     out.ui = ui_;
-    out.project = *project_;
+    { // The project, without each sample's chop: no page draws one (Chop draws the slices in hand, UiState's).
+        SlotTable<SampleChop> chops = std::move(project_->chops);
+        out.project = *project_;
+        project_->chops = std::move(chops);
+    }
     out.audio_peaks = context_.audio_peaks; // freeze plan F3
     out.pattern = context_.pattern();
     for (unsigned t = 0; t < track_count; ++t)

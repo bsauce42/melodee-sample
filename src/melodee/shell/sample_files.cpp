@@ -34,15 +34,15 @@ constexpr const char* writing = "(writing)"; // a slot's path while its file is 
 
 const char* edits_folder = "Edits";
 
-// A free sample slot held for a file being made, -1 when the project's 64 are full.
+// A free sample slot held for a file being made, -1 when every slot is in use.
 int hold_slot(Project& project, const std::string& name) {
     for (unsigned n = 0; n < sample_slots; ++n) {
-        auto& ref = project.samples[n];
-        if (ref.used()) continue;
+        if (project.samples[n].used()) continue;
+        auto& ref = project.samples.edit(n);
         std::snprintf(ref.path, sizeof(ref.path), "%s", writing);
         std::snprintf(ref.name, sizeof(ref.name), "%s", name.c_str());
         ref.frames = 0;
-        project.chops[n] = SampleChop {}; // roadmap P3: no chop of what the slot held before
+        if (project.chops[n].used()) project.chops.edit(n) = SampleChop {}; // roadmap P3: no chop of what the slot held before
         return int(n);
     }
     return -1;
@@ -50,7 +50,7 @@ int hold_slot(Project& project, const std::string& name) {
 
 SampleJob job(SampleJob::Kind kind, unsigned source, int target, uint32_t from, uint32_t to, const std::string& name, const char* folder) {
     SampleJob j;
-    j.kind = kind; j.source = uint8_t(source); j.target = uint8_t(std::max(target, 0));
+    j.kind = kind; j.source = uint16_t(source); j.target = uint16_t(std::max(target, 0));
     j.from = from; j.to = to;
     std::snprintf(j.name, sizeof(j.name), "%s", name.c_str());
     std::snprintf(j.folder, sizeof(j.folder), "%s", folder);
@@ -76,7 +76,7 @@ int Context::hold_file(const std::string& name, unsigned t, int pad, uint8_t lan
 
 void Context::drop_file(int slot) {
     if (slot < 0 || slot >= int(sample_slots)) return;
-    project.samples[size_t(slot)] = SampleRef {};
+    project.samples.edit(size_t(slot)) = SampleRef {};
     for (auto& p : pending_files) if (p.slot == slot) p = PendingFile {};
 }
 
@@ -104,9 +104,9 @@ void Context::trim_sample() {
     while (free < pending_files.size() && pending_files[free].slot >= 0) ++free;
     std::string name = derived(ref, "-Trimmed");
     int slot = free < pending_files.size() ? hold_slot(project, name) : -1;
-    if (slot < 0) { notice(free < pending_files.size() ? "Trim Sample: 64 samples" : "Trim Sample: busy"); return; }
+    if (slot < 0) { notice(free < pending_files.size() ? "Trim Sample: samples full" : "Trim Sample: busy"); return; }
     if (!library->write(job(SampleJob::Kind::Derive, pad.sample, slot, pad.start, end, name, edits_folder))) {
-        project.samples[size_t(slot)] = SampleRef {};
+        project.samples.edit(size_t(slot)) = SampleRef {};
         notice("Trim Sample: busy");
         return;
     }
@@ -125,11 +125,11 @@ void Context::extract_slice() {
     const auto& ref = project.samples[ui.chop_sample];
     std::string name = derived(ref, "-Slice " + std::to_string(ui.chop_slice + 1));
     int slot = free < pending_files.size() ? hold_slot(project, name) : -1;
-    if (slot < 0) { notice(free < pending_files.size() ? "Extract: 64 samples" : "Extract: busy"); return; }
+    if (slot < 0) { notice(free < pending_files.size() ? "Extract: samples full" : "Extract: busy"); return; }
     SampleJob slice = job(SampleJob::Kind::Derive, ui.chop_sample, slot, sl.start[ui.chop_slice], sl.end(ui.chop_slice, frames), name, edits_folder);
     slice.edges = true; // faded where it was cut, as the pads play it
     if (!library->write(slice)) {
-        project.samples[size_t(slot)] = SampleRef {};
+        project.samples.edit(size_t(slot)) = SampleRef {};
         notice("Extract: busy");
         return;
     }
@@ -158,7 +158,7 @@ void Context::load_layer(const std::string& path, const std::string& name) {
     if (asked.instrument()) { notice("Layers take samples"); return; }
     if (!t.pads[kit].used()) { notice("Layer 1 first"); return; }
     int slot = sample_slot(path, name);
-    if (slot < 0) { notice("Samples full (64)"); return; }
+    if (slot < 0) { notice("Samples full"); return; }
     Edit edit;
     edit.track = ui.track; edit.pad = int16_t(kit);
     edit.pad_before = pad_state(t, kit);
@@ -185,7 +185,7 @@ void Context::load_file(const std::string& path, const std::string& name, bool n
     int kit = keyed ? 0 : next_empty ? next_empty_pad(t.last_pad) : int(t.last_pad % sampler_pads);
     if (kit < 0) { notice("No empty pad"); return; }
     int slot = sample_slot(path, name);
-    if (slot < 0) { notice("Samples full (64)"); return; }
+    if (slot < 0) { notice("Samples full"); return; }
     Edit edit;
     edit.track = ui.track; edit.pad = int16_t(kit);
     edit.pad_before = pad_state(t, unsigned(kit));
@@ -259,7 +259,7 @@ void Context::files_landed() {
         for (auto& p : pending_files) // a file that could not be made: its slot is free again
             if (done.failed >= 0 && p.slot == done.failed) {
                 if (p.land == 2) { ui.rec_slot = ui.rec_pad = -1; ui.rec_chops = 0; } // the take is gone
-                project.samples[size_t(p.slot)] = SampleRef {}; p = PendingFile {};
+                project.samples.edit(size_t(p.slot)) = SampleRef {}; p = PendingFile {};
             }
     }
     SampleLibrary::BankBytes bank_bytes;
@@ -277,7 +277,7 @@ void Context::files_landed() {
         if (p.slot < 0 || p.land >= 3) continue; // 3 and up: stems, landed above
         auto loaded = library->slot(unsigned(p.slot));
         if (!loaded.ready) continue; // still being made
-        auto& ref = project.samples[size_t(p.slot)];
+        auto& ref = project.samples.edit(size_t(p.slot));
         PendingFile was = p;
         p = PendingFile {};
         std::snprintf(ref.path, sizeof(ref.path), "%s", loaded.path.empty() ? ("(memory) " + loaded.name).c_str() : loaded.path.c_str());

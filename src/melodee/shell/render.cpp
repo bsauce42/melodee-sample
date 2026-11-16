@@ -56,7 +56,7 @@ void Context::resample_song(unsigned kit) {
     int slot = hold_file("RESAMPLE", ui.track, int(kit), 1);
     if (slot < 0) { notice("Resample: samples full"); return; }
     SampleLibrary::Render job;
-    job.slot = uint8_t(slot);
+    job.slot = uint16_t(slot);
     job.frames = uint32_t(std::min<double>(song_frames, TakeRecorder::max_frames)) + 1;
     if (!library->render(job)) { drop_file(slot); notice("Resample: busy"); return; }
     ui.render_resume = false;
@@ -88,7 +88,7 @@ void Context::resample_pad(unsigned kit) {
     int slot = hold_file("RESAMPLE", ui.track, int(kit), 1);
     if (slot < 0) { notice("Resample: samples full"); return; }
     SampleLibrary::Render job;
-    job.slot = uint8_t(slot);
+    job.slot = uint16_t(slot);
     job.frames = uint32_t(ticks * tick_frames) + 1;
     if (!library->render(job)) { drop_file(slot); notice("Resample: busy"); return; }
     ui.render_resume = host.playing() && !host.song_playing();

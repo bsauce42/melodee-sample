@@ -194,9 +194,9 @@ int project(const Args& a) {
         std::string path = samples + "/" + names[s] + ".wav";
         std::string error = write_wav(path, data[s]);
         if (!error.empty()) { std::printf("MELODEE_PRINT_PROJECT failed=%s\n", error.c_str()); return 1; }
-        std::snprintf(p->samples[s].path, sizeof(p->samples[s].path), "%s", path.c_str());
-        std::snprintf(p->samples[s].name, sizeof(p->samples[s].name), "%s", names[s]);
-        p->samples[s].frames = data[s].frames;
+        std::snprintf(p->samples.edit(s).path, sizeof(SampleRef::path), "%s", path.c_str());
+        std::snprintf(p->samples.edit(s).name, sizeof(SampleRef::name), "%s", names[s]);
+        p->samples.edit(s).frames = data[s].frames;
     }
     // Track 16: the plug-in, its own arpeggio (plugin_project's) in place of the kit.
     auto poly = std::make_unique<Project>();

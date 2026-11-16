@@ -95,6 +95,7 @@
 #include "melodee/shell/menu.h"
 #include "melodee/shell/stems.h"
 #include "melodee/shell/stems_room.h"
+#include "melodee/shell/sample_memory.h"
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
@@ -223,8 +224,8 @@ SampleData tone_sample(float hz = 220) {
 // Track `t` a kit whose first four pads play sample slot 0 (offer it a tone_sample()), each held as long as its note.
 void tone_kit(Project& project, unsigned t) {
     load_sound(project.tracks[t], EngineKind::Sampler, 0);
-    std::snprintf(project.samples[0].path, sizeof(project.samples[0].path), "/media/card/Samples/Tone.wav");
-    project.samples[0].frames = 44100;
+    std::snprintf(project.samples.edit(0).path, sizeof(SampleRef::path), "/media/card/Samples/Tone.wav");
+    project.samples.edit(0).frames = 44100;
     for (unsigned pad = 0; pad < 4; ++pad) project.tracks[t].pads[pad].sample = 0;
 }
 // The synths a host's tracks play: a ToneRunner for each PLUGIN track's entry, offered to the host (it takes them
@@ -1509,7 +1510,7 @@ void project_files() {
     project->tracks[0].fx.slots[0] = {uint8_t(EffectKind::Echo), true, {60, 50, 30, 70, 0, 0}};
     load_sound(project->tracks[4], EngineKind::Sampler, 0);
     project->tracks[4].pads[9].sample = 2; project->tracks[4].pads[9].start = 1234; project->tracks[4].pads[9].group = 3;
-    std::snprintf(project->samples[2].path, sizeof(project->samples[2].path), "/media/card/Samples/Kick.wav");
+    std::snprintf(project->samples.edit(2).path, sizeof(SampleRef::path), "/media/card/Samples/Kick.wav");
     bank->at[0][3].length = 96 * 48; bank->at[0][3].division = Division::Eighth;
     bank->at[0][3].add({95 * 48 + 5, 40, 64, 77, 100, step_tie}); // five ticks late, Rec Quantize off
     bank->at[0][3].write_motion(point(7, midi_track::Cc2, 61));
@@ -1926,7 +1927,7 @@ void punches() {
         auto patterns = std::make_unique<PatternBank>();
         project->punch_target = 1; project->punch_bank = 1; project->punch_depth = 64; project->punch_snap = 3; project->punch_tail = 2;
         project->punch_quantize = false;
-        std::strcpy(project->samples[0].path, "/x.wav");
+        std::strcpy(project->samples.edit(0).path, "/x.wav");
         auto bytes = save_project(*project, *patterns);
         auto back = std::make_unique<Project>();
         CHECK(load_project(bytes, *back, *patterns).empty());
@@ -2490,26 +2491,24 @@ void button_remap() {
         CHECK(stage_page_now(m, track, StageSkip {}).kind == StageKind::Trim); // Stage opens on a kit pad's TRIM
         CHECK(!offered() && !button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // nothing on the pad
         track.pads[0].sample = 0;
-        std::snprintf(kit->samples[0].path, sizeof(kit->samples[0].path), "/card/Samples/LOOP.wav");
-        kit->samples[0].frames = 4 * 44100;
+        std::snprintf(kit->samples.edit(0).path, sizeof(SampleRef::path), "/card/Samples/LOOP.wav");
+        kit->samples.edit(0).frames = 4 * 44100;
         CHECK(offered() && button_has_shift_job(*kit, m, SurfaceButton::TopRight, true));
         m.page = PageId::Tracks; CHECK(!offered()); // the pad's job: on Stage alone
         m.page = PageId::Stage;
         m.settings.full_features = false; CHECK(offered() && button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // Basic too
         m.settings.full_features = true;
-        std::snprintf(kit->samples[0].path, sizeof(kit->samples[0].path), "/card/Samples/PIANO.sfz");
+        std::snprintf(kit->samples.edit(0).path, sizeof(SampleRef::path), "/card/Samples/PIANO.sfz");
         CHECK(!offered() && !button_has_shift_job(*kit, m, SurfaceButton::TopRight, true)); // an instrument: nothing to separate
-        // A job's room (shell/stems_room.h): four free samples of the project's 64, four empty pads after the pad.
+        // A job's room (shell/stems_room.h): four empty pads after the pad. How many samples the project holds is
+        // no part of it: 61, three short of the 64 a project once held, leave room.
         auto room = stems_room(*kit, 0, 0);
-        CHECK(room.samples == 1 && room.free_samples() == 63 && room.pads == 4 && room.enough());
-        for (unsigned n = 1; n < 61; ++n) std::snprintf(kit->samples[n].path, sizeof(kit->samples[n].path), "/card/Samples/S%u.wav", n);
-        room = stems_room(*kit, 0, 0);
-        CHECK(room.samples == 61 && room.free_samples() == 3 && !room.enough_samples() && room.enough_pads() && !room.enough()); // 61 of 64: one short
-        kit->samples[60] = SampleRef {};
-        CHECK(stems_room(*kit, 0, 0).enough()); // 60 of 64: the four fit
+        CHECK(room.pads == 4 && room.enough());
+        for (unsigned n = 1; n < 61; ++n) std::snprintf(kit->samples.edit(n).path, sizeof(SampleRef::path), "/card/Samples/S%u.wav", n);
+        CHECK(stems_room(*kit, 0, 0).enough());
         for (unsigned n = 1; n < sampler_pads - 3; ++n) track.pads[n].sample = 0;
         room = stems_room(*kit, 0, 0);
-        CHECK(room.pads == 3 && !room.enough_pads() && room.enough_samples()); // three empty pads left on the track
+        CHECK(room.pads == 3 && !room.enough()); // three empty pads left on the track
         for (unsigned n = 1; n < sampler_pads; ++n) track.pads[n] = PadSound {};
         CHECK(stem_count == 4 && std::string(stem_name(0)) == "DRUMS" && std::string(stem_name(1)) == "BASS" && std::string(stem_name(2)) == "MUSIC" && std::string(stem_name(3)) == "VOCALS");
     }
@@ -3351,7 +3350,7 @@ void sample_mode() {
     CHECK(Track {}.levels_kind == uint8_t(LevelsKind::Scale)); // a new track's 16 Levels go up the scale first
 
     // Cards: Trim's Shift row zooms at each handle; Play's Shift + K2 Pad Link; Warp's card both ways.
-    kit.last_pad = 2; kit.pads[2].end = 30000; project->samples[0].frames = 44100;
+    kit.last_pad = 2; kit.pads[2].end = 30000; project->samples.edit(0).frames = 44100;
     UiState ui;
     ui.track = 4; ui.page = PageId::Trim;
     Pattern none;
@@ -3445,7 +3444,7 @@ void zoom_and_fine_edit() {
     Project project;
     auto& kit = project.tracks[0];
     load_sound(kit, EngineKind::Sampler, 0);
-    project.samples[0].frames = 441000; std::snprintf(project.samples[0].path, sizeof(project.samples[0].path), "/x.wav");
+    project.samples.edit(0).frames = 441000; std::snprintf(project.samples.edit(0).path, sizeof(SampleRef::path), "/x.wav");
     kit.last_pad = 0; kit.pads[0].sample = 0; kit.pads[0].start = 44100; kit.pads[0].end = 0;
     UiState trim;
     trim.track = 0; trim.page = PageId::Trim;
@@ -3723,7 +3722,7 @@ void chop_and_browser() {
     // The cards: K1 start, K2 end, K3 type; Shift: zoom at each, the type's amount (none for Manual).
     Project project;
     load_sound(project.tracks[0], EngineKind::Sampler, 0);
-    project.samples[0].frames = 441000; std::snprintf(project.samples[0].path, sizeof(project.samples[0].path), "/x.wav");
+    project.samples.edit(0).frames = 441000; std::snprintf(project.samples.edit(0).path, sizeof(SampleRef::path), "/x.wav");
     UiState ui;
     Pattern pattern;
     ui.page = PageId::Chop; ui.chop_sample = 0;
@@ -5602,8 +5601,8 @@ void projects_and_polish() {
     load_sound(from->tracks[3], EngineKind::Sampler, 0);
     load_sound(from->tracks[6], EngineKind::Sampler, 0);
     auto ref = [&](unsigned slot, const char* name) {
-        std::snprintf(from->samples[slot].path, sizeof(from->samples[slot].path), "/card/Samples/%s.wav", name);
-        std::snprintf(from->samples[slot].name, sizeof(from->samples[slot].name), "%s", name);
+        std::snprintf(from->samples.edit(slot).path, sizeof(SampleRef::path), "/card/Samples/%s.wav", name);
+        std::snprintf(from->samples.edit(slot).name, sizeof(SampleRef::name), "%s", name);
     };
     ref(0, "KICK"); ref(5, "SNARE"); ref(9, "GONE");
     auto& kit = from->tracks[6];
@@ -6484,7 +6483,7 @@ void stage() {
     // AMP ENV Shift + K2 Decay From; TUNE Shift + K3 # Beats; PLAY Shift + K2 Pad Link.
     ui.track = 1;
     auto& kit = project->tracks[1];
-    kit.pads[5].sample = 0; project->samples[0].frames = 44100; kit.last_pad = 5;
+    kit.pads[5].sample = 0; project->samples.edit(0).frames = 44100; kit.last_pad = 5;
     stage_go(ui, 0, 0);
     CHECK(cards(false)[0].kind == K::PadStart && cards(false)[1].kind == K::PadEnd && cards(false)[2].kind == K::PadLoopPoint);
     CHECK(cards(true)[0].kind == K::TrimZoom);
@@ -6514,8 +6513,8 @@ void stage() {
     stage_press(ui, kit, 1, false); CHECK(key() == "PLAY");
     // A pad holding an instrument: its zones are its layers, so B1 is ZONES -> TUNE -> AMP ENV, three dots. A track
     // left on LAYERS shows ZONES on an instrument pad and LAYERS again on a sample pad.
-    std::snprintf(project->samples[1].path, sizeof(project->samples[1].path), "%s", "Strings.sfz");
-    project->samples[1].zones = 6; // read
+    std::snprintf(project->samples.edit(1).path, sizeof(SampleRef::path), "%s", "Strings.sfz");
+    project->samples.edit(1).zones = 6; // read
     kit.pads[7].sample = 1; kit.last_pad = 7;
     CHECK(stage_instrument(*project, kit) && !stage_instrument(*project, project->tracks[0]));
     stage_go(ui, 0, 0);
@@ -6530,7 +6529,7 @@ void stage() {
     CHECK(key() == "LAYERS" && cards(false)[0].kind == K::LayerPick);
     const auto& kit_groups = stage_groups(EngineKind::Sampler);
     CHECK(stage_shown(kit_groups, 0, true) == 3 && stage_shown(kit_groups, 0, false) == 4 && stage_shown_at(kit_groups, 0, 2, true) == 1);
-    kit.pads[7] = PadSound {}; project->samples[1] = SampleRef {};
+    kit.pads[7] = PadSound {}; project->samples.edit(1) = SampleRef {};
     stage_go(ui, 2, 4);
     CHECK(key() == "KIT FILT" && cards(false)[0].id == sampler::Filter && cards(false)[2].id == sampler::FilterType);
     kit.last_pad = 6; // a pad without a sample: nothing to turn, but the kit's own values still are
@@ -9643,7 +9642,7 @@ void keygroup_tracks() {
     {
         auto project = std::make_unique<Project>();
         auto bank = std::make_unique<PatternBank>();
-        std::strcpy(project->samples[4].path, "/card/Keys/Piano.sfz");
+        std::strcpy(project->samples.edit(4).path, "/card/Keys/Piano.sfz");
         auto& tr = project->tracks[2];
         tr.engine = EngineKind::Keygroup; tr.set_name("PIANO");
         tr.pads[0].sample = 4; tr.pads[0].pitch = -3;
@@ -9662,11 +9661,11 @@ void keygroup_tracks() {
     {
         auto project = std::make_unique<Project>();
         auto bank = std::make_unique<PatternBank>();
-        std::strcpy(project->samples[0].path, "/card/Kick.wav");
-        std::strcpy(project->samples[1].path, "/card/Keys/Piano.sfz");
-        std::strcpy(project->samples[1].name, "PIANO");
-        std::strcpy(project->samples[2].path, "/card/Keys/Strings.exs");
-        std::strcpy(project->samples[3].path, "/card/Projects/Song.xpj#1.3"); // an MPC drum pad of layers: a kit's
+        std::strcpy(project->samples.edit(0).path, "/card/Kick.wav");
+        std::strcpy(project->samples.edit(1).path, "/card/Keys/Piano.sfz");
+        std::strcpy(project->samples.edit(1).name, "PIANO");
+        std::strcpy(project->samples.edit(2).path, "/card/Keys/Strings.exs");
+        std::strcpy(project->samples.edit(3).path, "/card/Projects/Song.xpj#1.3"); // an MPC drum pad of layers: a kit's
         project->tracks[0].pads[9].sample = 3;
         auto& kit = project->tracks[0];
         load_sound(kit, EngineKind::Sampler, 0); kit.set_name("BEAT");
@@ -9707,7 +9706,7 @@ void keygroup_tracks() {
     { // a file saved since keygroup tracks keeps an instrument on a kit pad where it was put (KGVR: no migration)
         auto project = std::make_unique<Project>();
         auto bank = std::make_unique<PatternBank>();
-        std::strcpy(project->samples[1].path, "/card/Keys/Piano.sfz");
+        std::strcpy(project->samples.edit(1).path, "/card/Keys/Piano.sfz");
         load_sound(project->tracks[0], EngineKind::Sampler, 0);
         project->tracks[0].pads[0].sample = 1;
         Event e; e.key = uint8_t(sampler_first_note); e.pitch = 7;
@@ -9739,8 +9738,8 @@ void keygroup_tracks() {
     { // every track in use: the pad stays on its kit
         auto project = std::make_unique<Project>();
         auto bank = std::make_unique<PatternBank>();
-        std::strcpy(project->samples[0].path, "/card/Kick.wav");
-        std::strcpy(project->samples[1].path, "/card/Keys/Piano.sfz");
+        std::strcpy(project->samples.edit(0).path, "/card/Kick.wav");
+        std::strcpy(project->samples.edit(1).path, "/card/Keys/Piano.sfz");
         for (auto& t : project->tracks) load_sound(t, EngineKind::Sampler, 0);
         project->tracks[0].pads[0].sample = 0;
         project->tracks[0].pads[1].sample = 1;
@@ -13051,9 +13050,9 @@ void pad_layers_p3() {
         file[text.find("LAYR")] = 'X';
         CHECK(load_project(file, *back, *back_bank).empty() && !back->tracks[3].pads[70].layered() && back->tracks[3].pads[70].sample == 4);
         // A bank file carries them: the layers' files after the pads' own.
-        std::snprintf(project->samples[4].path, sizeof(project->samples[4].path), "a.wav");
-        std::snprintf(project->samples[5].path, sizeof(project->samples[5].path), "b.wav");
-        std::snprintf(project->samples[6].path, sizeof(project->samples[6].path), "c.wav");
+        std::snprintf(project->samples.edit(4).path, sizeof(SampleRef::path), "a.wav");
+        std::snprintf(project->samples.edit(5).path, sizeof(SampleRef::path), "b.wav");
+        std::snprintf(project->samples.edit(6).path, sizeof(SampleRef::path), "c.wav");
         auto bank_file = bank_of(*project, 3, 4, "LAYERED"); // bank E: pads 64-79
         CHECK(bank_file.pads[6].sample == 0 && bank_file.pads[6].layers[0].sample == bank_pads && bank_file.pads[6].layers[1].sample == bank_pads + 1);
         BankFile loaded;
@@ -13478,7 +13477,7 @@ void instrument_formats_p3() {
         auto project = std::make_unique<Project>();
         auto& t = project->tracks[0];
         t.engine = EngineKind::Sampler; t.levels = true; t.levels_pad = 3; t.octave = kit_level_octave;
-        auto& ref = project->samples[5];
+        auto& ref = project->samples.edit(5);
         std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Kit.dspreset");
         t.pads[3].sample = 5; t.pads[3].pitch = 2;
         for (int k : {60, 62, 65}) ref.keys[unsigned(k) / 64] |= uint64_t(1) << (unsigned(k) % 64);
@@ -13501,7 +13500,7 @@ void instrument_formats_p3() {
         t.levels_kind = uint8_t(LevelsKind::Velocity); CHECK(levels_opening(*project, t) == LevelsKind::Velocity);
         t.levels_kind = uint8_t(LevelsKind::Zones);
         // a plain sample's pad has no Zones: it plays as Scale
-        std::snprintf(project->samples[6].path, sizeof(project->samples[6].path), "/media/card/Samples/Hit.wav");
+        std::snprintf(project->samples.edit(6).path, sizeof(SampleRef::path), "/media/card/Samples/Hit.wav");
         t.pads[4].sample = 6; t.levels_pad = 4;
         CHECK(!levels_of(*project, t, 0).none && levels_types(*project, t, types) == 5 && levels_opening(*project, t) == LevelsKind::Scale);
     }
@@ -13512,8 +13511,8 @@ void chop_kept() {
     // A sample's chop is kept in its WAV file (shell/mpc_wav_slices.h), not in the project: a save leaves it out.
     auto project = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
-    std::snprintf(project->samples[7].path, sizeof(project->samples[7].path), "break.wav");
-    auto& c = project->chops[7];
+    std::snprintf(project->samples.edit(7).path, sizeof(SampleRef::path), "break.wav");
+    auto& c = project->chops.edit(7);
     c.from = 1000; c.to = 90000; c.mode = ChopMode::Manual; c.amount = 0;
     c.slices.whole(1000, 90000); c.slices.add(20000, 100000); c.slices.add(51000, 100000);
     auto file = save_project(*project, *bank);
@@ -13562,6 +13561,158 @@ void samples_used() {
     for (unsigned n = 0; n < sample_slots; ++n) CHECK(used[n] == (n == 2 || n == 5 || n == 11 || n == 20));
     edits.undo(); // a redo keeps them too
     CHECK(samples_in_use(*project, edits)[20]);
+}
+
+// A project's samples have no count to run out of: the tables keep the slots written (model/slot_table.h), the file
+// keeps the slots past the first 64 in SMPX, the engine plays them, and a load is refused only where memory cannot
+// take it (shell/sample_memory.h).
+void samples_unlimited() {
+    // The tables: a slot never written reads empty and holds nothing; the first write into a block of 64 makes it.
+    {
+        SlotTable<SampleRef> table;
+        CHECK(table.blocks_held() == 0 && table.span() == 0);
+        CHECK(!table[0].used() && !table[sample_slots - 1].used() && !table[sample_slots + 5].used());
+        CHECK(table.blocks_held() == 0); // reading made none
+        const SampleRef* first = &table.edit(3);
+        std::snprintf(table.edit(3).path, sizeof(SampleRef::path), "/a.wav");
+        CHECK(table.blocks_held() == 1 && table.span() == 64 && table[3].used() && !table[4].used());
+        std::snprintf(table.edit(5000).path, sizeof(SampleRef::path), "/b.wav");
+        CHECK(table.blocks_held() == 2 && table.span() == 5056 && first == &table[3]); // a reference stays good as it grows
+        unsigned used = 0, walked = 0;
+        for (const auto& ref : table) { used += ref.used(); ++walked; }
+        CHECK(used == 2 && walked == sample_slots);
+        SlotTable<SampleRef> copy = table; // a copy holds what the table holds
+        CHECK(copy.blocks_held() == 2 && std::string(copy[3].path) == "/a.wav" && std::string(copy[5000].path) == "/b.wav");
+        const SampleRef* kept = &copy[3];
+        table.edit(3).frames = 7;
+        copy = table; // copied over again (the screen's, each frame): into the blocks it has
+        CHECK(&copy[3] == kept && copy[3].frames == 7);
+        copy = SlotTable<SampleRef> {};
+        CHECK(copy.blocks_held() == 0 && !copy[3].used());
+        // In a project a table is its blocks' pointers: what a copy of the project carries is the slots in use.
+        CHECK(sizeof(SlotTable<SampleRef>) == sizeof(void*) * (sample_slots / SlotTable<SampleRef>::block_slots));
+        CHECK(sample_slots >= track_count * sampler_pads * pad_layers && preview_slot == sample_slots && no_sample > preview_slot);
+    }
+    // 401 samples across four kits: saved, loaded.
+    auto project = std::make_unique<Project>();
+    auto bank = std::make_unique<PatternBank>();
+    for (unsigned t = 0; t < 4; ++t) {
+        load_sound(project->tracks[t], EngineKind::Sampler, 0);
+        for (unsigned pad = 0; pad < 100; ++pad) {
+            const unsigned slot = t * 100 + pad;
+            auto& ref = project->samples.edit(slot);
+            std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Kit %u/Hit %u.wav", t + 1, pad + 1);
+            std::snprintf(ref.name, sizeof(ref.name), "HIT %u", slot);
+            project->tracks[t].pads[pad].sample = uint16_t(slot);
+        }
+    }
+    const unsigned last = sample_slots - 1;
+    std::snprintf(project->samples.edit(last).path, sizeof(SampleRef::path), "/media/card/Samples/Last.wav");
+    project->tracks[3].pads[127].sample = uint16_t(last);
+    project->tracks[2].pads[5].layers[0].sample = 390; // a layer on a slot past the first 64
+    CHECK(set_trim(project->tracks[0].zone_trims, 3, 2, 3, -20, 15));    // zone trims: a slot in the first 64,
+    CHECK(set_trim(project->tracks[1].zone_trims, 7, 4, 107, 30, -40));  // one past them,
+    CHECK(set_trim(project->tracks[3].zone_trims, 10, 9, 310, -5, 60));  // and one past a byte
+    auto bytes = save_project(*project, *bank);
+    auto bodies = [&](const char* tag) { // the file's sections of one kind
+        std::vector<std::vector<uint8_t>> out;
+        for (size_t at = 8; at + 8 <= bytes.size();) {
+            const size_t n = size_t(bytes[at + 4]) | size_t(bytes[at + 5]) << 8 | size_t(bytes[at + 6]) << 16 | size_t(bytes[at + 7]) << 24;
+            if (!std::memcmp(&bytes[at], tag, 4)) out.emplace_back(bytes.begin() + long(at + 8), bytes.begin() + long(at + 8 + n));
+            at += 8 + n;
+        }
+        return out;
+    };
+    {
+        // The first 64 slots in SMPL, the slot a byte, as a build that holds 64 reads them; the rest in SMPX, which
+        // it skips (its pads on those slots open empty).
+        const auto smpl = bodies("SMPL"), smpx = bodies("SMPX");
+        CHECK(smpl.size() == legacy_sample_slots && smpx.size() == 401 - legacy_sample_slots);
+        for (const auto& body : smpl) CHECK(body[0] < legacy_sample_slots);
+        for (const auto& body : smpx) CHECK(unsigned(body[0] | body[1] << 8) >= legacy_sample_slots);
+        CHECK(bodies("ZTRM").size() == 1 && bodies("ZTRX").size() == 2);
+    }
+    auto back = std::make_unique<Project>();
+    auto back_bank = std::make_unique<PatternBank>();
+    CHECK(load_project(bytes, *back, *back_bank).empty());
+    for (unsigned t = 0; t < 4; ++t)
+        for (unsigned pad = 0; pad < 100; ++pad) {
+            const unsigned slot = t * 100 + pad;
+            CHECK(back->tracks[t].pads[pad].sample == slot);
+            CHECK(std::string(back->samples[slot].path) == project->samples[slot].path && std::string(back->samples[slot].name) == project->samples[slot].name);
+        }
+    CHECK(back->tracks[3].pads[127].sample == last && std::string(back->samples[last].path) == "/media/card/Samples/Last.wav");
+    CHECK(back->tracks[2].pads[5].layers[0].sample == 390);
+    CHECK(!back->samples[400].used() && !back->samples[last - 1].used());
+    CHECK(back->samples.blocks_held() == 8 && back->chops.blocks_held() == 0); // 400 slots in seven blocks, and the last
+    const ZoneTrim* trim = find_trim(back->tracks[0].zone_trims, 3, 2, 3);
+    CHECK(trim && trim->tune == -20 && trim->level == 15);
+    trim = find_trim(back->tracks[1].zone_trims, 7, 4, 107);
+    CHECK(trim && trim->tune == 30 && trim->level == -40);
+    trim = find_trim(back->tracks[3].zone_trims, 10, 9, 310);
+    CHECK(trim && trim->tune == -5 && trim->level == 60);
+    // A project of 64 samples is written as it always was (SMPL and ZTRM alone), and loads.
+    {
+        auto small = std::make_unique<Project>();
+        load_sound(small->tracks[0], EngineKind::Sampler, 0);
+        for (unsigned n = 0; n < legacy_sample_slots; ++n) {
+            std::snprintf(small->samples.edit(n).path, sizeof(SampleRef::path), "/media/card/Samples/S%u.wav", n);
+            small->tracks[0].pads[n].sample = uint16_t(n);
+        }
+        CHECK(set_trim(small->tracks[0].zone_trims, 63, 1, 63, 10, -10));
+        bytes = save_project(*small, *bank);
+        CHECK(bodies("SMPL").size() == 64 && bodies("SMPX").empty() && bodies("ZTRM").size() == 1 && bodies("ZTRX").empty());
+        auto opened = std::make_unique<Project>();
+        CHECK(load_project(bytes, *opened, *back_bank).empty());
+        CHECK(opened->tracks[0].pads[63].sample == 63 && std::string(opened->samples[63].path) == "/media/card/Samples/S63.wav");
+        trim = find_trim(opened->tracks[0].zone_trims, 63, 1, 63);
+        CHECK(trim && trim->tune == 10 && trim->level == -10 && opened->samples.blocks_held() == 1);
+    }
+    // Played: a line of hits on a pad whose sample is in slot `slot`, the project through its file first.
+    auto energy = [](unsigned slot, bool offered) {
+        auto kit = std::make_unique<Project>();
+        auto patterns = std::make_unique<PatternBank>();
+        load_sound(kit->tracks[0], EngineKind::Sampler, 0);
+        std::snprintf(kit->samples.edit(slot).path, sizeof(SampleRef::path), "/media/card/Samples/Tone.wav");
+        kit->tracks[0].pads[0].sample = uint16_t(slot);
+        for (unsigned s = 0; s < 16; ++s) put(patterns->at[0][0], s, uint8_t(sampler_first_note), 100);
+        auto opened = std::make_unique<Project>();
+        auto opened_patterns = std::make_unique<PatternBank>();
+        CHECK(load_project(save_project(*kit, *patterns), *opened, *opened_patterns).empty());
+        auto host = std::make_unique<EngineHost>();
+        host->load(*opened, *opened_patterns);
+        auto tone = tone_sample();
+        if (offered) CHECK(host->offer_sample(slot, &tone));
+        host->send({Command::Type::Play});
+        std::vector<int32_t> out(256);
+        double sum = 0;
+        for (unsigned n = 0; n < 200; ++n) {
+            host->render(out.data(), 128, 1);
+            for (auto v : out) sum += double(v / 2147483648.0f) * (v / 2147483648.0f);
+        }
+        return sum;
+    };
+    const double first = energy(0, true);
+    CHECK(first > 1 && energy(300, false) == 0); // heard, and nothing where the slot holds no sample
+    for (unsigned slot : {64u, 300u, 4097u, sample_slots - 1}) CHECK(std::fabs(energy(slot, true) - first) < first * 1e-6);
+    // Memory: a load must leave 256 MB free; a host does not say what is free, and is allowed.
+    const uint64_t mb = uint64_t(1) << 20;
+    CHECK(memory_headroom == 256 * mb && kit_sample_seconds == 60);
+    CHECK(memory_allows(0, 500 * mb));
+    CHECK(memory_allows(memory_headroom + 10 * mb, 10 * mb) && !memory_allows(memory_headroom + 10 * mb, 10 * mb + 1));
+    CHECK(!memory_allows(memory_headroom - 1, 0) && !memory_allows(100 * mb, 1) && memory_allows(memory_headroom, 0));
+    // What a kit sample takes: a second of stereo floats at 44.1 kHz is 352800 bytes, at 48 kHz 384000.
+    CHECK(kit_sample_bytes(44100, 44100, 44100) == 352800);                       // the device at 44.1 kHz: no copy
+    CHECK(kit_sample_bytes(44100, 44100, 48000) == 352800 + 384000);              // and its copy at the device's 48 kHz
+    CHECK(kit_sample_bytes(48000, 48000, 48000) == 352800 + 384000);              // a 48 kHz file: its own frames are the copy
+    CHECK(kit_sample_bytes(96000, 96000, 48000) == 352800 + 384000 + 768000);     // a 96 kHz file: its own frames while it is converted
+    CHECK(kit_sample_bytes(uint64_t(600) * 44100, 44100, 44100) == uint64_t(60) * 352800); // no more than 60 s is read
+    CHECK(kit_sample_bytes(1000, 0, 48000) == 0);
+    // With 1.5 GB free at 48 kHz, one-second hits are let in until 256 MB is left: 1770 of them.
+    uint64_t free = 1500 * mb;
+    unsigned taken = 0;
+    while (memory_allows(free, kit_sample_bytes(44100, 44100, 48000))) { free -= kit_sample_bytes(44100, 44100, 48000); ++taken; }
+    CHECK(taken == (1500 * mb - memory_headroom) / (352800 + 384000) && taken > 1024 && free >= memory_headroom);
 }
 
 // Roadmap P3: a 16 Levels Filter note kept by Seq Record plays at its cutoff (LVCF), the pad's own filter otherwise.
@@ -15038,7 +15189,7 @@ void prints_f2a() {
     CHECK(changed([](Project& p, PatternBank&) { p.tracks[0].fx.slots[0].params[1] = 77; }));                 // its chain
     CHECK(changed([](Project& p, PatternBank&) { p.tempo = 1200; }));
     CHECK(changed([](Project& p, PatternBank&) { p.tracks[0].speed = 3; }));
-    CHECK(changed([](Project& p, PatternBank&) { std::snprintf(p.samples[0].path, sizeof(p.samples[0].path), "/media/card/Other.wav"); }));
+    CHECK(changed([](Project& p, PatternBank&) { std::snprintf(p.samples.edit(0).path, sizeof(SampleRef::path), "/media/card/Other.wav"); }));
     CHECK(hash(*project, *bank, PrintTap::PreFx) != h && hash(*project, *bank, PrintTap::PostFx, PrintTail::Ring) != h);
     CHECK(hash(*project, *bank, PrintTap::PostFx, PrintTail::Loop, 44100) != h); // printed at another rate
     {   // a plug-in's state counts only where the track uses it
@@ -15586,8 +15737,8 @@ void pad_colours() {
     auto bank = std::make_unique<PatternBank>();
     auto& kit = project->tracks[1];
     kit.engine = EngineKind::Sampler;
-    std::snprintf(project->samples[0].path, sizeof(project->samples[0].path), "Samples/Kick.wav");
-    project->samples[0].frames = 44100;
+    std::snprintf(project->samples.edit(0).path, sizeof(SampleRef::path), "Samples/Kick.wav");
+    project->samples.edit(0).frames = 44100;
     kit.pads[5].sample = 0; kit.pads[7].sample = 0;
     kit.last_pad = 5;
     UiState ui;
@@ -15759,8 +15910,8 @@ void pad_sends_mix() {
     auto bank = std::make_unique<PatternBank>();
     auto& kit = project->tracks[1];
     kit.engine = EngineKind::Sampler;
-    std::snprintf(project->samples[0].path, sizeof(project->samples[0].path), "Samples/Snare.wav");
-    project->samples[0].frames = 44100;
+    std::snprintf(project->samples.edit(0).path, sizeof(SampleRef::path), "Samples/Snare.wav");
+    project->samples.edit(0).frames = 44100;
     for (unsigned n : {0u, 1u, 2u}) kit.pads[n].sample = 0;
     kit.pads[1].sends = {30, 0, 0, 0}; kit.pads[2].sends = {15, 0, 0, 0}; kit.mix.sends = {20, 0, 0, 0};
     kit.last_pad = 1;
@@ -15798,8 +15949,8 @@ void pad_sends_stage() {
     auto bank = std::make_unique<PatternBank>();
     auto& kit = project->tracks[1];
     kit.engine = EngineKind::Sampler;
-    std::snprintf(project->samples[0].path, sizeof(project->samples[0].path), "Samples/Snare.wav");
-    project->samples[0].frames = 44100;
+    std::snprintf(project->samples.edit(0).path, sizeof(SampleRef::path), "Samples/Snare.wav");
+    project->samples.edit(0).frames = 44100;
     for (unsigned n : {0u, 1u, 2u}) kit.pads[n].sample = 0;
     kit.pads[1].sends = {30, 0, 0, 0}; kit.pads[2].sends = {15, 40, 0, 0}; kit.mix.sends = {20, 0, 0, 0};
     kit.last_pad = 1;
@@ -15929,8 +16080,8 @@ void pad_sends() {
     auto bank = std::make_unique<PatternBank>();
     auto& kit = project->tracks[2];
     kit.engine = EngineKind::Sampler;
-    std::snprintf(project->samples[0].path, sizeof(project->samples[0].path), "Samples/Snare.wav");
-    project->samples[0].frames = 44100;
+    std::snprintf(project->samples.edit(0).path, sizeof(SampleRef::path), "Samples/Snare.wav");
+    project->samples.edit(0).frames = 44100;
     kit.pads[1].sample = 0; kit.pads[2].sample = 0;
     kit.pads[1].sends = {30, 0, 0, 100}; kit.pads[2].sends = {15, 0, 0, 0}; kit.pads[9].sends = {50, 0, 0, 0};
     auto file = save_project(*project, *bank);
@@ -15975,8 +16126,8 @@ void pad_cloud() {
     auto bank = std::make_unique<PatternBank>();
     auto& kit = project->tracks[2];
     kit.engine = EngineKind::Sampler;
-    std::snprintf(project->samples[0].path, sizeof(project->samples[0].path), "Samples/Pad.wav");
-    project->samples[0].frames = 44100;
+    std::snprintf(project->samples.edit(0).path, sizeof(SampleRef::path), "Samples/Pad.wav");
+    project->samples.edit(0).frames = 44100;
     kit.pads[1].sample = 0; kit.pads[2].sample = 0;
     kit.pads[1].cloud = true; kit.pads[1].cloud_position = 70; kit.pads[1].cloud_scan = 90;
     auto file = save_project(*project, *bank);
@@ -16078,6 +16229,7 @@ int main() {
     delay_compensation_p4();
     chop_kept();
     samples_used();
+    samples_unlimited();
     levels_cutoff_kept();
     pad_link_chains();
     loop_seams();

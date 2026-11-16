@@ -1259,7 +1259,15 @@ read them back.
 ### Sampler
 
 A kit has 128 pads in eight banks (A–H), each a region of one of the
-project's 64 samples. Samples are WAV (16, 24 or 32-bit PCM or float), MP3,
+project's samples. A project has no count of samples to run out of: it has
+a slot for every layer of every pad of every track (8192,
+`model/sampler.h`), and the tables kept for each slot hold only the slots
+in use (`model/slot_table.h`). What limits a project is memory. A kit pad's
+sample is read whole into memory, so before a file is read the memory it
+will take is worked out from its length and rate, and it is refused where
+that would leave less than 256 MB free (`shell/sample_memory.h`; the MPC
+has 2 GB and no swap): the pad stays silent, its TRIM page says `Memory
+full`, and a notice says so once for the load. Samples are WAV (16, 24 or 32-bit PCM or float), MP3,
 FLAC, Ogg Vorbis or AIFF (any rate, up to 60 s; an MP3's encoder delay and padding, from its
 LAME tag, trimmed), read on the service thread and handed whole to the audio
 thread. Each is kept at 44.1 kHz (the unit a project counts frames in) and,
@@ -1343,7 +1351,7 @@ the file holds, to the bit.
   and stream from there.
   Chop, Trim Sample, Save Sample, Normalize and Warp refuse on it; Cloud stays
   in the held start. SD card access lets go of instruments and reloads them
-  when the card comes back. An SFZ takes one of the project's 64 sample slots.
+  when the card comes back. An SFZ takes one of the project's sample slots.
 - **MPC keygroup programs** (`.xpm` in the browser, tagged XPM): load and
   stream as an SFZ does. Each keygroup is a key range and each of its layers a
   sample over a velocity range, found as its SampleName with `.WAV` beside the
@@ -1628,10 +1636,8 @@ the file holds, to the bit.
   was at SEPARATE: its region, loop, tune, warp, envelope and filter, and
   the sample's slices in Chop; without its layers, mute group and Pad Link,
   so the stems play together. Not for an instrument, nor a sample under a
-  second; it needs four empty pads and four free sample slots. Short of
-  slots, those nothing plays any more are freed first (as a save frees
-  them); still short, the sheet shows the samples in use where the time
-  was (`61/64`, amber) and SEPARATE is dim (`shell/stems_room.h`).
+  second; it needs four empty pads on the track, and without them SEPARATE
+  is dim (`shell/stems_room.h`).
   The separating is a program of its own, `melodee-stems`
   (`tools/stems/stems_engine.c`; `shell/stems.h`): Spleeter's 4-stem
   separation as Deezer's own program does it, on SpleeterRT's network
@@ -1859,7 +1865,7 @@ while following.
   the sample slots nothing uses any more (roadmap P3): a slot no pad's layer
   plays, no undo or redo could bring back, no file being made holds and
   Chop is not on is emptied, its chop with it, so the file keeps only what
-  plays and the 64 slots come back; nothing is deleted from the card. The header
+  plays and its audio leaves memory; nothing is deleted from the card. The header
   carries UNSAVED (amber) while there are changes. The list: files
   (`.mldp`) in `Melodee/Projects` on the card, in folders, each row a glyph
   first and its facts last: **SD card access** at the top, folders with how
@@ -1911,7 +1917,7 @@ while following.
   the filter types stock's Sample Mode offers. A pad of more than one layer
   keeps them all, as a drum program's does (`<project>.xpj#<track>.<pad>`).
   Not carried over: Pad FX and inserts, sends, and Songs. A project past
-  16 tracks, 16 sequences or 64 samples loses the rest and says so.
+  16 tracks or 16 sequences loses the rest and says so.
 - **SD card access** (Project's list, at the top; as the MPC's): the card
   goes to a computer over USB-C as a drive. The page draws the MPC and the
   computer with the link between them, and the three steps on the link,
@@ -2337,6 +2343,14 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
   `TRAK` and itself in `PLGT`, so older builds load them empty; `PLUG` holds
   each plug-in's path and state). Saved beside
   the file, then renamed into place.
+  A project's samples are `SMPL` sections, the slot in one byte, for its
+  first 64 slots, and `SMPX`, the slot in two, for the slots past them
+  (an instrument's zone trims likewise: `ZTRM`, `ZTRX`). A file of 64
+  samples or fewer is written as it always was. A build that holds 64
+  samples a project (v0.2.2 and older) opens a file with more: it skips
+  `SMPX`, so the pads and layers on the samples past the 64th open empty,
+  and the rest of the project plays. Saving the project from that build
+  writes it without those pads; to keep them, do not save it there.
 - `Melodee/Sounds/<name>.mlds`: a sound's values and mod routes.
 - `Melodee/Plugins/`: plug-ins, read only (above, "Plug-ins").
 - `Melodee/Plugin Data/`: the plug-ins' home: their presets and settings
@@ -2557,4 +2571,5 @@ install still goes on the card: the stock web page only takes Akai firmware,
 and it is there again once Melodee has stopped.
 
 Limits that are single constants (`model/limits.h`): 16 tracks, 16
-patterns a track, 8 mod routes, 8192 motion points a pattern, 64 samples.
+patterns a track, 8 mod routes, 8192 motion points a pattern. Samples have
+no such limit (above, "Sampler").

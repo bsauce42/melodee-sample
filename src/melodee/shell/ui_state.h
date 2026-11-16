@@ -97,8 +97,8 @@ struct UiState {
     // instrument has is known once its own file is read; one not read yet counts as one).
     uint16_t loading_samples = 0, loading_samples_in = 0;
     uint16_t loading_files = 0, loading_files_in = 0;
-    uint8_t loading_instruments = 0;
-    int8_t loading_slot = -1;                   // the sample slot being read now (its name is shown); -1 none
+    uint16_t loading_instruments = 0;
+    int16_t loading_slot = -1;                  // the sample slot being read now (its name is shown); -1 none
     uint16_t loading_bar = 0;                   // the bar, 0..1000: it never goes back
     bool exit_off = false;         // the Exit sheet's POWER OFF chosen: saving, then the MPC turns off
     bool exit_saved = false;       // and the project is on the card: the sheet says so for a second first

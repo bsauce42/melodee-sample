@@ -47,7 +47,7 @@ void commit_loop(Context& c, unsigned loop, bool note) {
     if (kit < 0) { c.notice("No empty pad"); return; }
     int slot = c.hold_file(name + " Loop", c.ui.track, kit, 1);
     if (slot < 0) { c.notice("Commit: samples full"); return; }
-    if (!c.library->commit_loop({uint8_t(slot), uint8_t(loop)})) { c.drop_file(slot); c.notice("Commit: busy"); return; }
+    if (!c.library->commit_loop({uint16_t(slot), uint8_t(loop)})) { c.drop_file(slot); c.notice("Commit: busy"); return; }
     if (note) { // one note at bar 1, as long as the loop (the pattern made long enough), and the loop stops: the pad plays it now
         unsigned ticks = unsigned(std::max(1.0, std::round(v.ticks)));
         unsigned bar = c.project.bar_ticks();

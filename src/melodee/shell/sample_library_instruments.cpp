@@ -12,6 +12,7 @@
 #include "melodee/shell/mpc_program.h"
 #include "melodee/shell/sample_decode.h"
 #include "melodee/shell/sample_library.h"
+#include "melodee/shell/sample_memory.h"
 #include "melodee/shell/sf2_file.h"
 #include "melodee/shell/dspreset_file.h"
 #include <algorithm>
@@ -63,19 +64,6 @@ fs::path find_beside(const fs::path& folder, const std::string& relative) {
         if (!found) return {};
     }
     return at;
-}
-
-// What memory can be pinned; 0 where the system does not say (a host).
-uint64_t memory_free() {
-    std::ifstream info("/proc/meminfo");
-    std::string name;
-    uint64_t kb = 0;
-    while (info >> name >> kb) {
-        if (name == "MemAvailable:") return kb * 1024;
-        std::string rest;
-        std::getline(info, rest);
-    }
-    return 0;
 }
 
 std::string joined(const std::set<std::string>& names) {
@@ -289,7 +277,7 @@ bool SampleLibrary::begin_landing(InstrumentRead& from) {
         ++load_log.failed;
         {
             std::lock_guard<std::mutex> guard(lock);
-            known.slots[slot] = loaded;
+            show(slot).sample = loaded;
             changes.fetch_add(1, std::memory_order_release);
         }
         set_slot_state(slot, true, true);
@@ -298,7 +286,7 @@ bool SampleLibrary::begin_landing(InstrumentRead& from) {
     };
     auto landing = std::make_shared<Landing>();
     Landing& l = *landing;
-    l.slot = uint8_t(slot);
+    l.slot = uint16_t(slot);
     l.folder = fs::path(request.path).parent_path().string();
     {
         std::string file;
@@ -310,10 +298,7 @@ bool SampleLibrary::begin_landing(InstrumentRead& from) {
     if (cache.folder().empty()) return finish_with("No card");
     uint64_t held = 0; // what stays in memory: each zone's start, and its loop's
     for (const auto& r : from.read.regions) held += stream_chunk_bytes * 4 * (1 + (r.zone.loop != ZoneLoop::Off || r.zone.loop_end));
-    if (uint64_t free = memory_free()) {
-        const uint64_t headroom = uint64_t(256) << 20;
-        if (free < headroom || held > free - headroom) return finish_with("Too big for memory");
-    }
+    if (!memory_allows(memory_free(), held)) return finish_with("Too big for memory");
     l.read = from.read; // kept in `from` too, should the audio thread's queue be full
     auto multi = std::make_shared<Multisample>();
     std::map<std::string, uint16_t> part_of;
@@ -370,10 +355,12 @@ bool SampleLibrary::begin_landing(InstrumentRead& from) {
     {
         std::lock_guard<std::mutex> guard(lock);
         data_of[slot] = data.get();
-        known.slots[slot] = loaded;
-        part_names[slot] = l.names;
+        auto& shown = show(slot);
+        shown.sample = loaded;
+        shown.parts = l.names;
         changes.fetch_add(1, std::memory_order_release);
     }
+    slot_held[slot].store(true, std::memory_order_relaxed);
     owned.push_back(std::move(data));
     set_slot_state(slot, false, true, multi->part_count, 0);
     landings.push_back(landing);
@@ -556,30 +543,40 @@ bool SampleLibrary::release_instruments() {
     // they are (they are put down and asked for again below), and what the pool is in the middle of is waited for.
     for (const auto& l : landings) l->cancelled.store(true, std::memory_order_relaxed);
     if (!pool.wait_idle(8000)) { // a file still being laid out: the card stays, and what was stopped is asked for again
-        std::vector<std::pair<uint8_t, std::string>> stopped;
+        std::vector<std::pair<uint16_t, std::string>> stopped;
         {
             std::lock_guard<std::mutex> guard(lock);
-            for (const auto& l : landings) stopped.emplace_back(l->slot, known.slots[l->slot].path);
+            for (const auto& l : landings) stopped.emplace_back(l->slot, shown_at(l->slot).path);
         }
         away.insert(away.end(), stopped.begin(), stopped.end());
         restore_instruments();
         return false;
     }
-    std::vector<std::pair<uint8_t, std::string>> putting;
+    std::vector<std::pair<uint16_t, std::string>> putting;
     {
         std::lock_guard<std::mutex> guard(lock);
         for (unsigned n = 0; n < sample_slots; ++n)
-            if (data_of[n] && data_of[n]->multi) putting.emplace_back(uint8_t(n), known.slots[n].path);
+            if (data_of[n] && data_of[n]->multi) putting.emplace_back(uint16_t(n), shown_at(n).path);
     }
-    for (const auto& [slot, path] : putting) {
-        (void)path;
-        if (!host.offer_sample(slot, nullptr)) return false;
+    // Each put down as the audio thread's queue has room (it takes them a block at a time), what it lets go of
+    // taken back meanwhile. One it does not take in half a second (it is not running): those put down come back.
+    size_t put = 0;
+    for (; put < putting.size(); ++put) {
+        const unsigned slot = putting[put].first;
+        bool offered = false;
+        for (unsigned tries = 0; tries < 500 && !offered; ++tries) {
+            reap();
+            offered = host.offer_sample(slot, nullptr);
+            if (!offered) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        if (!offered) break;
         cancel_landing(slot);
         std::lock_guard<std::mutex> guard(lock);
-        known.slots[slot] = LoadedSample {};
+        slot_shown[slot].reset();
         changes.fetch_add(1, std::memory_order_release);
     }
-    away.insert(away.end(), putting.begin(), putting.end());
+    away.insert(away.end(), putting.begin(), putting.begin() + std::ptrdiff_t(put));
+    if (put < putting.size()) { restore_instruments(); return false; }
     forget_sf2_files(); // roadmap P3: no .sf2 kept mapped while the card is lent
     // The audio thread lets them go on its next block; the mappings must be gone before the card is unmounted.
     for (unsigned n = 0; n < 500; ++n) {

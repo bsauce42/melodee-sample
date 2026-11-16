@@ -49,8 +49,6 @@ void Context::open_stems_sheet() {
     sheet.pad = uint8_t(kit);
     sheet.sample = sound.sample;
     sheet.frames = ref.frames;
-    // Samples nothing plays any more (a pad erased since the last save) make room now, so the sheet counts true.
-    if (!stems_room(project, sheet.track, sheet.pad).enough_samples()) free_unused_samples();
     if (ui.page != PageId::Stems) open(PageId::Stems);
 }
 
@@ -60,13 +58,9 @@ void Context::stems_sheet_go() {
     const auto& t = project.tracks[sheet.track % track_count];
     const auto& sound = t.pads[sheet.pad % sampler_pads];
     if (!sound.used() || sound.sample != sheet.sample) { notice("Stems: the pad changed"); back(); return; }
-    // A project holds 64 samples and a job adds four: those nothing plays any more go first (as a save frees them).
-    if (!stems_room(project, sheet.track, sheet.pad).enough_samples()) free_unused_samples();
-    const auto room = stems_room(project, sheet.track, sheet.pad);
-    if (!room.enough_samples()) { notice("Stems: 4 free samples needed"); return; } // the sheet shows how many there are
-    if (!room.enough_pads()) { notice("Stems: 4 empty pads needed"); return; }
+    if (!stems_room(project, sheet.track, sheet.pad).enough()) { notice("Stems: 4 empty pads needed"); return; }
     SampleLibrary::StemsRequest request;
-    request.source = uint8_t(sheet.sample % sample_slots);
+    request.source = uint16_t(sheet.sample % sample_slots);
     std::snprintf(request.name, sizeof(request.name), "%s", stems_base(project.samples[sheet.sample % sample_slots]).c_str());
     if (!library->separate(request)) { notice("Stems: busy"); return; }
     stems_from = {sheet.track, sheet.pad, sound};
@@ -94,7 +88,7 @@ void Context::stems_tick() {
             unsigned held = 0;
             while (held < pending_files.size() && pending_files[held].slot >= 0) ++held;
             const int slot = held < pending_files.size() ? sample_slot(made.paths[n], std::filesystem::path(made.paths[n]).stem().string()) : -1;
-            if (slot < 0) { notice(held < pending_files.size() ? "Stems: 4 free samples needed" : "Stems: busy"); break; }
+            if (slot < 0) { notice(held < pending_files.size() ? "Stems: samples full" : "Stems: busy"); break; }
             pending_files[held] = {int16_t(slot), stems_from.track, int16_t(stems_from.pad), false, stems_from.sound, uint8_t(stems_land + n)};
         }
         if (ui.page == PageId::Stems) back();
@@ -123,7 +117,7 @@ void Context::stems_landed() {
         *held[n] = PendingFile {};
         const unsigned t = was.track % track_count;
         auto& track = project.tracks[t];
-        auto& ref = project.samples[size_t(was.slot)];
+        auto& ref = project.samples.edit(size_t(was.slot));
         const auto loaded = library->slot(unsigned(was.slot));
         if (!loaded.ready) { ref = SampleRef {}; continue; } // its file could not be read
         std::snprintf(ref.path, sizeof(ref.path), "%s", loaded.path.c_str());
@@ -145,7 +139,7 @@ void Context::stems_landed() {
         now.sound.layer_play = LayerPlay::Velocity;
         now.sound.group = 0; // the stems play together
         now.sound.link = 0;
-        if (was.sound.sample < sample_slots) project.chops[size_t(was.slot)] = project.chops[was.sound.sample]; // its slices, in Chop
+        if (was.sound.sample < sample_slots) project.chops.edit(size_t(was.slot)) = project.chops[was.sound.sample]; // its slices, in Chop
         restore_pad(t, unsigned(kit), now);
         edit.pads_after.emplace_back(uint8_t(kit), now);
         if (!placed_any) first = unsigned(kit);

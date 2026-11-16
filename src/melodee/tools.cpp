@@ -76,9 +76,9 @@ void drum_kit(Project& project, unsigned t) {
     load_sound(project.tracks[t], EngineKind::Sampler, 0);
     project.tracks[t].set_name("DRUMS");
     for (unsigned n = 0; n < 3; ++n) {
-        std::snprintf(project.samples[n].path, sizeof(project.samples[n].path), "/media/card/Samples/%s.wav", drum_names[n]);
-        std::snprintf(project.samples[n].name, sizeof(project.samples[n].name), "%s", drum_names[n]);
-        project.samples[n].frames = 22050;
+        std::snprintf(project.samples.edit(n).path, sizeof(SampleRef::path), "/media/card/Samples/%s.wav", drum_names[n]);
+        std::snprintf(project.samples.edit(n).name, sizeof(SampleRef::name), "%s", drum_names[n]);
+        project.samples.edit(n).frames = 22050;
         project.tracks[t].pads[n].sample = uint16_t(n);
         project.tracks[t].pads[n].play = PadPlay::OneShot;
     }
@@ -187,12 +187,12 @@ void board_project(Shell& shell) {
         const char* names[] {"KICK", "SNARE", "HAT", "OPEN", "BREAK"};
         const uint32_t lengths[] {22050, 26460, 8820, 30870, 230087};
         for (unsigned n = 0; n < 5; ++n) {
-            std::snprintf(project.samples[n].path, sizeof(project.samples[n].path), "/media/card/Samples/%s.wav", names[n]);
-            std::snprintf(project.samples[n].name, sizeof(project.samples[n].name), "%s", names[n]);
-            project.samples[n].frames = lengths[n];
+            std::snprintf(project.samples.edit(n).path, sizeof(SampleRef::path), "/media/card/Samples/%s.wav", names[n]);
+            std::snprintf(project.samples.edit(n).name, sizeof(SampleRef::name), "%s", names[n]);
+            project.samples.edit(n).frames = lengths[n];
         }
         const char* short_names[] {"Kick", "Snare", "Hat", "Open"};
-        for (unsigned n = 0; n < 4; ++n) { kit.pads[n].sample = uint16_t(n); std::snprintf(project.samples[n].name, sizeof(project.samples[n].name), "%s", short_names[n]); }
+        for (unsigned n = 0; n < 4; ++n) { kit.pads[n].sample = uint16_t(n); std::snprintf(project.samples.edit(n).name, sizeof(SampleRef::name), "%s", short_names[n]); }
         for (unsigned n = 0; n < 12; ++n) {
             kit.pads[4 + n].sample = 4; kit.pads[4 + n].start = 230087 * n / 12; kit.pads[4 + n].end = 230087 * (n + 1) / 12;
         }
@@ -250,7 +250,7 @@ void pad_waves(Snapshot& s) {
 // every velocity, all its files read, Note On as a loaded instrument is.
 void choir_pad(Snapshot& s, unsigned pad) {
     auto& sound = s.project.tracks[3].pads[pad % sampler_pads];
-    auto& ref = s.project.samples[sound.sample % sample_slots];
+    auto& ref = s.project.samples.edit(sound.sample % sample_slots);
     std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Choir/Choir.exs");
     std::snprintf(ref.name, sizeof(ref.name), "CHOIR");
     ref.frames = 0;
@@ -274,7 +274,7 @@ void choir_pad(Snapshot& s, unsigned pad) {
 // The same pad holding a felt piano SFZ: A0..C8 in 30 key ranges, three velocity layers, two turns of round robin.
 void piano_pad(Snapshot& s, unsigned pad) {
     auto& sound = s.project.tracks[3].pads[pad % sampler_pads];
-    auto& ref = s.project.samples[sound.sample % sample_slots];
+    auto& ref = s.project.samples.edit(sound.sample % sample_slots);
     std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Piano/Piano.sfz");
     std::snprintf(ref.name, sizeof(ref.name), "PIANO");
     ref.frames = 0;
@@ -1606,15 +1606,8 @@ const Preview previews[] {
          auto& pad = s.project.tracks[3].pads[8]; pad.start = 18000; pad.end = 150000;
          s.ui.turning = 0; s.ui.turned_at = s.now;
      }},
-    // The STEMS sheet (Shift + B3 on a kit pad's TRIM): before SEPARATE, with no room for four more samples, and the
-    // job two thirds done.
+    // The STEMS sheet (Shift + B3 on a kit pad's TRIM): before SEPARATE, and the job two thirds done.
     {"stems", [](Shell&, Snapshot& s) { stems_scene(s); }},
-    {"stemsfull", [](Shell&, Snapshot& s) { // 61 of the project's 64 samples in use: no room for four more
-         stems_scene(s);
-         unsigned used = 0;
-         for (const auto& ref : s.project.samples) used += ref.used();
-         for (auto& ref : s.project.samples) if (!ref.used() && used < 61) { std::snprintf(ref.path, sizeof(ref.path), "/card/Samples/Loop %u.wav", used); ++used; }
-     }},
     {"stemsrun", [](Shell&, Snapshot& s) {
          stems_scene(s);
          s.ui.stems_sheet.running = true;
@@ -1749,12 +1742,12 @@ const Preview previews[] {
          s.ui.page = PageId::Chop; s.ui.track = 3; s.sample = break_sample(); s.ui.chop_sample = 4;
          s.ui.slices = chop(ChopMode::Threshold, 40, 20000, 200000, s.sample.frames, s.sample.hits, s.sample.hit_count, 920);
          s.ui.chop_slice = 2; s.ui.chop_zoom = 45; s.ui.chop_focus = 1; s.ui.chop_fine = true;
-         s.project.samples[4].frames = s.sample.frames;
+         s.project.samples.edit(4).frames = s.sample.frames;
          s.ui.shift = true; s.ui.shift_used = true;
      }},
     {"chopfine", [](Shell&, Snapshot& s) { // K1 touched, zoomed in at the slice's start: the wheel's handle drawn wider
          s.ui.page = PageId::Chop; s.ui.track = 3; s.sample = break_sample(); s.ui.chop_sample = 4;
-         s.project.samples[4].frames = s.sample.frames;
+         s.project.samples.edit(4).frames = s.sample.frames;
          s.ui.slices = chop(ChopMode::Threshold, 40, 20000, 200000, s.sample.frames, s.sample.hits, s.sample.hit_count, 920);
          s.ui.chop_slice = 2; s.ui.chop_zoom = 30; s.ui.chop_focus = 0; s.ui.chop_fine = true; s.ui.turning = 0; s.ui.turned_at = s.now;
      }},
@@ -2363,7 +2356,7 @@ const Preview previews[] {
     {"trimzoom", [](Shell&, Snapshot& s) { // Shift + K1 turned: closer in round the start, smoothly (0-100%)
          on_stage(s, 3, 0, 0); s.sample = break_sample(); s.ui.shift = true;
          auto& pad = s.project.tracks[3].pads[8]; pad.start = 18000; pad.end = 150000;
-         s.project.samples[pad.sample % sample_slots].frames = s.sample.frames;
+         s.project.samples.edit(pad.sample % sample_slots).frames = s.sample.frames;
          s.ui.trim_zoom = 35; s.ui.trim_focus = 0; s.ui.last_pot = 0; s.ui.turning = 0; s.ui.turned_at = s.now;
      }},
     {"ampenv", [](Shell&, Snapshot& s) { s.ui.page = PageId::EnvelopePage; s.ui.track = 3; s.sample = break_sample(); s.playing = true;
@@ -2407,7 +2400,7 @@ const Preview previews[] {
          s.ui.page = PageId::Pads; s.ui.levels_held = true; s.ui.track = 3; s.playing = true;
          auto& t = s.project.tracks[3]; t.levels = true; t.levels_pad = 8; t.last_pad = 8; t.levels_kind = uint8_t(LevelsKind::Zones);
          t.octave = kit_level_octave;
-         auto& ref = s.project.samples[t.pads[8].sample % sample_slots];
+         auto& ref = s.project.samples.edit(t.pads[8].sample % sample_slots);
          std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Percussion/Percussion.dspreset");
          std::snprintf(ref.name, sizeof(ref.name), "PERCUSSION");
          ref.frames = 0; ref.zones = 67; ref.keys = {};
@@ -2438,13 +2431,13 @@ const Preview previews[] {
     {"loading", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_total = s.ui.loading_left = s.ui.loading_samples = 40; std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
     {"loadingsamples", [](Shell&, Snapshot& s) {
          s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_samples = s.ui.loading_total = 40; s.ui.loading_samples_in = 28; s.ui.loading_left = 12;
-         s.ui.loading_bar = 700; s.ui.loading_slot = 3; std::strncpy(s.project.samples[3].name, "KICK LONG", sizeof s.project.samples[3].name - 1);
+         s.ui.loading_bar = 700; s.ui.loading_slot = 3; std::strncpy(s.project.samples.edit(3).name, "KICK LONG", sizeof(SampleRef::name) - 1);
          std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
     // A project with instruments: its samples in, its instruments' files landing, the one being read named.
     {"loadinginstruments", [](Shell&, Snapshot& s) {
          s.ui.page = PageId::Stage; s.ui.loading = true; s.ui.loading_samples = s.ui.loading_samples_in = 24; s.ui.loading_instruments = 3;
          s.ui.loading_files = 108; s.ui.loading_files_in = 61; s.ui.loading_total = 132; s.ui.loading_left = 47; s.ui.loading_bar = 643;
-         s.ui.loading_slot = 5; std::strncpy(s.project.samples[5].name, "GRAND PIANO", sizeof s.project.samples[5].name - 1);
+         s.ui.loading_slot = 5; std::strncpy(s.project.samples.edit(5).name, "GRAND PIANO", sizeof(SampleRef::name) - 1);
          std::strncpy(s.project.name, "PROJECT 1", sizeof s.project.name - 1); }},
     {"exitcard", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.exit_open = true; s.projects.root = "/media/card/Melodee/Projects"; s.project_path = "/media/card/Melodee/Projects/Song.mldp"; }},
     {"exitoff", [](Shell&, Snapshot& s) { s.ui.page = PageId::Stage; s.ui.exit_open = s.ui.exit_off = true; s.projects.root = "/media/card/Melodee/Projects"; }},
@@ -2990,8 +2983,8 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
             unsigned slot = 0;
             while (slot < sample_slots && project->samples[slot].used()) ++slot;
             if (slot == sample_slots) { std::printf("error=no free slot\n"); return 1; }
-            std::snprintf(project->samples[slot].path, sizeof(SampleRef::path), "%s", change[c] + used);
-            std::snprintf(project->samples[slot].name, sizeof(SampleRef::name), "%s", std::filesystem::path(change[c] + used).stem().string().c_str());
+            std::snprintf(project->samples.edit(slot).path, sizeof(SampleRef::path), "%s", change[c] + used);
+            std::snprintf(project->samples.edit(slot).name, sizeof(SampleRef::name), "%s", std::filesystem::path(change[c] + used).stem().string().c_str());
             auto& track = project->tracks[t];
             track.engine = EngineKind::Keygroup;
             track.pads = {};
@@ -3076,8 +3069,8 @@ static int mpc3_export(const char* path, const char* folder, const char* name, i
             unsigned slot = 0;
             while (slot < sample_slots && project->samples[slot].used()) ++slot;
             if (slot == sample_slots) { std::printf("error=no free slot\n"); return 1; }
-            std::snprintf(project->samples[slot].path, sizeof(SampleRef::path), "%s", rest + 1);
-            std::snprintf(project->samples[slot].name, sizeof(SampleRef::name), "%s", std::filesystem::path(rest + 1).stem().string().c_str());
+            std::snprintf(project->samples.edit(slot).path, sizeof(SampleRef::path), "%s", rest + 1);
+            std::snprintf(project->samples.edit(slot).name, sizeof(SampleRef::name), "%s", std::filesystem::path(rest + 1).stem().string().c_str());
             if (!track.used()) load_sound(track, EngineKind::Sampler, 0);
             track.pads[n] = PadSound {};
             track.pads[n].sample = uint16_t(slot);

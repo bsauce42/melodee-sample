@@ -53,14 +53,14 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
 // keeps them): before the region changes, and at a save.
 void Context::keep_chop() {
     if (ui.chop_sample < sample_slots && ui.slices.count) {
-        auto& kept = project.chops[ui.chop_sample];
+        const auto& kept = project.chops[ui.chop_sample];
         SampleChop now;
         now.from = ui.chop_from; now.to = ui.chop_to; now.mode = ui.chop_mode;
         now.amount = int16_t(ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()]);
         now.slices = ui.slices;
         if (!(kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount && kept.slices.same(now.slices))) {
             now.unwritten = true;
-            kept = now;
+            project.chops.edit(ui.chop_sample) = now;
         }
     }
     write_chops();
@@ -71,10 +71,10 @@ void Context::keep_chop() {
 void Context::write_chops() {
     std::vector<std::pair<std::string, SampleChop>> due;
     for (unsigned n = 0; n < sample_slots; ++n) {
-        auto& c = project.chops[n];
+        const auto& c = project.chops[n];
         const auto& ref = project.samples[n];
         if (!c.unwritten || !ref.used() || ref.instrument() || ref.path[0] != '/') continue;
-        c.unwritten = false;
+        project.chops.edit(n).unwritten = false;
         due.emplace_back(ref.path, c);
     }
     if (due.empty()) return;
