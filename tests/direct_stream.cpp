@@ -133,7 +133,8 @@ int main(int argc, char** argv) {
         // Behind the voice the chunks were given back (but for the one before it, and the one held).
         CHECK(part.pins[0] == 1 && part.pins[1] == 0 && part.pins[2] == 0 && part.pins[5] == 1);
 #if defined(__linux__)
-        bool silent = true; // their memory went: they read as silence
+        stream_cache_give_back(); // let go, they stay in the cache until the memory is wanted (stream_cache_bytes)
+        bool silent = true; // given back, their memory went: they read as silence
         for (uint32_t n = stream_chunk; n < 3 * stream_chunk; ++n) silent = silent && part.left[n] == 0.0f;
         CHECK(silent);
 #endif
