@@ -97,7 +97,8 @@ play at once. The other tracks are empty until you choose what they are (see
 To see all tracks as a mixer, press **PAD FX** and **KNOB FX** together to
 open **Tracks**.
 Each cell shows a track's number, its pattern, its type and its level. Use
-**K2** to set the selected track's level and **K3** to set its pan.
+**K1** to set the selected track's level, **K2** its pan and **K3** its send
+to bus A.
 
 ![The Tracks page](images/screens/tracks.png)
 
