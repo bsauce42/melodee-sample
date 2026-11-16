@@ -6,6 +6,10 @@ Melodee keeps the MPC Sample's printed controls. If you know the stock app,
 most of what you do still works. This chapter lists what is the same, what
 is different, and how to change your habits.
 
+A new install starts on **Basic**: the stock app's pages plus tracks,
+plug-ins, the mixer and Song. **Full** shows every page (see
+[Basic and Full](settings.md#basic-and-full)).
+
 ## What stays the same
 
 - The printed button names keep their meaning: **CHOP** chops, **SAMPLE
@@ -48,7 +52,7 @@ is different, and how to change your habits.
 
 | On the stock app | In Melodee |
 | --- | --- |
-| A project is one kit. | A project has 16 tracks. Track 1 starts as a kit. The other tracks can be kits, plug-in instruments or MIDI tracks. |
+| A project is one kit. | A project has 16 tracks. Track 1 starts as a kit, with one of the MPC's factory kits on it. The other tracks can be kits, keygroups, plug-in instruments, MIDI tracks or audio tracks. |
 | **PAD BANK** held + Pads 1–8 jumps to bank A–H. | **PAD BANK** held + pad selects track 1–16. To jump banks, hold **PAD BANK** and turn the encoder or press **−** / **+**. |
 | **SAMPLE** opens Sample mode. | **SAMPLE** opens **Stage**, the selected track's sound pages, from any page. On a kit, Stage has the Sample mode pages. On Stage, **SAMPLE** goes back to **B1**'s first page. Hold **SAMPLE** to see the track's pads: **Pads** on a kit, **Keys** on an instrument. |
 | In Sequence mode the pads select sequences. | The same: **SEQ** opens **Sequences**, and the pads launch a sequence on every track. You can also hold **SEQ** and press a pad on any page. **B2** and **B3** open **Roll** and **Motion**. |
@@ -57,7 +61,7 @@ is different, and how to change your habits.
 | Projects are on the internal drive. | Melodee's projects are on the card in `Melodee/Projects`. On the project list, **B2** (**INTERNAL**) shows the internal drive. Stock projects open as copies (see [MPC Sample projects](projects-and-files.md#mpc-sample-projects)). |
 | **SHIFT** + **KNOB FX** (FX Select) picks pad effects. | **SHIFT** + **KNOB FX** opens the effect chains: Track, Bus, Master and, on a kit, Pad. |
 | **SHIFT** + **SEQ RECORD** brings the last loop into the sequence. | **SHIFT** + **SEQ RECORD** (Recall) puts the last phrase you played on every track into each track's next empty pattern. |
-| **SAMPLE RECORD** records a sample. | On a kit, the same. On a plug-in or MIDI track, **SAMPLE RECORD** opens the **PRINT** sheet, which freezes the track to audio (see [Freeze a track](tracks.md#freeze-a-track)). |
+| **SAMPLE RECORD** records a sample. | On a kit, the same. On a plug-in or MIDI track, **SAMPLE RECORD** opens the **PRINT** sheet, which freezes the track to audio (see [Freeze a track](tracks.md#freeze-a-track)). On an audio track it opens the track's **INPUT**. |
 | No looper. | Press **LOOP** and **16 LEVELS** together to open the **Looper**. |
 | No mixer. | Press **PAD FX** and **KNOB FX** together to open the mixer: **Tracks**, **Sends** and the effect chains. |
 | Power off with **POWER**. | A short press of **POWER** opens the Exit screen: stay, power off, or go back to the stock app. |

@@ -31,6 +31,10 @@ each bus with its first effect and its return.
 **K1** sets the selected track's send, **K2** selects the bus, **K3** sets
 the bus return.
 
+Sends and the **SENDS** pages on Stage are in Full. In Basic, Tracks keeps
+each track's level, pan and send to bus A (see
+[Basic and Full](settings.md#basic-and-full)).
+
 On a kit track press **B2** (**SENDS**) again to see the kit's pads
 instead of the tracks (the bank in view, as the pads sit), each with its
 own send to the bus shown. Hit a pad
@@ -57,9 +61,9 @@ solo: turn the kit down and its reverb goes down with it.
    and choose a reverb.
 2. Press **SAMPLE** on the kit track for Stage. Press **B3** until
    **SENDS** is lit.
-3. Hit the snare pad. Turn **K2** to 30 %.
-4. Hit the hat pad. Turn **K2** to 15 %.
-5. Leave the kick at 0 %. Hold **SHIFT** and check that **K2** (**KIT
+3. Hit the snare pad. Turn **K1** to 30 %.
+4. Hit the hat pad. Turn **K1** to 15 %.
+5. Leave the kick at 0 %. Hold **SHIFT** and check that **K1** (**KIT
    SEND**) is 0 %, or the whole kit, kick included, goes to the bus.
 
 ### Controls
@@ -83,7 +87,7 @@ that sends nothing stays dark. The selected pad is white.
 
 ### Kit send and pad sends
 
-The kit send (**SHIFT** + **K2** on Stage **SENDS**, and **K1** on Sends
+The kit send (**SHIFT** + **K1** on Stage **SENDS**, and **K1** on Sends
 with the tracks shown) sends the whole kit after the kit track's chain. A
 pad send sends one pad before that chain. Both reach the same bus and add
 up.
@@ -244,7 +248,7 @@ to close it.
 - Turn the encoder to choose a fader target. On a kit track: Pad Volume,
   Pad Pan, Pad Tune, Pad Attack, Pad Decay, Pad Cutoff, Kit Volume. On
   every track: Mod Wheel, Track Level, Track Pan, Send A, Send B, Send C,
-  Send D. On a plug-in or MIDI track: Pitch Bend, after Mod Wheel.
+  Send D. On a plug-in, keygroup or MIDI track: Pitch Bend, after Mod Wheel.
 
 On Pitch Bend, the wide middle of the fader is no bend. When you let go of
 your notes and leave the fader still for a second, the bend springs back to

@@ -2,9 +2,10 @@ Melodee {version} for the Akai MPC Sample
 ==========================================
 
 Melodee is a 16-track groovebox that runs on the MPC Sample in place of the
-stock app: one track per pad, each a kit of samples, a VST3, LV2,
-CLAP or VST2 instrument, or a MIDI track. Patterns, scenes and a song, a
-looper, a mixer and effect chains that take plug-in effects.
+stock app: one track per pad, each a kit of samples, a sampled instrument
+(keygroup), a VST3, LV2, CLAP or VST2 instrument, a MIDI track or an audio
+track. Patterns, sequences and a song, a looper, a mixer and effect chains
+that take plug-in effects.
 
 Melodee changes nothing on the MPC itself, only files on the microSD card.
 If it fails to start, or crashes, the stock MPC app comes back. Back up the
@@ -28,6 +29,12 @@ Install
    the MPC refuses an autorun whose files changed.
 3. Put the card in the MPC and switch it on. The stock app starts first;
    a few seconds later Melodee takes over the screen.
+
+A new install starts on Basic, with one of the MPC's factory kits on
+track 1. Basic shows the stock app's pages plus tracks, plug-ins, the
+mixer and Song. For every page, press SHIFT + Pad 8 (Settings) and turn
+K1 (FEATURES) to Full. Hold the encoder for the Menu; its GO page (B3)
+has LEARN on pad 16, four short lessons.
 
 Projects are saved on the card in Melodee/Projects. Put samples in a
 folder named "Samples" at the top level of the card.
@@ -93,6 +100,6 @@ Built on sample-base: https://github.com/keremimo/sample-base
 
 Melodee is free software under the GNU Affero General Public License,
 version 3 (licenses/LICENSE-AGPL-3.0.txt, in this folder). It uses JUCE
-under the AGPLv3 and embeds the Rubik typeface under the SIL Open Font
-License 1.1; see licenses/. Not affiliated with or endorsed by inMusic or
+under the AGPLv3 and embeds the Rubik typeface and the other screen fonts
+under the SIL Open Font License 1.1; see licenses/. Not affiliated with or endorsed by inMusic or
 Akai Professional.

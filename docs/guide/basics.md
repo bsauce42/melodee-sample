@@ -51,7 +51,7 @@ back. A held key's cards also take over from Knob FX.
 | Hold | The pads pick | K1–K3 set |
 | --- | --- | --- |
 | **SAMPLE** | A kit pad, without playing it | Its pitch, volume and pan |
-| **SEQ** | A pattern of the selected track | Its length, Q and swing |
+| **SEQ** | A sequence, on every track. On Patterns: a pattern of the selected track | The length, Q and swing of the selected track's pattern |
 | **PAD BANK** | A track | Its level, pan and send to bus A |
 
 On an instrument track, **SAMPLE** held shows the keys and their root, scale

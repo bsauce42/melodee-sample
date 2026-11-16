@@ -32,6 +32,10 @@ A crash writes a report to `Melodee/Crashes` on the card, one file a crash,
 with the last buttons pressed and the pages they were on. Add it when you
 report the problem.
 
+**A page or key in this guide is not there.** Melodee is on Basic. Press
+**SHIFT** + **Pad 8** and turn **K1** (**FEATURES**) to **Full** (see
+[Basic and Full](settings.md#basic-and-full)).
+
 **Crackles or dropouts.** Open Settings, **ABOUT**. It shows the processor
 load per core, the audio dropouts and card read problems, each in amber
 with a count once it happens. Use a larger

@@ -118,17 +118,19 @@ the drive, Melodee asks whether to eject anyway.
 | Folder | Contents |
 | --- | --- |
 | `autorun/` | Melodee itself. Do not change it. |
-| `Melodee/Projects/` | Projects (`.mldp`), and each project's `Loops` and `Prints` folders |
+| `Melodee/Projects/` | Projects (`.mldp`), and each project's `Loops`, `Prints` and `Audio` folders |
 | `Melodee/Mixdowns/` | Song mixdowns |
 | `Melodee/Stems/` | Stems |
 | `Melodee/MIDI/` | Exported MIDI files |
+| `Melodee/MPC 3/` | MPC 3 projects exported from Song |
+| `Melodee/Progressions/` | Chord progressions you make |
 | `Melodee/Sounds/` | Sounds you save |
 | `Melodee/Cache/` | Decoded instrument samples. Safe to delete: Melodee makes them again. |
 | `Melodee/Plugins/` | VST3, LV2, CLAP and VST2 plug-ins |
 | `Melodee/Plugin Data/` | Plug-in settings and presets |
 | `Melodee/Crashes/` | Crash reports, one file a crash (see [Troubleshooting](exit-and-troubleshooting.md#troubleshooting)) |
 | `Melodee/settings` | Melodee's settings |
-| `Samples/` | Your samples. Melodee writes `Recorded/`, `Edits/`, `Banks/`, `Looper/` and `Expansions/` here. |
+| `Samples/` | Your samples. Melodee writes `Recorded/`, `Edits/`, `Banks/`, `Looper/`, `Expansions/` and `Keygroups/` (auto sampled programs) here. |
 | `SysEx/` | `.syx` files for MIDI tracks |
 
 ## The web page

@@ -22,6 +22,11 @@ for how it plays, **B3** for where it goes. Press the lit key again to go to
 its next page. Each track remembers its last page. Press **SAMPLE** on
 Stage to go back to **TRIM**. Press **−** / **+** to change the bank.
 
+In Basic, a kit pad has the stock app's seven pages: **TRIM**, **TUNE** and
+**AMP ENV** on **B1**, **PLAY** on **B2**, and **MIX**, **FILTER** and
+**FILT ENV** on **B3**. The other pages are in Full (see
+[Basic and Full](settings.md#basic-and-full)).
+
 **TRIM**
 
 ![TRIM](../images/screens/trim.png)

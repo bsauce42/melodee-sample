@@ -10,8 +10,11 @@ A Melodee **project** has:
 - **16 tracks**, one for each pad. A track is one of these types:
   - **Kit** (SAMPLER): 128 pads in 8 banks (A–H), each pad playing a sample
     or a sampled instrument.
+  - **Keygroup** (KEYGROUP): one sampled instrument, or one sample, played
+    across the pads and keys.
   - **Plug-in** (PLUGIN): a VST3, LV2, CLAP or VST2 instrument from the card.
   - **MIDI**: notes, CCs and program changes sent to an external instrument.
+  - **Audio**: a recording of the input in each pattern.
 - **128 patterns per track**, in 8 banks (A–H) of 16. A pattern holds notes
   and knob movements (Motion), up to 128 bars long. Each track plays one
   pattern at a time and can change pattern on its own.
@@ -30,6 +33,11 @@ A Melodee **project** has:
 
 Around the project:
 
+- **The Menu**: hold the encoder on any page. It lists the page's jobs and
+  the 16 places, and opens the lessons (see [The Menu](basics.md#the-menu)).
+- **Basic and Full**: a new install starts on Basic, which shows the stock
+  app's pages plus tracks, plug-ins, the mixer and Song. Full shows every
+  page in this guide (see [Basic and Full](settings.md#basic-and-full)).
 - **Plug-ins** go in `Melodee/Plugins` on the card. The plug-in picker
   can also load one from any folder on the card (see
   [Plug-ins](plug-ins.md)).

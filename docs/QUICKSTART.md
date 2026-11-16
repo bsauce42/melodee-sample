@@ -71,8 +71,17 @@ These controls work the same on every page:
 | **K1**, **K2**, **K3** | Set the value on the card above each knob. |
 | Encoder (turn) | Move through a list, or fine-tune the outlined card. |
 | Encoder (push) | Open the item under the cursor, or move to the next card. |
+| Encoder (hold) | Open the **Menu**: the page's jobs (**HERE**) and the 16 places (**GO**). |
 | **SHIFT** + encoder push | Go back one page. |
 | **SHIFT** + **−** / **+** | Undo / redo. |
+
+A new install starts on **Basic**: the stock app's pages plus tracks,
+plug-ins, the mixer and Song. **Full** shows every page. To switch, press
+**SHIFT** + **Pad 8** (Settings) and turn **K1** (**FEATURES**). See
+[Basic and Full](guide/settings.md#basic-and-full).
+
+Melodee has four short lessons. Hold the encoder, press **B3** (**GO**),
+then pad 16 (**LEARN**). See [Lessons](guide/basics.md#lessons).
 
 ## 3. Select a track
 
@@ -81,8 +90,9 @@ Melodee has 16 tracks, one for each pad. Pad 1 (bottom left) is track 1.
 To select a track, hold **PAD BANK** and press a pad. This works on any
 page.
 
-A new project has an empty kit on track 1. The other tracks are empty until
-you choose what they are (see [step 7](#7-add-a-plug-in-instrument)).
+A new project has one of the MPC's factory kits on track 1, so the pads
+play at once. The other tracks are empty until you choose what they are (see
+[step 7](#7-add-a-plug-in-instrument)).
 
 To see all tracks as a mixer, press **PAD FX** and **KNOB FX** together to
 open **Tracks**.
@@ -131,6 +141,10 @@ pad you hit.
 Press the lit key again to go to its next page. The dots under a key show
 which page of its cycle is open.
 
+In Basic, a kit pad has the stock app's seven pages: **TRIM**, **TUNE** and
+**AMP ENV** on **B1**, **PLAY** on **B2**, and **MIX**, **FILTER** and
+**FILT ENV** on **B3**. Full adds the other pages.
+
 On **TRIM**, use **K1** to set the start point, **K2** the end point and
 **K3** the loop point. Hold **SHIFT** and turn a knob to zoom in at that
 point.
@@ -139,15 +153,20 @@ To chop a sample into slices, press **CHOP**. See [Chop](guide/kits-and-sampling
 
 ## 6. Record a beat
 
-1. Press **SEQ** to open **Patterns**. If Roll or Motion opens instead,
-   press **B1** (**PATTERNS**). The selected track's 16 patterns of the
-   bank in view (**BANK A**) are laid out as the pads: pad 1 bottom left.
-2. Use **K1** to set the pattern length in bars, **K2** the grid (Q) and
-   **K3** the swing.
-3. To choose a pattern, press its pad. Pad 1 is pattern 1. On other pages,
-   hold **SEQ** and press a pad.
+1. Press **SEQ** to open **Sequences**. If Roll or Motion opens instead,
+   press **B1** (**SEQUENCES**). The bank's 16 sequences are laid out as
+   the pads: pad 1 bottom left. A sequence is one number on every track:
+   sequence 1 is pattern 1 of each track.
+2. Hold **SEQ** and use **K1** to set the pattern length in bars, **K2**
+   the grid (Q) and **K3** the swing. They set the selected track's pattern.
+3. To change to another sequence, press its pad. Pad 1 is sequence 1. Every
+   track goes to that number, and a track with no notes there is silent. On
+   other pages, hold **SEQ** and press a pad.
 
-   ![Patterns](images/screens/patterns.png)
+   ![Sequences](images/screens/scenes.png)
+
+   To put one track on a pattern of its own, press **B1** again for
+   **Patterns**. Its pads are the selected track's patterns.
 
 4. Press **SEQ RECORD**. The button flashes and the screen shows that
    recording is armed.
@@ -184,9 +203,9 @@ Melodee synths are free downloads; see [Plug-ins](guide/plug-ins.md).
 1. Hold **PAD BANK** and press pad 2 to select track 2.
 2. The track is empty, so Stage opens with the track types, as on the MPC:
    **Drum** (an empty kit, samples from the card, or a recording),
-   **Keygroup** (an instrument played across the keys), **Plugin** (a
-   plug-in instrument) and **MIDI** (an external instrument on the MIDI Out
-   jack or USB).
+   **Keygroup** (an instrument played across the keys) and **Plugin** (a
+   plug-in instrument). Full adds **MIDI** (an external instrument on the
+   MIDI Out jack or USB) and **Audio** (a recording of the input).
 
    ![Stage on an empty track](images/screens/stageemptysynth.png)
 
@@ -261,6 +280,13 @@ When Melodee starts again, it opens the project you had open.
   what is the same and what is different.
 - [Sequencing](guide/sequencing.md): patterns, sequences, Roll, Step Edit and
   parameter locks.
-- [Song](guide/song.md): arrange patterns and export a mixdown.
-- [Looper](guide/looper.md): press **LOOP** and **16 LEVELS** together.
+- [Song](guide/song.md): arrange patterns and export a mixdown or an MPC 3
+  project.
+- [Keygroup tracks](guide/instrument-and-midi-tracks.md#keygroup-tracks) and
+  the auto sampler, which samples a plug-in or an external instrument.
+- [Audio tracks](guide/audio-tracks.md): record the input into a pattern.
+- [Chord progressions](guide/instrument-and-midi-tracks.md#chord-progressions):
+  hold **16 LEVELS** and press **B2** (**CHORDS**).
+- [Looper](guide/looper.md): press **LOOP** and **16 LEVELS** together (in
+  Full).
 - [Effects](guide/mixer-and-effects.md): effect chains, Knob FX and Pad FX.

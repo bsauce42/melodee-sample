@@ -5,6 +5,9 @@ Previous: [Song](song.md) · [Contents](../GUIDE.md) · Next: [Mixer and effects
 The Looper records four audio loops, L1 to L4, that follow the tempo. Each
 loop is a track with its own mixer strip and effect chain.
 
+The Looper is in Full. In Basic it does not open (see
+[Basic and Full](settings.md#basic-and-full)).
+
 To open the Looper, press **LOOP** and **16 LEVELS** together, in either
 order, from any page, or hold the encoder for the Menu and press pad 12. The first time, the Looper is off: press **B3** or
 push the encoder to turn it on. **SHIFT** + **LOOP** held for half a second

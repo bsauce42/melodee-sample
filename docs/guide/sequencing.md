@@ -290,8 +290,8 @@ In both modes:
 - Otherwise **SHIFT** + **K1**–**K3** set the pattern length, Q and time
   signature.
 - **−** / **+** change the octave (on a kit, the bank).
-- Encoder push, **SEQ** or **SHIFT** + **SEQ** go back to Patterns, Roll or
-  Motion, whichever was open last on the track.
+- Encoder push, **SEQ** or **SHIFT** + **SEQ** go back to Sequences,
+  Patterns, Roll or Motion, whichever was open last on the track.
 
 ![SHIFT held on Step Edit](../images/screens/stepeditshift.png)
 
@@ -378,7 +378,9 @@ pattern: what the pattern does after it has played for a while.
   (below 30 is None). Push the encoder to name it. **ERASE** clears it.
 - **K1**–**K3** set the selected pattern's follow action, as on **FOLLOW**.
   **SHIFT** + **K1** sets the second action. **SHIFT** + **B3** (**ALL**)
-  puts the follow action on every track's pattern in that column.
+  puts the follow action on every track's pattern in that column. In Basic
+  there are no follow actions: **K1**–**K3** set the length, grid and swing
+  of the selected track's pattern, as on Patterns.
 - **−** / **+** select the track. The dots on the right are the tracks:
   bright in the sequence, dim on another pattern, a red ring stopped by a
   follow action.
