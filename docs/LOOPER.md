@@ -82,7 +82,8 @@ Each loop is in one state: **Empty**, **Armed** (waits for its boundary),
   (the number counts up) onto the selected kit's next empty pad, one undo;
   **+ note** also writes one note at bar 1 of the kit's pattern as long as
   the loop, and stops the loop. A loop recording or overdubbing cannot be
-  committed; one longer than a sample may be (60 s) is refused.
+  committed; without a card, one longer than 60 s is refused (a sample is then
+  kept in memory); with one, a long loop is written and played from the card.
 
 Memory: each loop holds 64 s of stereo audio and as much again for the undo,
 at the device's rate (`looper::frames_at`): 45 MB a loop at 44.1 kHz,

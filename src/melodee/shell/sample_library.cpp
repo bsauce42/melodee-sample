@@ -418,7 +418,7 @@ void list_into(const std::string& folder, std::vector<SampleFile>& out, bool car
 
 void SampleLibrary::service(Hardware& hardware) {
     const Platform& platform = hardware.platform;
-    if (host.recorder().state() == TakeRecorder::State::Done) save_take();
+    take_service(); // Sample Record's take: drained to the card as it comes, or copied out once done
     drain_render(); // a render's frames, as they come, every pass
     RecallJob recall_job;
     if (recalls.pop(recall_job)) save_recall(recall_job);
@@ -721,10 +721,14 @@ void SampleLibrary::make_streamed(const SampleJob& job, const SampleData& source
     if (!out.close() || out.frames() != frames) { fs::remove(path, made); fail("cannot write"); return; }
     scan_wanted.store(true); // it shows in the browser
     if (job.kind == SampleJob::Kind::Save) { finish("Saved " + upper(fs::path(path).stem().string())); return; }
-    Request again; // into its slot as a file asked for (dispatch()); the MIDI thread puts it on its pad once it is in
-    again.slot = uint16_t(job.target % sample_slots);
+    load_written(job.target, path);
+}
+
+void SampleLibrary::load_written(unsigned slot, const std::string& path) {
+    Request again;
+    again.slot = uint16_t(slot % sample_slots);
     std::snprintf(again.path, sizeof(again.path), "%s", path.c_str());
-    asked.fetch_add(1, std::memory_order_relaxed);
+    asked.fetch_add(1, std::memory_order_relaxed); // a load as any other: loads_waiting() counts it until it is in
     dispatch(again);
 }
 
@@ -777,6 +781,70 @@ void SampleLibrary::stop_hearing() {
     hearing.reset();
 }
 
+// Sample Record's take. With a card it is drained into Samples/Recorded/TAKE n.wav while it records (24-bit, its own
+// rate, the values as they came), so it can go on past the 60 s the recorder's buffer holds; once done the file is
+// loaded into the slot the take was armed for (a long one read from the card as it plays). Without a card (or a file
+// that could not be opened) it is copied out once done (save_take()), 60 s at most.
+void SampleLibrary::take_service() {
+    auto& recorder = host.recorder();
+    const auto state = recorder.state();
+    if (state == TakeRecorder::State::Idle) { // stopped before a frame came: nothing to keep
+        if (take_open) { take_file.close(); std::error_code error; fs::remove(take_path, error); take_open = false; }
+        take_seen = false;
+        return;
+    }
+    if (state == TakeRecorder::State::Recording && !take_seen) { // its file, once, as it begins
+        take_seen = true;
+        take_failed = false;
+        take_drained = 0;
+        std::string root;
+        { std::lock_guard<std::mutex> guard(lock); root = known.root; }
+        take_path.clear();
+        if (!root.empty()) {
+            std::error_code error;
+            fs::create_directories(root + "/Recorded", error);
+            for (unsigned n = 1; n < 10000 && take_path.empty(); ++n) { // the first free number, so earlier sessions' stay
+                const std::string name = root + "/Recorded/TAKE " + std::to_string(n) + ".wav";
+                if (!fs::exists(name, error)) take_path = name;
+            }
+        }
+        take_file.set_dither(false);
+        take_open = !take_path.empty() && take_file.open(take_path, recorder.take_rate(), 24);
+        recorder.spill(take_open);
+    }
+    if (take_open && !take_failed) { // what came since, into the file
+        const uint32_t frames = recorder.taken();
+        std::vector<float> both;
+        while (take_drained < frames) {
+            const uint32_t n = std::min<uint32_t>(16384, frames - take_drained);
+            both.resize(size_t(n) * 2);
+            for (uint32_t k = 0; k < n; ++k) {
+                const uint32_t at = (take_drained + k) % TakeRecorder::capacity;
+                both[2 * k] = recorder.left()[at]; both[2 * k + 1] = recorder.right()[at];
+            }
+            if (!take_file.add(both.data(), n)) { take_failed = true; recorder.spill(false); break; } // the card: it stops as the buffer fills
+            take_drained += n;
+            recorder.drained(take_drained);
+        }
+    }
+    if (state != TakeRecorder::State::Done) return;
+    take_seen = false;
+    if (!take_open) { save_take(); return; } // copied out of the buffer
+    take_open = false;
+    const unsigned slot = recorder.slot() % sample_slots;
+    const bool whole = take_file.close() && !take_failed && take_drained == recorder.taken();
+    if (!whole && recorder.taken() <= TakeRecorder::capacity) { // the file failed, the take all in the buffer still
+        std::error_code error;
+        fs::remove(take_path, error);
+        save_take();
+        return;
+    }
+    recorder.release();
+    if (!whole) finish("Take: card too slow, cut short"); // what reached the card is kept
+    scan_wanted.store(true); // it shows in the browser
+    load_written(slot, take_path);
+}
+
 // A finished take: copied out of the recorder, written to Samples/Recorded on
 // the card when there is one, and handed back as the slot the take was armed for.
 void SampleLibrary::save_take() {
@@ -818,6 +886,11 @@ void SampleLibrary::land(unsigned slot, std::unique_ptr<SampleData> data, unsign
     // Kept and written at its own rate.
     auto failed = keep_capture(*data, rate, path);
     if (!path.empty()) { if (failed.empty()) loaded.path = path; else loaded.error = "not saved: " + failed; }
+    if (!loaded.path.empty() && uint64_t(data->frames) > uint64_t(stream_seconds) * rate) { // long: from its file, as any long WAV
+        scan_wanted.store(true);
+        load_written(slot, loaded.path);
+        return;
+    }
     loaded.frames = data->model_frames();
     loaded.stereo = make_overview(*data, loaded.overview, &loaded.sides);
     loaded.hit_count = find_hits(*data, loaded.hits, loaded.beats);
@@ -928,13 +1001,13 @@ void SampleLibrary::dispatch(const Request& request) {
         std::string error;
         { // what it will hold, found before it is read: refused where that would leave memory short (shell/sample_memory.h)
             AudioReader file;
-            if (file.open(request.path, kit_sample_seconds).empty()
+            if (file.open(request.path, stream_most_seconds).empty()
                 && !memory_allows(memory_free(), kit_sample_bytes(file.frames(), file.rate()))) {
                 error = "Memory full";
                 h.refused = true;
             }
         }
-        if (error.empty()) error = read_audio(request.path, *h.data, kit_sample_seconds, nullptr); // at the file's own rate
+        if (error.empty()) error = read_audio(request.path, *h.data, stream_most_seconds, nullptr); // at the file's own rate
         lap.into(load_times.read);
         LoadedSample& loaded = h.loaded;
         loaded.path = request.path;

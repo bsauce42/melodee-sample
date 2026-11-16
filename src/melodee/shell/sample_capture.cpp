@@ -80,10 +80,27 @@ void SampleLibrary::drain_render() {
                     }
                 }
             } else {
-                render_data = std::make_unique<SampleData>();
-                uint32_t room = std::min<uint32_t>(render_job.frames + 64, TakeRecorder::max_frames);
-                room = uint32_t(uint64_t(room) * render_rate / uint32_t(dsp::model_rate)) + 64; // its frames are the device's
-                render_data->left.reserve(room); render_data->right.reserve(room);
+                // Into a slot: with a card, straight into Samples/Recorded/RESAMPLE n.wav as it comes (32-bit float: a mix
+                // can go past full scale), then loaded from there, however long; without one, in memory, 60 s at most.
+                render_written = false;
+                std::string root;
+                { std::lock_guard<std::mutex> guard(lock); root = known.root; }
+                if (!root.empty()) {
+                    std::error_code error;
+                    fs::create_directories(root + "/Recorded", error);
+                    for (unsigned n = 1; n < 10000 && render_path.empty(); ++n) {
+                        const std::string name = root + "/Recorded/RESAMPLE " + std::to_string(n) + ".wav";
+                        if (!fs::exists(name, error)) render_path = name;
+                    }
+                    render_written = !render_path.empty() && render_file.open(render_path, render_rate, 32);
+                    if (!render_written) render_path.clear();
+                }
+                if (!render_written) {
+                    render_data = std::make_unique<SampleData>();
+                    uint32_t room = std::min<uint32_t>(render_job.frames + 64, TakeRecorder::max_frames);
+                    room = uint32_t(uint64_t(room) * render_rate / uint32_t(dsp::model_rate)) + 64; // its frames are the device's
+                    render_data->left.reserve(room); render_data->right.reserve(room);
+                }
             }
         } else if (state == Bounce::State::Done || state == Bounce::State::Cancelled || state == Bounce::State::Failed) {
             float drop[2 * 1024];
@@ -97,7 +114,7 @@ void SampleLibrary::drain_render() {
     const uint32_t most = uint32_t(uint64_t(TakeRecorder::max_frames) * render_rate / uint32_t(dsp::model_rate));
     if (stem_open) drain_stems(false);
     for (unsigned n; (n = bounce.pop(render_chunk.data(), 16384)) > 0;) {
-        if (render_job.to_file) { if (!render_path.empty()) render_file.add(render_chunk.data(), n); }
+        if (render_job.to_file || render_written) { if (!render_path.empty()) render_file.add(render_chunk.data(), n); }
         else if (render_data && render_data->left.size() < most)
             for (unsigned f = 0; f < n && render_data->left.size() < most; ++f) {
                 render_data->left.push_back(render_chunk[2 * f]); render_data->right.push_back(render_chunk[2 * f + 1]);
@@ -117,6 +134,20 @@ void SampleLibrary::drain_render() {
     bounce.release();
     if (stem_open) drain_stems(true);
     host.set_stems(nullptr);
+    if (render_written) { // a render into a slot, in its file: from there into the slot
+        render_written = false;
+        const bool kept = render_file.close() && state == Bounce::State::Done && render_file.frames() > 0;
+        if (!kept) {
+            std::error_code error;
+            fs::remove(render_path, error);
+            finish(state == Bounce::State::Failed ? "Resample: card too slow" : state == Bounce::State::Cancelled ? "Resample stopped" : "Resample: write failed",
+                   int(render_job.slot));
+            return;
+        }
+        scan_wanted.store(true);
+        load_written(render_job.slot, render_path);
+        return;
+    }
     if (render_job.to_file) {
         if (render_path.empty()) return; // said already
         bool kept = render_file.close() && state == Bounce::State::Done && render_file.frames() > 0;

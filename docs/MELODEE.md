@@ -1269,9 +1269,10 @@ that would leave less than 256 MB free (`shell/sample_memory.h`; the MPC
 has 2 GB and no swap): the pad stays silent, its TRIM page says `Memory
 full`, and a notice says so once for the load. Samples are WAV (16, 24 or 32-bit PCM or float), MP3,
 FLAC, Ogg Vorbis or AIFF (any rate; an MP3's encoder delay and padding, from its
-LAME tag, trimmed). Up to 10 s, or of any kind but WAV up to 60 s, a sample
-is read on the service thread and handed whole to the audio thread. A WAV
-longer than 10 s (up to 6 hours) is not read into memory: it is read from
+LAME tag, trimmed). A WAV up to 10 s, and a file of any other kind whatever
+its length (as memory allows), is read on the service thread and handed
+whole to the audio thread. A WAV longer than 10 s (up to 6 hours) is not
+read into memory: it is read from
 the card as it plays, as an instrument's files are (`engine/stream_pager.h`,
 read in place). The chunks where its pads start, end (reversed) and loop
 are held, so a hit sounds at once, and the pager reads ahead of each voice
@@ -1616,7 +1617,11 @@ the file holds, to the bit.
   round: a track source's own pattern); other pads tapped during the take
   cut it there. The pad again, Stop or Push ends it and Record stays;
   Sample Record ends it and opens Stage's TRIM.
-  `Samples/Recorded/TAKE n.wav`, up to 60 s. **Sampling Melodee's own
+  `Samples/Recorded/TAKE n.wav`: with a card it is written there as it is
+  recorded, so a Free take goes on past the 60 s the recorder's buffer holds
+  (up to 6 hours; a card that cannot keep up cuts it short, and says so),
+  and it is loaded from the file once done, a long one played from the
+  card; without a card, 60 s at most, kept in memory. **Sampling Melodee's own
   sound** (a Track source or Resample): the tap only picks the pad; from
   then until the take ends the 16 pads play the instrument (a track: as if
   it were selected, its layout, scale, chord, arp, Levels and octave, never
@@ -1632,11 +1637,12 @@ the file holds, to the bit.
   One undo.
 - **Resample** (Shift + Pad 11, then a pad): the selected track's pattern
   with every track playing, rendered in real time onto that pad
-  (`Samples/Recorded/RESAMPLE n.wav`, up to 60 s). One undo. On **Song**
+  (`Samples/Recorded/RESAMPLE n.wav`, written there as it plays, up to 6 hours,
+  then loaded from it; without a card 60 s, in memory). One undo. On **Song**
   (roadmap P3) it is the song's: from bar 1 to its end, once, loop or not,
   on through its tails as the mixdown plays it, onto the pad tapped (the
-  header says SONG: TAP A PAD); a song past 60 s gives its first 60 s and
-  stops there.
+  header says SONG: TAP A PAD); a song past what fits (6 hours, 60 s
+  without a card) gives that much and stops there.
 - **Stems** (Shift + B3 on a kit pad's TRIM, or STEMS in the MENU on
   Stage): the pad's sample separated into its drums, its bass, its music
   (every other instrument) and its vocals. The STEMS sheet shows the four

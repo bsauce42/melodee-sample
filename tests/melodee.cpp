@@ -1461,6 +1461,45 @@ void sampler_kit() {
     CHECK(host.take_retired(back) && back == &data && !host.take_retired(back));
 }
 void recording() {
+    { // A free take ends at 60 s in the buffer; drained to the card as it comes (spill()), it goes on past that, the
+      // buffer a ring, every frame drained as it came; drained no further, it ends where the ring is full.
+        const float was = dsp::device_rate.load();
+        dsp::device_rate.store(44100);
+        auto take = std::make_unique<TakeRecorder>();
+        std::vector<float> l(128), r(128);
+        auto feed = [&](uint32_t from) { for (unsigned f = 0; f < 128; ++f) { l[f] = float((from + f) % 100000) / 100000.0f; r[f] = -l[f]; } };
+        take->arm(-100, 0, 3);
+        uint32_t sent = 0;
+        while (take->state() == TakeRecorder::State::Recording) { feed(sent); take->process(l.data(), r.data(), 128); sent += 128; }
+        CHECK(take->taken() == 60 * 44100 && take->length() == 60 * 44100); // not drained: the buffer's 60 s
+        take->release();
+        take->arm(-100, 0, 3);
+        take->spill(true);
+        sent = 0;
+        uint32_t drained = 0;
+        bool same = true;
+        while (sent < 70 * 44100) {
+            feed(sent);
+            take->process(l.data(), r.data(), 128);
+            sent += 128;
+            for (; drained < take->taken(); ++drained) { // as SampleLibrary::take_service drains it
+                const uint32_t at = drained % TakeRecorder::capacity;
+                same = same && take->left()[at] == float(drained % 100000) / 100000.0f && take->right()[at] == -take->left()[at];
+            }
+            take->drained(drained);
+        }
+        CHECK(take->state() == TakeRecorder::State::Recording && take->taken() == sent && sent > 70 * 44100 - 128 && same && take->length() == 60 * 44100);
+        take->stop();
+        CHECK(take->state() == TakeRecorder::State::Done && take->frames() == sent);
+        take->release();
+        take->arm(-100, 0, 3);
+        take->spill(true); // drained no further: as far as the ring goes
+        sent = 0;
+        while (take->state() == TakeRecorder::State::Recording && sent < 200 * 44100) { feed(sent); take->process(l.data(), r.data(), 128); sent += 128; }
+        CHECK(take->state() == TakeRecorder::State::Done && take->taken() == TakeRecorder::capacity);
+        take->release();
+        dsp::device_rate.store(was);
+    }
     // A take waits for the level, records its length, and is held until released.
     auto recorder = std::make_unique<TakeRecorder>();
     std::vector<float> quiet(128, 0.001f), loud(128, 0.5f);
@@ -13915,7 +13954,7 @@ void samples_unlimited() {
     for (unsigned slot : {64u, 300u, 4097u, sample_slots - 1}) CHECK(std::fabs(energy(slot, true) - first) < first * 1e-6);
     // Memory: a load must leave 256 MB free; a host does not say what is free, and is allowed.
     const uint64_t mb = uint64_t(1) << 20;
-    CHECK(memory_headroom == 256 * mb && kit_sample_seconds == 60);
+    CHECK(memory_headroom == 256 * mb && stream_seconds == 10 && stream_most_seconds == 6 * 3600);
     CHECK(memory_allows(0, 500 * mb));
     CHECK(memory_allows(memory_headroom + 10 * mb, 10 * mb) && !memory_allows(memory_headroom + 10 * mb, 10 * mb + 1));
     CHECK(!memory_allows(memory_headroom - 1, 0) && !memory_allows(100 * mb, 1) && memory_allows(memory_headroom, 0));
@@ -13924,7 +13963,7 @@ void samples_unlimited() {
     CHECK(kit_sample_bytes(44100, 44100) == 352800);
     CHECK(kit_sample_bytes(48000, 48000) == 384000);
     CHECK(kit_sample_bytes(96000, 96000) == 768000);
-    CHECK(kit_sample_bytes(uint64_t(600) * 44100, 44100) == uint64_t(60) * 352800); // no more than 60 s is read
+    CHECK(kit_sample_bytes(uint64_t(600) * 44100, 44100) == uint64_t(600) * 352800); // all of it: no cut at 60 s
     CHECK(kit_sample_bytes(1000, 0) == 0);
     // With 1.5 GB free, one-second 44.1 kHz hits are let in until 256 MB is left: 3697 of them.
     uint64_t free = 1500 * mb;

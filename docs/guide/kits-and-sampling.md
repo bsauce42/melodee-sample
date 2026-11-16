@@ -158,7 +158,7 @@ you hit.
 Put your samples in a folder named `Samples` at the top level of the card.
 Melodee reads WAV (16, 24 or 32-bit), MP3, FLAC, Ogg Vorbis and AIFF files, any sample
 rate. A WAV file can be up to 6 hours long: a WAV longer than 10 seconds plays
-straight from the card. Other kinds play up to 60 seconds. MP3, FLAC, Ogg and AIFF rows show their format at
+straight from the card. Other kinds are read into memory whole. MP3, FLAC, Ogg and AIFF rows show their format at
 the right. A row with a pad chip is a sample this kit already plays. Melodee
 writes recordings and edits into `Samples` too.
 
@@ -287,8 +287,9 @@ Press **SAMPLE RECORD** on a kit to open **Record**.
 4. To stop, tap the pad again, press **STOP** or push the encoder. To stop
    and open **TRIM**, press **SAMPLE RECORD**.
 
-Takes are saved in `Samples/Recorded`, up to 60 seconds each. With the
-length Free, a take also ends by itself after a quiet stretch.
+Takes are saved in `Samples/Recorded`. With a card, a take can run up to 6
+hours; without one, 60 seconds. With the length Free, a take also ends by
+itself after a quiet stretch.
 
 On Record, **B1** (**MONITOR**) sets monitoring, **B2** (**INPUT**) opens
 Input Config, and **B3** (**PRINT**) opens the PRINT sheet to

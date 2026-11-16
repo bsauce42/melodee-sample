@@ -105,7 +105,7 @@ to bus A.
 ## 4. Load samples into a kit
 
 Melodee reads WAV (16, 24 or 32-bit), MP3, FLAC, Ogg Vorbis and AIFF files (any sample rate;
-a WAV up to 6 hours, the others up to 60 seconds) from a folder named `Samples` at the top level of the card. It can
+a WAV up to 6 hours) from a folder named `Samples` at the top level of the card. It can
 also read the MPC's internal factory samples.
 
 1. Select track 1 (hold **PAD BANK**, press pad 1).

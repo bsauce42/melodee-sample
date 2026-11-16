@@ -277,6 +277,7 @@ void Context::files_landed() {
         if (p.slot < 0 || p.land >= 3) continue; // 3 and up: stems, landed above
         auto loaded = library->slot(unsigned(p.slot));
         if (!loaded.ready) continue; // still being made
+        if (p.land == 2 && loaded.streamed && !loaded.shaped) continue; // a long take's cuts land on its hits, once found
         auto& ref = project.samples.edit(size_t(p.slot));
         PendingFile was = p;
         p = PendingFile {};

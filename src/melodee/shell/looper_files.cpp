@@ -41,8 +41,9 @@ void commit_loop(Context& c, unsigned loop, bool note) {
     std::string name = "L" + std::to_string(loop + 1);
     if (t.engine != EngineKind::Sampler) { c.notice("Commit: pick a kit track"); return; }
     if (!v.length || (v.state != Looper::State::Playing && v.state != Looper::State::Stopped)) { c.notice(name + ": nothing to commit now"); return; }
-    if (to_model(v.length, v.rate) > TakeRecorder::max_frames) { c.notice(name + ": too long for a pad"); return; }
     if (!c.library) return;
+    // Without a card a pad's sample is kept in memory, 60 s at most; with one, a long loop is written and played from it.
+    if (c.library->root().empty() && to_model(v.length, v.rate) > TakeRecorder::max_frames) { c.notice(name + ": too long for a pad"); return; }
     int kit = c.next_empty_pad(t.last_pad);
     if (kit < 0) { c.notice("No empty pad"); return; }
     int slot = c.hold_file(name + " Loop", c.ui.track, kit, 1);
