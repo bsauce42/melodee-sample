@@ -239,7 +239,7 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **K1** / **K2** | Start / end of the selected slice. |
 | **K3** | Chop type: Threshold, Regions, Beats or Manual. |
 | Encoder | Select a slice. After **K1** or **K2**, move that cut in fine steps. |
-| **SHIFT** + **K3** | The amount for that type (threshold, number of regions, beats). |
+| **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
 | **B2** (**SNAP**) | Snap cuts to zero crossings, so slices do not click. |
 | **B3** (**TO PADS**) | Put the slices on pads. |
@@ -258,12 +258,15 @@ A hit is a change in the sound: a drum, a hat over a held note, or a chord
 change at the same loudness. Each cut lands just before the hit's attack.
 
 **Beats chop**: Melodee finds the sample's own tempo and where its beats
-fall when it loads. Beats cuts a slice every 1–8 of those beats, counted from
-the beat nearest the region's start, so a lead-in before the first beat gets
-a slice of its own. A free intro or ending with no steady beat stays one
-slice. The tempo shows at the top right. Each cut lands on the hit at that
-beat. To cut on the bar, set the region's start near the bar's first beat. A
-sample with no steady beat uses the project's tempo.
+fall when it loads. Beats cuts a slice every division: 1/16, 1/8, 1/4 (one
+beat), 1/2, 1 bar, 2 bars or 4 bars (**SHIFT** + **K3**; a bar follows the
+project's time signature). It counts from the beat nearest the region's
+start, so a lead-in before the first beat gets a slice of its own. A free
+intro or ending with no steady beat stays one slice. The tempo shows at the
+top right. Each cut lands on the hit at that place, if there is one. To cut
+on the bar, set the region's start near the bar's first beat. A sample with
+no steady beat uses the project's tempo. A chop holds at most 64 slices: if
+a division needs more, the last slice runs to the end, and Melodee says so.
 
 **Manual chop**: set **K3** to Manual, or push the encoder. Pad 1 plays the
 sample. Tap other pads while it plays to cut there.

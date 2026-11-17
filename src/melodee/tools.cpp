@@ -1735,7 +1735,7 @@ const Preview previews[] {
          s.sample.beats.tempo = 920;
          for (unsigned n = 0; n < 8; ++n) s.sample.beats.at.push_back(230087u * n / 8);
          s.ui.chop_mode = ChopMode::Beats;
-         s.ui.slices = chop(ChopMode::Beats, 1, 0, 0, s.sample.frames, s.sample.hits, s.sample.hit_count, 1240, &s.sample.beats);
+         s.ui.slices = chop(ChopMode::Beats, 4, 0, 0, s.sample.frames, s.sample.hits, s.sample.hit_count, 1240, &s.sample.beats);
          s.ui.chop_slice = 2; s.ui.turning = 2; s.ui.turned_at = s.now;
      }},
     {"chopshift", [](Shell&, Snapshot& s) { // Shift: Extract / Split / Merge, zoomed in at the slice's end
