@@ -198,7 +198,8 @@ pattern is in: a row for each punch, where it sounds.
 - **B1** (**LATCH**) keeps the last punch on.
 - **B2** switches between the master and the selected track.
 - **B3** (**KEEP**) records the punches of the last pass into the pattern.
-  They play back with it. **ERASE** + pad removes a pad's kept punches.
+  They play back with it and end where the pattern ends. **ERASE** + pad
+  removes a pad's kept punches.
   **ERASE** + **B3** removes them all (asks first).
 - **SHIFT** + **B3** (**QUANTIZE**) turns quantize on or off. On (the
   default), a punch pressed while the sequence plays starts on the next

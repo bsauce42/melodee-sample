@@ -1729,18 +1729,22 @@ void kept_punches() {
             {800, 800, 5, 255, 100, 2, 1, false}, // let go before its grid line: nothing heard
         };
         auto heard = heard_punches(spans, 4, 900, 132, 384);
-        CHECK(heard.size() == 2);
+        CHECK(heard.size() == 3);
         CHECK(heard[0] == PatternPunch({132, 84, 8, 2, 100, 1, 0}));
-        CHECK(heard[1] == PatternPunch({316, 200, 14, 255, 70, 3, 2}));
+        CHECK(heard[1] == PatternPunch({316, 68, 14, 255, 70, 3, 2})); // across the loop point: up to the end,
+        CHECK(heard[2] == PatternPunch({0, 132, 14, 255, 70, 3, 2}));  // and the rest from the start
         CHECK(heard_punches(spans, 4, 900, 132, 0).empty());
         auto later = heard_punches(spans + 1, 1, 5000, 0, 384); // Keep long after: the take is still the last one heard
         CHECK(later.size() == 1 && later[0].tick == 108 && later[0].length == 100);
         const PunchSpan two_takes[] {{100, 200, 4, 255, 100, 2, 1, false}, {1000, 1100, 8, 255, 100, 2, 1, false}};
         auto take = heard_punches(two_takes, 2, 2000, 0, 384); // a pass and more apart: the newer alone
         CHECK(take.size() == 1 && take[0].kind == 8);
-        const PunchSpan long_one[] {{0, 0, 9, 255, 100, 2, 1, false}}; // held over two passes: one pass long
+        const PunchSpan long_one[] {{0, 0, 9, 255, 100, 2, 1, false}}; // held over two passes: one pass long, in two parts
         auto whole = heard_punches(long_one, 1, 1000, 232, 384);
-        CHECK(whole.size() == 1 && whole[0].tick == 232 && whole[0].length == 384);
+        CHECK(whole.size() == 2 && whole[0].tick == 232 && whole[0].length == 152 && whole[1].tick == 0 && whole[1].length == 232);
+        const PunchSpan from_top[] {{768, 0, 9, 255, 100, 2, 1, false}}; // a whole pass from its top: one
+        auto top = heard_punches(from_top, 1, 1152, 0, 384);
+        CHECK(top.size() == 1 && top[0].tick == 0 && top[0].length == 384);
         std::vector<PunchSpan> many;
         for (unsigned n = 0; n < 40; ++n) many.push_back({uint64_t(n * 8), uint64_t(n * 8 + 4), uint8_t(n % 16), 255, 100, 2, 1, false});
         CHECK(heard_punches(many.data(), 40, 384, 0, 384).size() == max_pattern_punches);
@@ -1760,6 +1764,30 @@ void kept_punches() {
         Pattern half = p;
         half_pattern(half);
         CHECK(half.length == 192 && half.punches.size() == 1 && half.punches[0].tick == 96);
+        // Half Seq: a punch running into the second half ends with the first (it stayed on round the shorter loop),
+        // and Double Seq after it brings back nothing of it.
+        Pattern across = p;
+        across.punches = {{0, 384, 4, 255, 100, 2, 1}, {100, 250, 8, 255, 100, 2, 1}, {200, 20, 9, 255, 100, 2, 1}};
+        half_pattern(across);
+        CHECK(across.punches.size() == 2 && across.punches[0] == PatternPunch({0, 192, 4, 255, 100, 2, 1}));
+        CHECK(across.punches[1] == PatternPunch({100, 92, 8, 255, 100, 2, 1}));
+        CHECK(double_pattern(across, 4 * 384) && across.punches.size() == 4 && across.punches[1].length == 92 && across.punches[3].tick == 292);
+        Pattern stretched = p; // Half Speed: twice as long, a punch ends with the pattern
+        stretched.punches = {{150, 100, 4, 255, 100, 2, 1}};
+        scale_pattern(stretched, true);
+        CHECK(stretched.punches.size() == 1 && stretched.punches[0].tick == 300 && stretched.punches[0].length == 84);
+        Pattern shorter = p; // a shorter length: the punch past the end is not played at another speed either
+        shorter.length = 192;
+        auto shorter_fast = speed_pattern(shorter, 4);
+        CHECK(shorter_fast.punches.size() == 1 && shorter_fast.punches[0].tick == 48);
+        // A file from before: a punch across the loop point as it was heard, in two parts; one longer than its
+        // pattern ends with it; one past the end stays there.
+        Pattern old = p;
+        old.punches = {{100, 500, 4, 255, 100, 2, 1}, {300, 200, 8, 255, 100, 2, 1}, {400, 50, 9, 255, 100, 2, 1}};
+        split_punches(old);
+        CHECK(old.punches.size() == 4 && old.punches[0] == PatternPunch({0, 116, 8, 255, 100, 2, 1}));
+        CHECK(old.punches[1] == PatternPunch({100, 284, 4, 255, 100, 2, 1}) && old.punches[2] == PatternPunch({300, 84, 8, 255, 100, 2, 1}));
+        CHECK(old.punches[3] == PatternPunch({400, 50, 9, 255, 100, 2, 1}));
         Pattern slower = p;
         scale_pattern(slower, true);
         CHECK(slower.punches.size() == 1 && slower.punches[0].tick == 192 && slower.punches[0].length == 96); // 600 falls past the end
@@ -1780,6 +1808,18 @@ void kept_punches() {
         CHECK(copy_bank->at[3][5] == bank->at[3][5] && copy_bank->at[3][5].punches.size() == 2);
         CHECK(copy->song.punch_count == 1 && copy->song.punches[0].bar == 2 && copy->song.punches[0].kind == 3);
         CHECK(copy_bank->at[0][0].punches.empty() && copy_bank->at[3][4].punches.empty());
+        // A file from before kept punches ended with their pattern (no 128 in a punch's last byte): one across the
+        // loop point is read in two parts; a file since is read as it is.
+        bank->at[3][5].punches = {{300, 200, 8, 255, 100, 2, 1}};
+        auto since = save_project(*project, *bank);
+        CHECK(load_project(since, *copy, *copy_bank).empty() && copy_bank->at[3][5].punches.size() == 1);
+        const uint8_t tag[] {'K', 'E', 'P', 'T'};
+        auto kept = std::search(since.begin(), since.end(), std::begin(tag), std::end(tag));
+        CHECK(since.end() - kept >= 23 && (kept[22] & 128));
+        kept[22] &= 127; // tag, size, track, pattern, count, then tick, length, kind, target, depth and this
+        CHECK(load_project(since, *copy, *copy_bank).empty() && copy_bank->at[3][5].punches.size() == 2);
+        CHECK(copy_bank->at[3][5].punches[0] == PatternPunch({0, 116, 8, 255, 100, 2, 1}));
+        CHECK(copy_bank->at[3][5].punches[1] == PatternPunch({300, 84, 8, 255, 100, 2, 1}));
     }
     { // The host: Low on the master from the bar's start for a sixteenth's two, Stutter on track 1 from the first
       // sixteenth's end for four; both at once, each let go after its length, again on the next pass; Stop lets go.
@@ -1855,6 +1895,142 @@ void kept_punches() {
         host->send(on);
         run_to(186); // tick 103, the next quarter 192
         CHECK(host->live_punches() == 1 && host->kept_punches() == 0);
+    }
+    // A kept punch ends with its pattern's loop, and with the pattern itself. A tick is 229.7 samples, 1.794 blocks.
+    auto kept_host = [](Project& project, PatternBank& bank) {
+        synth(project.tracks[0], 0);
+        project.tempo = 1200;
+        auto host = std::make_unique<EngineHost>();
+        host->load(project, bank);
+        tones_for(*host, project);
+        return host;
+    };
+    auto send_pattern = [](EngineHost& host, const Pattern& p) {
+        Command c {Command::Type::PatternData, 0, 0};
+        c.data = new Pattern(p);
+        CHECK(host.send(c));
+    };
+    { // One longer than the loop (a shorter length set since, or a file Half Seq left it in): from its tick to the
+      // loop's end, quiet from the top to its tick again, pass after pass. It stayed on from the second pass.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        bank->at[0][0].length = 384;
+        bank->at[0][0].punches = {{192, 384, uint8_t(PunchKind::Low), 255, 100, 2, 1}};
+        auto host = kept_host(*project, *bank);
+        std::vector<int32_t> out(256);
+        host->send({Command::Type::Play});
+        unsigned blocks = 0;
+        auto run_to = [&](unsigned n) { for (; blocks < n; ++blocks) host->render(out.data(), 128, 1); };
+        run_to(180); // tick 100
+        CHECK(host->kept_punches() == 0);
+        run_to(362); // tick 201
+        CHECK(host->kept_punches() == 1);
+        run_to(782); // tick 435, the second pass
+        CHECK(host->kept_punches() == 0);
+        run_to(1052); // tick 586
+        CHECK(host->kept_punches() == 1);
+        run_to(1472); // tick 820, the third
+        CHECK(host->kept_punches() == 0);
+    }
+    { // Half Seq while a punch running into the second half sounds: it goes on to the first half's end, and plays
+      // there again on the next pass. It sounded on round the shorter loop for its whole length.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        auto& pattern = bank->at[0][0];
+        pattern.length = 768;
+        pattern.punches = {{300, 300, uint8_t(PunchKind::Low), 255, 100, 2, 1}};
+        auto host = kept_host(*project, *bank);
+        std::vector<int32_t> out(256);
+        host->send({Command::Type::Play});
+        unsigned blocks = 0;
+        auto run_to = [&](unsigned n) { for (; blocks < n; ++blocks) host->render(out.data(), 128, 1); };
+        run_to(578); // tick 322
+        CHECK(host->kept_punches() == 1);
+        half_pattern(pattern);
+        CHECK(pattern.length == 384 && pattern.punches.size() == 1 && pattern.punches[0].length == 84);
+        send_pattern(*host, pattern);
+        run_to(582); // tick 324
+        CHECK(host->kept_punches() == 1);
+        run_to(700); // tick 390, the next pass's 6
+        CHECK(host->kept_punches() == 0);
+        run_to(1240); // tick 691, its 307
+        CHECK(host->kept_punches() == 1);
+        pattern.punches.clear(); // Erase + pad while it sounds: gone at once
+        send_pattern(*host, pattern);
+        run_to(1243);
+        CHECK(host->kept_punches() == 0);
+    }
+    { // Half Seq while a punch of the second half sounds: it goes with its half, at once.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        auto& pattern = bank->at[0][0];
+        pattern.length = 768;
+        pattern.punches = {{700, 60, uint8_t(PunchKind::High), 255, 100, 2, 1}};
+        auto host = kept_host(*project, *bank);
+        std::vector<int32_t> out(256);
+        host->send({Command::Type::Play});
+        unsigned blocks = 0;
+        auto run_to = [&](unsigned n) { for (; blocks < n; ++blocks) host->render(out.data(), 128, 1); };
+        run_to(1275); // tick 710
+        CHECK(host->kept_punches() == 1);
+        half_pattern(pattern);
+        CHECK(pattern.punches.empty());
+        send_pattern(*host, pattern);
+        run_to(1278); // tick 712
+        CHECK(host->kept_punches() == 0);
+    }
+    { // An editor's loop: a punch reaching past the loop's end ends there.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        bank->at[0][0].length = 768;
+        bank->at[0][0].punches = {{96, 500, uint8_t(PunchKind::Low), 255, 100, 2, 1}};
+        auto host = kept_host(*project, *bank);
+        std::vector<int32_t> out(256);
+        Command loop {Command::Type::EditLoop, 0};
+        loop.position = 0; loop.index = 192; // the first two beats
+        host->send(loop);
+        host->send({Command::Type::Play});
+        unsigned blocks = 0;
+        auto run_to = [&](unsigned n) { for (; blocks < n; ++blocks) host->render(out.data(), 128, 1); };
+        run_to(200); // tick 111
+        CHECK(host->kept_punches() == 1);
+        run_to(380); // tick 211, the loop's 19
+        CHECK(host->kept_punches() == 0);
+        run_to(560); // tick 312, its 120
+        CHECK(host->kept_punches() == 1);
+    }
+    { // A punch held across the loop point, kept in two parts, sounds as one: the second carries on from the first,
+      // not started again. Heard against the same punch in one part in a pattern twice as long; with another depth
+      // the second part is a punch of its own, started at the top.
+        auto render = [&](uint32_t length, std::vector<PatternPunch> punches) {
+            auto project = std::make_unique<Project>();
+            auto bank = std::make_unique<PatternBank>();
+            auto& pattern = bank->at[0][0];
+            pattern.length = 384;
+            for (unsigned step : {0u, 3u, 6u, 8u, 11u, 14u}) put(pattern, step, uint8_t(48 + step), 110, 2);
+            if (length == 768) CHECK(double_pattern(pattern, 768));
+            pattern.punches = std::move(punches);
+            auto host = kept_host(*project, *bank);
+            std::vector<int32_t> out(256);
+            std::vector<float> heard;
+            host->send({Command::Type::Play});
+            for (unsigned n = 0; n < 1150; ++n) { // to tick 641, before the punch comes round again
+                host->render(out.data(), 128, 1);
+                for (unsigned f = 0; f < 128; ++f) heard.push_back(float(out[2 * f]) / 2147483648.0f);
+            }
+            return heard;
+        };
+        const uint8_t stutter = uint8_t(PunchKind::Stutter);
+        auto one = render(768, {{0, 40, stutter, 255, 100, 2, 1}, {300, 124, stutter, 255, 100, 2, 1}});
+        auto two = render(384, {{0, 40, stutter, 255, 100, 2, 1}, {300, 84, stutter, 255, 100, 2, 1}});
+        auto apart = render(384, {{0, 40, stutter, 255, 99, 2, 1}, {300, 84, stutter, 255, 100, 2, 1}});
+        float most = 0, least = 0, loud = 0;
+        for (size_t n = 0; n < one.size(); ++n) {
+            most = std::max(most, std::fabs(one[n] - two[n]));
+            loud = std::max(loud, std::fabs(one[n]));
+            if (n > 384 * 229) least = std::max(least, std::fabs(one[n] - apart[n]));
+        }
+        CHECK(loud > 0.01f && most < 1e-5f && least > 0.01f);
     }
 }
 

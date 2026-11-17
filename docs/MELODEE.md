@@ -1792,7 +1792,13 @@ loud in what is heard. At 44.1 kHz they play to the bit as before.
   punches sound (KEEP's LED lit while a take waits); KEEP lays the take in
   that pattern, each punch where it fell (one undo), and they loop with it
   like Motion, drawn quieter, four at once, on the grid and tail they were
-  played with (kept in `KEPT`). A live punch wins: while one sounds the
+  played with (kept in `KEPT`). A kept punch ends with its pattern: one
+  held across the loop point is kept in two parts and sounds as one, and
+  none sounds past the end of the loop playing. Half Seq keeps a punch
+  that runs into the second half up to the first half's end; a shorter
+  length, Half Speed and an editor's loop end it there too. When the
+  pattern is edited, changed for another or stops, a punch it no longer
+  holds lets go at once. A live punch wins: while one sounds the
   kept ones are quiet, and they come back for the rest of their length
   after. Erase + pad takes that pad's kept punches out (one undo; while
   Erase is held the kept ones show red, on the pads and the screen), and
