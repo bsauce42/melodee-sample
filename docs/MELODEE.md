@@ -868,7 +868,9 @@ hold to steer, Shift + Seq to zoom in**.
 - **Half Seq, Double Seq, Half / Double Speed** (Shift + Pad 2, 3, 6, 7):
   each one undo; the length stays for the speeds. Settings' Double Seq row
   picks what the new half holds: Copy notes (the MPC's way, motion too) or
-  Empty.
+  Empty. What a shorter length hides past the pattern's end (notes,
+  motion, kept punches) is left out by Double Speed, and is not played by
+  a track at another speed.
 - **Recall** (Shift + Seq Record): no page. Roadmap P5, always-on
   capture: every note played on any track (the pads, Keys, MIDI in on its
   channel) is kept, Seq Record on or not, the last minutes of it (8192

@@ -12703,6 +12703,20 @@ void pattern_motion() {
         p.write_motion(point(10, engine_lane, 50, 0, 8));
         scale_pattern(p, false);
         CHECK(p.motion.size() == 2 && p.motion[1].tick == 5 * sixteenth_ticks && p.motion[1].hold == 4);
+        // A shorter length hides the points past the end, as the notes there. A track at another speed does not play
+        // them (they all sounded on its last tick), and Double Speed does not bring them in (it did, and a kept punch
+        // there too, the notes left out).
+        Pattern hidden;
+        hidden.length = 16 * sixteenth_ticks;
+        hidden.add({20 * sixteenth_ticks, 24, 60, 100, 100, 0});
+        hidden.write_motion(point(4, engine_lane, 10)); hidden.write_motion(point(20, engine_lane, 99));
+        hidden.punches = {{24 * sixteenth_ticks, 24, 4, 255, 100, 2, 1}};
+        for (unsigned speed : {0u, 1u, 3u, 4u}) {
+            auto played = speed_pattern(hidden, speed);
+            CHECK(played.motion.size() == 1 && played.motion[0].value == 10 && played.events.empty() && played.punches.empty());
+        }
+        scale_pattern(hidden, false);
+        CHECK(hidden.events.empty() && hidden.punches.empty() && hidden.motion.size() == 1 && hidden.motion[0].tick == 2 * sixteenth_ticks);
     }
     // The file: a pattern's points in MOTK with their ticks and holds; Motion from before (MOT2, MOTP, MOTW on
     // sixteenths of the project's one list) lands in its patterns.
