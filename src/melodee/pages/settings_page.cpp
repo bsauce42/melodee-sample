@@ -3,8 +3,7 @@
 // SETTINGS (Shift + Pad 8): Melodee's own settings, kept on the card next
 //   to the projects, as eight doors (four by two): PADS (response, pressure,
 //   Repeat velocity, the pad lights, their fade, the Tap Tempo light), SEQ
-//   (Rec quantize, as Shift + Pad 10, and the grid it puts notes on: the
-//   pattern's Q or one of its own; Follow: Step Edit and Roll with the playhead; what Double Seq puts in the
+//   (Rec quantize, as Shift + Pad 10; Follow: Step Edit and Roll with the playhead; what Double Seq puts in the
 //   new half, how many bars Capture keeps and how it puts them on the grid),
 //   KNOBS (how the knobs,
 //   Knob FX and the fader take over a value: Pickup, Scaled, Instant),
@@ -50,8 +49,7 @@ constexpr int8_t none = -1;
 const std::array<Door, 8> doors {{
     {Icon::Pads, "PADS", ROWS(Settings::PadResponse, Settings::PadPressure, Settings::RepeatVelocity, Settings::PadLights, Settings::PadFade,
                               Settings::TapLight)},
-    {Icon::Pattern, "SEQ", ROWS(Settings::RecQuantize, Settings::RecGrid, Settings::SeqFollow, Settings::DoubleSeq, Settings::CaptureBars,
-                                Settings::CaptureQuantize)},
+    {Icon::Pattern, "SEQ", ROWS(Settings::RecQuantize, Settings::SeqFollow, Settings::DoubleSeq, Settings::CaptureBars, Settings::CaptureQuantize)},
     {Icon::Knob, "KNOBS", ROWS(Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover)},
     {Icon::Screen, "SCREEN", ROWS(Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::Mirror, Settings::MirrorSize,
                                   Settings::MirrorRate)},

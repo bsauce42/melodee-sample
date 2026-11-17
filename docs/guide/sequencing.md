@@ -142,9 +142,7 @@ step. Turn a knob while recording to record it as Motion.
 - **SHIFT** + **TAP TEMPO**: metronome Off, On, or Rec (only while
   recording).
 - **SHIFT** + **Pad 10**: **Rec Quantize** on or off, as on the stock MPC.
-  The screen shows the new state and the grid. The grid is the pattern's Q
-  (**K2** on Patterns). To use a fixed grid instead, set **Rec grid** in
-  **Settings** > **SEQ**.
+  Notes land on the pattern's Q (**K2** on Patterns).
 - Hold **PLAY** while playing: Fill. Notes with a FILL condition play.
 - **ERASE** + **SEQ RECORD** on a kit: erase all notes of the selected pad
   (asks first).

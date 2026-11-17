@@ -2503,29 +2503,14 @@ void shift_pads() {
     Settings kept; kept.read(ui.settings.text()); // the toggles live in Melodee's settings file
     CHECK(kept.full_level() && kept.count_in && !kept.rec_quantize);
     CHECK(shift_pad_level(ui, 9) == 1); // off: the pad faint
-    // Rec Quantize's grid: kept with the settings; a file from before it follows the pattern's Q.
-    CHECK(kept.rec_grid == 0);
-    ui.settings.rec_grid = 1 + unsigned(Division::ThirtySecondTriplet);
-    kept.read(ui.settings.text());
-    CHECK(kept.rec_grid == 1 + unsigned(Division::ThirtySecondTriplet));
-    Settings old; old.read("rec_quantize=1\n");
-    CHECK(old.rec_quantize && old.rec_grid == 0);
-    old.read("rec_grid=99\n");
-    CHECK(old.rec_grid == unsigned(Division::Count)); // clamped to the last, 1/64
-    CHECK(grid_division(0, Division::Eighth) == Division::Eighth && grid_division(5, Division::Eighth) == Division::Sixteenth);
-    CHECK(grid_division(9, Division::Eighth) == Division::SixtyFourth && grid_division(10, Division::Eighth) == Division::Eighth);
-    { // Settings' SEQ rows: Rec quantize as Shift + Pad 10, Rec grid from the pattern's Q to 1/64 and no further
+    // Rec Quantize has no grid of its own (the pattern's Q, as the MPC): a file from when it had one still reads.
+    Settings old; old.read("rec_grid=3\nrec_quantize=0\n");
+    CHECK(!old.rec_quantize && old.text().find("rec_grid") == std::string::npos);
+    { // Settings' SEQ row: Rec quantize, as Shift + Pad 10
         Settings g;
-        CHECK(g.value_text(Settings::RecQuantize) == "On" && g.value_text(Settings::RecGrid) == "Pattern Q");
+        CHECK(g.value_text(Settings::RecQuantize) == "On" && std::string(Settings::row_name(Settings::RecQuantize)) == "Rec quantize");
         g.step(Settings::RecQuantize, 1);
         CHECK(!g.rec_quantize && g.value_text(Settings::RecQuantize) == "Off");
-        g.step(Settings::RecGrid, -1);
-        CHECK(g.rec_grid == 0);
-        g.step(Settings::RecGrid, 1);
-        CHECK(g.rec_grid == 1 && g.value_text(Settings::RecGrid) == "1/4");
-        for (int n = 0; n < 20; ++n) g.step(Settings::RecGrid, 1);
-        CHECK(g.rec_grid == unsigned(Division::Count) && g.value_text(Settings::RecGrid) == "1/64");
-        CHECK(std::string(Settings::row_name(Settings::RecGrid)) == "Rec grid");
     }
     kept.toggle_full_level();
     CHECK(kept.pad_response == 2); // back to the curve it came from
@@ -3177,13 +3162,13 @@ void timing() {
     CHECK(quantise_tick(q, 11) == 0 && quantise_tick(q, 13) == 24 && quantise_tick(q, 380) == 0);
     q.division = Division::EighthTriplet;
     CHECK(quantise_tick(q, 40) == 32);
-    // A grid of its own (Settings::rec_grid), whatever the pattern's Q: 1/32, 1/32T, 1/64, a quarter; past the end, the first.
+    // Onto a grid given in ticks, whatever the pattern's Q: 1/32, 1/32T, 1/64, a quarter; past the end, the first.
     CHECK(quantise_tick(q, 13, division_ticks(Division::ThirtySecond)) == 12 && quantise_tick(q, 17, division_ticks(Division::ThirtySecond)) == 12);
     CHECK(quantise_tick(q, 18, division_ticks(Division::ThirtySecond)) == 24);
     CHECK(quantise_tick(q, 11, division_ticks(Division::ThirtySecondTriplet)) == 8 && quantise_tick(q, 12, division_ticks(Division::ThirtySecondTriplet)) == 16);
     CHECK(quantise_tick(q, 4, division_ticks(Division::SixtyFourth)) == 6 && quantise_tick(q, 140, division_ticks(Division::Quarter)) == 96);
     CHECK(quantise_tick(q, 382, division_ticks(Division::SixtyFourth)) == 0 && quantise_tick(q, 378, division_ticks(Division::SixtyFourth)) == 378);
-    CHECK(quantise_tick(q, 40, division_ticks(grid_division(0, q.division))) == quantise_tick(q, 40)); // 0: the pattern's Q
+    CHECK(quantise_tick(q, 40, division_ticks(q.division)) == quantise_tick(q, 40)); // the pattern's Q
 
     // Double / Half Seq, Half / Double Speed.
     Pattern d;

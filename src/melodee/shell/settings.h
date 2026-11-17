@@ -7,7 +7,6 @@
 #include "drivers/screen_mirror.h"
 #include "melodee/model/input_config.h"
 #include "melodee/model/midi_config.h"
-#include "melodee/model/pattern.h"
 #include "melodee/ui/faces.h"
 #include "melodee/ui/palettes.h"
 #include <cmath>
@@ -38,7 +37,7 @@ inline const char* takeover_name(Takeover t) {
 struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
-                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, RecQuantize, RecGrid, Rows };
+                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, RecQuantize, Rows };
     // FEATURES (shell/features.h; Settings' K1): Full shows every page, Basic the stock app's pages plus tracks,
     // plug-ins, the mixer and Song. A first install (no settings file) starts on Basic; a file from before this
     // row stays on Full, as it was (read()).
@@ -47,8 +46,7 @@ struct Settings {
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
-    bool rec_quantize = true; // recorded notes onto the grid (Shift + Pad 10, or SEQ's Rec quantize row)
-    uint8_t rec_grid = 0;     // and which grid (SEQ's Rec grid row): 0 the pattern's Q, else 1 + a Division, 1/4 .. 1/64 (grid_division(), model/pattern.h)
+    bool rec_quantize = true; // recorded notes onto the pattern's Q, as the MPC (Shift + Pad 10, or SEQ's Rec quantize row)
     bool zero_snap = true;    // Chop's cuts onto zero crossings (Chop's B2; shell/chop.h)
     uint8_t slice_play = 0;   // Chop's TO PADS: the last playback picked, 0 Poly, 1 Mono, 2 Thru (shell/chop.h SlicePlay)
     bool slice_pattern = true; // and whether it writes a pattern of the slices too (Live's Slice to New MIDI Track)
@@ -129,7 +127,7 @@ struct Settings {
         static const char* names[] {"Palette", "Pad response", "Pad pressure", "Pad lights", "Knob takeover", "Knob FX takeover",
                                     "Fader takeover", "Double Seq", "Capture bars", "Capture quantize", "Brightness", "Place bar", "Sample rate", "Audio buffer", "Recall grab", "Recall gap",
                                     "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Screen mirror", "Resolution", "Frame rate",
-                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow", "Font", "Rec quantize", "Rec grid"};
+                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow", "Font", "Rec quantize"};
         return names[row % Rows];
     }
     std::string value_text(unsigned row) const {
@@ -172,7 +170,6 @@ struct Settings {
         case RepeatVelocity: return repeat_pressure ? "Pressure" : "Strike";
         case SeqFollow: return seq_follow == 1 ? "Page" : seq_follow == 2 ? "Step" : "Off";
         case RecQuantize: return rec_quantize ? "On" : "Off";
-        case RecGrid: return rec_grid ? division_name(grid_division(rec_grid, Division::Sixteenth)) : "Pattern Q";
         default: return std::to_string(screen) + " %";
         }
     }
@@ -208,7 +205,6 @@ struct Settings {
         case RepeatVelocity: repeat_pressure = !repeat_pressure; break;
         case SeqFollow: seq_follow = uint8_t(step_in(seq_follow % 3, 3, way)); break;
         case RecQuantize: rec_quantize = !rec_quantize; break;
-        case RecGrid: rec_grid = uint8_t(step_in(rec_grid, unsigned(Division::Count) + 1, way)); break;
         default: break;
         }
     }
@@ -246,7 +242,7 @@ struct Settings {
         out << "features=" << int(full_features) << "\nlessons=" << int(lessons_done) << "\npad_response=" << int(pad_response) << "\npad_lights=" << int(pad_lights) << "\npad_fade=" << int(pad_fade) << "\ntap_light=" << int(tap_light)
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
-            << "\nscreen=" << int(screen) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
+            << "\nscreen=" << int(screen) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize)
             << "\nzero_snap=" << int(zero_snap) << "\nslice_play=" << int(slice_play) << "\nslice_pattern=" << int(slice_pattern) << "\nstems_best=" << int(stems_best) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure) << "\nrepeat_pressure=" << int(repeat_pressure) << "\nseq_follow=" << int(seq_follow)
@@ -301,7 +297,6 @@ struct Settings {
             else if (key == "place_bar") place_bottom = value != 0;
             else if (key == "count_in") count_in = value != 0;
             else if (key == "rec_quantize") rec_quantize = value != 0;
-            else if (key == "rec_grid") rec_grid = uint8_t(std::clamp(value, 0, 9)); // 0 Q, 1..9 a Division
             else if (key == "zero_snap") zero_snap = value != 0;
             else if (key == "slice_play") slice_play = uint8_t(std::clamp(value, 0, 2));
             else if (key == "slice_pattern") slice_pattern = value != 0;

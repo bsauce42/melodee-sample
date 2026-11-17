@@ -459,8 +459,7 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
 // Seq Record while playing: the note lands where it was heard (its pad's or MIDI
 // message's stamp less the output latency, on the nearest tick: by the time the
 // MIDI thread sees it the playhead has moved on), or with Rec Quantize on
-// (Shift + Pad 10) on the nearest step of its grid (the pattern's Q, or one of
-// its own: Settings' Rec grid, Settings::rec_grid). A note moved ahead of the playhead is skipped
+// (Shift + Pad 10) on the nearest step of the pattern's Q. A note moved ahead of the playhead is skipped
 // once by the audio thread, as it was heard live.
 void Context::record(int key, int velocity, int cutoff) {
     if (!ui.recording || !host.playing()) return;
@@ -485,8 +484,7 @@ void Context::record(int key, int velocity, int cutoff) {
     uint32_t at = lane_tick(position, pass, p.length, loop);
     bool ahead = early;
     if (ui.settings.rec_quantize) {
-        unsigned grid = division_ticks(grid_division(ui.settings.rec_grid, p.division));
-        uint32_t snapped = quantise_tick(p, at, grid); // past the last step: the first, next time round
+        uint32_t snapped = quantise_tick(p, at); // past the last step: the first, next time round
         if (snapped >= loop) snapped = 0;              // its lane's last step too
         ahead = early || still_ahead(at, snapped, lane ? int(lane_tick(playhead, pass, p.length, loop)) : playhead, lane ? loop : p.length);
         at = snapped;

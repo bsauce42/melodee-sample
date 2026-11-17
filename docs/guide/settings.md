@@ -17,7 +17,7 @@ runs at, and in amber the audio dropouts since Melodee started.
 | Page | Settings |
 | --- | --- |
 | **PADS** | Pad response (soft, medium, hard, full level), pad pressure, Repeat velocity (Strike: every repeat as hard as the pad was struck; Pressure: as hard as the pad is held), pad lights (track colours, white, off), **Pad fade** (how fast a pad's light fades after its sound stops: 60, 100, 150 or 250 ms), **Tap Tempo light** (flashes on the beat while playing, on or off) |
-| **SEQ** | **Rec quantize** (as **SHIFT** + **Pad 10**) and **Rec grid** (the pattern's Q, or a fixed grid from 1/4 to 1/64), **Follow** (Step Edit and Roll while the pattern plays: Off, Page or Step; see [Sequencing](sequencing.md)), what Double Seq copies, Capture length and grid |
+| **SEQ** | **Rec quantize** (as **SHIFT** + **Pad 10**), **Follow** (Step Edit and Roll while the pattern plays: Off, Page or Step; see [Sequencing](sequencing.md)), what Double Seq copies, Capture length and grid |
 | **KNOBS** | Knob, Knob FX and fader takeover: Pickup, Scaled or Instant |
 | **SCREEN** | **Palette** and **Font** (see below), **Brightness** (20 to 100 %), place bar at the top or bottom, Screen mirror (on or off) and its resolution: the screen as a USB camera for a computer |
 | **AUDIO** | Sample rate (44.1, 48 or 96 kHz) and audio buffer (256 to 1024 frames). A longer buffer gives fewer crackles on a busy project. A shorter one responds sooner. |
