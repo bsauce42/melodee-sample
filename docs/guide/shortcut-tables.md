@@ -10,7 +10,7 @@ Previous: [Exit and troubleshooting](exit-and-troubleshooting.md) · [Contents](
 | **SEQ** | Sequences, Roll or Motion, the last open on the track; on one of them, Sequences. Held: the pads launch sequences on every track, the encoder sets the tempo, **B1**–**B3** open Sequences, Roll and Motion. | Step Edit; again, back |
 | **PAD FX** | Pad FX. With **KNOB FX**: the mixer (Tracks). | Flex Beat |
 | **KNOB FX** | Knob FX mode on or off. With **PAD FX**: the mixer (Tracks). | Effect chains, from the track's; again, the next along |
-| **PAD BANK** | Tap: next bank. A hold never changes the bank. Held + pad: select a track; **K1**–**K3**: its level, pan and send A. Held + **B1**: Tracks. Held + **B2** / **B3**: move or copy a track. Held + **ERASE** + pad: clear a track. | Previous bank |
+| **PAD BANK** | Tap: next bank (on Chop: the next 16 slices). A hold never changes the bank. Held + pad: select a track; **K1**–**K3**: its level, pan and send A. Held + **B1**: Tracks. Held + **B2** / **B3**: move or copy a track. Held + **ERASE** + pad: clear a track. | Previous bank |
 | **ERASE** | Alone: erase the selection (on Song, the clip; in the sample browser and the plug-in picker, delete the file or folder from the card). Held + pad, knob, step or fader: erase it, or set it back. Held + **SEQ RECORD** on a kit: erase the selected pad's notes. | Copy |
 | **NOTE REPEAT** | Tap to latch, hold for momentary. On Roll: ratchet the marked notes. On Song: repeat the clip to the next marker. | On Roll and Step Edit: write the arpeggio as notes |
 | **CHOP** | Chop the last pad. On Roll and Step Edit: split the notes. On Song: split the clip. | Note On / One Shot. On Roll and Step Edit: legato. |

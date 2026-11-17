@@ -10,6 +10,7 @@
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/mpc_wav_slices.h"
+#include "melodee/model/slice_banks.h"
 #include <thread>
 
 namespace melodee {
@@ -43,10 +44,11 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         audition(sl.start[0], sl.end(0, frames));
         return;
     }
-    if (pad >= sl.count) return;
-    if (pad != ui.chop_slice) ui.chop_fine = false; // another slice: the wheel picks slices again until K1 / K2
-    ui.chop_slice = uint8_t(pad);
-    audition(sl.start[pad], sl.end(pad, frames));
+    const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
+    if (slice >= sl.count) return;
+    if (slice != ui.chop_slice) ui.chop_fine = false; // another slice: the wheel picks slices again until K1 / K2
+    ui.chop_slice = uint8_t(slice);
+    audition(sl.start[slice], sl.end(slice, frames));
 }
 
 // The slices Chop holds as its sample's chop, written into the sample's WAV file when they changed (as the MPC

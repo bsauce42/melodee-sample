@@ -247,6 +247,11 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
 | **ERASE** + pad | Remove a slice. |
+| **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
+
+With more than 16 slices, the pads show the bank of the selected slice, and
+the bank lights and **BANK** at the top of the screen show which. Selecting
+a slice with the encoder moves the pads to its bank.
 
 **Threshold chop**: cuts at every hit at least as strong as the threshold.
 A hit is a change in the sound: a drum, a hat over a held note, or a chord

@@ -2,6 +2,7 @@
 // Melodee's model and audio side on the host: pad layouts, knob bindings,
 // the engine host's sequencer and mixer, and synth tracks as plug-ins.
 #include "melodee/engine/effects.h"
+#include "melodee/model/slice_banks.h"
 #include "melodee/engine/macros.h"
 #include <sstream>
 #include <fstream>
@@ -11693,6 +11694,12 @@ void pad_lights() {
     // Chop: the slices, the one in hand Full; Manual armed, pad 1 flashes red.
     ui.page = PageId::Chop; ui.slices.count = 5; ui.chop_slice = 2; light({});
     CHECK(is(2, Hue::Track, 4) && is(0, Hue::Track, 2) && is(6, Hue::None, 0));
+    // Past sixteen slices the pads hold the bank of the slice in hand (Pad Bank steps it): slice 18 on pad 2.
+    ui.slices.count = 20; ui.chop_slice = 17; light({});
+    CHECK(is(1, Hue::Track, 4) && is(0, Hue::Track, 2) && is(3, Hue::Track, 2) && is(4, Hue::None, 0));
+    CHECK(slice_bank(17) == 1 && slice_banks(20) == 2 && slice_banks(16) == 1 && slice_banks(0) == 1);
+    CHECK(pad_slice(17, 3) == 19 && pad_slice(2, 3) == 3 && pad_slice(63, 15) == 63);
+    ui.slices.count = 5; ui.chop_slice = 2;
     ui.chop_mode = ChopMode::Manual; ui.chop_armed = true; light({}, 1000);
     CHECK(is(0, Hue::Red, 4) && is(1, Hue::None, 0));
     ui.chop_armed = false; ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
