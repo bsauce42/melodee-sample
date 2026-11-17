@@ -189,13 +189,30 @@ icon and its type at the right.
 | --- | --- |
 | SFZ | `.sfz`, shown as **SFZ** |
 | MPC keygroup program | `.xpm` (**XPM**), or `.xty` from MPC 3 (**XTY**) |
-| MPC drum program | `.xpm` or `.xty` with a pads icon: loads as the whole kit, with its pad colours and sends |
+| MPC drum program | `.xpm` or `.xty` with a pads icon: Push opens **LOAD KIT** (below) |
 | MPC expansion | `.xpn` with a down arrow: installs into `Melodee/Samples/Expansions` |
 | Logic EXS24 / Sampler | `.exs` (**EXS**), with its samples in the same folder |
 | SoundFont | `.sf2` (**SF2**): opens as a folder of presets |
 | DecentSampler | `.dspreset` (**DS**): opens with its controls as its own screen sets them |
 
 ![Instruments in the browser](../images/screens/samplesinstruments.png)
+
+### Loading banks of an MPC kit
+
+Push on an MPC drum program opens **LOAD KIT**. Its header shows the kit's
+filled banks and how many pads each has. The wheel moves between the cards
+and Push presses one.
+
+| Card | What it does |
+| --- | --- |
+| **LOAD** | Puts the banks picked below into this kit, as one undo |
+| **WHOLE KIT** | Loads the whole kit as the track's kit, with its pad colours and sends |
+| **BANK A** to **BANK H** | Your kit's banks. Push steps through the kit's filled banks, then none. |
+
+At first, the bank in view takes the kit's first filled bank. Only the kit's
+filled pads are loaded: the other pads and banks of your kit stay as they
+are. A bank card in red replaces pads you already have. B1 goes back
+without loading.
 
 An instrument streams from the card. One made of WAV files opens at once:
 its files are played as they are. FLAC, Ogg, AIFF and SoundFont samples are

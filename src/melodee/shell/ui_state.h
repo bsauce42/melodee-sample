@@ -204,6 +204,14 @@ struct UiState {
     bool held_created = false, held_edited = false;
     bool sheet_open = false;  // a sheet behind Push: Roll's note, a chain's device, a project's file
     uint8_t sheet_row = 0;
+    // Samples' LOAD KIT sheet (Push on a KIT over a kit track, shell/project_jobs.cpp): the kit read, how many pads
+    // each of its banks fills, and which of its banks goes into each bank of the track (-1 none).
+    struct KitSheet {
+        char name[32] {};
+        std::array<uint8_t, sampler_banks> pads {};
+        std::array<int8_t, sampler_banks> into {-1, -1, -1, -1, -1, -1, -1, -1};
+    };
+    KitSheet kit_sheet;
     // Roll (shell/roll.h): the cursor is step_cursor (a step of Q) and roll_key (a pitch), and the note
     // starting there on that key is in focus. roll_view: the first step in view; roll_top: the top row's key;
     // roll_new: the length a pad's new note gets, in ticks (0: one step of Q).

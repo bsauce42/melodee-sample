@@ -1474,7 +1474,12 @@ the file holds, to the bit.
   the amp envelope, sample start, end and loop, groups and tags on or off),
   so a start set past a file's silence plays from there; a layer at volume
   0 is left out.
-- **MPC drum programs** (`.xpm` or `.xty` of type Drum, tagged KIT): Push loads the
+- **MPC drum programs** (`.xpm` or `.xty` of type Drum, tagged KIT): Push reads the
+  program, then opens the LOAD KIT sheet (cards: LOAD, WHOLE KIT, BANK A-H). Each bank card
+  steps through the program's filled banks, then none; the bank in view starts with the first.
+  LOAD puts only those banks' filled pads into the kit's banks picked, with their chains and
+  colours, unmuted, as one undo (shell/project_kits.h import_kit_bank); the other pads, banks
+  and the kit's own values stay. WHOLE KIT loads the
   program as the selected kit track's kit, as Load Kit does (one undo), each
   instrument onto its pad (1 is A01, 17 is B01). A pad of one layer plays its
   WAV; one of two to four layers takes them as its own pad layers (roadmap

@@ -467,9 +467,15 @@ public:
     void ask_new_project();                   // the question, with what happens to unsaved changes
     void start_new_project(bool kit = false); // its B3: saved first if it has a file, then a new one with no tracks and the track types on track 1 (B2 KIT: the factory kit on track 1, Stage)
     std::string lesson_return;                // a lesson runs (shell/lesson_jobs.h): the file of the project open before it, "" none
-    void load_kit_file(const std::string& path, const std::string& name); // a project's kit onto the selected track, once loaded
+    void load_kit_file(const std::string& path, const std::string& name, bool ask = false); // a project's kit onto the selected track, once loaded (ask: the LOAD KIT sheet first)
     void load_kit(const Project& from, const std::string& name);          // that kit onto the selected track, one undo
     std::string kit_from;                     // the file Load Kit waits for
+    // Samples' LOAD KIT sheet: Push on a KIT over a kit track reads it, then asks which of its filled banks go into
+    // which of the track's banks (ui.kit_sheet); LOAD puts those in as one undo, WHOLE KIT loads it as Load Kit.
+    bool kit_ask = false;                     // the kit Load Kit waits for opens the sheet
+    std::unique_ptr<Project> kit_held;        // the kit read, while the sheet is open
+    void load_kit_banks();                    // LOAD: the banks picked
+    void kit_sheet_step(unsigned bank);       // a bank's card: the kit's next filled bank into it, then none
     // Kit bank files (shell/project_jobs.cpp, model/project_file.h): Push on one in the Samples browser
     // loads it into the selected kit's bank in view, once the service thread has read it.
     void load_bank_file(const std::string& path, const std::string& name);

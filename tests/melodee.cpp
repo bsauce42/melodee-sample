@@ -6129,6 +6129,22 @@ void projects_and_polish() {
     asked = 0;
     put = import_bank(loaded, 7, other, [&](const SampleRef&) { ++asked; return -1; }); // no free slot
     CHECK(asked == 2 && put.pads == 0 && put.missing == 3 && !other.pads[112].used());
+
+    // LOAD KIT's banks: one bank of a kit into one bank of the track, only its filled pads; the rest stays.
+    auto counts = kit_bank_pads(kit);
+    CHECK(counts[0] == 3 && counts[1] == 0 && counts[2] == 4 && counts[7] == 0);
+    Track mine = other;
+    mine.pads[48].sample = 50; mine.pads[49].sample = 51; mine.pads[63].sample = 52; mine.set_pad_muted(48, true);
+    mine.pads[0].sample = 53; mine.params[sampler::Filter] = 12;
+    asked = 0;
+    auto in = import_kit_bank(*from, 6, 2, 3, mine, [&](const SampleRef& r) { ++asked; return std::string(r.name) == "KICK" ? 60 : 61; });
+    CHECK(asked == 2 && in.pads == 3 && in.missing == 1 && in.replaced == 3); // pad 34's slot has no file
+    CHECK(mine.pads[48].sample == 61 && mine.pads[48].pitch == -3 && mine.pad_fx.at[48].slots[0].kind == uint8_t(EffectKind::Drive));
+    CHECK(mine.pads[49].sample == 61 && mine.pads[63].sample == 60 && mine.pads[63].group == 3 && !mine.pad_muted(48));
+    CHECK(!mine.pads[50].used() && mine.pads[0].sample == 53 && mine.params[sampler::Filter] == 12); // the rest as it was
+    Track same = mine;
+    in = import_kit_bank(*from, 6, 1, 0, same, [&](const SampleRef&) { return 70; }); // an empty bank of the kit
+    CHECK(in.pads == 0 && in.replaced == 0 && same.pads[0].sample == 53);
 }
 
 // Settings' sample rate (44.1 / 48 / 96 kHz): the engine follows the device's rate, so a project plays at the same

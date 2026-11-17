@@ -5,7 +5,9 @@
 // Plus move, Push opens a folder or loads the file onto the last pad hit
 // (keeping the pad's settings; the whole file, Trim or Chop shape it), or a
 // bank file (BANK, Samples/Banks) into the kit's bank in view, or an MPC drum
-// program (KIT) as the track's kit, as Load Kit does, or installs an MPC
+// program (KIT) into the kit: the LOAD KIT sheet asks which of its filled
+// banks go into which of the track's banks (LOAD), or all of it as the
+// track's kit, as Load Kit does (WHOLE KIT); or installs an MPC
 // expansion (.xpn, INSTALL) onto the card and opens its folder; Shift +
 // Sample Select here saves that bank as a bank file (Save Bank). B1
 // goes back out, B2 picks the drive (the card, or the internal one: the
@@ -19,6 +21,7 @@
 #include "melodee/engine/dsp.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/new_track.h"
+#include "melodee/shell/project_kits.h"
 #include "melodee/ui/widgets.h"
 #include <cstdio>
 #include <filesystem>
@@ -35,7 +38,7 @@ juce::String folder_title(const Snapshot& s) {
     return juce::String(std::filesystem::path(s.files_folder).filename().string());
 }
 
-void draw(Paint& p, const Snapshot& s) {
+void draw_list(Paint& p, const Snapshot& s) {
     const auto& track = s.track();
     auto c = colour_of(s);
     Header h = header_of(s);
@@ -56,6 +59,7 @@ void draw(Paint& p, const Snapshot& s) {
     SoftKeys keys {{s.files_top ? "CANCEL" : "BACK", other, "PREVIEW"}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
     keys.toggles = 4; // PREVIEW names a thing that is on or off: its LED, never ON / OFF (the row fills while it sounds)
     keys.lit = s.ui.settings.preview ? 4 : 0;
+    if (s.ui.sheet_open) keys = {{"BACK", "", ""}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}; // LOAD KIT's cards
     frame(p, s, keys, h);
     if (s.files.empty()) { // a glyph and two words: no card, or nothing here
         bool no_card = drive == Drive::Card && s.sample_root.empty();
@@ -106,28 +110,82 @@ void draw(Paint& p, const Snapshot& s) {
     }
 }
 
+// LOAD KIT's cards: LOAD (the banks picked), WHOLE KIT, then the track's banks A-H, each with the kit's bank going in.
+constexpr unsigned kit_cards = 2 + sampler_banks;
+
+juce::String pads_text(unsigned n) { return juce::String(n) + (n == 1 ? " pad" : " pads"); }
+
+void draw_kit_sheet(Paint& p, const Snapshot& s) {
+    const auto& sheet = s.ui.kit_sheet;
+    const auto& track = s.track();
+    auto c = colour_of(s);
+    const auto have = kit_bank_pads(track);
+    CardSheet m;
+    m.chip = "LOAD KIT"; m.chip_colour = c; m.accent = c;
+    m.title = name_case(juce::String(sheet.name));
+    unsigned kit_pads = 0;
+    juce::String banks;
+    for (unsigned b = 0; b < sampler_banks; ++b) {
+        if (!sheet.pads[b]) continue;
+        kit_pads += sheet.pads[b];
+        banks += juce::String::fromUTF8(" \xc2\xb7 ") + juce::String::charToString(juce::juce_wchar('A' + b)) + " " + juce::String(sheet.pads[b]);
+    }
+    m.detail = pads_text(kit_pads) + banks;
+    unsigned picked = 0;
+    for (unsigned b = 0; b < sampler_banks; ++b) if (sheet.into[b] >= 0) ++picked;
+    m.items[0] = card_item(Icon::ArrowDown, "LOAD", picked == 1 ? "1 bank" : juce::String(picked) + " banks", false, false, !picked);
+    bool any = false;
+    for (auto n : have) any |= n > 0;
+    m.items[1] = card_item(Icon::Pads, "WHOLE KIT", "all banks", false, any);
+    for (unsigned b = 0; b < sampler_banks; ++b) {
+        const juce::String bank = juce::String::charToString(juce::juce_wchar('A' + b));
+        const int from = sheet.into[b];
+        juce::String sub = from >= 0 ? "from " + juce::String::charToString(juce::juce_wchar('A' + from)) + juce::String::fromUTF8(" \xc2\xb7 ") + pads_text(sheet.pads[unsigned(from)])
+                         : have[b] ? pads_text(have[b]) : juce::String("empty");
+        m.items[2 + b] = card_item(Icon::Pads, "BANK " + bank, sub, from >= 0, from >= 0 && have[b] > 0);
+    }
+    m.count = kit_cards; m.current = s.ui.sheet_row % kit_cards;
+    card_sheet(p, m);
+}
+
+void draw(Paint& p, const Snapshot& s) {
+    draw_list(p, s);
+    if (s.ui.sheet_open) draw_kit_sheet(p, s);
+}
+
 void wheel(Context& c, int delta) {
+    if (c.ui.sheet_open) { c.ui.sheet_row = uint8_t(std::clamp<int>(c.ui.sheet_row + delta, 0, int(kit_cards) - 1)); return; }
     int was = c.ui.files_cursor;
     c.ui.files_cursor = uint16_t(std::clamp<int>(c.ui.files_cursor + delta, 0, std::max(int(c.ui.files_count) - 1, 0)));
     if (c.ui.files_cursor != was) c.preview_cursor();
 }
 
 void push(Context& c) {
+    if (c.ui.sheet_open) { // LOAD KIT's cards
+        unsigned card = c.ui.sheet_row % kit_cards;
+        if (card == 0) c.load_kit_banks();
+        else if (card == 1) {
+            c.ui.sheet_open = false;
+            if (auto from = std::move(c.kit_held)) c.load_kit(*from, c.ui.kit_sheet.name);
+        } else c.kit_sheet_step(card - 2);
+        return;
+    }
     if (!c.library) return;
     auto files = c.library->files();
     if (c.ui.files_cursor >= files.size()) return;
     const auto& file = files[c.ui.files_cursor];
     if (file.folder) c.library->browse(Drive(c.ui.files_drive), file.path);
     else if (file.bank) c.load_bank_file(file.path, file.name);
-    else if (file.kit) c.load_kit_file(file.path, file.name);
+    else if (file.kit) c.load_kit_file(file.path, file.name, c.track().engine == EngineKind::Sampler); // a kit: LOAD KIT asks which banks
     else if (file.expansion) c.library->install(file.path);
     else if (file.midi) import_midi(c, file.path); // roadmap P4: its notes onto the track's pattern
     else c.load_file(file.path, file.name, false);
 }
 
 void soft(Context& c, int key) {
-    if (!c.library) return;
     auto& ui = c.ui;
+    if (ui.sheet_open) { if (key == 0) { c.kit_held.reset(); c.back(); } return; } // LOAD KIT's cards: B1 BACK
+    if (!c.library) return;
     if (key == 0) { if (c.library->top()) samples_cancel(c); else c.library->browse_up(); } // at the top: CANCEL
     if (key == 1) { // the other drive, where it was left
         unsigned from = ui.files_drive % unsigned(Drive::Count), to = (from + 1) % unsigned(Drive::Count);
