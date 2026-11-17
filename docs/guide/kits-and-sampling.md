@@ -292,9 +292,11 @@ hit you want to cut at; the red moves on to the next pad. After pad 16 the
 pads switch to bank B and its pad 1 blinks red, up to bank D (64 slices).
 While it plays, only the red pad cuts. Tap a lit pad to go back: the
 sample plays again from that slice and the cuts after it are taken out.
-When the sample has played to the end, the pads play the slices, and the
-red stays on the next pad: tap it to play on from the last cut and keep
-cutting. **UNDO** takes back a whole take at once.
+When the sample has played to the end, the take is done and the pads play
+the slices. Stop a take before the end (press another button, turn a knob or
+leave Chop) and the sound stops, but the red stays on the next pad: tap it
+to play on from the last cut and keep cutting. **UNDO** takes back a whole
+take at once.
 
 **Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
 **SHIFT** + **B2** Split, or Manual's taps) stays when you change the chop

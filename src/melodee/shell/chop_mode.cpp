@@ -6,8 +6,9 @@
 // tap makes blinks red, and tapped it cuts the region there (the other pads
 // wait; a lit one plays again from its slice, the cuts after it gone). After
 // pad 16 the pads turn to bank B and its pad 1 is red, up to D (64 slices).
-// Played out, the red stays on the next pad: tapped, it plays on from the
-// last cut. A take is one undo step (open_take / end_take). Each cut is pulled onto the strongest hit just before it,
+// Stopped short of the end, the red stays on the next pad: tapped, it plays
+// on from the last cut; played to the end, no red. A take is one undo step
+// (open_take / end_take). Each cut is pulled onto the strongest hit just before it,
 // since a tap comes a little after the sound it means; with Zero Snap on (B2,
 // kept with the settings) it then lands on a zero crossing.
 #include "melodee/shell/context.h"
@@ -52,7 +53,7 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         }
         return;
     }
-    if (ui.chop_take_at) end_take(); // it has played out: the pads play slices again
+    if (ui.chop_take_at) end_take(); // it has played out: the pads play slices again (no red: it reached the end)
     if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) { // pad 1, red: the take begins
         open_take();
         chop_unfollow(ui); ui.chop_focus = 0; ui.chop_heard_at = 0;
@@ -84,20 +85,30 @@ void Context::open_take() {
     end_take();
     chop_take_edit = scope_edit(UndoScope {UndoScope::Kind::Chop, uint8_t(ui.track % track_count), 0}, "Chop take");
 }
-void Context::end_take() {
-    if (ui.chop_take_at && ui.chop_mode == ChopMode::Manual && ui.slices.count < max_slices) ui.chop_more = true; // the red stays
+void Context::end_take(uint32_t ms) {
+    if (ui.chop_take_at) {
+        // Stopped short of the region's end (another control, the page left): the sound stops and the red stays on the
+        // next pad, to play on from the last cut. Played to the end, every cut is made: no red.
+        const bool short_of_end = chop_take_playing(project, ui, ms ? ms : now);
+        ui.chop_more = short_of_end && ui.chop_mode == ChopMode::Manual && ui.slices.count < max_slices;
+        if (short_of_end) {
+            Command stop {Command::Type::Audition, ui.track, 0, 0, 0};
+            stop.pad.sample = no_sample; // the audition voice stops
+            send(stop);
+        }
+    }
     ui.chop_take_at = 0;
     if (!chop_take_edit) return;
     auto edit = std::move(chop_take_edit);
     if (finish_scope(*edit)) { edits.push(std::move(*edit)); dirty = true; }
 }
 
-// MIDI thread, from the lights' pass. A take that has played out (or whose page was left) ends: one undo step, the
-// red kept on the next pad. A cut moved by the wheel or K1 / K2 is heard once it has been still for chop_heard_ms,
+// MIDI thread, from the lights' pass. A take that has played out (or whose page was left) ends: one undo step (the
+// red kept on the next pad only when it stopped short of the end). A cut moved by the wheel or K1 / K2 is heard once it has been still for chop_heard_ms,
 // with what leads into it: its start from 300 ms before, into the slice to its end; its end, the slice's last second.
 // Once (each move puts it off again; nothing repeats).
 void Context::chop_tick(uint32_t ms) {
-    if (ui.chop_take_at && (ui.page != PageId::Chop || !chop_take_playing(project, ui, ms))) end_take();
+    if (ui.chop_take_at && (ui.page != PageId::Chop || !chop_take_playing(project, ui, ms))) end_take(ms);
     if (!ui.chop_heard_at || int32_t(ms - ui.chop_heard_at) < 0) return;
     ui.chop_heard_at = 0;
     const auto& sl = ui.slices;

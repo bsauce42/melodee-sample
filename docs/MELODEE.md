@@ -1616,8 +1616,10 @@ the file holds, to the bit.
   strongest hit; after pad 16 the pads turn to bank B with its pad 1 red, up
   to 64 slices (`view_slice`, `red_slice`, `model/slice_banks.h`). A lit pad
   tapped meanwhile plays again from its slice, the cuts after it gone (the
-  MPC 3's way); played out, the red stays on the next pad (`chop_more`) and
-  tapped plays on from the last cut, the take going on; a take, however it
+  MPC 3's way); stopped short of the end (another control, the page left)
+  the sound stops and the red stays on the next pad (`chop_more`), tapped
+  playing on from the last cut, the take going on; played to the end, no
+  red; a take, however it
   goes on, is one undo step (`Context::open_take` / `end_take`, ended by any
   other control, undo, leaving the page or playing out). Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad

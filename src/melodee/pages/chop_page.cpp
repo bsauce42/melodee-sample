@@ -25,9 +25,10 @@
 // blinks red and plays the region; then the red walks, the pad of the slice
 // the next tap makes, and only it cuts (after pad 16 the pads turn to bank B,
 // its pad 1 red; up to 64 slices, shell/chop_mode.cpp). A lit pad tapped
-// meanwhile plays again from its slice, the cuts after it gone. Played out,
-// the red stays on the next pad: tapped, it plays on from the last cut and
-// the take goes on. A take is one undo step.
+// meanwhile plays again from its slice, the cuts after it gone. Stopped short
+// of the end (another control, the page left), the sound stops and the red
+// stays on the next pad: tapped, it plays on from the last cut and the take
+// goes on; played to the end, no red. A take is one undo step.
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
 // Erase + pad takes a slice out (it joins the one before). B3 TO PADS asks
