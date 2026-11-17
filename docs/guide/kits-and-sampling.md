@@ -273,8 +273,12 @@ on the bar, set the region's start near the bar's first beat. A sample with
 no steady beat uses the project's tempo. A chop holds at most 64 slices: if
 a division needs more, the last slice runs to the end, and Melodee says so.
 
-**Manual chop**: set **K3** to Manual, or push the encoder. Pad 1 plays the
-sample. Tap other pads while it plays to cut there.
+**Manual chop**: set **K3** to Manual, or push the encoder. Pad 1 blinks
+red. Tap it: the sample plays and pad 2 blinks red. Tap the red pad on each
+hit you want to cut at; the red moves on to the next pad. After pad 16 the
+pads switch to bank B and its pad 1 blinks red, up to bank D (64 slices).
+While it plays, only the red pad cuts. When the sample has played to the
+end, the pads play the slices.
 
 **Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
 **SHIFT** + **B2** Split, or Manual's taps) stays when you change the chop

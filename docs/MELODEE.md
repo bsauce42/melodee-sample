@@ -236,7 +236,7 @@ grammar (`shell/pad_light.h`):
 | Roll | The note in focus white, the cursor's step Full, notes elsewhere Dim, none Faint |
 | Time Correct | Whose notes move Full, with notes Dim |
 | Motion on a kit | The last pad Full, pads with recorded motion Mid |
-| Chop | The slices, the one in hand Full, flaring as they play; Manual armed: pad 1 flashing red; cutting: pad 1 white, the rest white Faint; + Erase the slices that would go Faint red |
+| Chop | The slices, the one in hand Full, flaring as they play; Manual armed: pad 1 flashing red; cutting: the slices so far (the newest Full) and the next slice's pad flashing red, in its bank; + Erase the slices that would go Faint red |
 | Record, Resample | The take's pad red (flashing while it waits), cuts white; Resample's empty pads pulse |
 | Punch | A held punch white as deep as it is pressed, latched Full, waiting blinking; Erase held: the punches the pattern keeps Dim red, the rest dark |
 | Knob FX, Flex Beat, sidechain | On or playing Full, the rest Dim or Faint, empty dark |
@@ -1600,8 +1600,10 @@ the file holds, to the bit.
   did not tell it apart. A sample with no steady pulse cuts at the project's
   tempo.
   Manual (K3 or Push):
-  pad 1 plays the region and pads tapped meanwhile cut it, each pulled onto
-  the strongest hit. Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
+  pad 1 blinks red and plays the region; then the red walks to the pad of
+  the slice the next tap makes, and only it cuts, each cut pulled onto the
+  strongest hit; after pad 16 the pads turn to bank B with its pad 1 red, up
+  to 64 slices (`view_slice`, `red_slice`, `model/slice_banks.h`). Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
   takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's

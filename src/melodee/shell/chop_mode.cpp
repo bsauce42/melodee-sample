@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // Chop's pads (parity phase 5): a pad plays its slice and picks it for K1 /
-// K2. In Manual, armed (K3 onto Manual, or Push), pad 1 plays the whole
-// region and every pad tapped while it plays cuts it there (up to 16
-// slices, as the MPC's), each cut pulled onto the strongest hit just before
-// it, since a tap comes a little after the sound it means. With Zero Snap on
-// (B2, kept with the settings) every cut then lands on a zero crossing.
+// K2. In Manual, armed (K3 onto Manual, or Push), pad 1 blinks red; tapped,
+// it plays the whole region, and the red walks: the pad of the slice the next
+// tap makes blinks red, and tapped it cuts the region there (the other pads
+// wait). After pad 16 the pads turn to bank B and its pad 1 is red, up to D
+// (64 slices). Each cut is pulled onto the strongest hit just before it,
+// since a tap comes a little after the sound it means; with Zero Snap on (B2,
+// kept with the settings) it then lands on a zero crossing.
 #include "melodee/shell/context.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
@@ -24,14 +26,15 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
         send(a);
     };
-    if (ui.chop_take_at) { // Manual's take: a cut where the region is now
-        uint32_t at = sl.start[0] + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10);
+    if (ui.chop_take_at) { // Manual's take: the red pad (the next slice's) cuts where the region is now
+        uint32_t at = take_frame(sl.start[0], ui.chop_take_at, now);
         if (at < sl.end(sl.count - 1, frames)) {
+            if (!red_slice(pad_slice(sl.count, pad), sl.count, max_slices)) return; // another pad: nothing while it plays
             if (library) {
                 auto loaded = library->slot(ui.chop_sample);
                 at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
             }
-            if (sl.add(at, frames, manual_slices)) {
+            if (sl.add(at, frames, max_slices)) {
                 ui.chop_hand.pin(at); // a cut by hand: it stays when the type changes
                 for (unsigned n = 0; n < sl.count; ++n) if (sl.start[n] == at) ui.chop_slice = uint8_t(n);
             }

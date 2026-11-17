@@ -476,7 +476,8 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         { // phase 5: Chop, the region and its file, the browser
             unsigned used = 0;
             for (const auto& ref : project_->samples) used += ref.used();
-            bool taking = ui_.chop_take_at && now - ui_.chop_take_at < 60000;
+            const auto& csl = ui_.slices; // Manual's take still playing (model/slice_banks.h)
+            bool taking = csl.count && take_live(ui_.chop_take_at, csl.start[0], csl.end(csl.count - 1, ui_.chop_sample < sample_slots ? project_->samples[ui_.chop_sample].frames : 0), now);
             chop_bits.store(uint32_t(ui_.chop_mode) | uint32_t(ui_.chop_armed) << 2 | uint32_t(taking) << 3 | uint32_t(ui_.slices.count & 0xff) << 8
                             | uint32_t(ui_.chop_slice) << 16 | uint32_t(used) << 24, std::memory_order_relaxed);
             pad_start_now.store(pad.start, std::memory_order_relaxed); pad_end_now.store(pad.end, std::memory_order_relaxed);
@@ -537,10 +538,15 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         lights.fader(level <= 0 ? Rgb {} : master ? led_colour::white(level) : pad_light::track(ui.track, level).rgb);
     }
     // Bank lights A-H: with Seq held or on Patterns, the bank of patterns in view; else the sampler track's bank in view, or the Drums
-    // pads' (A-D), or the Prog pads' (A-C); on Chop, the slices on the pads (A 1-16, B 17-32 ...).
+    // pads' (A-D), or the Prog pads' (A-C); on Chop, the slices on the pads (A 1-16, B 17-32 ...): while Manual's take
+    // plays, the bank of the red pad's slice (model/slice_banks.h).
+    const auto& sl = ui.slices;
+    const uint32_t chop_file = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
+    const bool chop_taking = sl.count && take_live(ui.chop_take_at, sl.start[0], sl.end(sl.count - 1, chop_file), now);
+    const unsigned chop_view = view_slice(ui.chop_slice, sl.count, chop_taking, max_slices);
     for (unsigned bank = 0; bank < surface_bank_lights; ++bank)
         lights.bank(bank, ui.seq_held || ui.page == PageId::Patterns || ui.page == PageId::Scenes ? bank == ui.pattern_bank % pattern_banks
-                                      : ui.page == PageId::Chop ? bank == slice_bank(ui.chop_slice)
+                                      : ui.page == PageId::Chop ? bank == slice_bank(chop_view)
                                       : (track.engine == EngineKind::Sampler && bank == track.bank % sampler_banks) || (drum_pads(track) && bank == drum_bank(track))
                                         || (prog_pads(track) && bank == prog_bank(track)));
     { // The meters beside the screen, as on the MPC: the input source while Record or Input Config is in view or a

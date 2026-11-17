@@ -15,7 +15,9 @@
 // chop by type or amount, drawn in the track's colour with a tab on top, and
 // one taken out (Erase, Merge) stays out, as Simpler keeps its manual slices.
 // Manual armed (K3 onto it, or Push): pad 1
-// plays the region and the pads tapped meanwhile cut it, up to 16 slices.
+// blinks red and plays the region; then the red walks, the pad of the slice
+// the next tap makes, and only it cuts (after pad 16 the pads turn to bank B,
+// its pad 1 red; up to 64 slices, shell/chop_mode.cpp).
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
 // Erase + pad takes a slice out (it joins the one before). B3 TO PADS asks

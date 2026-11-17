@@ -11870,6 +11870,24 @@ void pad_lights() {
     ui.slices.count = 5; ui.chop_slice = 2;
     ui.chop_mode = ChopMode::Manual; ui.chop_armed = true; light({}, 1000);
     CHECK(is(0, Hue::Red, 4) && is(1, Hue::None, 0));
+    // The red walks (model/slice_banks.h): while the take plays, the slices so far light (the newest Full) and the
+    // next slice's pad blinks red; past sixteen the pads show bank B and its pad 1 is the red one; at 64, no red.
+    CHECK(view_slice(2, 5, true, max_slices) == 5 && view_slice(2, 5, false, max_slices) == 2 && view_slice(63, 64, true, max_slices) == 63);
+    CHECK(red_slice(5, 5, max_slices) && !red_slice(4, 5, max_slices) && !red_slice(64, 64, max_slices));
+    CHECK(pad_slice(view_slice(15, 16, true, max_slices), 0) == 16 && red_slice(16, 16, max_slices) && slice_bank(16) == 1);
+    CHECK(take_frame(1000, 500, 1500) == 45100 && take_live(500, 1000, 50000, 1500) && !take_live(500, 1000, 40000, 1500)
+          && !take_live(0, 0, 50000, 1500) && !take_live(2000, 0, 50000, 1500));
+    ui.chop_armed = false; ui.chop_sample = 200; project->samples.edit(200).frames = 441000;
+    ui.slices = {}; ui.slices.whole(0, 441000);
+    for (uint32_t at : {10000u, 20000u, 30000u, 40000u}) ui.slices.add(at, 441000, max_slices);
+    ui.chop_slice = 4; ui.chop_take_at = 500; light({}, 1000); // half a second in: 22050 frames, inside slice 3
+    CHECK(looks[5].hue == Hue::Red && is(4, Hue::Track, 4) && is(0, Hue::Track, 2) && is(6, Hue::None, 0));
+    for (uint32_t at = 50000; ui.slices.count < 16; at += 10000) ui.slices.add(at, 441000, max_slices);
+    ui.chop_slice = 15; light({}, 1000); // sixteen slices: bank B, its pad 1 red, nothing past it
+    CHECK(looks[0].hue == Hue::Red && is(1, Hue::None, 0));
+    light({}, 20000); // played out (19.5 s past a 10 s region): the pads play slices again, bank A's sixteen
+    CHECK(looks[0].hue == Hue::Track && is(15, Hue::Track, 4));
+    ui.chop_take_at = 0;
     ui.chop_armed = false; ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
     // Record: the take's pad red, a sample Dim, empty Faint (never 0.07, which drove tracks 1 and 2 red).
     ui.page = PageId::Record; ui.rec_track = 1; ui.rec_pad = 12; light({}, 1000);
