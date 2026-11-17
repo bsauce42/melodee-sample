@@ -128,6 +128,7 @@ private:
     uint32_t show_pads_seen = 0;
     std::array<uint32_t, TrackTaps::voices> show_voices_seen {};
     PadFacts pad_facts() const;             // what pad_context() asks of the shell (shell/pad_context.h)
+    MeterReads meter_reads; // the meter lights beside the screen as last read (shell/meter_lights.h)
     std::atomic<uint32_t> meter_bits {0}; // their LEDs (left, right << 8) and the input shown (<< 16), for `status`
     bool record_track_keys() const; // Record: a synth track source plays the pads (Minus / Plus: its octave)
     bool kit_pads() const; // the pads play the kit here: Erase + pad deletes, Shift + Erase copies

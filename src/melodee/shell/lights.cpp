@@ -136,7 +136,7 @@ bool Shell::light_show_pass(SurfaceLights& lights, uint32_t now) {
     clock.bar_beats = std::max(1u, unsigned(project_->time_signature().beats));
     if (clock.playing) clock.beats = double(host.ticks()) / std::max(1u, project_->beat_ticks());
     else clock.beats = double(now) * tempo_now.load(std::memory_order_relaxed) / 600000.0; // tenths of a BPM
-    for (unsigned side = 0; side < surface_meter_lights; ++side) clock.meters[side] = meter_lit(host.out_level(side), meter_mix_db);
+    clock.meters = meter_reads.at(now, false, [&](unsigned side) { return host.out_level(side); });
     clock.level = {host.out_level(0), host.out_level(1)};
     auto frame = show_lights.frame(clock, style);
     show_frame(lights, frame);
@@ -523,16 +523,16 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                                       : (track.engine == EngineKind::Sampler && bank == track.bank % sampler_banks) || (drum_pads(track) && bank == drum_bank(track))
                                         || (prog_pads(track) && bank == prog_bank(track)));
     { // The meters beside the screen, as on the MPC: the input source while Record or Input Config is in view or a
-      // take waits or runs (what is about to be sampled), else main out.
+      // take waits or runs (what is about to be sampled), else main out; read every 50 ms (meter_lights.h).
         using S = TakeRecorder::State;
         auto take = host.recorder().state();
         bool input = ui.page == PageId::Record || ui.page == PageId::InputConfig || take == S::Armed || take == S::Cued
                   || take == S::Recording;
+        const auto& lit = meter_reads.at(now, input, [&](unsigned side) { return input ? host.in_level(side) : host.out_level(side); });
         uint32_t bits = uint32_t(input) << 16;
         for (unsigned side = 0; side < surface_meter_lights; ++side) {
-            uint8_t lit = input ? meter_lit(host.in_level(side), meter_input_db) : meter_lit(host.out_level(side), meter_mix_db);
-            lights.meter(side, lit);
-            bits |= uint32_t(lit) << (8 * side);
+            lights.meter(side, lit[side]);
+            bits |= uint32_t(lit[side]) << (8 * side);
         }
         meter_bits.store(bits, std::memory_order_relaxed);
     }

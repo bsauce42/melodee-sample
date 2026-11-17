@@ -228,7 +228,7 @@ void mix_picture(Paint& p, const Snapshot& s) {
     auto place = [](float db) { return std::clamp((db + 48) / 48, 0.0f, 1.0f); };
     float heard = meter > 0 && !m.mute ? place(20 * std::log10(meter)) : 0;
     if (heard > 0) p.fill(mx, my + mh * (1 - heard), 7, mh * heard, c, 3);
-    for (float db : meter_mix_db) p.fill(mx + 10, my + mh * (1 - place(db)) - 0.5f, 4, 1, colour::dim); // the LEDs' five steps as a scale
+    for (float db : meter_steps_db) p.fill(mx + 10, my + mh * (1 - place(db)) - 0.5f, 4, 1, colour::dim); // the LEDs' five steps as a scale
     p.fill(mx - 3, my + mh * (1 - m.level / 127.0f) - 0.75f, 13, 1.5f, colour::text); // the level
     // The pan: a half dial, its needle where the track sits.
     float cx = px + 108, cy = top + 92, r = 32;

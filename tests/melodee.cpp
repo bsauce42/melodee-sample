@@ -4120,8 +4120,9 @@ void chop_and_browser() {
 
 // Parity phase 6: Input Config, the input path, Sample Record's Seq take,
 // Audio Recall's ring, renders of the mix and Song -> new pattern.
-// The meter lights beside the screen: the engine's left and right levels (the input source, and the mix before
-// main volume), falling 30 dB a second, and the LEDs a strip lights for them.
+// The meter lights beside the screen, as stock lights them: the engine's left and right levels (the input source,
+// and the mix before main volume), up at once and falling 60 dB a second, the LEDs a strip lights for them, read
+// every 50 ms.
 void meter_lights() {
     auto project = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
@@ -4140,18 +4141,32 @@ void meter_lights() {
     host->send({Command::Type::Monitor, 0, 0, 0, 0});
     for (unsigned n = 0; n < unsigned(dsp::sample_rate()) / 128; ++n) host->render(out.data(), 128, 2, silent.data());
     float fell = 20 * std::log10(host->in_level(0) / 0.5f), fell_out = 20 * std::log10(host->out_level(1) / (0.25f * centre));
-    CHECK(fell < -29 && fell > -31 && fell_out < -29 && fell_out > -31);
+    CHECK(fell < -59 && fell > -61 && fell_out < -59 && fell_out > -61);
+    for (unsigned n = 0; n < unsigned(dsp::sample_rate()) / 128; ++n) host->render(out.data(), 128, 2, silent.data());
+    CHECK(host->in_level(0) == 0 && host->out_level(0) == 0); // silent below -100 dBFS
 
-    // A bar up to the level, nothing held. The input's steps (-42, -30, -18, -9, -2 dBFS); the mix's: a synth's
-    // median (-22) two greens, -7 and up yellow, red only past -1 dBFS.
+    // A bar up to the level, nothing held, the same for the mix and the input: green past -24.1, -12.1 and -6.1
+    // dBFS, yellow past -3.1, red only past -0.1.
     auto at = [](float db) { return std::pow(10.0f, db / 20); };
-    const auto& in = meter_input_db;
-    CHECK(meter_lit(0, in) == 0 && meter_lit(at(-45), in) == 0);
-    CHECK(meter_lit(at(-35), in) == 0b00001 && meter_lit(at(-15), in) == 0b00111 && meter_lit(at(-5), in) == 0b01111);
-    CHECK(meter_lit(at(0), in) == surface_meter_all && meter_lit(at(6), in) == surface_meter_all);
-    CHECK(meter_lit(at(-22), meter_mix_db) == 0b00011 && meter_lit(at(-9), meter_mix_db) == 0b00111);
-    CHECK(meter_lit(at(-6), meter_mix_db) == 0b01111 && meter_lit(at(-2), meter_mix_db) == 0b01111);
-    CHECK(meter_lit(at(-0.5f), meter_mix_db) == surface_meter_all);
+    CHECK(meter_lit(0) == 0 && meter_lit(-0.5f) == 0 && meter_lit(at(-30)) == 0 && meter_lit(at(-24.2f)) == 0);
+    CHECK(meter_lit(at(-24)) == 0b00001 && meter_lit(at(-12)) == 0b00011 && meter_lit(at(-6)) == 0b00111);
+    CHECK(meter_lit(at(-3)) == 0b01111 && meter_lit(at(-0.5f)) == 0b01111 && meter_lit(at(-0.2f)) == 0b01111);
+    CHECK(meter_lit(at(-0.05f)) == surface_meter_all && meter_lit(at(0)) == surface_meter_all && meter_lit(at(6)) == surface_meter_all);
+    // Read every 50 ms, and at once when the source changes.
+    MeterReads reads;
+    float level = at(0);
+    auto now_lit = [&](uint32_t now, bool input) { return reads.at(now, input, [&](unsigned) { return level; })[0]; };
+    CHECK(now_lit(1000, false) == surface_meter_all);
+    level = at(-12);
+    CHECK(now_lit(1049, false) == surface_meter_all && now_lit(1050, false) == 0b00011);
+    level = at(-30);
+    CHECK(now_lit(1060, false) == 0b00011 && now_lit(1061, true) == 0);
+    level = at(-6);
+    CHECK(now_lit(1110, true) == 0 && now_lit(1111, true) == 0b00111);
+    reads = {}; // the ms clock wrapping
+    CHECK(now_lit(uint32_t(-20), false) == 0b00111);
+    level = at(0);
+    CHECK(now_lit(10, false) == 0b00111 && now_lit(30, false) == surface_meter_all);
 
     // The master's limit: straight to -1 dBFS (a full-scale sample at -1.5 untouched), then round to full scale.
     CHECK(dsp::master_clip(0.5f) == 0.5f && dsp::master_clip(-0.85f) == -0.85f);
