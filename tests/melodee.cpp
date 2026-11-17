@@ -4011,6 +4011,13 @@ void beat_grid() {
         CHECK(full && most.count == max_slices && most.start[1] == 1000);
         HandCuts other = hand;
         CHECK(other.same(hand) && !other.same(near));
+        // A Manual chop read back from its WAV (no pins kept there): its cuts pinned again, so a new type keeps them.
+        Slices manual_back; manual_back.whole(0, frames);
+        for (uint32_t at : {20000u, 50000u, 90000u}) manual_back.add(at, frames);
+        HandCuts again;
+        pin_manual_cuts(again, manual_back);
+        auto kept_back = with_hand(quarters, again, frames);
+        CHECK(again.pin_count == 3 && has(kept_back, 20000) && has(kept_back, 50000) && has(kept_back, 90000));
         other.clear();
         CHECK(other.empty());
     }

@@ -194,6 +194,7 @@ bool Context::restore_chop() {
     ui.chop_from = kept.from; ui.chop_to = kept.to;
     ui.slices = kept.slices;
     ui.chop_hand = kept.hand;
+    if (ui.chop_hand.empty() && kept.mode == ChopMode::Manual) pin_manual_cuts(ui.chop_hand, ui.slices); // from the WAV: all by hand
     for (unsigned n = 0; n < ui.slices.count; ++n) // the slice the pad plays, selected
         if (ui.slices.start[n] <= pad_from && pad_from < ui.slices.end(n, frames ? frames : UINT32_MAX)) ui.chop_slice = uint8_t(n);
     ui.chop_mode = kept.mode;
