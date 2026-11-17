@@ -26,6 +26,7 @@
 #include "melodee/shell/step_edit.h"
 #include "melodee/shell/step_lane.h"
 #include "melodee/model/slice_banks.h"
+#include "melodee/shell/zoom_view.h"
 #include <algorithm>
 #include <cmath>
 
@@ -529,15 +530,9 @@ Look motion_look(const PadScene& s, const Heard& snd, const std::array<bool, 192
 }
 
 // ---- slices, takes and files
-// Chop: whether Manual's take still plays, and the slice whose bank the pads show (while it plays, the next one's).
-bool chop_taking(const PadScene& s) {
-    const auto& ui = s.ui;
-    const auto& sl = ui.slices;
-    if (!ui.chop_take_at || !sl.count) return false;
-    const uint32_t frames = ui.chop_sample < sample_slots ? s.project.samples[ui.chop_sample].frames : 0;
-    return take_live(ui.chop_take_at, sl.start[0], sl.end(sl.count - 1, frames), s.now);
-}
-unsigned chop_view(const PadScene& s) { return view_slice(s.ui.chop_slice, s.ui.slices.count, chop_taking(s), max_slices); }
+// Chop: whether Manual's take still plays, and the slice whose bank the pads show (shell/zoom_view.h).
+bool chop_taking(const PadScene& s) { return chop_take_playing(s.project, s.ui, s.now); }
+unsigned chop_view(const PadScene& s) { return chop_bank_slice(s.project, s.ui, s.now); }
 // Chop: how strongly each slice of the bank in view sounds (the audition voice's place in the file), by pad.
 std::array<float, 16> slices_sounding(const PadScene& s) {
     std::array<float, 16> out {};
@@ -565,7 +560,9 @@ Look chop_look(const PadScene& s, const std::array<float, 16>& sounding, unsigne
         if (red_slice(slice, count, max_slices)) return blink(s.now, flash_ms) ? red(full) : red(faint);
         return slice < count ? flare(track(at, slice + 1 == count ? full : dim), sounding[pad % 16]) : Look {};
     }
-    const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
+    const unsigned slice = pad_slice(chop_view(s), pad); // the pad's slice in the bank in view (Pad Bank)
+    if (!ui.erase && chop_red_shown(s.project, ui, s.now) && red_slice(slice, count, max_slices)) // after a take: tap to play on
+        return blink(s.now, flash_ms) ? red(full) : red(faint);
     if (ui.erase) return slice == 0 ? (count ? track(at, dim) : Look {}) : slice < count ? red(faint) : Look {}; // takes the slice out
     if (held(s, pad)) return white(full);
     if (slice >= count) return {};

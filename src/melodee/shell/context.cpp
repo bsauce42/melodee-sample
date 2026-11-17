@@ -1546,6 +1546,7 @@ void Context::apply_edit(const Edit& e, bool after) {
 }
 
 void Context::undo() {
+    end_take();                             // a Chop take is the step undone, whole
     close_gesture();                        // a pot's turns just made are the step undone
     close_hold(hold.pad);                   // so is a held pad's note
     if (ui.recording) set_recording(false); // a take in progress ends, and is the edit undone
@@ -1657,6 +1658,7 @@ int Context::sample_slot(const std::string& path, const std::string& name) {
 // slice, the whole region, armed: pad 1 plays it and the pads tapped
 // meanwhile cut it (chop_tap()).
 void Context::rechop() {
+    end_take(); ui.chop_more = false; ui.chop_take_from = 0; // a take in progress is kept as it was; no red left over
     if (!library || ui.chop_sample >= sample_slots) { ui.slices = {}; return; }
     auto loaded = library->slot(ui.chop_sample);
     int amount = ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()];

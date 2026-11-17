@@ -516,7 +516,11 @@ public:
     int sample_slot(const std::string& path, const std::string& name); // the project's slot for a file, asking for it to load
     void rechop();                                                     // Chop's slices from its type and amount
     void chop_tap(unsigned pad, uint8_t velocity);                     // Chop: a pad (audition, or Manual's taps)
-    void chop_tick(uint32_t ms);                                       // Chop: a moved cut heard once, gone still
+    void chop_tick(uint32_t ms);                                       // Chop: a take played out ends; a moved cut heard once
+    void chop_jump(int delta);                                         // Chop: SHIFT + wheel, the cut onto the next hit
+    std::unique_ptr<Edit> chop_take_edit;                              // Chop's take in progress: one undo step
+    void open_take();                                                  // before a take begins (pad 1, the red after one)
+    void end_take();                                                   // the take kept as one step; the red stays after
     uint32_t zero_cut(uint32_t frame) const;                           // Chop: a cut on a zero crossing, with Zero Snap on
     void snap_slices();                                                // Chop: every cut of the slices onto one
     void toggle_zero_snap();                                           // Chop, B2: Zero Snap on / off (a setting)

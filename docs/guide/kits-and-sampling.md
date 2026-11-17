@@ -244,6 +244,7 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **K1** / **K2** | Start / end of the selected slice. |
 | **K3** | Chop type: Threshold, Regions, Beats or Manual. |
 | Encoder | Move the selected slice's start in fine steps (its end after **K2**). |
+| **SHIFT** + encoder | Move that cut to the next or previous hit. |
 | **−** / **+** | The slice before / after. |
 | **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
@@ -261,8 +262,11 @@ pads to its bank.
 
 **Fixing a cut**: tap the slice's pad. It plays once and its start is
 selected (the wider line; bottom left reads **START**). Turn the encoder to
-move it. The screen zooms in on the cut while you turn; when you stop, the
-slice plays once. To move where the slice ends, turn **K2**: the encoder then
+move it, or hold **SHIFT** and turn to jump it from hit to hit (the small
+marks along the bottom of the waveform; **SHIFT** + **K3** on Threshold sets
+how strong a hit must be). The screen zooms in on the cut while you turn;
+when you stop, you hear it once, from just before the cut into the slice
+(for an end: the slice's last second). To move where the slice ends, turn **K2**: the encoder then
 moves the end (**END**) until you tap another pad. The next pad, **−** / **+**
 or **K1** / **K2** zoom back out. **SHIFT** + **K1** / **K2** set a zoom of
 your own, which stays.
@@ -286,8 +290,11 @@ a division needs more, the last slice runs to the end, and Melodee says so.
 red. Tap it: the sample plays and pad 2 blinks red. Tap the red pad on each
 hit you want to cut at; the red moves on to the next pad. After pad 16 the
 pads switch to bank B and its pad 1 blinks red, up to bank D (64 slices).
-While it plays, only the red pad cuts. When the sample has played to the
-end, the pads play the slices.
+While it plays, only the red pad cuts. Tap a lit pad to go back: the
+sample plays again from that slice and the cuts after it are taken out.
+When the sample has played to the end, the pads play the slices, and the
+red stays on the next pad: tap it to play on from the last cut and keep
+cutting. **UNDO** takes back a whole take at once.
 
 **Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
 **SHIFT** + **B2** Split, or Manual's taps) stays when you change the chop

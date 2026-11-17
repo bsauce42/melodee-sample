@@ -11914,6 +11914,32 @@ void pad_lights() {
     light({}, 20000); // played out (19.5 s past a 10 s region): the pads play slices again, bank A's sixteen
     CHECK(looks[0].hue == Hue::Track && is(15, Hue::Track, 4));
     ui.chop_take_at = 0;
+    // After a take the red stays on the next slice's pad (Context::end_take): with the newest slice in hand the pads show
+    // its bank (sixteen slices: bank B, pad 1 red); another slice in hand, its own bank, the red where it falls in it.
+    ui.chop_more = true; light({}, 20000);
+    CHECK(looks[0].hue == Hue::Red && is(1, Hue::None, 0) && chop_red_shown(*project, ui, 20000));
+    ui.chop_slice = 3; light({}, 20000);
+    CHECK(is(3, Hue::Track, 4) && is(15, Hue::Track, 2) && looks[0].hue == Hue::Track);
+    ui.slices.count = 6; ui.chop_slice = 2; light({}, 20000); // six: the red on pad 7, in the bank in view
+    CHECK(looks[6].hue == Hue::Red && is(2, Hue::Track, 4) && is(7, Hue::None, 0));
+    ui.chop_mode = ChopMode::Threshold; light({}, 20000); // not Manual: no red
+    CHECK(looks[6].hue == Hue::None && !chop_red_shown(*project, ui, 20000));
+    ui.chop_mode = ChopMode::Manual; ui.slices.count = 16;
+    ui.chop_take_from = 30000; ui.chop_take_at = 500; ui.chop_slice = 3; // a lit pad redid it from slice 4: heard from there
+    CHECK(chop_take_playing(*project, ui, 1000) && !chop_take_playing(*project, ui, 10000));
+    ui.chop_take_at = 0; ui.chop_take_from = 0; ui.chop_more = false;
+    // SHIFT + the wheel: a cut onto the next hit the way it turns, as strong as Threshold's amount, 10 ms clear of it.
+    {
+        std::array<Hit, max_hits> hits {};
+        hits[0] = {1000, 200}; hits[1] = {5000, 40}; hits[2] = {9000, 180}; hits[3] = {9300, 255}; hits[4] = {20000, 150};
+        const uint8_t floor = hit_floor(50);
+        CHECK(floor == 127 && hit_floor(0) == 0 && hit_floor(100) == 255);
+        CHECK(next_hit(1000, 1, hits, 5, floor) == 9000);      // past the faint one at 5000
+        CHECK(next_hit(9000, 1, hits, 5, floor) == 20000);     // 9300 is within 10 ms of 9000
+        CHECK(next_hit(8800, 1, hits, 5, floor) == 9300);      // a cut just before a hit (zero snap) moves past it
+        CHECK(next_hit(20000, -1, hits, 5, floor) == 9300 && next_hit(1000, -1, hits, 5, floor) == 1000);
+        CHECK(next_hit(1000, 1, hits, 5, 0) == 5000 && next_hit(30000, 1, hits, 5, floor) == 30000);
+    }
     ui.chop_armed = false; ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
     // Record: the take's pad red, a sample Dim, empty Faint (never 0.07, which drove tracks 1 and 2 red).
     ui.page = PageId::Record; ui.rec_track = 1; ui.rec_pad = 12; light({}, 1000);

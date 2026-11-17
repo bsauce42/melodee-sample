@@ -1589,8 +1589,11 @@ the file holds, to the bit.
   `shell/zoom_view.h`), and the next pad, Minus / Plus or K1 / K2 open it
   again; every view change eases over 180 ms. A cut moved by the wheel or K1 /
   K2 plays its slice once when it has been still for 150 ms
-  (`Context::chop_tick`); bottom left the wheel's job (START / END in its K's
-  colour) and, zoomed in, the view's place and factor. Threshold keeps the
+  (`Context::chop_tick`): a start from 300 ms before it into the slice, an
+  end the slice's last second; Shift + the wheel jumps that cut from hit to hit
+  (`next_hit`, hits as strong as Threshold's amount, marked at the waveform's
+  foot); bottom left the wheel's job (START / END in its K's colour) and,
+  zoomed in, the view's place and factor. Threshold keeps the
   hits at least that strong: a hit is a change in the spectrum (a drum, a hat
   over a held pad, a chord change at the same loudness), cut at the quiet
   point just before its attack, its strength against the sample's strongest
@@ -1611,7 +1614,12 @@ the file holds, to the bit.
   pad 1 blinks red and plays the region; then the red walks to the pad of
   the slice the next tap makes, and only it cuts, each cut pulled onto the
   strongest hit; after pad 16 the pads turn to bank B with its pad 1 red, up
-  to 64 slices (`view_slice`, `red_slice`, `model/slice_banks.h`). Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
+  to 64 slices (`view_slice`, `red_slice`, `model/slice_banks.h`). A lit pad
+  tapped meanwhile plays again from its slice, the cuts after it gone (the
+  MPC 3's way); played out, the red stays on the next pad (`chop_more`) and
+  tapped plays on from the last cut, the take going on; a take, however it
+  goes on, is one undo step (`Context::open_take` / `end_take`, ended by any
+  other control, undo, leaving the page or playing out). Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
   takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's

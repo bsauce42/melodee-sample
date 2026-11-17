@@ -4,8 +4,10 @@
 // K2. In Manual, armed (K3 onto Manual, or Push), pad 1 blinks red; tapped,
 // it plays the whole region, and the red walks: the pad of the slice the next
 // tap makes blinks red, and tapped it cuts the region there (the other pads
-// wait). After pad 16 the pads turn to bank B and its pad 1 is red, up to D
-// (64 slices). Each cut is pulled onto the strongest hit just before it,
+// wait; a lit one plays again from its slice, the cuts after it gone). After
+// pad 16 the pads turn to bank B and its pad 1 is red, up to D (64 slices).
+// Played out, the red stays on the next pad: tapped, it plays on from the
+// last cut. A take is one undo step (open_take / end_take). Each cut is pulled onto the strongest hit just before it,
 // since a tap comes a little after the sound it means; with Zero Snap on (B2,
 // kept with the settings) it then lands on a zero crossing.
 #include "melodee/shell/context.h"
@@ -27,32 +29,46 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
         send(a);
     };
-    if (ui.chop_take_at) { // Manual's take: the red pad (the next slice's) cuts where the region is now
-        uint32_t at = take_frame(sl.start[0], ui.chop_take_at, now);
-        if (at < sl.end(sl.count - 1, frames)) {
-            if (!red_slice(pad_slice(sl.count, pad), sl.count, max_slices)) return; // another pad: nothing while it plays
-            if (library) {
-                auto loaded = library->slot(ui.chop_sample);
-                at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
-            }
-            if (sl.add(at, frames, max_slices)) {
-                ui.chop_hand.pin(at); // a cut by hand: it stays when the type changes
-                for (unsigned n = 0; n < sl.count; ++n) if (sl.start[n] == at) ui.chop_slice = uint8_t(n);
-            }
-            return;
+    const uint32_t region_end = sl.end(sl.count - 1, frames);
+    // A take plays on from slice n (a lit pad tapped, the red one after a take): what comes after n goes.
+    auto play_on_from = [&](unsigned n) {
+        for (unsigned k = sl.count; k-- > n + 1;) { ui.chop_hand.unpin(sl.start[k]); sl.remove(k); }
+        ui.chop_slice = uint8_t(n); ui.chop_more = false;
+        ui.chop_take_from = sl.start[n]; ui.chop_take_at = now ? now : 1;
+        audition(sl.start[n], region_end);
+    };
+    if (chop_take_playing(project, ui, now)) { // Manual's take
+        const unsigned slice = pad_slice(chop_bank_slice(project, ui, now), pad);
+        if (slice < sl.count) { play_on_from(slice); return; } // a lit pad: again from its slice, the cuts after it gone
+        if (!red_slice(slice, sl.count, max_slices)) return;    // past the red: nothing while it plays
+        uint32_t at = take_frame(ui.chop_take_from, ui.chop_take_at, now); // the red pad: a cut where the region is now
+        if (library) {
+            auto loaded = library->slot(ui.chop_sample);
+            at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
         }
-        ui.chop_take_at = 0; // it has played out: the pads play slices again
-    }
-    if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) {
-        chop_unfollow(ui); ui.chop_focus = 0; ui.chop_heard_at = 0;
-        if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // the take starts from one slice, the whole region
-        ui.chop_hand.clear();                                          // and its cuts are the hand cuts from here
-        ui.chop_slice = 0; ui.chop_armed = false;
-        ui.chop_take_at = now ? now : 1;
-        audition(sl.start[0], sl.end(0, frames));
+        if (sl.add(at, frames, max_slices)) {
+            ui.chop_hand.pin(at); // a cut by hand: it stays when the type changes
+            for (unsigned n = 0; n < sl.count; ++n) if (sl.start[n] == at) ui.chop_slice = uint8_t(n);
+        }
         return;
     }
-    const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
+    if (ui.chop_take_at) end_take(); // it has played out: the pads play slices again
+    if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) { // pad 1, red: the take begins
+        open_take();
+        chop_unfollow(ui); ui.chop_focus = 0; ui.chop_heard_at = 0;
+        if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // from one slice, the whole region
+        ui.chop_hand.clear();                                          // and its cuts are the hand cuts from here
+        ui.chop_armed = false;
+        play_on_from(0);
+        return;
+    }
+    const unsigned slice = pad_slice(chop_bank_slice(project, ui, now), pad); // the pad's slice in the bank in view
+    if (ui.chop_more && ui.chop_mode == ChopMode::Manual && red_slice(slice, sl.count, max_slices)) { // the red, after a take
+        open_take();
+        chop_unfollow(ui); ui.chop_focus = 0; ui.chop_heard_at = 0;
+        play_on_from(sl.count - 1); // on from the last cut; the red walks again
+        return;
+    }
     if (slice >= sl.count) return;
     if (slice != ui.chop_slice) { // another slice: the wheel moves its start, and the view opens out again
         ui.chop_fine = false; ui.chop_focus = 0;
@@ -63,17 +79,53 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
     audition(sl.start[slice], sl.end(slice, frames));
 }
 
-// MIDI thread, from the lights' pass: a cut moved by the wheel or K1 / K2 is heard once it has been still for
-// chop_heard_ms: the slice in hand from its start to its end, once (each move puts it off again; nothing repeats).
+// A take is one undo step, from pad 1 (or the red pad after a take) until it plays out or anything else is done.
+void Context::open_take() {
+    end_take();
+    chop_take_edit = scope_edit(UndoScope {UndoScope::Kind::Chop, uint8_t(ui.track % track_count), 0}, "Chop take");
+}
+void Context::end_take() {
+    if (ui.chop_take_at && ui.chop_mode == ChopMode::Manual && ui.slices.count < max_slices) ui.chop_more = true; // the red stays
+    ui.chop_take_at = 0;
+    if (!chop_take_edit) return;
+    auto edit = std::move(chop_take_edit);
+    if (finish_scope(*edit)) { edits.push(std::move(*edit)); dirty = true; }
+}
+
+// MIDI thread, from the lights' pass. A take that has played out (or whose page was left) ends: one undo step, the
+// red kept on the next pad. A cut moved by the wheel or K1 / K2 is heard once it has been still for chop_heard_ms,
+// with what leads into it: its start from 300 ms before, into the slice to its end; its end, the slice's last second.
+// Once (each move puts it off again; nothing repeats).
 void Context::chop_tick(uint32_t ms) {
+    if (ui.chop_take_at && (ui.page != PageId::Chop || !chop_take_playing(project, ui, ms))) end_take();
     if (!ui.chop_heard_at || int32_t(ms - ui.chop_heard_at) < 0) return;
     ui.chop_heard_at = 0;
     const auto& sl = ui.slices;
     const uint32_t frames = chop_frames(project, ui);
     if (ui.page != PageId::Chop || !frames || ui.chop_slice >= sl.count) return;
-    Command a {Command::Type::Audition, ui.track, 0, 0, 100};
-    a.pad.sample = ui.chop_sample; a.pad.start = sl.start[ui.chop_slice]; a.pad.end = sl.end(ui.chop_slice, frames);
-    send(a);
+    const unsigned n = ui.chop_slice;
+    const uint32_t a = sl.start[n], b = sl.end(n, frames);
+    Command c {Command::Type::Audition, ui.track, 0, 0, 100};
+    c.pad.sample = ui.chop_sample;
+    c.pad.start = ui.chop_focus ? std::max(a, b > heard_tail ? b - heard_tail : 0) : (a > heard_lead ? a - heard_lead : 0);
+    c.pad.end = b;
+    send(c);
+}
+
+// SHIFT + the wheel on Chop: the cut the wheel moves (the slice's start, or its end after K2) onto the next hit the way
+// it turns, a hit a detent (shell/chop.h next_hit).
+void Context::chop_jump(int delta) {
+    const auto& sl = ui.slices;
+    const uint32_t frames = chop_frames(project, ui);
+    if (!delta || !library || !frames || ui.chop_slice >= sl.count) return;
+    const auto loaded = library->slot(ui.chop_sample);
+    const uint8_t floor = hit_floor(ui.chop_amount[size_t(ChopMode::Threshold)]);
+    const unsigned n = ui.chop_slice;
+    const bool end = ui.chop_focus;
+    uint32_t at = end ? sl.end(n, frames) : sl.start[n];
+    for (int k = 0; k < std::abs(delta); ++k) at = next_hit(at, delta, loaded.hits, loaded.hit_count, floor);
+    if (at == (end ? sl.end(n, frames) : sl.start[n])) return;
+    apply(Binding {end ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, int(frames), 0}, int(at));
 }
 
 // The slices Chop holds as its sample's chop, written into the sample's WAV file when they changed (as the MPC
@@ -126,7 +178,7 @@ bool Context::restore_chop() {
     ui.chop_mode = kept.mode;
     ui.chop_amount[size_t(kept.mode) % ui.chop_amount.size()] = kept.amount;
     ui.chop_armed = false;
-    ui.chop_take_at = 0;
+    ui.chop_take_at = 0; ui.chop_more = false;
     return true;
 }
 

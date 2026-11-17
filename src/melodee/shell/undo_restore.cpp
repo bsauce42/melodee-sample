@@ -82,6 +82,7 @@ void Context::touch_gesture(const Binding& b) {
 }
 
 void Context::touch_scope(const UndoScope& scope, uint32_t key) {
+    end_take(); // a Chop take ends with any other edit, one step
     if (ui.recording) { close_gesture(); return; } // a take keeps its own moves
     if (held(scope)) { close_gesture(); return; }  // the held pad's step takes it in
     if (gesture.edit && gesture.key == key && gesture.scope == scope && now - gesture.last < gesture_quiet_ms) { gesture.last = now; return; }
@@ -177,6 +178,7 @@ void Context::restore_chop(const ChopState& c) {
 
 PageEdit::PageEdit(Context& context, SurfaceButton button, bool pad) : c(context) {
     c.close_gesture(); // a pot's turns end with any press
+    if (!(pad && c.ui.page == PageId::Chop)) c.end_take(); // and a Chop take with any but its pads
     if (c.ui.recording || c.ui.name.open() || c.ui.exit_open || c.ui.ask != UiState::Ask::None) return;
     auto scope = press_scope(c.project, c.ui, button, pad);
     if (c.held(scope)) return; // part of the held pad's step

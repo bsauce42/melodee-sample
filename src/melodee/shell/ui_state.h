@@ -304,7 +304,9 @@ struct UiState {
     uint32_t chop_heard_at = 0; // ms the slice in hand plays once, a moved cut gone still (0: none due)
     ZoomView chop_view;         // the view zoomed in, kept
     bool chop_armed = false;    // Manual: pad 1 plays the region and the pads tapped meanwhile cut it
-    uint32_t chop_take_at = 0;  // ms when pad 1 started that take, 0 none
+    uint32_t chop_take_at = 0;  // ms when the take (or its part from a slice: a lit pad, the red one after) began, 0 none
+    uint32_t chop_take_from = 0; // the frame it plays from
+    bool chop_more = false;     // a take played out: the red stays on the next slice's pad, and tapped it plays on
     int8_t levels_hit = -1;     // Levels: the pad played last, 0..15
     int16_t levels_value = 0;   // and what it played: a velocity or semitones
     // Sample Record (parity phase 6; Input Config itself is in settings.input).

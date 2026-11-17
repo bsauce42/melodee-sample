@@ -14,7 +14,9 @@
 // unless Shift + K set a zoom, the view closes in on it as it turns (about
 // 120 ms across, eased) and opens out again on the next pad, Minus / Plus or
 // K1 / K2; once the cut has been still for 150 ms the slice plays once
-// (Context::chop_tick). Bottom left: what the wheel moves, and zoomed in, the
+// (Context::chop_tick), from 300 ms before a start (its last second for an
+// end). SHIFT + the wheel jumps that cut from hit to hit (Threshold's hits,
+// marked at the waveform's foot). Bottom left: what the wheel moves, and zoomed in, the
 // view's place in the region and how many times closer. A cut
 // made or moved by hand (K1 / K2, Split, Manual's taps) stays through a new
 // chop by type or amount, drawn in the track's colour with a tab on top, and
@@ -22,7 +24,10 @@
 // Manual armed (K3 onto it, or Push): pad 1
 // blinks red and plays the region; then the red walks, the pad of the slice
 // the next tap makes, and only it cuts (after pad 16 the pads turn to bank B,
-// its pad 1 red; up to 64 slices, shell/chop_mode.cpp).
+// its pad 1 red; up to 64 slices, shell/chop_mode.cpp). A lit pad tapped
+// meanwhile plays again from its slice, the cuts after it gone. Played out,
+// the red stays on the next pad: tapped, it plays on from the last cut and
+// the take goes on. A take is one undo step.
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
 // Erase + pad takes a slice out (it joins the one before). B3 TO PADS asks
@@ -41,6 +46,7 @@
 #include "melodee/pages/common.h"
 #include "melodee/pages/pages.h"
 #include "melodee/pages/sampler_common.h"
+#include "melodee/shell/chop.h"
 #include "melodee/shell/zoom_view.h"
 #include "melodee/ui/waveform.h"
 #include "melodee/ui/widgets.h"
@@ -207,13 +213,23 @@ void draw(Paint& p, const Snapshot& s) {
         p.text(juce::String(n + 1), sx + 1, y + wh + 2, 16, 9, number_style(n));
         drawn_to = std::max(drawn_to, r);
     }
+    // The hits, as strong as Threshold's amount: a small mark at the foot of each, where SHIFT + the wheel lands a cut.
+    {
+        const uint8_t floor = hit_floor(s.ui.chop_amount[size_t(ChopMode::Threshold)]);
+        for (unsigned n = 0; n < s.sample.hit_count && n < max_hits; ++n) {
+            const auto& h = s.sample.hits[n];
+            if (!h.frame || h.strength < floor) continue;
+            const float hx = x_of(float(h.frame) / frames);
+            if (hx >= x - 2 && hx <= x + w + 2) p.fill(hx - 1.5f, y + wh - 3, 3, 3, colour::sec, 1);
+        }
+    }
     float wide_start = !s.ui.chop_focus ? 2 : 1, wide_end = s.ui.chop_focus ? 2 : 1; // the one the wheel moves
     p.fill(x_of(a), y, wide_start, wh, knob_shade(s.ui.track, 0));            // K1's handle
     p.fill(x_of(b) - wide_end, y, wide_end, wh, knob_shade(s.ui.track, 1));   // K2's
     // Manual's take: where the audition voice is heard in the region now (its region's start until it is heard).
     bool starting = s.ui.chop_take_at && !sound.take && s.now >= s.ui.chop_take_at && s.now - s.ui.chop_take_at < 250;
     bool taking = sound.take || starting;
-    if (taking) p.fill(x_of(sound.take ? float(playing->at / frames) : float(region_from) / frames), y, 2, wh, colour::text);
+    if (taking) p.fill(x_of(sound.take ? float(playing->at / frames) : float(s.ui.chop_take_from) / frames), y, 2, wh, colour::text);
     p.g.restoreState();
     if (sounding >= 0) draw_heads(p, x, y, w, wh, from, to, &head, 1);
     // Over the slice in hand, the pad it lands on as a chip (taking Manual's cuts: the scissors); its length below right.
@@ -237,7 +253,7 @@ void draw(Paint& p, const Snapshot& s) {
     p.text(text, x, y + wh + 13, w, 16, plain(colour::text, type::body, Weight::SemiBold), juce::Justification::centredRight);
     // Bottom left: what the wheel moves (the slice's START or END, in that K's colour), and zoomed in, the view's place
     // in the region (a strip, the view in the track's colour) and how many times closer. Not while a take plays.
-    if (!take_live(s.ui.chop_take_at, region_from, region_to, s.now)) {
+    if (!chop_take_playing(s.project, s.ui, s.now)) {
         const float by = y + wh + 13;
         const juce::Colour job_colour = knob_shade(s.ui.track, s.ui.chop_focus ? 1 : 0);
         icon(p, Icon::Wheel, x, by + 2, 12, job_colour, 1.6f);
@@ -274,7 +290,7 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     if (!down) return;
     ui.sheet_open = false; // a pad leaves TO PADS' cards and plays as ever
     if (ui.erase) { // the slice out: it joins the one before, and a new chop leaves its cut out
-        const unsigned slice = pad_slice(ui.chop_slice, pad); // in the bank in view
+        const unsigned slice = pad_slice(chop_bank_slice(c.project, ui, c.now), pad); // in the bank in view
         if (slice == 0 || slice >= ui.slices.count) return;
         ui.chop_hand.take_out(ui.slices.start[slice]);
         ui.slices.remove(slice);
@@ -301,9 +317,14 @@ void wheel(Context& c, int delta) {
     const uint32_t frames = chop_frames(c.project, ui);
     if (!sl.count || !frames) return;
     const uint32_t region_from = sl.start[0], region_to = sl.end(sl.count - 1, frames);
-    if (take_live(ui.chop_take_at, region_from, region_to, c.now)) return; // a take playing: only the red pad acts
+    if (chop_take_playing(c.project, ui, c.now)) return; // a take playing: only the pads act
     unsigned n = std::min<unsigned>(ui.chop_slice, sl.count - 1), k = ui.chop_focus % 2; // the picked slice's start, or its end after K2
     chop_follow(ui, region_to - region_from); // closes in on the cut, unless Shift + K set a zoom
+    if (ui.shift) { // SHIFT + the wheel: that cut onto the next hit the way it turns, a hit a detent
+        ui.shift_used = true;
+        c.chop_jump(delta);
+        return;
+    }
     c.fine_edit(Binding {k ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, 1, 0}, delta);
     auto& pot = ui.pots[k];
     pot.engaged = false; pot.bound = 0; // the value left the pot: it picks it up again

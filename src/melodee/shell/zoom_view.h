@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #pragma once
 #include "melodee/shell/bindings.h"
+#include "melodee/model/slice_banks.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -37,6 +38,7 @@ inline int zoom_for_width(uint32_t span, uint32_t width) {
 // next pad, Minus / Plus or K1 / K2 open it again (chop_unfollow), so the pots cover the whole region.
 constexpr uint32_t follow_view = 5292; // 120 ms, as the project counts frames (44.1 kHz)
 constexpr uint32_t chop_heard_ms = 150; // a moved cut is heard once it has been still this long
+constexpr uint32_t heard_lead = 13230, heard_tail = 44100; // with 300 ms before a start; an end, the slice's last second
 inline void chop_follow(UiState& ui, uint32_t span) {
     if (ui.chop_zoom && !ui.chop_zoom_auto) return; // a zoom set by Shift + K stays as it is
     const int z = zoom_for_width(span, follow_view);
@@ -46,6 +48,21 @@ inline void chop_follow(UiState& ui, uint32_t span) {
 inline void chop_unfollow(UiState& ui) {
     if (!ui.chop_zoom_auto) return;
     ui.chop_zoom = 0; ui.chop_zoom_auto = false; ui.chop_view = {};
+}
+// Chop's take (model/slice_banks.h): whether it still plays, and the slice whose bank the pads show: the next one's while
+// it plays, and after a take while the newest slice is in hand (the red stays on the next pad); else the slice in hand's.
+inline bool chop_take_playing(const Project& project, const UiState& ui, uint32_t now) {
+    const auto& sl = ui.slices;
+    if (!ui.chop_take_at || !sl.count || ui.chop_sample >= sample_slots) return false;
+    return take_live(ui.chop_take_at, ui.chop_take_from, sl.end(sl.count - 1, project.samples[ui.chop_sample].frames), now);
+}
+inline bool chop_red_shown(const Project& project, const UiState& ui, uint32_t now) {
+    return ui.slices.count < max_slices && (chop_take_playing(project, ui, now) || (ui.chop_more && ui.chop_mode == ChopMode::Manual));
+}
+inline unsigned chop_bank_slice(const Project& project, const UiState& ui, uint32_t now) {
+    const unsigned count = ui.slices.count;
+    const bool next = chop_take_playing(project, ui, now) || (ui.chop_more && ui.chop_mode == ChopMode::Manual && ui.chop_slice + 1u == count);
+    return view_slice(ui.chop_slice, count, next, max_slices);
 }
 // How many times closer than unzoomed, for the screen.
 inline double zoom_factor(uint32_t span, int zoom) { return double(span) / std::max(1u, zoom_width(span, zoom)); }
