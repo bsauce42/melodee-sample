@@ -239,6 +239,7 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **K1** / **K2** | Start / end of the selected slice. |
 | **K3** | Chop type: Threshold, Regions, Beats or Manual. |
 | Encoder | Select a slice. After **K1** or **K2**, move that cut in fine steps. |
+| Push the encoder | Pad slicing on or off. |
 | **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
 | **B2** (**SNAP**) | Snap cuts to zero crossings, so slices do not click. |
@@ -268,15 +269,17 @@ on the bar, set the region's start near the bar's first beat. A sample with
 no steady beat uses the project's tempo. A chop holds at most 64 slices: if
 a division needs more, the last slice runs to the end, and Melodee says so.
 
-**Manual chop**: set **K3** to Manual, or push the encoder. Pad 1 plays the
-sample. Tap other pads while it plays to cut there.
+**Pad slicing** (as on Ableton Push): push the encoder to turn it on or off.
+Setting **K3** to Manual turns it on. **PAD SLICE** shows at the top left
+while it is on. Tap a slice's pad: it plays from there to the end of the
+region. Tap an empty pad while it plays to cut there. The slices you have
+stay, up to 64. Empty pads light white; brighter while you can cut.
 
 **Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
-**SHIFT** + **B2** Split, or Manual's taps) stays when you change the chop
+**SHIFT** + **B2** Split, or pad slicing) stays when you change the chop
 type, threshold, division or number of regions. It shows in the track's
 colour with a tab on top. A cut you take out (**ERASE** + pad, **SHIFT** +
-**B3** Merge) stays out. Hand cuts are kept while the project is open. A new
-Manual take (pad 1) starts over.
+**B3** Merge) stays out. Hand cuts are kept while the project is open.
 
 Slices put on pads keep the chopped pad's tune, Warp, mute group and other
 settings. Press **CHOP** again to return to **TRIM**.

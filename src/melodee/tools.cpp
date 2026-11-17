@@ -1704,12 +1704,12 @@ const Preview previews[] {
          s.ui.chop_mode = ChopMode::Regions;
          s.ui.chop_slice = 4; s.ui.turning = 1; s.ui.turned_at = s.now;
      }},
-    {"chopmanual", [](Shell&, Snapshot& s) { // Manual: pad 1 is playing the region, three cuts tapped so far
+    {"chopmanual", [](Shell&, Snapshot& s) { // Manual with Pad Slicing: slice 1 is playing on, three cuts tapped so far
          s.ui.page = PageId::Chop; s.ui.track = 3; s.sample = break_sample(); s.ui.chop_sample = 4;
          s.ui.chop_mode = ChopMode::Manual;
          s.ui.slices = chop(ChopMode::Manual, 0, 0, 0, s.sample.frames, s.sample.hits, s.sample.hit_count, 920);
          for (uint32_t at : {28000u, 57000u, 86000u}) s.ui.slices.add(at, s.sample.frames, manual_slices);
-         s.ui.chop_slice = 3; s.ui.chop_take_at = s.now > 2400 ? s.now - 2400 : 1;
+         s.ui.chop_slice = 3; s.ui.chop_take_at = s.now > 2400 ? s.now - 2400 : 1; s.ui.chop_armed = true; s.ui.chop_take_from = s.ui.slices.start[0];
          chop_voice(s, s.ui.slices.start[0], s.ui.slices.end(s.ui.slices.count - 1, s.sample.frames), 0.48f, 0.9f);
      }},
     {"chopplaying", [](Shell&, Snapshot& s) { // a pad playing slice 8 while slice 5 is in hand: it lights, its head runs through it

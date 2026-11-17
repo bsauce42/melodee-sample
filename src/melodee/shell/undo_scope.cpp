@@ -129,7 +129,7 @@ UndoScope press_scope(const Project& project, const UiState& ui, SurfaceButton b
     case PageId::Tracks: case PageId::Sends: return of(S::Mix, ui);
     case PageId::Rack: case PageId::Bus: case PageId::Master: case PageId::PadFx: return of(S::Chain, ui, page_chain(project, ui));
     case PageId::KnobFx: case PageId::Compressor: case PageId::FlexBeat: case PageId::Punch: return of(S::Master, ui);
-    case PageId::Chop: return ui.chop_armed && pad ? UndoScope {} : of(S::Chop, ui); // Manual's taps are one take, not a step each
+    case PageId::Chop: return of(S::Chop, ui); // Pad Slicing's cuts too, each a step
     case PageId::Trim: case PageId::PadMix: case PageId::EnvelopePage: case PageId::PadPage: case PageId::PlayPage:
     case PageId::PadFilterPage: case PageId::FilterEnvPage: case PageId::Pads: case PageId::LayersPage:
         return pad_scope(ui, project);

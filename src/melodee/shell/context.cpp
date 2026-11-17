@@ -819,7 +819,6 @@ void Context::apply(const Binding& b, int value) {
         if (start) sl.move_start(n, at, frames);
         else sl.move_end(n, at, frames);
         if (inside) ui.chop_hand.move(before, start ? sl.start[n] : sl.end(n, frames));
-        ui.chop_armed = false;
         chop_moved(was);
         break;
     }
@@ -1653,9 +1652,9 @@ int Context::sample_slot(const std::string& path, const std::string& name) {
     return free;
 }
 
-// Chop's slices of the region it holds, by its type. Manual starts as one
-// slice, the whole region, armed: pad 1 plays it and the pads tapped
-// meanwhile cut it (chop_tap()).
+// Chop's slices of the region it holds, by its type, with the cuts made by
+// hand. Manual is the whole region and those, with Pad Slicing on: a slice's
+// pad plays on, and the empty pads tapped meanwhile cut it (chop_tap()).
 void Context::rechop() {
     if (!library || ui.chop_sample >= sample_slots) { ui.slices = {}; return; }
     auto loaded = library->slot(ui.chop_sample);
@@ -1668,7 +1667,7 @@ void Context::rechop() {
     if (capped || full) notice("64 slices, the most: the last runs to the end");
     snap_slices();
     ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count ? ui.slices.count - 1 : 0));
-    ui.chop_armed = ui.chop_mode == ChopMode::Manual;
+    if (ui.chop_mode == ChopMode::Manual) ui.chop_armed = true; // Manual cuts by Pad Slicing
     ui.chop_take_at = 0;
 }
 

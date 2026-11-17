@@ -11,11 +11,12 @@
 // (threshold, slices, Beats' division: 1/16 ... 4 bars). Once K1 or K2 (or their zoom) was
 // touched the wheel fine-edits that handle, as the MPC's encoder does, its
 // line drawn wider, until a pad or Minus / Plus picks another slice. A cut
-// made or moved by hand (K1 / K2, Split, Manual's taps) stays through a new
-// chop by type or amount, drawn in the track's colour with a tab on top, and
-// one taken out (Erase, Merge) stays out, as Simpler keeps its manual slices.
-// Manual armed (K3 onto it, or Push): pad 1
-// plays the region and the pads tapped meanwhile cut it, up to 16 slices.
+// made or moved by hand (K1 / K2, Split, Pad Slicing's taps) stays through a
+// new chop by type or amount, drawn in the track's colour with a tab on top,
+// and one taken out (Erase, Merge) stays out, as Simpler keeps its manual
+// slices. Push turns Pad Slicing on and off (K3 onto Manual turns it on; the
+// header's chip reads PAD SLICE): a slice's pad plays from its start on to
+// the region's end, and an empty pad tapped meanwhile cuts there, up to 64.
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
 // Erase + pad takes a slice out (it joins the one before). B3 lays every
@@ -50,7 +51,7 @@ void draw(Paint& p, const Snapshot& s) {
     const auto& slices = s.ui.slices;
     uint32_t frames = s.sample.frames;
     Header h = header_of(s);
-    h.left.push_back(chip("CHOP", c));
+    h.left.push_back(s.ui.chop_armed ? chip(Icon::Scissors, "PAD SLICE", c) : chip("CHOP", c)); // Pad Slicing on (Push)
     h.left.push_back(pill(Icon::Scissors, juce::String(slices.count), c));
     if (slices.count > 16) // the sixteen slices on the pads (Pad Bank steps them)
         h.left.push_back(pill(Icon::Pads, "BANK " + juce::String::charToString(juce::juce_wchar('A' + slice_bank(s.ui.chop_slice))), colour::text));
@@ -88,7 +89,7 @@ void draw(Paint& p, const Snapshot& s) {
     if (s.detail_to > s.detail_from) detail = {&s.detail, float(s.detail_from) / frames, float(s.detail_to) / frames};
     float y = zone::picture_y + 22, wh = 92;
     auto x_of = [&](float at) { return x + (at - from) / (to - from) * w; };
-    // What the audition voice plays now (mock 5): the slice a pad started, with its head and wake, or Manual's take.
+    // What the audition voice plays now (mock 5): the slice a pad started, with its head and wake, or Pad Slicing's playing on.
     PadSound audition;
     audition.sample = s.ui.chop_sample;
     WaveHead head;
@@ -151,10 +152,10 @@ void draw(Paint& p, const Snapshot& s) {
     float wide_start = s.ui.chop_fine && !s.ui.chop_focus ? 2 : 1, wide_end = s.ui.chop_fine && s.ui.chop_focus ? 2 : 1; // the wheel's
     p.fill(x_of(a), y, wide_start, wh, knob_shade(s.ui.track, 0));            // K1's handle
     p.fill(x_of(b) - wide_end, y, wide_end, wh, knob_shade(s.ui.track, 1));   // K2's
-    // Manual's take: where the audition voice is heard in the region now (its region's start until it is heard).
+    // Pad Slicing: where the audition voice is heard in the region now (where it starts until it is heard).
     bool starting = s.ui.chop_take_at && !sound.take && s.now >= s.ui.chop_take_at && s.now - s.ui.chop_take_at < 250;
     bool taking = sound.take || starting;
-    if (taking) p.fill(x_of(sound.take ? float(playing->at / frames) : float(region_from) / frames), y, 2, wh, colour::text);
+    if (taking) p.fill(x_of(sound.take ? float(playing->at / frames) : float(s.ui.chop_take_from) / frames), y, 2, wh, colour::text);
     p.g.restoreState();
     if (sounding >= 0) draw_heads(p, x, y, w, wh, from, to, &head, 1);
     // Over the slice in hand, the pad it lands on as a chip (taking Manual's cuts: the scissors); its length below right.
@@ -186,7 +187,6 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
         if (slice == 0 || slice >= ui.slices.count) return;
         ui.chop_hand.take_out(ui.slices.start[slice]);
         ui.slices.remove(slice);
-        ui.chop_armed = false;
         ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count - 1));
         return;
     }
@@ -210,9 +210,11 @@ void wheel(Context& c, int delta) {
     ui.turning = int8_t(k); ui.turned_at = c.now;
 }
 
-void push(Context& c) { // Manual, armed: pad 1 plays the region again and the taps cut it afresh
-    c.ui.chop_mode = ChopMode::Manual;
-    c.rechop();
+void push(Context& c) { // Pad Slicing on or off (Push's): a slice's pad plays on to the region's end, an empty pad cuts there
+    auto& ui = c.ui;
+    ui.chop_armed = !ui.chop_armed;
+    ui.chop_take_at = 0;
+    c.notice(ui.chop_armed ? "Pad slicing: tap a slice, then an empty pad to cut" : "Pad slicing off");
 }
 
 void soft(Context& c, int key) {
@@ -225,7 +227,6 @@ void soft(Context& c, int key) {
                 unsigned cut = ui.chop_slice + 1u; // the new cut, onto a zero crossing with Zero Snap on
                 ui.slices.move_start(cut, c.zero_cut(ui.slices.start[cut]), frames);
                 ui.chop_hand.pin(ui.slices.start[cut]); // a cut by hand: it stays through a new chop
-                ui.chop_armed = false;
             }
             else c.notice("Split: too short");
         }
@@ -234,7 +235,6 @@ void soft(Context& c, int key) {
             ui.chop_hand.take_out(ui.slices.start[ui.chop_slice]); // a new chop leaves it out
             ui.slices.remove(ui.chop_slice);
             ui.chop_slice = uint8_t(ui.chop_slice - 1);
-            ui.chop_armed = false;
         }
         return;
     }

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // Chop's pads (parity phase 5): a pad plays its slice and picks it for K1 /
-// K2. In Manual, armed (K3 onto Manual, or Push), pad 1 plays the whole
-// region and every pad tapped while it plays cuts it there (up to 16
-// slices, as the MPC's), each cut pulled onto the strongest hit just before
-// it, since a tap comes a little after the sound it means. With Zero Snap on
-// (B2, kept with the settings) every cut then lands on a zero crossing.
+// K2. Pad Slicing on (Push's; Push turns it on and off, K3 onto Manual turns
+// it on): a slice's pad plays from its start on to the region's end, and an
+// empty pad tapped meanwhile cuts there, the slices kept (up to 64), each cut
+// pulled onto the strongest hit just before it, since a tap comes a little
+// after the sound it means, and kept as a hand cut. With Zero Snap on (B2,
+// kept with the settings) every cut then lands on a zero crossing.
 #include "melodee/shell/context.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
@@ -24,30 +25,33 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
         send(a);
     };
-    if (ui.chop_take_at) { // Manual's take: a cut where the region is now
-        uint32_t at = sl.start[0] + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10);
-        if (at < sl.end(sl.count - 1, frames)) {
+    const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
+    const uint32_t region_end = sl.end(sl.count - 1, frames);
+    if (ui.chop_armed && slice < sl.count) { // Pad Slicing: the slice plays on to the region's end, for the empty pads to cut
+        if (slice != ui.chop_slice) ui.chop_fine = false;
+        ui.chop_slice = uint8_t(slice);
+        ui.chop_take_from = sl.start[slice];
+        ui.chop_take_at = now ? now : 1;
+        audition(sl.start[slice], region_end);
+        return;
+    }
+    if (ui.chop_armed) { // an empty pad: a cut where the playing has got to, kept with the slices there
+        if (ui.chop_take_at) {
+            uint32_t at = ui.chop_take_from + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10);
+            if (at >= region_end) { ui.chop_take_at = 0; notice("Played out: tap a slice first"); return; }
             if (library) {
                 auto loaded = library->slot(ui.chop_sample);
                 at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
             }
-            if (sl.add(at, frames, manual_slices)) {
-                ui.chop_hand.pin(at); // a cut by hand: it stays when the type changes
+            if (sl.add(at, frames)) {
+                ui.chop_hand.pin(at); // a cut by hand: it stays when the type or amount changes
                 for (unsigned n = 0; n < sl.count; ++n) if (sl.start[n] == at) ui.chop_slice = uint8_t(n);
-            }
+            } else if (sl.count >= max_slices) notice("64 slices, the most");
             return;
         }
-        ui.chop_take_at = 0; // it has played out: the pads play slices again
-    }
-    if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) {
-        if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // the take starts from one slice, the whole region
-        ui.chop_hand.clear();                                          // and its cuts are the hand cuts from here
-        ui.chop_slice = 0; ui.chop_armed = false;
-        ui.chop_take_at = now ? now : 1;
-        audition(sl.start[0], sl.end(0, frames));
+        notice("Tap a slice, then an empty pad to cut");
         return;
     }
-    const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
     if (slice >= sl.count) return;
     if (slice != ui.chop_slice) ui.chop_fine = false; // another slice: the wheel picks slices again until K1 / K2
     ui.chop_slice = uint8_t(slice);

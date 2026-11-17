@@ -303,8 +303,9 @@ struct UiState {
     uint8_t chop_focus = 0;     // and where: 0 the slice's start, 1 its end
     bool chop_fine = false;     // K1 / K2 touched: the wheel fine-edits the handle in focus until a pad picks another slice
     ZoomView chop_view;         // the view zoomed in, kept
-    bool chop_armed = false;    // Manual: pad 1 plays the region and the pads tapped meanwhile cut it
-    uint32_t chop_take_at = 0;  // ms when pad 1 started that take, 0 none
+    bool chop_armed = false;    // Pad Slicing (Push's): a slice's pad plays on to the region's end, an empty pad cuts there
+    uint32_t chop_take_at = 0;  // ms when a slice's pad started that, 0 none
+    uint32_t chop_take_from = 0; // the frame it started from
     int8_t levels_hit = -1;     // Levels: the pad played last, 0..15
     int16_t levels_value = 0;   // and what it played: a velocity or semitones
     // Sample Record (parity phase 6; Input Config itself is in settings.input).

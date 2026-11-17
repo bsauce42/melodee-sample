@@ -5918,7 +5918,8 @@ void projects_and_polish() {
     ui.page = PageId::Compressor; CHECK(press_scope(project, ui, B::TopLeft, false).kind == S::Master);
     CHECK(scope_name(project, ui, press_scope(project, ui, B::TopLeft, false)) == "Compressor");
     ui.page = PageId::Chop; CHECK(press_scope(project, ui, B::TopMiddle, false).kind == S::Chop);
-    ui.chop_armed = true; CHECK(press_scope(project, ui, B::Count, true).none()); // Manual's taps
+    ui.chop_armed = true; CHECK(press_scope(project, ui, B::Count, true).kind == S::Chop); // Pad Slicing's cuts: a step each
+    ui.chop_armed = false;
     ui.page = PageId::PlayPage; CHECK(press_scope(project, ui, B::Count, true).kind == S::Pad);
     CHECK(scope_name(project, ui, UndoScope {S::Pad, 2, 17}) == "B02");
     CHECK(scope_name(project, ui, UndoScope {S::Chain, 0, uint16_t(bus_chain(1))}) == "Bus B FX");
@@ -10961,8 +10962,8 @@ void voice_heads() {
     }
 }
 
-// Mock 5 (shell/playheads.h): the slice Chop's audition voice plays, found from its region; Manual's take is the
-// whole region while it is heard, and no slice.
+// Mock 5 (shell/playheads.h): the slice Chop's audition voice plays, found from its region; Pad Slicing's playing,
+// from a slice's start on to the region's end, is the take while it is heard, and no slice.
 void chop_heads() {
     Slices sl;
     sl.whole(1000, 12000); sl.add(5000, 20000); sl.add(9000, 20000);
@@ -10978,6 +10979,9 @@ void chop_heads() {
     ChopSound take = chop_sound(&h, sl, 20000, true);
     CHECK(take.take && take.slice == -1);
     CHECK(!chop_sound(&h, sl, 20000, false).take);
+    h.from = 5000;               // Pad Slicing from the second slice on to the region's end: the take too
+    CHECK(chop_sound(&h, sl, 20000, true).take && chop_sound(&h, sl, 20000, false).slice == -1);
+    h.from = 1000;
     h.level = 0;                 // played out: no take, and no slice for it either
     take = chop_sound(&h, sl, 20000, true);
     CHECK(!take.take && take.slice == -1);
@@ -11761,9 +11765,12 @@ void pad_lights() {
     CHECK(slice_bank(17) == 1 && slice_banks(20) == 2 && slice_banks(16) == 1 && slice_banks(0) == 1);
     CHECK(pad_slice(17, 3) == 19 && pad_slice(2, 3) == 3 && pad_slice(63, 15) == 63);
     ui.slices.count = 5; ui.chop_slice = 2;
+    // Pad Slicing (Push's): the slices as before, the empty pads Faint white, where a tap cuts.
     ui.chop_mode = ChopMode::Manual; ui.chop_armed = true; light({}, 1000);
-    CHECK(is(0, Hue::Red, 4) && is(1, Hue::None, 0));
-    ui.chop_armed = false; ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
+    CHECK(is(2, Hue::Track, 4) && is(0, Hue::Track, 2) && is(6, Hue::White, 1) && is(15, Hue::White, 1));
+    ui.chop_armed = false; light({}, 1000);
+    CHECK(is(6, Hue::None, 0));
+    ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
     // Record: the take's pad red, a sample Dim, empty Faint (never 0.07, which drove tracks 1 and 2 red).
     ui.page = PageId::Record; ui.rec_track = 1; ui.rec_pad = 12; light({}, 1000);
     CHECK(is(12, Hue::Red, 4) && is(0, Hue::Track, 2) && is(13, Hue::Track, 1));

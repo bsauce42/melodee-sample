@@ -172,7 +172,7 @@ void Context::restore_chain(unsigned n, const Chain& value) {
 void Context::restore_chop(const ChopState& c) {
     ui.slices = c.slices; ui.chop_hand = c.hand; ui.chop_mode = ChopMode(c.mode); ui.chop_slice = c.slice; ui.chop_amount = c.amount;
     ui.chop_sample = c.sample; ui.chop_from = c.from; ui.chop_to = c.to;
-    ui.chop_armed = false;
+    ui.chop_take_at = 0; // Pad Slicing stays as it was; what played is done
 }
 
 PageEdit::PageEdit(Context& context, SurfaceButton button, bool pad) : c(context) {

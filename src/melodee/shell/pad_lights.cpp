@@ -549,14 +549,16 @@ std::array<float, 16> slices_sounding(const PadScene& s) {
 Look chop_look(const PadScene& s, const std::array<float, 16>& sounding, unsigned pad) {
     const auto& ui = s.ui;
     unsigned at = selected_index(s), count = ui.slices.count;
-    bool manual = ui.chop_mode == ChopMode::Manual;
-    if (manual && ui.chop_armed) return pad == 0 ? (blink(s.now, flash_ms) ? red(full) : red(faint)) : Look {}; // pad 1 starts the take
-    bool taking = ui.chop_take_at && s.now - ui.chop_take_at < 60000;
     const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
-    if (manual && taking) return pad == 0 ? white(full) : slice < count ? track(at, dim) : white(faint); // tap to cut here
     if (ui.erase) return slice == 0 ? (count ? track(at, dim) : Look {}) : slice < count ? red(faint) : Look {}; // takes the slice out
     if (held(s, pad)) return white(full);
-    if (slice >= count) return {};
+    if (slice >= count) { // empty: with Pad Slicing a tap cuts there, lit brighter while a slice plays on (Push's)
+        if (!ui.chop_armed || !count) return {};
+        const uint32_t frames = s.project.samples[ui.chop_sample % sample_slots].frames;
+        const uint32_t now_at = ui.chop_take_from + uint32_t(uint64_t(s.now - ui.chop_take_at) * 441 / 10);
+        const bool playing = ui.chop_take_at && s.now >= ui.chop_take_at && now_at < ui.slices.end(count - 1, frames);
+        return playing ? white(mid) : white(faint);
+    }
     return flare(track(at, slice == ui.chop_slice ? full : dim), sounding[pad % 16]);
 }
 Look record_look(const PadScene& s, unsigned pad) {
