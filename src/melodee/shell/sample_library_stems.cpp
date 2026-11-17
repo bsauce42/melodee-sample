@@ -32,9 +32,10 @@ std::string file_name(const char* name) {
 std::string SampleLibrary::stems_program(const std::string& card_top) {
     if (const char* named = std::getenv("MELODEE_STEMS_ENGINE"); named && *named) return named;
     if (card_top.empty()) return {};
-    // A release's folder (tools/make_release.py), else the folder `device.py install-sd` starts the app from.
+    // A release's folder (tools/make_release.py), else the folder `device.py install-sd` starts the app from
+    // (autorun/sample-base; sample-base at the card's top for an install from before).
     std::error_code error;
-    for (const char* folder : {"/autorun/melodee", "/sample-base"}) {
+    for (const char* folder : {"/autorun/melodee", "/autorun/sample-base", "/sample-base"}) {
         const std::string path = card_top + folder + "/stems/melodee-stems";
         if (fs::is_regular_file(path, error)) return path;
     }

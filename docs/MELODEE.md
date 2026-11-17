@@ -1755,7 +1755,8 @@ the file holds, to the bit.
   Wiener filter did 0.7 to 1 dB worse. The program and its model
   are files on the card, `autorun/melodee/stems/melodee-stems` and
   `spleeter-4stems.f16` beside it (80 MB; with `device.py install-sd`, in
-  `sample-base/stems/`), not part of the binary. A job copies the program
+  `autorun/sample-base/stems/`, or `sample-base/stems/` at the card's top
+  for an install from before), not part of the binary. A job copies the program
   into RAM (`/run/melodee-stems`, the card being `noexec`), runs it there
   on three threads at the lowest priority and removes it after; the model
   is read where it is. A job that would leave under 192 MB of memory free
