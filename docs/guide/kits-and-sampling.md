@@ -271,6 +271,13 @@ a division needs more, the last slice runs to the end, and Melodee says so.
 **Manual chop**: set **K3** to Manual, or push the encoder. Pad 1 plays the
 sample. Tap other pads while it plays to cut there.
 
+**Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
+**SHIFT** + **B2** Split, or Manual's taps) stays when you change the chop
+type, threshold, division or number of regions. It shows in the track's
+colour with a tab on top. A cut you take out (**ERASE** + pad, **SHIFT** +
+**B3** Merge) stays out. Hand cuts are kept while the project is open. A new
+Manual take (pad 1) starts over.
+
 Slices put on pads keep the chopped pad's tune, Warp, mute group and other
 settings. Press **CHOP** again to return to **TRIM**.
 

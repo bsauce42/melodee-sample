@@ -115,12 +115,13 @@ struct TempoState {
 // Chop's slices of the region in hand (UI state, not saved).
 struct ChopState {
     Slices slices {};
+    HandCuts hand {};
     uint8_t mode = 0, slice = 0;
     std::array<int, 4> amount {};
     uint16_t sample = 0;
     uint32_t from = 0, to = 0;
     bool operator==(const ChopState& o) const {
-        return slices.same(o.slices) && mode == o.mode
+        return slices.same(o.slices) && hand.same(o.hand) && mode == o.mode
             && slice == o.slice && amount == o.amount && sample == o.sample && from == o.from && to == o.to;
     }
 };

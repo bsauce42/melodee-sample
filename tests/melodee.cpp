@@ -3960,6 +3960,41 @@ void beat_grid() {
     CHECK(division_sixteenths(4, 12) == 12 && division_sixteenths(5, 14) == 28 && division_sixteenths(99, 16) == 64); // 3/4, 7/8; past 4 bars
     CHECK(std::string(division_value(1)) == "1/8" && std::string(division_unit(0)).empty());
     CHECK(std::string(division_unit(4)) == "bar" && std::string(division_unit(6)) == "bars" && std::string(division_value(6)) == "4");
+    // Hand cuts (Simpler's manual slices): a new chop keeps the cuts made or moved by hand and leaves out those taken out.
+    {
+        std::array<Hit, max_hits> none {};
+        const uint32_t frames = 44100 * 4;
+        auto quarters = chop(ChopMode::Regions, 4, 0, 0, frames, none, 0, 1200); // cuts at 44100, 88200, 132300
+        HandCuts hand;
+        CHECK(with_hand(quarters, hand, frames).same(quarters)); // none: the chop as it is
+        hand.move(88200, 100000);                                // an automatic cut moved by hand
+        hand.pin(20000);                                         // one made by hand (Split, a tap)
+        hand.take_out(132300);                                   // one taken out (Erase, Merge)
+        CHECK(hand.pinned(100000) && hand.pinned(20200) && !hand.pinned(88200) && hand.dropped(88200) && hand.dropped(132300));
+        auto has = [](const Slices& s, uint32_t frame) {
+            for (unsigned n = 1; n < s.count; ++n) if (s.start[n] == frame) return true;
+            return false;
+        };
+        // Eight regions now (22050 apart): the hand cuts in, the moved and the taken-out ones out, the rest as cut.
+        auto eighths = with_hand(chop(ChopMode::Regions, 8, 0, 0, frames, none, 0, 1200), hand, frames);
+        CHECK(eighths.count == 8 && eighths.start[1] == 20000 && eighths.start[2] == 22050 && has(eighths, 100000) && has(eighths, 110250));
+        CHECK(!has(eighths, 88200) && !has(eighths, 132300) && has(eighths, 154350) && eighths.stop[7] == frames);
+        hand.move(100000, 101000); // a hand cut moved again: no second automatic cut dropped
+        CHECK(hand.pinned(101000) && !hand.pinned(100000) && hand.drop_count == 2 && hand.pin_count == 2);
+        HandCuts near;
+        near.pin(44500); // an automatic cut within 20 ms of a hand cut gives way to it
+        auto kept = with_hand(quarters, near, frames);
+        CHECK(kept.count == 4 && has(kept, 44500) && !has(kept, 44100));
+        bool full = false; // 64 regions and a hand cut between two of them: one too many, the hand cut kept
+        HandCuts early;
+        early.pin(1000);
+        auto most = with_hand(chop(ChopMode::Regions, 64, 0, 0, frames, none, 0, 1200), early, frames, &full);
+        CHECK(full && most.count == max_slices && most.start[1] == 1000);
+        HandCuts other = hand;
+        CHECK(other.same(hand) && !other.same(near));
+        other.clear();
+        CHECK(other.empty());
+    }
 
     // The same tempo with the kick on 1, the and of 2 and 4's second 16th (3 + 3 + 2) and swung hats: still 93 BPM
     // (or 186), not the 124 its dotted spacing suggests.

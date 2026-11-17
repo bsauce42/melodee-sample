@@ -10,8 +10,11 @@
 // (0-100%, smoothly, shell/zoom_view.h), Shift + K3 the type's amount
 // (threshold, slices, Beats' division: 1/16 ... 4 bars). Once K1 or K2 (or their zoom) was
 // touched the wheel fine-edits that handle, as the MPC's encoder does, its
-// line drawn wider, until a pad or Minus / Plus picks another slice. Editing
-// a slice makes the chop Manual. Manual armed (K3 onto it, or Push): pad 1
+// line drawn wider, until a pad or Minus / Plus picks another slice. A cut
+// made or moved by hand (K1 / K2, Split, Manual's taps) stays through a new
+// chop by type or amount, drawn in the track's colour with a tab on top, and
+// one taken out (Erase, Merge) stays out, as Simpler keeps its manual slices.
+// Manual armed (K3 onto it, or Push): pad 1
 // plays the region and the pads tapped meanwhile cut it, up to 16 slices.
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
@@ -128,7 +131,9 @@ void draw(Paint& p, const Snapshot& s) {
     for (unsigned n = 0; n < slices.count; ++n) {
         float sx = x_of(float(slices.start[n]) / frames);
         bool edge = n == selected || n == selected + 1;
-        if (n) p.fill(sx, y, 1, wh, edge ? colour::text : colour::line);
+        const bool hand = n && s.ui.chop_hand.pinned(slices.start[n]); // made or moved by hand: kept through a new chop
+        if (n) p.fill(sx, y, 1, wh, edge ? colour::text : hand ? c : colour::line);
+        if (hand) p.fill(sx - 2, y, 5, 3, c); // its tab
         auto [l, r] = number_span(n);
         bool show = kept_number(n);
         if (!show && l >= drawn_to + number_gap) {
@@ -176,11 +181,12 @@ void draw(Paint& p, const Snapshot& s) {
 void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     auto& ui = c.ui;
     if (!down) return;
-    if (ui.erase) { // the slice out: it joins the one before (the chop is Manual from here)
+    if (ui.erase) { // the slice out: it joins the one before, and a new chop leaves its cut out
         const unsigned slice = pad_slice(ui.chop_slice, pad); // in the bank in view
         if (slice == 0 || slice >= ui.slices.count) return;
+        ui.chop_hand.take_out(ui.slices.start[slice]);
         ui.slices.remove(slice);
-        ui.chop_mode = ChopMode::Manual; ui.chop_armed = false;
+        ui.chop_armed = false;
         ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count - 1));
         return;
     }
@@ -218,15 +224,17 @@ void soft(Context& c, int key) {
             if (ui.slices.split(ui.chop_slice, frames)) {
                 unsigned cut = ui.chop_slice + 1u; // the new cut, onto a zero crossing with Zero Snap on
                 ui.slices.move_start(cut, c.zero_cut(ui.slices.start[cut]), frames);
-                ui.chop_mode = ChopMode::Manual; ui.chop_armed = false;
+                ui.chop_hand.pin(ui.slices.start[cut]); // a cut by hand: it stays through a new chop
+                ui.chop_armed = false;
             }
             else c.notice("Split: too short");
         }
         if (key == 2) {
             if (ui.chop_slice == 0) { c.notice("Merge: the first slice"); return; }
+            ui.chop_hand.take_out(ui.slices.start[ui.chop_slice]); // a new chop leaves it out
             ui.slices.remove(ui.chop_slice);
             ui.chop_slice = uint8_t(ui.chop_slice - 1);
-            ui.chop_mode = ChopMode::Manual; ui.chop_armed = false;
+            ui.chop_armed = false;
         }
         return;
     }

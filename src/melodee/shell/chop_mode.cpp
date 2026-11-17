@@ -31,14 +31,17 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
                 auto loaded = library->slot(ui.chop_sample);
                 at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
             }
-            if (sl.add(at, frames, manual_slices))
+            if (sl.add(at, frames, manual_slices)) {
+                ui.chop_hand.pin(at); // a cut by hand: it stays when the type changes
                 for (unsigned n = 0; n < sl.count; ++n) if (sl.start[n] == at) ui.chop_slice = uint8_t(n);
+            }
             return;
         }
         ui.chop_take_at = 0; // it has played out: the pads play slices again
     }
     if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) {
         if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // the take starts from one slice, the whole region
+        ui.chop_hand.clear();                                          // and its cuts are the hand cuts from here
         ui.chop_slice = 0; ui.chop_armed = false;
         ui.chop_take_at = now ? now : 1;
         audition(sl.start[0], sl.end(0, frames));
@@ -60,8 +63,11 @@ void Context::keep_chop() {
         now.from = ui.chop_from; now.to = ui.chop_to; now.mode = ui.chop_mode;
         now.amount = int16_t(ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()]);
         now.slices = ui.slices;
-        if (!(kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount && kept.slices.same(now.slices))) {
-            now.unwritten = true;
+        now.hand = ui.chop_hand;
+        const bool same = kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount
+                       && kept.slices.same(now.slices);
+        if (!same || !kept.hand.same(now.hand)) {
+            now.unwritten = kept.unwritten || !same; // the hand cuts alone are not in the file: nothing to write
             project.chops.edit(ui.chop_sample) = now;
         }
     }
@@ -92,6 +98,7 @@ bool Context::restore_chop() {
     const uint32_t frames = project.samples[ui.chop_sample].frames, pad_from = ui.chop_from;
     ui.chop_from = kept.from; ui.chop_to = kept.to;
     ui.slices = kept.slices;
+    ui.chop_hand = kept.hand;
     for (unsigned n = 0; n < ui.slices.count; ++n) // the slice the pad plays, selected
         if (ui.slices.start[n] <= pad_from && pad_from < ui.slices.end(n, frames ? frames : UINT32_MAX)) ui.chop_slice = uint8_t(n);
     ui.chop_mode = kept.mode;

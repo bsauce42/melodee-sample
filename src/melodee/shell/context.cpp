@@ -806,13 +806,20 @@ void Context::apply(const Binding& b, int value) {
     }
     case Kind::ChopMode: ui.chop_mode = ChopMode(value); rechop(); break;
     case Kind::ChopAmount: ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] = value; rechop(); break;
-    case Kind::ChopStart: case Kind::ChopEnd: { // editing a slice makes the chop Manual, as on the MPC (in frames)
+    case Kind::ChopStart: case Kind::ChopEnd: { // a cut moved by hand: it stays through a new chop by type or amount (in frames)
         auto was = chop_view(project, ui);
         uint32_t frames = chop_frames(project, ui), at = std::min(uint32_t(value), frames);
         if (!exact_cut) at = zero_cut(at); // onto a zero crossing near where the pot is
-        if (b.kind == Kind::ChopStart) ui.slices.move_start(unsigned(b.id), at, frames);
-        else ui.slices.move_end(unsigned(b.id), at, frames);
-        ui.chop_mode = ChopMode::Manual; ui.chop_armed = false;
+        auto& sl = ui.slices;
+        const unsigned n = unsigned(b.id);
+        const bool start = b.kind == Kind::ChopStart;
+        // A cut inside the region (not its first start or its last end, which the pad's region sets).
+        const bool inside = n < sl.count && (start ? n > 0 : n + 1 < sl.count);
+        const uint32_t before = !inside ? 0 : start ? sl.start[n] : sl.end(n, frames);
+        if (start) sl.move_start(n, at, frames);
+        else sl.move_end(n, at, frames);
+        if (inside) ui.chop_hand.move(before, start ? sl.start[n] : sl.end(n, frames));
+        ui.chop_armed = false;
         chop_moved(was);
         break;
     }
@@ -1654,10 +1661,11 @@ void Context::rechop() {
     auto loaded = library->slot(ui.chop_sample);
     int amount = ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()];
     if (ui.chop_mode == ChopMode::Beats) amount = int(division_sixteenths(unsigned(std::max(amount, 0)), project.bar_ticks() / sixteenth_ticks)); // in 16ths
-    bool capped = false;
-    ui.slices = chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo, &loaded.beats,
-                     &capped);
-    if (capped) notice("64 slices, the most: the last runs to the end");
+    bool capped = false, full = false;
+    ui.slices = with_hand(chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo,
+                               &loaded.beats, &capped),
+                          ui.chop_hand, loaded.frames, &full); // the cuts made by hand stay
+    if (capped || full) notice("64 slices, the most: the last runs to the end");
     snap_slices();
     ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count ? ui.slices.count - 1 : 0));
     ui.chop_armed = ui.chop_mode == ChopMode::Manual;

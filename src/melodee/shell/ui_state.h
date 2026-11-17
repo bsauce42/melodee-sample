@@ -295,6 +295,7 @@ struct UiState {
     ChopMode chop_mode = ChopMode::Threshold;
     std::array<int, 4> chop_amount {{50, 8, int(quarter_division), 0}}; // per mode: threshold, slice count, Beats' division (shell/chop.h; Manual: none)
     Slices slices;              // Chop's slices of the sample in hand
+    HandCuts chop_hand;         // its cuts made or moved by hand: a new chop keeps them (model/chop_slices.h)
     uint16_t chop_sample = no_sample;
     uint32_t chop_from = 0, chop_to = 0; // the pad's region it chops (to 0: the end)
     uint8_t chop_slice = 0;
