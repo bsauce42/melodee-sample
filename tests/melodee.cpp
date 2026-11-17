@@ -15398,6 +15398,21 @@ void midi_tracks_p4() {
     float most = 0;
     for (unsigned f = 0; f < 128; ++f) most = std::max(most, std::fabs(stems[f]));
     CHECK(most > 0.15f);
+    // A pad's note on and off inside the block split it into runs: the input plays on through them, frame by frame
+    // (each run started the input from the block's first frame again: a click at each touch and release).
+    {
+        std::vector<int32_t> ramp(256);
+        for (unsigned f = 0; f < 128; ++f) ramp[2 * f] = ramp[2 * f + 1] = int32_t((0.1 + 0.002 * f) * 2147483647.0);
+        run(2, ramp.data(), stems.data());
+        Command on {Command::Type::NoteOn, 0, 0, 60, 100}, off {Command::Type::NoteOff, 0, 0, 60, 0};
+        on.timed = off.timed = true;
+        on.at = uint32_t(rendered + 40); off.at = uint32_t(rendered + 90);
+        host->send(on); host->send(off);
+        run(1, ramp.data(), stems.data());
+        bool rising = true;
+        for (unsigned f = 1; f < 128; ++f) rising &= stems[f] > stems[f - 1];
+        CHECK(rising);
+    }
     host->send({Command::Type::MidiAudio, 0, 0, 0, AudioNone});
     run(2, input.data(), stems.data());
     most = 0;
