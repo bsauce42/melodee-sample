@@ -588,6 +588,59 @@ void arrange() {
         CHECK(!bars[0] && bars[1]);
         CHECK(!host.playing()); // past the song's end
     }
+    // The song's loop inside a longer clip (the loop set to another track's clip): when it comes round, the pattern
+    // is where the song is. A four-bar pattern with a note on its bar 3 alone, the loop bars 3 and 4: the note
+    // again on each round (the pattern played on from its bar 1, out of step with the song).
+    {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        synth(project->tracks[0], 0);
+        project->tempo = 1200;
+        auto& pattern = bank->at[0][0];
+        pattern.length = 4 * project->bar_ticks();
+        Event note;
+        note.tick = 2 * project->bar_ticks(); note.key = 60; note.length = 24;
+        pattern.add(note);
+        project->song.place({0, 0, 0, 8, false});
+        project->song.loop_start = 2; project->song.loop_end = 4;
+        auto host = std::make_unique<EngineHost>();
+        host->load(*project, *bank);
+        Tones tones;
+        tones.offer(*host, *project);
+        host->send({Command::Type::Play, 0, 0, 2, 1}); // from bar 3
+        std::vector<int32_t> block(256);
+        for (unsigned n = 0; n < 100; ++n) host->render(block.data(), 128, 1);
+        CHECK(tones.at[0].count(0x90, 60) == 1);
+        for (unsigned n = 0; n < 1400; ++n) host->render(block.data(), 128, 1); // 192000 frames: the loop came round at 176400
+        CHECK(host->song_bar() == 2 && tones.at[0].count(0x90, 60) == 2 && host->position_of(0) >= 2 * 384 && host->position_of(0) < 3 * 384);
+        for (unsigned n = 0; n < 1400; ++n) host->render(block.data(), 128, 1); // and again
+        CHECK(tones.at[0].count(0x90, 60) == 3);
+        host->send({Command::Type::Stop});
+        host->render(block.data(), 128, 1);
+        CHECK(host->offer_plugin(0, nullptr));
+        host->render(block.data(), 128, 1);
+    }
+    // A clip changed for another pattern in its place while it plays: the new pattern from the next bar, where the
+    // clip has it by then (the old one played on to the clip's end).
+    {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        setup(*project, *bank);
+        bank->at[0][1].length = 2 * project->bar_ticks();
+        project->song.place({0, 0, 0, 8, false});
+        EngineHost host;
+        host.load(*project, *bank);
+        tones_for(host, *project);
+        host.send({Command::Type::Play, 0, 0, 0, 1});
+        std::vector<int32_t> block(256);
+        for (unsigned n = 0; n < 100; ++n) host.render(block.data(), 128, 1);
+        CHECK(host.pattern_of(0) == 0);
+        Command change {Command::Type::SongClip, 0, 0, 0};
+        change.clip = Clip {0, 1, 0, 8, false};
+        host.send(change);
+        for (unsigned n = 0; n < 700; ++n) host.render(block.data(), 128, 1); // 102400 frames: bar 2, tick 61 of it
+        CHECK(host.song_bar() == 1 && host.pattern_of(0) == 1 && host.position_of(0) >= 384 + 55 && host.position_of(0) <= 384 + 65);
+    }
     // Patterns: a launch waits for the next bar; the position counts ticks (96 a quarter, 229.7 samples each at 120 BPM).
     {
         auto project = std::make_unique<Project>();

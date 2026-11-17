@@ -904,7 +904,10 @@ hold to steer, Shift + Seq to zoom in**.
   **Shift + B2** its Motion, **Shift + B3** its Own Pattern, **Push** opens
   its notes (Roll, or Step Edit on a kit; on empty time Places), **Chop**
   splits at the cursor, **Erase** deletes, **Note Repeat** repeats to the
-  next marker, **Loop** loops its bars (again, or on empty time, off). Each
+  next marker, **Loop** loops its bars (again, or on empty time, off): when
+  the loop comes round, every track's clip plays its pattern from where
+  the song is, a longer clip on another track too. A clip changed while
+  it plays is heard from the next bar. Each
   is one undo. Shift + Push adds a marker
   (on a marker, names it). Play here plays the song from the cursor.
   **Tempo lane** (roadmap P5): Shift + K1 BAR TEMPO sets the tempo from
