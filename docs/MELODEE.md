@@ -469,9 +469,9 @@ beat; the meters show the mix.
   (`levels_opening()`); Velocity and Filter stay. **Scale**:
   **K2** the root, **K3** the scale (the project's key, as on Keys), pad 1
   the root and each pad the next note of the scale up, no repeats: a synth
-  plays those notes in the track's octave; a kit's sample counts as a C,
-  moved the nearest way to the root (Shift + K1, the pad's own pitch, tunes
-  a sample that is not a C). The others: **K2** pad 1's end, **K3** pad
+  plays those notes in the track's octave; a kit's sample counts as its
+  note (`SampleRef::root`; a C when it has none), moved the nearest way to
+  the root (Shift + K1, the pad's own pitch, tunes it further). The others: **K2** pad 1's end, **K3** pad
   16's, the pads between evenly from one to the other, kept for each type
   with the track (sixteen levels between 40 and 127, a filter sweep over an
   octave; at first Velocity 8–127, Tune −3 to +12 with the original on pad
@@ -485,8 +485,9 @@ beat; the meters show the mix.
   kit's Tune too.
   On a kit pad (no arp), a MIDI keyboard plays that pad on every key
   (`levels_key()`, shell/midi_route.h), whatever the type: key 60 a sample
-  as a C, the pad's Semi kept; an instrument at its real pitch, its Semi
-  undone. The keyboard's velocity plays as it comes.
+  as a C (one with a note: each key that note), the pad's Semi kept; an
+  instrument at its real pitch, its Semi undone. The keyboard's velocity
+  plays as it comes.
 - **Note Repeat** stays on the page: while on, B1–B3 are 1/8, 1/16, 1/32
   (Shift: their triplets); the lit B1 again is 1/4, the lit B3 again 1/64
   (dots under them), and back; straight rates swing with the project. It is
@@ -1646,6 +1647,17 @@ the file holds, to the bit.
   without a click. A region that starts or ends inside its file (a slice,
   a trimmed pad; not a loop) also fades over 2 ms at those edges, and
   Extract writes those fades into its file.
+- **A sample's note**: found in the same pass as its hits
+  (`engine/root_find.cpp`): the normalized square difference in 93 ms
+  windows over its loud part at 22.05 kHz, A0 to C8; a note when at least
+  half the loud windows repeat clearly and 70% of those agree on a pitch
+  class (none for a drum, a noise, a phrase, a gliding pitch, most chords). Kept with the slot
+  (`SampleRef::root`, SMPL's byte after the name; a file without it: none, so
+  older projects play as before) and found once, when a file first lands in
+  a slot. 16 Levels Scale and Chords, MIDI into 16 Levels, Roll's row names
+  on a 16 Levels lane and a KEYGROUP track of that one file (`keyed_root()`,
+  the MPC 3 export's layer root) play it from that note, the nearest way
+  from C.
 - **Trim Sample** (Shift + Pad 13): the region as
   `Samples/Edits/<NAME>-Trimmed.wav` in a new slot, the pad onto all of it;
   one undo; then Stage's TRIM. **Save Sample** (Shift + Sample Select on a kit): the Name

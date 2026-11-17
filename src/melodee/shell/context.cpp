@@ -394,7 +394,7 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
                 std::array<int, notes_per_step> chord {};
                 unsigned count = levels_chord(t, pad, chord);
                 for (unsigned n = 0; n < count; ++n) {
-                    pad_keys[pad][n] = pad_note(int(sampler_first_note + t.levels_pad), levels_chord_semitones(chord[n]));
+                    pad_keys[pad][n] = pad_note(int(sampler_first_note + t.levels_pad), levels_chord_semitones(chord[n], levels_root_shift(project, t)));
                     key(pad_keys[pad][n], velocity, true); // played, recorded and kept as any pad's note
                 }
                 follow_zone(t.levels_pad, level.semitones, velocity);

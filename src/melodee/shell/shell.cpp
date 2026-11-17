@@ -1086,7 +1086,8 @@ std::string Shell::sample_summary() const {
            " melodee_chop_slice=" + std::to_string(((c >> 16) & 0xff) + 1) + " melodee_chop_armed=" + std::to_string((c >> 2) & 1) +
            " melodee_chop_taking=" + std::to_string((c >> 3) & 1) + " melodee_chop_fixing=" + std::to_string((c >> 4) & 1) + " melodee_pad_slots=" + std::to_string(c >> 24) +
            " melodee_pad_start=" + std::to_string(pad_start_now.load()) + " melodee_pad_end=" + std::to_string(pad_end_now.load()) +
-           " melodee_pad_name=" + (name.empty() ? "-" : name) + " melodee_files=" + std::to_string(f & 0xffff) +
+           " melodee_pad_name=" + (name.empty() ? "-" : name) + " melodee_pad_root=" + std::to_string(pad_root_now.load()) +
+           " melodee_files=" + std::to_string(f & 0xffff) +
            " melodee_file_cursor=" + std::to_string(((f >> 16) & 0x3fff) + 1) + " melodee_drive=" + ((f >> 30) & 1 ? "internal" : "card") +
            " melodee_preview=" + std::to_string(f >> 31) + " melodee_folder=" + (folder.empty() ? "-" : folder);
 }

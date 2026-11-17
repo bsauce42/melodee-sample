@@ -45,14 +45,15 @@ void Context::midi_key(unsigned t, int k, int velocity, bool down) {
     // played. Kept from the press, so its end finds it whatever has changed meanwhile.
     const auto& pad = tr.pads[tr.levels_pad % sampler_pads];
     const bool instrument = project.samples[pad.sample % sample_slots].instrument();
-    const int levels = levels_key(tr, k, instrument);
+    const int root = levels_root_shift(project, tr); // a single sample: its note, key 60 + root its own pitch
+    const int levels = levels_key(tr, k, instrument, root);
     if (down) midi_played[t][size_t(k)] = levels >= 0 ? levels : k;
     const int played = midi_played[t][size_t(k)];
     from_midi = true;
     if (t == ui.track) { // as the pads: the arp, Seq Record, Capture's history; Step Edit and Roll write it
         if (down && played == k && tr.engine == EngineKind::Sampler) tr.last_pad = uint8_t((unsigned(k) - sampler_first_note) % sampler_pads);
         key(played, velocity, down);
-        if (levels >= 0) midi_entry(*this, int(sampler_first_note + tr.levels_pad % sampler_pads), k - 60 - (instrument ? int(pad.pitch) : 0), uint8_t(velocity), down);
+        if (levels >= 0) midi_entry(*this, int(sampler_first_note + tr.levels_pad % sampler_pads), k - 60 - (instrument ? int(pad.pitch) : root), uint8_t(velocity), down);
         else midi_entry(*this, k, 0, uint8_t(velocity), down);
     } else { // a track on its own channel: played as the selected one is, and Seq Record takes it too (every track at once)
         const uint8_t selected = ui.track;

@@ -196,10 +196,18 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                 ref.keys = keys;
                 ref.one_key_zones = one_key && zone_key_count(ref) >= 2;
                 ref.streamed = shown.streamed;
+                if (ref.root == root_unread) ref.root = ref.instrument() ? root_none : library_->root_of(n, ref.path); // once, then kept
             }
         ui_.files_count = uint16_t(std::min<size_t>(library_->files().size(), 0xffff));
         if (ui_.files_cursor >= ui_.files_count) ui_.files_cursor = uint16_t(ui_.files_count ? ui_.files_count - 1 : 0); // a row deleted: the last one left
         if (ui_.page == PageId::Chop && !ui_.slices.count) context_.rechop();
+    }
+    // A KEYGROUP track of one sample plays from that sample's note once it is found, and again when its file changes.
+    for (unsigned t = 0; t < track_count; ++t) {
+        const auto root = int16_t(keyed_root(*project_, project_->tracks[t]));
+        if (root == keyed_roots_sent[t]) continue;
+        keyed_roots_sent[t] = root;
+        context_.send({Command::Type::KeyedRoot, uint8_t(t), 0, 0, root});
     }
     context_.files_landed();  // Trim Sample, Extract, Save Sample, takes, Recall, Resample: done on the service thread
     context_.record_tick(now); // Input Config's route and monitor, settings kept, renders followed
@@ -293,7 +301,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     while (library_ && !context_.slots_waiting.empty()) {
         unsigned slot = context_.slots_waiting.front();
         const auto& ref = project_->samples[slot % sample_slots];
-        if (ref.used() && !library_->load(slot, ref.path)) break;
+        if (ref.used() && !library_->load(slot, ref.path, ref.root == root_unread)) break;
         context_.slots_waiting.erase(context_.slots_waiting.begin());
     }
     // After a switch, every sample slot loads again (or empties), a few each pass. A slot the project leaves empty
@@ -302,7 +310,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         const unsigned slot = context_.samples_to_load;
         const auto& ref = project_->samples[slot];
         bool real = ref.used() && ref.path[0] == '/';
-        if ((real || library_->held(slot)) && !library_->load(slot, real ? ref.path : "")) break;
+        if ((real || library_->held(slot)) && !library_->load(slot, real ? ref.path : "", real && ref.root == root_unread)) break;
         if (real && !project_->chops[slot].unwritten) project_->chops.edit(slot) = read_mpc_slices(ref.path); // the file's slices are its chop (an older project's waits to be written)
         ++context_.samples_to_load;
     }
@@ -469,6 +477,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
             std::string folder = library_ ? library_->folder() : std::string();
             std::lock_guard<std::mutex> guard(text_lock);
             pad_name_text = pad.used() ? project_->samples[pad.sample % sample_slots].name : "";
+            pad_root_now.store(pad.used() ? project_->samples[pad.sample % sample_slots].root : root_none, std::memory_order_relaxed);
             folder_text = folder.empty() ? folder : folder.substr(folder.find_last_of('/') + 1);
             const auto* last = context_.edits.last();
             undo_text = last ? last->what : std::string();

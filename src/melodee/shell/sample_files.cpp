@@ -284,6 +284,7 @@ void Context::files_landed() {
         std::snprintf(ref.path, sizeof(ref.path), "%s", loaded.path.empty() ? ("(memory) " + loaded.name).c_str() : loaded.path.c_str());
         std::snprintf(ref.name, sizeof(ref.name), "%s", loaded.name.c_str());
         ref.frames = loaded.frames;
+        ref.root = loaded.root;
         dirty = true;
         auto& t = project.tracks[was.track % track_count];
         if (was.land == 2) { take_landed(was.track, unsigned(was.pad) % sampler_pads, unsigned(was.slot), loaded); continue; }

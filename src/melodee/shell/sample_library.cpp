@@ -12,6 +12,7 @@
 #include "drivers/platform.h"
 #include "runtime/app.h"
 #include "melodee/engine/engine_host.h"
+#include "melodee/engine/root_find.h"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -25,6 +26,20 @@
 namespace melodee {
 namespace fs = std::filesystem;
 
+namespace {
+// Its note (engine/root_find.h) as SampleRef::root keeps it.
+int8_t found_root(const std::vector<float>& mono) {
+    const SampleRoot root = find_root(mono);
+    return root.found() ? int8_t(root.pitch_class) : root_none;
+}
+// A sample in memory: its hits and beats, and its note (unless the slot keeps one), from its sides summed at 44.1 kHz.
+void analyse_sample(const SampleData& data, LoadedSample& loaded, bool find_note = true) {
+    const auto mono = model_mono(data);
+    loaded.hit_count = find_hits_in(mono, loaded.hits, loaded.beats);
+    if (find_note) loaded.root = found_root(mono);
+}
+} // namespace
+
 struct SampleLibrary::Hearing {
     AudioReader file;
     SampleFill fill;
@@ -35,9 +50,10 @@ struct SampleLibrary::Hearing {
 SampleLibrary::SampleLibrary(EngineHost& h) : host(h) {}
 SampleLibrary::~SampleLibrary() = default;
 
-bool SampleLibrary::load(unsigned slot, const std::string& path) {
+bool SampleLibrary::load(unsigned slot, const std::string& path, bool find_note) {
     Request r;
     r.slot = uint16_t(slot % sample_slots);
+    r.find_note = find_note;
     std::strncpy(r.path, path.c_str(), sizeof(r.path) - 1);
     if (!requests.push(r)) return false;
     slot_state[r.slot].store(0, std::memory_order_relaxed); // what it held is no longer how its load stands
@@ -62,6 +78,11 @@ SampleLibrary::Measure SampleLibrary::measure(unsigned n) const {
     std::lock_guard<std::mutex> guard(lock);
     const auto& s = shown_at(n);
     return {s.frames, s.streamed, s.shapes};
+}
+int8_t SampleLibrary::root_of(unsigned n, const char* path) const {
+    std::lock_guard<std::mutex> guard(lock);
+    const auto& s = shown_at(n);
+    return s.path == path ? s.root : root_unread;
 }
 void SampleLibrary::hold(unsigned n, std::vector<HeldRange> ranges) {
     std::lock_guard<std::mutex> guard(lock);
@@ -656,7 +677,7 @@ void SampleLibrary::make(const SampleJob& job) {
     loaded.path = path;
     loaded.frames = data->model_frames();
     loaded.stereo = make_overview(*data, loaded.overview, &loaded.sides);
-    loaded.hit_count = find_hits(*data, loaded.hits, loaded.beats);
+    analyse_sample(*data, loaded);
     if (!offer(job.target % sample_slots, data.get())) { fail("busy, try again"); return; }
     const SampleData* held = data.get();
     owned.push_back(std::move(data));
@@ -890,7 +911,7 @@ void SampleLibrary::land(unsigned slot, std::unique_ptr<SampleData> data, unsign
     }
     loaded.frames = data->model_frames();
     loaded.stereo = make_overview(*data, loaded.overview, &loaded.sides);
-    loaded.hit_count = find_hits(*data, loaded.hits, loaded.beats);
+    analyse_sample(*data, loaded);
     const SampleData* held = nullptr;
     if (offer(slot, data.get())) { held = data.get(); owned.push_back(std::move(data)); loaded.ready = true; }
     else { finish(std::string(what) + ": busy, try again", int(slot)); return; }
@@ -1034,7 +1055,7 @@ void SampleLibrary::dispatch(const Request& request) {
                 }
                 ShapeRead shape;
                 shape.slot = request.slot; shape.serial = serial;
-                stream_shape(from, shape);
+                stream_shape(from, shape, request.find_note);
                 lap.into(load_times.analyse);
                 std::lock_guard<std::mutex> guard(loaded_lock);
                 shapes_read.push_back(std::move(shape));
@@ -1059,7 +1080,7 @@ void SampleLibrary::dispatch(const Request& request) {
         } else {
             loaded.frames = h.data->model_frames();
             loaded.stereo = make_overview(*h.data, loaded.overview, &loaded.sides);
-            loaded.hit_count = find_hits(*h.data, loaded.hits, loaded.beats);
+            analyse_sample(*h.data, loaded, request.find_note);
             lap.into(load_times.analyse);
         }
         std::lock_guard<std::mutex> guard(loaded_lock);
@@ -1101,9 +1122,10 @@ bool SampleLibrary::hand_over(Handover& h) {
 // A long WAV's waveform and hits, from its file a piece at a time (it is not in memory): the overview's columns over
 // its own frames, as make_overview() makes them, and, where memory allows, its sides summed at 44.1 kHz for
 // find_hits_in() (read between frames by a straight line where its rate is another, as model_mono() reads).
-void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out) {
+void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out, bool find_note) {
     out.hit_count = 1;
     out.hits[0] = Hit {0, 255};
+    out.root = find_note ? root_none : root_unread;
     WavReader file;
     if (!file.open(path, stream_most_seconds).empty() || !file.frames() || !file.rate()) return;
     const uint32_t frames = file.frames();
@@ -1143,7 +1165,10 @@ void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out) {
         out.sides[0][c] = byte(left_peak[c]);
         out.sides[1][c] = byte(right_peak[c]);
     }
-    if (!mono.empty()) out.hit_count = find_hits_in(mono, out.hits, out.beats);
+    if (!mono.empty()) {
+        out.hit_count = find_hits_in(mono, out.hits, out.beats);
+        if (find_note) out.root = found_root(mono);
+    }
 }
 
 // The long samples' held chunks brought in line with where their pads start, end and loop (hold()): a few chunks
@@ -1220,7 +1245,7 @@ void SampleLibrary::take_loaded() {
         auto& shown = show(s.slot).sample;
         if (!shown.streamed) continue;
         shown.overview = s.overview; shown.sides = s.sides; shown.stereo = s.stereo;
-        shown.hits = s.hits; shown.hit_count = s.hit_count; shown.beats = s.beats;
+        shown.hits = s.hits; shown.hit_count = s.hit_count; shown.beats = s.beats; shown.root = s.root;
         shown.shaped = true;
         show(s.slot).peaks = std::move(s.peaks);
         changes.fetch_add(1, std::memory_order_release);

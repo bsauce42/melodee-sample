@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include "melodee/engine/sample_data.h"
 #include "melodee/engine/onsets.h"
+#include "melodee/engine/root_find.h"
 #include "melodee/engine/sampler.h"
 #include "melodee/engine/sfz.h"
 #include "melodee/engine/keygroup.h"
@@ -17370,6 +17371,130 @@ void plugin_macros() {
           macro_kind(int(MacroKind::Space), 0) == MacroKind::Space && macro_kind(99, 1) == MacroKind::Echo);
 }
 
+// A sample's note (engine/root_find.h): found in a held tone, a low one dying away, an 808's tail and a note off
+// pitch, none in a noise, a phrase or silence. 16 Levels Scale and Chords, MIDI into 16 Levels, a KEYGROUP track of one
+// sample and the project file follow it; a project from before plays its samples as the C they always were.
+void sample_roots() {
+    auto hz = [](double note) { return 440.0 * std::pow(2.0, (note - 69) / 12); };
+    auto tone = [](double f, double seconds, int harmonics, double decay) {
+        std::vector<float> x(size_t(seconds * 44100));
+        for (size_t n = 0; n < x.size(); ++n) {
+            const double t = double(n) / 44100;
+            double v = 0;
+            for (int h = 1; h <= harmonics; ++h) v += std::sin(2 * M_PI * f * h * t) / h;
+            x[n] = float(0.4 * v * std::min(1.0, t / 0.005) * std::exp(-decay * t));
+        }
+        return x;
+    };
+    const auto a4 = find_root(tone(440, 1, 1, 0));
+    CHECK(a4.pitch_class == 9 && std::abs(a4.cents) <= 2);
+    CHECK(find_root(tone(hz(36), 1.5, 30, 0)).pitch_class == 0); // C2, a saw
+    CHECK(find_root(tone(hz(31), 2, 30, 2)).pitch_class == 7);   // G1 dying away
+    CHECK(find_root(tone(hz(21), 2, 1, 0)).pitch_class == 9);    // A0, the lowest
+    const auto sharp = find_root(tone(hz(55.3), 1, 10, 0)), flat = find_root(tone(hz(54.55), 1, 10, 0)); // G3 30 cents up, 45 down
+    CHECK(sharp.pitch_class == 7 && std::abs(sharp.cents - 30) <= 3 && flat.pitch_class == 7 && std::abs(flat.cents + 45) <= 3);
+    std::vector<float> kick(66150); // an 808: from 150 Hz down onto F1 in 30 ms, then its tail
+    double phase = 0;
+    for (size_t n = 0; n < kick.size(); ++n) {
+        const double t = double(n) / 44100;
+        phase += 2 * M_PI * (hz(29) + (150 - hz(29)) * std::exp(-t / 0.03)) / 44100;
+        kick[n] = float(0.8 * std::sin(phase) * std::exp(-2 * t));
+    }
+    CHECK(find_root(kick).pitch_class == 5);
+    std::vector<float> noise(44100);
+    uint32_t seed = 1;
+    for (auto& v : noise) { seed = seed * 1664525u + 1013904223u; v = float(int32_t(seed)) / 4.3e9f; }
+    std::vector<float> phrase, two;
+    for (int note : {60, 64, 67, 71}) { const auto t = tone(hz(note), 0.4, 6, 1); phrase.insert(phrase.end(), t.begin(), t.end()); }
+    for (int note : {60, 67, 60, 67}) { const auto t = tone(hz(note), 0.3, 6, 1); two.insert(two.end(), t.begin(), t.end()); }
+    CHECK(!find_root(noise).found() && !find_root(phrase).found() && !find_root(two).found());
+    CHECK(find_root(tone(hz(96), 1, 1, 0)).pitch_class == 0); // C7
+    CHECK(!find_root(std::vector<float>(44100)).found() && !find_root(tone(hz(60), 0.06, 5, 0)).found()); // silence, a blip
+
+    // 16 Levels on a G sample in C minor: pad 1 plays it up to C, a chord's C4 and MIDI's C4 the same.
+    auto project = std::make_unique<Project>();
+    std::strcpy(project->samples.edit(0).path, "/card/Vox G.wav");
+    project->samples.edit(0).root = 7;
+    auto& kit = project->tracks[0];
+    load_sound(kit, EngineKind::Sampler, 0);
+    kit.pads[0].sample = 0;
+    kit.levels = true; kit.levels_pad = 0; kit.levels_kind = uint8_t(LevelsKind::Scale);
+    project->root = 0; project->scale = 1;
+    CHECK(levels_root_shift(*project, kit) == -5 && kit_root_shift(*project, kit) == 5);
+    CHECK(levels_of(*project, kit, 0).semitones == 5 + level_octave(kit) && levels_of(*project, kit, 2).semitones == 8 + level_octave(kit)); // C, Eb
+    CHECK(levels_chord_semitones(60, levels_root_shift(*project, kit)) == 5);
+    CHECK(levels_key(kit, 60, false, levels_root_shift(*project, kit)) == pad_note(int(sampler_first_note), 5));
+    project->samples.edit(0).root = 6; // F#: up the nearest way
+    CHECK(levels_root_shift(*project, kit) == 6 && kit_root_shift(*project, kit) == 6);
+    for (int8_t none : {root_none, root_unread}) { project->samples.edit(0).root = none; CHECK(levels_root_shift(*project, kit) == 0); }
+    std::strcpy(project->samples.edit(2).path, "/card/Keys/Piano.sfz"); // an instrument's zones have their own
+    project->samples.edit(2).root = 7;
+    CHECK(root_shift(*project, 2) == 0 && root_shift(*project, no_sample) == 0);
+
+    // A KEYGROUP track of one sample in A: A3 (57) plays it as it is, the A nearest C4.
+    std::strcpy(project->samples.edit(1).path, "/card/Bass A.wav");
+    project->samples.edit(1).root = 9;
+    auto& keys = project->tracks[1];
+    keys.engine = EngineKind::Keygroup; keys.pads[0].sample = 1;
+    CHECK(keyed_root(*project, keys) == 57);
+    keys.pads[0].sample = 2;
+    CHECK(keyed_root(*project, keys) == 60); // an instrument
+    keys.pads[0].sample = 1;
+    {
+        SampleData data;
+        data.frames = 44100;
+        for (uint32_t n = 0; n < data.frames; ++n) data.left.push_back(0.4f * std::sin(float(2 * M_PI * 220.0 * n / 44100)));
+        data.right = data.left;
+        SamplerEngine::Table table {};
+        table[1] = &data;
+        auto engine = std::make_unique<SamplerEngine>();
+        engine->set_samples(&table);
+        PadSound pad;
+        pad.sample = 1; pad.play = PadPlay::Gate; pad.release = 0;
+        engine->set_pad(0, pad);
+        engine->set_keyed(true);
+        auto heard = [&](int key) { // the pitch a key plays, by its crossings
+            engine->note_on(key, 127);
+            std::vector<float> l(8192), r(8192);
+            for (unsigned done = 0; done < l.size(); done += 128) engine->render_stereo(l.data() + done, r.data() + done, 128);
+            engine->note_off(key);
+            std::vector<float> rest(128), rest_r(128);
+            for (unsigned k = 0; k < 40; ++k) engine->render_stereo(rest.data(), rest_r.data(), 128);
+            unsigned crossings = 0;
+            for (size_t n = 2001; n < l.size(); ++n) crossings += (l[n - 1] < 0) != (l[n] < 0);
+            return crossings / 2.0f / float((l.size() - 2000) / 44100.0);
+        };
+        engine->set_keyed_root(keyed_root(*project, keys));
+        CHECK(std::abs(heard(57) - 220) < 6 && std::abs(heard(69) - 440) < 10); // A3 as it is, A4 an octave up
+        engine->set_keyed_root(60);
+        CHECK(std::abs(heard(60) - 220) < 6); // as a C (a project from before)
+    }
+
+    // The project file keeps each note; a file from before has none: its samples play as C.
+    std::strcpy(project->samples.edit(3).path, "/card/Kick.wav");
+    project->samples.edit(3).root = root_none;
+    std::strcpy(project->samples.edit(4).path, "/card/Take 1.wav"); // not read yet when saved: found once it is
+    auto bank = std::make_unique<PatternBank>();
+    const auto bytes = save_project(*project, *bank);
+    auto back = std::make_unique<Project>();
+    auto back_bank = std::make_unique<PatternBank>();
+    CHECK(load_project(bytes, *back, *back_bank).empty());
+    CHECK(back->samples[1].root == 9 && back->samples[3].root == root_none && back->samples[4].root == root_unread);
+    auto older = bytes; // as an older build wrote it: SMPL without the note after the name
+    for (size_t at = 8; at + 8 <= older.size();) {
+        uint32_t n = 0;
+        for (int k = 0; k < 4; ++k) n |= uint32_t(older[at + 4 + size_t(k)]) << (8 * k);
+        if (!std::memcmp(&older[at], "SMPL", 4)) {
+            older.erase(older.begin() + std::ptrdiff_t(at + 8 + n - 1));
+            --n;
+            for (int k = 0; k < 4; ++k) older[at + 4 + size_t(k)] = uint8_t(n >> (8 * k));
+        }
+        at += 8 + n;
+    }
+    CHECK(older.size() < bytes.size() && load_project(older, *back, *back_bank).empty());
+    CHECK(back->samples[1].root == root_none && back->samples[4].root == root_none && std::string(back->samples[1].path) == "/card/Bass A.wav");
+}
+
 int main() {
     progressions();
     pad_sends();
@@ -17484,6 +17609,7 @@ int main() {
     light_show_lights();
     meter_lights();
     onset_hits();
+    sample_roots();
     beat_grid();
     chop_and_browser();
     zoom_and_fine_edit();

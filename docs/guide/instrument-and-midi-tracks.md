@@ -77,7 +77,9 @@ the track opens the browser again to change it.
 
 ![ZONES on a keygroup track](../images/screens/keygroupzones.png)
 
-**TUNE** moves every note. A single sample plays its own pitch on C4 (note 60).
+**TUNE** moves every note. A single sample that holds one note plays its own
+pitch on that note, between G3 and F#4; any other single sample plays its
+own pitch on C4 (note 60).
 
 The fader starts on the sound's volume and can take pitch bend. A MIDI
 keyboard's pitch wheel and sustain pedal play it too.

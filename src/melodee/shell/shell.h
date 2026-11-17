@@ -162,6 +162,7 @@ private:
     std::atomic<bool> leave {false}, power_off {false};
     SampleLibrary* library_ = nullptr;
     unsigned library_seen = ~0u;
+    std::array<int16_t, track_count> keyed_roots_sent = [] { std::array<int16_t, track_count> a {}; a.fill(60); return a; }(); // as the sampler starts
     uint32_t holds_at = 0;      // when the long samples' held chunks were last looked at (lights.cpp)
     FrameView zoomed_view() const; // Trim's or Chop's view zoomed in, in 44.1 kHz frames; none when not zoomed
     StreamHolds holds_sent;     // what the library was last asked to hold
@@ -207,6 +208,7 @@ private:
     std::atomic<uint32_t> fader_bits {0}, fader_value {0};                 // phase 8: the fader
     std::atomic<int> fader_at {-1};                                        // and where it sits
     std::atomic<uint32_t> chop_bits {0}, pad_start_now {0}, pad_end_now {0}, files_bits {0};
+    std::atomic<int> pad_root_now {root_none}; // the last pad's sample's note (SampleRef::root), for `status`
     mutable std::mutex text_lock;
     std::string pad_name_text, folder_text; // under text_lock
     // Phase 10: undo depth, Seq held / the sampler map / a gesture open, the last step's name (under text_lock).

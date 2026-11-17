@@ -132,6 +132,7 @@ void Context::stems_landed() {
         std::snprintf(ref.path, sizeof(ref.path), "%s", loaded.path.c_str());
         std::snprintf(ref.name, sizeof(ref.name), "%s", loaded.name.c_str());
         ref.frames = loaded.frames;
+        ref.root = loaded.root;
         if (!placed_any) after = unsigned(was.pad) % sampler_pads;
         int kit = -1;
         for (unsigned k = 1; k < sampler_pads && kit < 0; ++k)
