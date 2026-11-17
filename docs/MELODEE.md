@@ -1582,7 +1582,15 @@ the file holds, to the bit.
   the sample pages' title shows note, loop and reverse icons.
 - **Chop** (Chop): the last pad's region in slices that touch. Pads play and
   pick slices; K1 start, K2 end, K3 type (Threshold, Regions, Beats,
-  Manual), Shift + K3 its amount, Shift + K1 / K2 zoom. Threshold keeps the
+  Manual), Shift + K3 its amount, Shift + K1 / K2 zoom. The wheel moves the
+  picked slice's start (its end once K2 was touched, until another slice is
+  picked; Minus / Plus pick); unless Shift + K set a zoom it closes the view
+  in on the cut as it turns (about 120 ms across, `chop_follow`,
+  `shell/zoom_view.h`), and the next pad, Minus / Plus or K1 / K2 open it
+  again; every view change eases over 180 ms. A cut moved by the wheel or K1 /
+  K2 plays its slice once when it has been still for 150 ms
+  (`Context::chop_tick`); bottom left the wheel's job (START / END in its K's
+  colour) and, zoomed in, the view's place and factor. Threshold keeps the
   hits at least that strong: a hit is a change in the spectrum (a drum, a hat
   over a held pad, a chord change at the same loudness), cut at the quiet
   point just before its attack, its strength against the sample's strongest

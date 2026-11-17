@@ -3742,6 +3742,32 @@ void zoom_and_fine_edit() {
         CHECK(w < last && double(last) / w < 1.1);
         last = w;
     }
+    // Chop's wheel closes the view in on the cut it moves, about follow_view across (none where the region is shorter),
+    // and the next pad opens it again; a zoom set by Shift + K is the player's and stays.
+    CHECK(zoom_for_width(4000, follow_view) == 0 && zoom_for_width(176400, 200) == zoom_top);
+    for (uint32_t span : {22050u, 176400u, 44100u * 60}) {
+        const int z = zoom_for_width(span, follow_view);
+        const uint32_t w = zoom_width(span, z);
+        CHECK(z > 0 && z < zoom_top && w > follow_view * 9 / 10 && w < follow_view * 11 / 10);
+    }
+    {
+        UiState z;
+        chop_follow(z, 176400);
+        CHECK(z.chop_zoom == zoom_for_width(176400, follow_view) && z.chop_zoom_auto);
+        z.chop_view = {10, 20, 3};
+        chop_follow(z, 176400); // the next detent: the view it carries along stays
+        CHECK(z.chop_view.key == 3);
+        chop_unfollow(z);
+        CHECK(z.chop_zoom == 0 && !z.chop_zoom_auto && z.chop_view.key == 0);
+        z.chop_zoom = 30; // Shift + K's
+        chop_follow(z, 176400);
+        chop_unfollow(z);
+        CHECK(z.chop_zoom == 30 && !z.chop_zoom_auto);
+        chop_follow(z, 2000); // shorter than the view: nothing to close in on
+        CHECK(z.chop_zoom == 30);
+        z.chop_zoom = 0; chop_follow(z, 2000);
+        CHECK(z.chop_zoom == 0 && !z.chop_zoom_auto);
+    }
     FrameView edge = zoom_view(441000, 0, 441000, 100, 60); // round a handle near the start: kept inside the file
     CHECK(edge.from == 0 && edge.width() == zoom_width(441000, 60));
     edge = zoom_view(441000, 0, 441000, 440990, 60);

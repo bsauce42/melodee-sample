@@ -540,6 +540,10 @@ void Shell::pot(unsigned n, int position, bool syncing) {
     auto bindings = page_bindings(*project_, ui_, context_.pattern());
     // A Trim or Chop handle's pot: that handle in focus, the view zoomed in round it (shell/zoom_view.h).
     if (!syncing && focus_handle(ui_, bindings[n])) bindings = page_bindings(*project_, ui_, context_.pattern());
+    if (!syncing && (bindings[n].kind == Binding::Kind::ChopStart || bindings[n].kind == Binding::Kind::ChopEnd) && ui_.chop_zoom_auto) {
+        chop_unfollow(ui_); // K1 / K2 cover the whole region again; the wheel closes in once more
+        bindings = page_bindings(*project_, ui_, context_.pattern());
+    }
     const auto& b = bindings[n];
     auto& pot = ui_.pots[n];
     int before = pot.position;

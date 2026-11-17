@@ -298,8 +298,10 @@ struct UiState {
     uint32_t chop_from = 0, chop_to = 0; // the pad's region it chops (to 0: the end)
     uint8_t chop_slice = 0;
     uint8_t chop_zoom = 0;      // Shift + K1 / K2: 0 the whole region .. 100 a few hundred frames (shell/zoom_view.h)
-    uint8_t chop_focus = 0;     // and where: 0 the slice's start, 1 its end
-    bool chop_fine = false;     // K1 / K2 touched: the wheel fine-edits the handle in focus until a pad picks another slice
+    uint8_t chop_focus = 0;     // and where: 0 the slice's start, 1 its end (K2 touched); the wheel moves it
+    bool chop_fine = false;     // K1 / K2 or the wheel touched: that handle drawn wider
+    bool chop_zoom_auto = false; // the zoom is the wheel's (closed in on the cut it moves); the next pad opens it again
+    uint32_t chop_heard_at = 0; // ms the slice in hand plays once, a moved cut gone still (0: none due)
     ZoomView chop_view;         // the view zoomed in, kept
     bool chop_armed = false;    // Manual: pad 1 plays the region and the pads tapped meanwhile cut it
     uint32_t chop_take_at = 0;  // ms when pad 1 started that take, 0 none

@@ -821,9 +821,10 @@ void Context::apply(const Binding& b, int value) {
         if (inside) ui.chop_hand.move(before, start ? sl.start[n] : sl.end(n, frames));
         ui.chop_armed = false;
         chop_moved(was);
+        ui.chop_heard_at = std::max<uint32_t>(1, now + chop_heard_ms); // heard once the cut is still (chop_tick)
         break;
     }
-    case Kind::ChopZoom: ui.chop_zoom = uint8_t(value); ui.chop_focus = uint8_t(b.id % 2); ui.chop_view = {}; break;
+    case Kind::ChopZoom: ui.chop_zoom = uint8_t(value); ui.chop_zoom_auto = false; ui.chop_focus = uint8_t(b.id % 2); ui.chop_view = {}; break;
     case Kind::FileJump: ui.files_cursor = uint16_t(value); break;
     case Kind::PluginJump: ui.plugins_cursor = uint16_t(value); break;
     case Kind::ProjectJump: ui.project_cursor = uint16_t(value); break;

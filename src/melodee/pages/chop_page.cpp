@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // CHOP (Chop on a sampler track; Chop again goes back to Trim): the MPC's
-// Chop Mode on the last pad's region. Pads play their slice and pick it; the
-// wheel picks one too. Past sixteen slices Pad Bank steps the pads through
+// Chop Mode on the last pad's region. Pads play their slice and pick it;
+// Minus / Plus pick the one before or after. Past sixteen slices Pad Bank steps the pads through
 // them (A 1-16, B 17-32 ...; the bank of the slice in hand, its pill BANK B
 // beside the count). K1 the slice's start, K2 its end (a neighbour's end
 // or start moves with it), K3 the chop type: Threshold, Regions, Beats
 // (Melodee's) or Manual; Shift + K1 / K2 zoom at the slice's start or end
 // (0-100%, smoothly, shell/zoom_view.h), Shift + K3 the type's amount
-// (threshold, slices, Beats' division: 1/16 ... 4 bars). Once K1 or K2 (or their zoom) was
-// touched the wheel fine-edits that handle, as the MPC's encoder does, its
-// line drawn wider, until a pad or Minus / Plus picks another slice. A cut
+// (threshold, slices, Beats' division: 1/16 ... 4 bars). Fixing a cut: the
+// wheel moves the picked slice's start (its end once K2 was touched, until
+// another slice is picked), as the MPC's encoder does, that line drawn wider;
+// unless Shift + K set a zoom, the view closes in on it as it turns (about
+// 120 ms across, eased) and opens out again on the next pad, Minus / Plus or
+// K1 / K2; once the cut has been still for 150 ms the slice plays once
+// (Context::chop_tick). Bottom left: what the wheel moves, and zoomed in, the
+// view's place in the region and how many times closer. A cut
 // made or moved by hand (K1 / K2, Split, Manual's taps) stays through a new
 // chop by type or amount, drawn in the track's colour with a tab on top, and
 // one taken out (Erase, Merge) stays out, as Simpler keeps its manual slices.
@@ -40,11 +45,56 @@
 #include "melodee/ui/waveform.h"
 #include "melodee/ui/widgets.h"
 #include "melodee/model/slice_banks.h"
+#include <cmath>
 #include <cstdio>
+#include <tuple>
 
 namespace melodee {
 namespace {
 using namespace ui;
+
+// Every change of view eases there over view_ease_ms (the wheel closing in on a cut and the next pad opening out
+// again, Shift + K): about the point at the same place across the screen in both views, the width by the same
+// factor each frame, so what is zoomed into stays where it is. A move along at about the same width glides, unless it
+// is small (the wheel carrying the view at its edges): that shows at once. A frame with no time passed since the
+// last (the previews), long after it (the page just opened) or for another sample shows the view as it is.
+struct ViewEase {
+    float from = 0, to = 1;         // shown last
+    float was_from = 0, was_to = 1; // where the ease began
+    float aim_from = 0, aim_to = 1; // where it goes
+    uint32_t began = 0, drawn = 0;
+    uint16_t sample = no_sample;
+};
+ViewEase view_ease; // the screen thread's
+constexpr uint32_t view_ease_ms = 180;
+
+std::pair<float, float> eased_view(float aim_from, float aim_to, uint32_t now, uint16_t sample) {
+    auto& e = view_ease;
+    if (sample != e.sample || now <= e.drawn || now - e.drawn > 250) {
+        e = {aim_from, aim_to, aim_from, aim_to, aim_from, aim_to, now, now, sample};
+        return {aim_from, aim_to};
+    }
+    e.drawn = now;
+    if (aim_from != e.aim_from || aim_to != e.aim_to) {
+        const float w = e.to - e.from;
+        const bool small = std::abs((aim_to - aim_from) - w) < w * 0.01f && std::abs(aim_from - e.from) < w * 0.25f;
+        e.aim_from = aim_from; e.aim_to = aim_to;
+        e.was_from = small ? aim_from : e.from; e.was_to = small ? aim_to : e.to;
+        e.began = small ? now - view_ease_ms : now;
+    }
+    float t = std::min(1.0f, float(now - e.began) / view_ease_ms);
+    if (t >= 1) { e.from = e.aim_from; e.to = e.aim_to; return {e.from, e.to}; }
+    t = 1 - (1 - t) * (1 - t) * (1 - t); // eases out
+    const float w0 = e.was_to - e.was_from, w1 = e.aim_to - e.aim_from;
+    const float u = std::abs(w0 - w1) > w0 * 1e-4f ? (e.aim_from - e.was_from) / (w0 - w1) : -1; // the point that stays
+    if (u >= 0 && u <= 1 && w0 > 0 && w1 > 0) {
+        const float w = w0 * std::pow(w1 / w0, t);
+        e.from = e.was_from + (w0 - w) * u; e.to = e.from + w;
+    } else {
+        e.from = e.was_from + (e.aim_from - e.was_from) * t; e.to = e.was_to + (e.aim_to - e.was_to) * t;
+    }
+    return {e.from, e.to};
+}
 
 juce::String seconds(uint32_t frames) {
     char text[24];
@@ -92,6 +142,7 @@ void draw(Paint& p, const Snapshot& s) {
         FrameView view = chop_view(s.project, s.ui);
         if (view.width()) { from = float(view.from) / frames; to = float(view.to) / frames; }
     }
+    std::tie(from, to) = eased_view(from, to, s.now, s.ui.chop_sample);
     WaveDetail detail;
     if (s.detail_to > s.detail_from) detail = {&s.detail, float(s.detail_from) / frames, float(s.detail_to) / frames};
     float y = zone::picture_y + 22, wh = 92;
@@ -156,7 +207,7 @@ void draw(Paint& p, const Snapshot& s) {
         p.text(juce::String(n + 1), sx + 1, y + wh + 2, 16, 9, number_style(n));
         drawn_to = std::max(drawn_to, r);
     }
-    float wide_start = s.ui.chop_fine && !s.ui.chop_focus ? 2 : 1, wide_end = s.ui.chop_fine && s.ui.chop_focus ? 2 : 1; // the wheel's
+    float wide_start = !s.ui.chop_focus ? 2 : 1, wide_end = s.ui.chop_focus ? 2 : 1; // the one the wheel moves
     p.fill(x_of(a), y, wide_start, wh, knob_shade(s.ui.track, 0));            // K1's handle
     p.fill(x_of(b) - wide_end, y, wide_end, wh, knob_shade(s.ui.track, 1));   // K2's
     // Manual's take: where the audition voice is heard in the region now (its region's start until it is heard).
@@ -184,6 +235,25 @@ void draw(Paint& p, const Snapshot& s) {
     char text[24];
     std::snprintf(text, sizeof(text), "%.3f s", (slices.end(selected, frames) - slices.start[selected]) / 44100.0);
     p.text(text, x, y + wh + 13, w, 16, plain(colour::text, type::body, Weight::SemiBold), juce::Justification::centredRight);
+    // Bottom left: what the wheel moves (the slice's START or END, in that K's colour), and zoomed in, the view's place
+    // in the region (a strip, the view in the track's colour) and how many times closer. Not while a take plays.
+    if (!take_live(s.ui.chop_take_at, region_from, region_to, s.now)) {
+        const float by = y + wh + 13;
+        const juce::Colour job_colour = knob_shade(s.ui.track, s.ui.chop_focus ? 1 : 0);
+        icon(p, Icon::Wheel, x, by + 2, 12, job_colour, 1.6f);
+        float bx = x + 16;
+        bx += p.text(s.ui.chop_focus ? "END" : "START", bx, by, 60, 16, caps_text(job_colour)) + 10;
+        const float region = float(region_to - region_from) / frames, shown = to - from, rf = float(region_from) / frames;
+        if (region > 0 && shown > 0 && shown < region * 0.98f) {
+            const float sw = 64, sh = 5, sy = by + 5.5f;
+            p.fill(bx, sy, sw, sh, colour::line, 2);
+            const float l = bx + std::clamp((from - rf) / region, 0.0f, 1.0f) * sw, r = bx + std::clamp((to - rf) / region, 0.0f, 1.0f) * sw;
+            p.fill(std::min(l, bx + sw - 2), sy, std::max(2.0f, r - l), sh, c, 2);
+            const double times = double(region) / shown;
+            p.text(juce::String::fromUTF8("\xc3\x97") + (times < 10 ? juce::String(times, 1) : juce::String(int(std::lround(times)))),
+                   bx + sw + 6, by, 48, 16, caps_text(c));
+        }
+    }
     if (s.ui.sheet_open) { // TO PADS asks how the slices play, as Simpler's Playback: the wheel moves, Push lays them
         CardSheet m;
         m.chip = "TO PADS"; m.chip_colour = c; m.accent = c;
@@ -215,18 +285,25 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     c.chop_tap(pad, velocity);
 }
 
-// Minus / Plus, and the wheel before K1 or K2 was touched: the slice before or after.
+// Minus / Plus: the slice before or after, its start for the wheel, the view opened out again.
 void pick(Context& c, int delta) {
-    if (!c.ui.slices.count) return;
-    c.ui.chop_slice = uint8_t(std::clamp<int>(c.ui.chop_slice + delta, 0, int(c.ui.slices.count) - 1));
-    c.ui.chop_fine = false;
+    auto& ui = c.ui;
+    if (!ui.slices.count) return;
+    ui.chop_slice = uint8_t(std::clamp<int>(ui.chop_slice + delta, 0, int(ui.slices.count) - 1));
+    ui.chop_fine = false; ui.chop_focus = 0; ui.chop_heard_at = 0;
+    chop_unfollow(ui);
 }
 
 void wheel(Context& c, int delta) {
     auto& ui = c.ui;
     if (ui.sheet_open) { ui.sheet_row = uint8_t(std::clamp<int>(ui.sheet_row + delta, 0, int(SlicePlay::Count) - 1)); return; }
-    if (!ui.chop_fine || !ui.slices.count) { pick(c, delta); return; }
-    unsigned n = std::min<unsigned>(ui.chop_slice, ui.slices.count - 1), k = ui.chop_focus % 2;
+    const auto& sl = ui.slices;
+    const uint32_t frames = chop_frames(c.project, ui);
+    if (!sl.count || !frames) return;
+    const uint32_t region_from = sl.start[0], region_to = sl.end(sl.count - 1, frames);
+    if (take_live(ui.chop_take_at, region_from, region_to, c.now)) return; // a take playing: only the red pad acts
+    unsigned n = std::min<unsigned>(ui.chop_slice, sl.count - 1), k = ui.chop_focus % 2; // the picked slice's start, or its end after K2
+    chop_follow(ui, region_to - region_from); // closes in on the cut, unless Shift + K set a zoom
     c.fine_edit(Binding {k ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, 1, 0}, delta);
     auto& pot = ui.pots[k];
     pot.engaged = false; pot.bound = 0; // the value left the pot: it picks it up again

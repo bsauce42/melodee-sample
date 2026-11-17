@@ -187,6 +187,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     }
     update_tick();
     autosave_tick(now);
+    context_.chop_tick(now); // Chop: a moved cut heard once, gone still
     // Power was pressed: the Exit sheet opens (the service thread only counts presses).
     // The library found files or finished a sample: the lengths go into the project.
     if (library_ && library_->generation() != library_seen) {

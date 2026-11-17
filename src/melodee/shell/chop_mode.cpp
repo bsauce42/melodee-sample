@@ -13,6 +13,7 @@
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/mpc_wav_slices.h"
 #include "melodee/model/slice_banks.h"
+#include "melodee/shell/zoom_view.h"
 #include <thread>
 
 namespace melodee {
@@ -43,6 +44,7 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         ui.chop_take_at = 0; // it has played out: the pads play slices again
     }
     if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) {
+        chop_unfollow(ui); ui.chop_focus = 0; ui.chop_heard_at = 0;
         if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // the take starts from one slice, the whole region
         ui.chop_hand.clear();                                          // and its cuts are the hand cuts from here
         ui.chop_slice = 0; ui.chop_armed = false;
@@ -52,9 +54,26 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
     }
     const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
     if (slice >= sl.count) return;
-    if (slice != ui.chop_slice) ui.chop_fine = false; // another slice: the wheel picks slices again until K1 / K2
+    if (slice != ui.chop_slice) { // another slice: the wheel moves its start, and the view opens out again
+        ui.chop_fine = false; ui.chop_focus = 0;
+        chop_unfollow(ui);
+    }
     ui.chop_slice = uint8_t(slice);
+    ui.chop_heard_at = 0; // the tap plays it
     audition(sl.start[slice], sl.end(slice, frames));
+}
+
+// MIDI thread, from the lights' pass: a cut moved by the wheel or K1 / K2 is heard once it has been still for
+// chop_heard_ms: the slice in hand from its start to its end, once (each move puts it off again; nothing repeats).
+void Context::chop_tick(uint32_t ms) {
+    if (!ui.chop_heard_at || int32_t(ms - ui.chop_heard_at) < 0) return;
+    ui.chop_heard_at = 0;
+    const auto& sl = ui.slices;
+    const uint32_t frames = chop_frames(project, ui);
+    if (ui.page != PageId::Chop || !frames || ui.chop_slice >= sl.count) return;
+    Command a {Command::Type::Audition, ui.track, 0, 0, 100};
+    a.pad.sample = ui.chop_sample; a.pad.start = sl.start[ui.chop_slice]; a.pad.end = sl.end(ui.chop_slice, frames);
+    send(a);
 }
 
 // The slices Chop holds as its sample's chop, written into the sample's WAV file when they changed (as the MPC

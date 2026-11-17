@@ -243,7 +243,8 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | --- | --- |
 | **K1** / **K2** | Start / end of the selected slice. |
 | **K3** | Chop type: Threshold, Regions, Beats or Manual. |
-| Encoder | Select a slice. After **K1** or **K2**, move that cut in fine steps. |
+| Encoder | Move the selected slice's start in fine steps (its end after **K2**). |
+| **−** / **+** | The slice before / after. |
 | **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
 | **B2** (**SNAP**) | Snap cuts to zero crossings, so slices do not click. |
@@ -255,8 +256,16 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
 
 With more than 16 slices, the pads show the bank of the selected slice, and
-the bank lights and **BANK** at the top of the screen show which. Selecting
-a slice with the encoder moves the pads to its bank.
+the bank lights show which. Selecting a slice with **−** / **+** moves the
+pads to its bank.
+
+**Fixing a cut**: tap the slice's pad. It plays once and its start is
+selected (the wider line; bottom left reads **START**). Turn the encoder to
+move it. The screen zooms in on the cut while you turn; when you stop, the
+slice plays once. To move where the slice ends, turn **K2**: the encoder then
+moves the end (**END**) until you tap another pad. The next pad, **−** / **+**
+or **K1** / **K2** zoom back out. **SHIFT** + **K1** / **K2** set a zoom of
+your own, which stays.
 
 **Threshold chop**: cuts at every hit at least as strong as the threshold.
 A hit is a change in the sound: a drum, a hat over a held note, or a chord
