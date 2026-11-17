@@ -8,7 +8,7 @@
 // or start moves with it), K3 the chop type: Threshold, Regions, Beats
 // (Melodee's) or Manual; Shift + K1 / K2 zoom at the slice's start or end
 // (0-100%, smoothly, shell/zoom_view.h), Shift + K3 the type's amount
-// (threshold, slices, beats a slice). Once K1 or K2 (or their zoom) was
+// (threshold, slices, Beats' division: 1/16 ... 4 bars). Once K1 or K2 (or their zoom) was
 // touched the wheel fine-edits that handle, as the MPC's encoder does, its
 // line drawn wider, until a pad or Minus / Plus picks another slice. Editing
 // a slice makes the chop Manual. Manual armed (K3 onto it, or Push): pad 1

@@ -716,8 +716,8 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
         if (m.kind == ModKind::Off) return {kind, Binding {}, Binding {}};
         return {kind, Binding {Kind::ModShape, 0, 0, int(LfoShape::Count) - 1, int(m.shape)}, Binding {Kind::ModSync, 0, 0, 1, int(m.sync)}};
     }
-    case PageId::Chop: { // Shift + K1 / K2 zoom at the slice's start or end; Shift + K3 the type's amount (Threshold as on the MPC)
-        static const int lows[] {0, 2, 1}, highs[] {100, int(max_slices), 8};
+    case PageId::Chop: { // Shift + K1 / K2 zoom at the slice's start or end; Shift + K3 the type's amount (Threshold as on the MPC; Beats' division)
+        static const int lows[] {0, 2, 0}, highs[] {100, int(max_slices), int(beat_divisions) - 1};
         unsigned mode = unsigned(ui.chop_mode);
         Binding amount {};
         if (mode < 3) amount = {Kind::ChopAmount, int32_t(mode), lows[mode], highs[mode], ui.chop_amount[mode]};

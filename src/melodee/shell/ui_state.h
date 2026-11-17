@@ -291,7 +291,7 @@ struct UiState {
     uint8_t warp_stretch = 0;   // Shift + Pad 15: the Follow how (Beats or Tones) Time stretch goes back to
     // Chop (parity phase 5): the last pad's region cut into slices.
     ChopMode chop_mode = ChopMode::Threshold;
-    std::array<int, 4> chop_amount {{50, 8, 1, 0}}; // per mode: threshold, slice count, beats a slice (Manual: none)
+    std::array<int, 4> chop_amount {{50, 8, int(quarter_division), 0}}; // per mode: threshold, slice count, Beats' division (shell/chop.h; Manual: none)
     Slices slices;              // Chop's slices of the sample in hand
     uint16_t chop_sample = no_sample;
     uint32_t chop_from = 0, chop_to = 0; // the pad's region it chops (to 0: the end)
