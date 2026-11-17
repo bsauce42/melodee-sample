@@ -2623,13 +2623,14 @@ void button_remap() {
     // Basic and Full (shell/features.h, Settings::full_features): what Basic leaves out, and who starts on it.
     {
         Settings fresh; CHECK(fresh.full_features); // the code's own start: Full (tests, previews)
-        fresh.read(""); CHECK(!fresh.full_features);                       // no settings file: a first install, Basic
+        fresh.read(""); CHECK(fresh.full_features);                        // no settings rows (a first install, or a file with only last=): Full
         Settings before; before.read("pad_response=2\nscreen=80\n"); CHECK(before.full_features); // a file from before the row: Full
         Settings basic; basic.read("features=0\npad_response=2\n"); CHECK(!basic.full_features);
         Settings back; back.read(basic.text()); CHECK(!back.full_features); // written and read back
         basic.reset_factory(); CHECK(!basic.full_features);                 // Reset Factory Settings keeps it
+        { Settings rowless = basic; rowless.read(""); CHECK(rowless.full_features); } // no row read: Full, whatever came before
         UiState f; f.track = 0; f.page = PageId::Stage;
-        CHECK(full_features(f) && menu_tile_shown(f, 7) && sends_shown(f) && looper_shown(f) && follow_shown(f) && new_types_shown(f) == 5);
+        CHECK(full_features(f) && menu_tile_shown(f, 7) && sends_shown(f) && looper_shown(f) && follow_shown(f) && new_pick_count(f) == 5);
         f.settings.full_features = false;
         // GO: MOTION, SENDS and LOOPER are left out; the other tiles keep their pads; the wheel passes over them.
         CHECK(!menu_tile_shown(f, 7) && !menu_tile_shown(f, 9) && !menu_tile_shown(f, 11) && menu_tile_shown(f, 8) && menu_tile_shown(f, 6) && menu_tile_shown(f, 15));
@@ -2653,9 +2654,9 @@ void button_remap() {
         f.settings.full_features = true; CHECK(loop_grid_held(f) && std::string(pad_job(*project, f)) == "LOOPS");
         f.page = PageId::Looper; CHECK(!loop_grid_held(f)); f.loop_held = false; f.page = PageId::Stage;
         f.settings.full_features = false;
-        // A new track: Drum, Keygroup and Plugin; no MIDI, no Audio.
-        CHECK(new_types_shown(f) == 3 && new_pick_count(f) == 3 && NewType(2) == NewType::Plugin);
-        { UiState pick = f; pick.new_pick = 2; new_pick_turn(pick, 1, 1000); CHECK(pick.new_pick == 2); } // the end: Plugin
+        // A new track: every type, MIDI and Audio too.
+        CHECK(new_pick_count(f) == 5 && NewType(4) == NewType::Audio);
+        { UiState pick = f; pick.new_pick = 3; new_pick_turn(pick, 1, 1000); CHECK(pick.new_pick == 4); } // on to Audio, the end
         // Stage: a kit pad has the stock app's seven pages; SENDS goes on any track.
         Track kit; kit.engine = EngineKind::Sampler;
         const auto& g = stage_groups(EngineKind::Sampler);
@@ -2738,7 +2739,7 @@ void button_remap() {
         Settings done; done.lessons_done = 5;
         Settings read_back; read_back.read(done.text()); CHECK(read_back.lessons_done == 5);
         done.reset_factory(); CHECK(done.lessons_done == 5);
-        UiState full; CHECK(full_features(full)); full.lesson = 1; CHECK(!full_features(full) && new_types_shown(full) == 3);
+        UiState full; CHECK(full_features(full)); full.lesson = 1; CHECK(!full_features(full) && new_pick_count(full) == 5);
         // GO's pad 16 is LEARN.
         CHECK(std::string(menu_places()[15].name) == "LEARN" && menu_tile_shown(full, 15));
     }

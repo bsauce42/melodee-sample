@@ -13,12 +13,10 @@
 //   the mixer's keys   B2 SENDS (Tracks has level, pan and send A)
 //   Stage              SENDS on any track; on a kit LAYERS, COLOUR, FOLLOW, CLOUD and KIT FILT too, so a kit pad has
 //                      the stock app's seven pages (Trim, Tune, Amp Env, Play, Mix, Filter, Filt Env)
-//   a new track        MIDI and AUDIO (shell/new_track.h: Drum, Keygroup and Plugin stay)
 //   Patterns           Shift + B2 FOLLOW and Shift + B3 VARY; on Sequences the follow cards and Shift + B3 ALL
 //   the Looper         Loop held's grid and Loop + 16 Levels (Loop tapped stays the last pad's loop)
-// Nothing is deleted or changed either way: what a project holds keeps playing, and Full shows it again. A first
-// install starts on Basic; an MPC that has Melodee's settings stays on Full (shell/settings.h). Pure, for the
-// shell, the screen and the tests.
+// Nothing is deleted or changed either way: what a project holds keeps playing, and Full shows it again. Melodee
+// starts on Full; Basic only once it is picked (shell/settings.h). Pure, for the shell, the screen and the tests.
 namespace melodee {
 
 // A lesson (shell/lesson.h) shows Basic's pages whatever the setting, so it reads the same on both.

@@ -35,8 +35,8 @@ playback for about a second while the audio restarts.
 ## Basic and Full
 
 On the first Settings page, **K1** (**FEATURES**) switches between **Basic**
-and **Full**. A new install starts on Basic. An MPC that already had
-Melodee's settings stays on Full.
+and **Full**. Melodee starts on Full and stays there until Basic is
+picked.
 
 **Full** shows every page. **Basic** shows the stock app's pages plus
 tracks, plug-ins, the mixer and Song. Nothing is deleted or changed by the
@@ -49,7 +49,6 @@ switch: what a project holds keeps playing, and Full shows it again.
 | The mixer | **B2** (**SENDS**). Tracks keeps level, pan and send A. |
 | A kit pad's **SAMPLE** pages | **LAYERS**, **COLOUR**, **FOLLOW**, **CLOUD**, **SENDS** and **KIT FILT**. The stock app's seven pages stay: Trim, Tune, Amp Env, Play, Mix, Filter, Filt Env. |
 | Other tracks' **SAMPLE** pages | **SENDS** |
-| A new track | **MIDI** and **Audio**. Drum, Keygroup and Plugin stay. |
 | **LOOP** | The Looper: **LOOP** held and **LOOP** + **16 LEVELS**. A tap of **LOOP** still loops the last pad. |
 
 These still work in Basic by their own keys: Step Edit's **TRIG** and

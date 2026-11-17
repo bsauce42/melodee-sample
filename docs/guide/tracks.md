@@ -65,8 +65,7 @@ Select an empty track with **PAD BANK** + pad, or press **SAMPLE** on an
 empty track. Stage shows the track types as on the MPC: **Drum**,
 **Keygroup**, **Plugin**, **MIDI** and **Audio**. Turn the encoder to move along the
 cards and push it to pick the card in the middle. Making a track is one undo
-step. In Basic the types are **Drum**, **Keygroup** and **Plugin** (see
-[Basic and Full](settings.md#basic-and-full)).
+step.
 
 ![An empty track](../images/screens/stageemptytypes.png)
 

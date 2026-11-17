@@ -39,8 +39,8 @@ struct Settings {
                          Screen, PlaceBarRow, SampleRate,
                          AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, RecQuantize, Rows };
     // FEATURES (shell/features.h; Settings' K1): Full shows every page, Basic the stock app's pages plus tracks,
-    // plug-ins, the mixer and Song. A first install (no settings file) starts on Basic; a file from before this
-    // row stays on Full, as it was (read()).
+    // plug-ins, the mixer and Song. Full unless the file says Basic: a first install, and a file without the row
+    // (from before it, or never saved with a setting changed), start on Full (read()).
     bool full_features = true;
     uint8_t lessons_done = 0; // a bit a lesson finished (shell/lesson.h): its check on LEARN
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
@@ -271,14 +271,13 @@ struct Settings {
         std::string line;
         int pickup = -1;          // the old row, read only when the file has none of the new ones
         bool takeovers = false;
-        bool any = false, features = false; // FEATURES: no row in a file with others, Full; no file, Basic
+        bool features = false; // FEATURES: no row, Full
         auto takeover = [&](int value) { takeovers = true; return Takeover(std::clamp(value, 0, int(Takeover::Count) - 1)); };
         while (std::getline(in, line)) {
             auto eq = line.find('=');
             if (eq == std::string::npos) continue;
             std::string key = line.substr(0, eq);
             int value = std::atoi(line.c_str() + eq + 1);
-            any = true;
             if (key == "features") { full_features = value != 0; features = true; }
             else if (key == "lessons") lessons_done = uint8_t(std::clamp(value, 0, 255));
             else if (key == "pad_response") pad_response = uint8_t(std::clamp(value, 0, 3));
@@ -340,7 +339,7 @@ struct Settings {
                     if (!item.empty()) { int s = std::atoi(item.c_str()); if (s >= 0 && unsigned(s) < sounds) favourites[e].set(unsigned(s)); }
             }
         }
-        if (!features) full_features = any; // a file from before the row: Full, as it was; nothing read: a first install, Basic
+        if (!features) full_features = true; // no row: Full (a first install, or a file with only the project to open)
         if (!takeovers && pickup == 0) knob_takeover = knob_fx_takeover = fader_takeover = Takeover::Instant; // "Knob pickup Off"
     }
 };

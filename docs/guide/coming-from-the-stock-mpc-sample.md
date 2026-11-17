@@ -6,8 +6,8 @@ Melodee keeps the MPC Sample's printed controls. If you know the stock app,
 most of what you do still works. This chapter lists what is the same, what
 is different, and how to change your habits.
 
-A new install starts on **Basic**: the stock app's pages plus tracks,
-plug-ins, the mixer and Song. **Full** shows every page (see
+Melodee starts on **Full**, which shows every page. **Basic** shows the
+stock app's pages plus tracks, plug-ins, the mixer and Song (see
 [Basic and Full](settings.md#basic-and-full)).
 
 ## What stays the same

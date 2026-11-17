@@ -70,15 +70,15 @@ void offer_new_track(Context& c) {
     ui.new_for = int8_t(ui.track % track_count);
     c.open(PageId::Stage);
     if (!doors) { // the types, the last one made in the middle; the cards slide in
-        if (ui.new_sources) { ui.new_sources = false; ui.new_pick = uint8_t(ui.new_type % new_types_shown(ui)); }
-        ui.new_pick_from = float(ui.new_pick % new_types_shown(ui)) + 0.9f; ui.new_pick_at = c.now ? c.now : 1;
+        if (ui.new_sources) { ui.new_sources = false; ui.new_pick = uint8_t(ui.new_type % new_type_count); }
+        ui.new_pick_from = float(ui.new_pick % new_type_count) + 0.9f; ui.new_pick_at = c.now ? c.now : 1;
     }
 }
 
 void new_track_push(Context& c) {
     auto& ui = c.ui;
     if (ui.new_sources) { make_new_track(c, new_pick_choice(ui)); return; }
-    ui.new_type = uint8_t(ui.new_pick % new_types_shown(ui));
+    ui.new_type = uint8_t(ui.new_pick % new_type_count);
     auto list = type_sources(NewType(ui.new_type));
     if (list.count == 1) { make_new_track(c, list.items[0]); return; } // Keygroup, Plugin: nothing to pick
     ui.new_sources = true;
@@ -89,7 +89,7 @@ void new_track_push(Context& c) {
 void new_track_types(Context& c) {
     auto& ui = c.ui;
     ui.new_sources = false;
-    ui.new_pick = uint8_t(ui.new_type % new_types_shown(ui));
+    ui.new_pick = uint8_t(ui.new_type % new_type_count);
     ui.new_pick_from = float(ui.new_pick) - 0.9f; ui.new_pick_at = c.now ? c.now : 1; // the types slide back in
 }
 

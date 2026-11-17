@@ -75,8 +75,8 @@ These controls work the same on every page:
 | **SHIFT** + encoder push | Go back one page. |
 | **SHIFT** + **−** / **+** | Undo / redo. |
 
-A new install starts on **Basic**: the stock app's pages plus tracks,
-plug-ins, the mixer and Song. **Full** shows every page. To switch, press
+Melodee starts on **Full**, which shows every page. **Basic** shows the
+stock app's pages plus tracks, plug-ins, the mixer and Song. To switch, press
 **SHIFT** + **Pad 8** (Settings) and turn **K1** (**FEATURES**). See
 [Basic and Full](guide/settings.md#basic-and-full).
 
@@ -204,9 +204,9 @@ Melodee synths are free downloads; see [Plug-ins](guide/plug-ins.md).
 1. Hold **PAD BANK** and press pad 2 to select track 2.
 2. The track is empty, so Stage opens with the track types, as on the MPC:
    **Drum** (an empty kit, samples from the card, or a recording),
-   **Keygroup** (an instrument played across the keys) and **Plugin** (a
-   plug-in instrument). Full adds **MIDI** (an external instrument on the
-   MIDI Out jack or USB) and **Audio** (a recording of the input).
+   **Keygroup** (an instrument played across the keys), **Plugin** (a
+   plug-in instrument), **MIDI** (an external instrument on the MIDI Out
+   jack or USB) and **Audio** (a recording of the input).
 
    ![Stage on an empty track](images/screens/stageemptysynth.png)
 

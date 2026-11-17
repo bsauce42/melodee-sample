@@ -35,9 +35,9 @@ Around the project:
 
 - **The Menu**: hold the encoder on any page. It lists the page's jobs and
   the 16 places, and opens the lessons (see [The Menu](basics.md#the-menu)).
-- **Basic and Full**: a new install starts on Basic, which shows the stock
-  app's pages plus tracks, plug-ins, the mixer and Song. Full shows every
-  page in this guide (see [Basic and Full](settings.md#basic-and-full)).
+- **Basic and Full**: Melodee starts on Full, which shows every page in this
+  guide. Basic shows the stock app's pages plus tracks, plug-ins, the mixer
+  and Song (see [Basic and Full](settings.md#basic-and-full)).
 - **Plug-ins** go in `Melodee/Plugins` on the card. The plug-in picker
   can also load one from any folder on the card (see
   [Plug-ins](plug-ins.md)).
