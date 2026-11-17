@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // Chop's pads (parity phase 5): a pad plays its slice and picks it for K1 /
-// K2. In Manual, armed (K3 onto Manual, or Push), pad 1 blinks red; tapped,
+// K2. In Manual with no cut yet (K3 onto Manual, Erase + Chop), pad 1 blinks red; tapped,
 // it plays the whole region, and the red walks: the pad of the slice the next
 // tap makes blinks red, and tapped it cuts the region there (the other pads
 // wait; a lit one plays again from its slice, the cuts after it gone). After
@@ -9,8 +9,8 @@
 // Stopped short of the end, the red stays on the next pad: tapped, it plays
 // on from the last cut; played to the end, no red. A take is one undo step
 // (open_take / end_take). Each cut is pulled onto the strongest hit just before it,
-// since a tap comes a little after the sound it means; with Zero Snap on (B2,
-// kept with the settings) it then lands on a zero crossing.
+// since a tap comes a little after the sound it means; it then lands on a zero
+// crossing (Zero Snap is always on).
 #include "melodee/shell/context.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"

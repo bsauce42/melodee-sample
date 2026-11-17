@@ -127,11 +127,14 @@ void draw(Paint& p, const Snapshot& s) {
         frame(p, s, keys, h);
     }
     float x = zone::pad, w = zone::width - 2 * zone::pad;
+    // The file's length at the top right: drawn after the slice's chip, and left out where the chip covers it.
+    juce::String length;
+    const auto length_style = plain(colour::dim, type::small, Weight::SemiBold);
     if (frames) {
-        juce::String length = seconds(frames);
+        length = seconds(frames);
         if (s.ui.chop_mode == ChopMode::Beats && s.sample.beats.found())
             length = juce::String(s.sample.beats.tempo / 10.0, 1) + " BPM  " + length; // the tempo Beats cuts at, the sample's own
-        p.text(length, x, zone::picture_y + 2, w, 14, plain(colour::dim, type::small, Weight::SemiBold), juce::Justification::centredRight);
+        if (!slices.count) p.text(length, x, zone::picture_y + 2, w, 14, length_style, juce::Justification::centredRight);
     }
     if (!frames || !slices.count) {
         icon(p, s.sample.error.empty() ? Icon::Clock : Icon::Warn, zone::width / 2.0f - 14, zone::picture_y + 44, 28, colour::dim, 1.4f);
@@ -244,11 +247,14 @@ void draw(Paint& p, const Snapshot& s) {
     auto chip_style = caps_text(colour::bg);
     float cw = 4 + 10 + (lands.isEmpty() ? 0 : 3 + p.width(lands, chip_style)) + 5;
     float cx = std::clamp((x_of(a) + x_of(b)) / 2 - cw / 2, x, x + w - cw), cy = zone::picture_y + 3;
-    if (taking || lands.isNotEmpty()) {
+    const bool chip_shown = taking || lands.isNotEmpty();
+    if (chip_shown) {
         p.fill(cx, cy, cw, 15, c, 3);
         icon(p, taking ? Icon::Scissors : Icon::Pads, cx + 4, cy + 2.5f, 10, colour::bg, 1.6f);
         if (lands.isNotEmpty()) p.text(lands, cx + 17, cy, cw - 17, 15, chip_style);
     }
+    if (!chip_shown || cx + cw + 6 < x + w - p.width(length, length_style))
+        p.text(length, x, zone::picture_y + 2, w, 14, length_style, juce::Justification::centredRight);
     char text[24];
     std::snprintf(text, sizeof(text), "%.3f s", (slices.end(selected, frames) - slices.start[selected]) / 44100.0);
     p.text(text, x, y + wh + 13, w, 16, plain(colour::text, type::body, Weight::SemiBold), juce::Justification::centredRight);

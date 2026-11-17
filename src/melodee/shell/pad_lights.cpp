@@ -562,7 +562,7 @@ Look chop_look(const PadScene& s, const std::array<float, 16>& sounding, unsigne
     const unsigned slice = pad_slice(chop_view(s), pad); // the pad's slice in the bank in view (Pad Bank)
     if (!ui.erase && chop_red_shown(s.project, ui, s.now) && red_slice(slice, count, max_slices)) // after a take: tap to play on
         return blink(s.now, flash_ms) ? red(full) : red(faint);
-    if (ui.erase) return slice == 0 ? (count ? track(at, dim) : Look {}) : slice < count ? red(faint) : Look {}; // takes the slice out
+    if (ui.erase) return slice < count && count > 1 ? red(faint) : Look {}; // takes the slice out (pad 1's joins the next)
     if (held(s, pad)) return white(full);
     if (slice >= count) return {};
     return flare(track(at, slice == ui.chop_slice ? full : dim), sounding[pad % 16]);
