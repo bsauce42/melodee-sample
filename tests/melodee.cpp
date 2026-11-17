@@ -15532,6 +15532,15 @@ void scenes_p5() {
         CHECK(host->tempo_now() == 1000);
         for (unsigned b = 0; b < 900; ++b) host->render(buffer.data(), 128, 1); // past the bar line
         CHECK(host->tempo_now() == 1500);
+        // Stop before the bar it waits for: the tempo comes with the scene's patterns, which Stop brings at once
+        // (it waited for the first bar of the next Play, the screen already showing it).
+        host->send({Command::Type::Pattern, 0, 0, 0, 3});
+        host->send({Command::Type::SceneTempo, 0, 0, 0, 900});
+        for (unsigned b = 0; b < 20; ++b) host->render(buffer.data(), 128, 1);
+        CHECK(host->tempo_now() == 1500 && host->pattern_of(0) == 0);
+        host->send({Command::Type::Stop});
+        host->render(buffer.data(), 128, 1);
+        CHECK(host->pattern_of(0) == 3 && host->tempo_now() == 900);
     }
 }
 

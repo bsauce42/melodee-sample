@@ -672,7 +672,8 @@ hold to steer, Shift + Seq to zoom in**.
   every track, with a name and a tempo of its own. Push on Patterns
   launches the sequence of the selected track's pattern: pattern n on every track holding notes
   there (and on the selected track) at the next bar (stopped, at once),
-  tracks with nothing there playing on; its tempo takes over on that bar
+  tracks with nothing there playing on; its tempo takes over on that bar,
+  or with its patterns when Stop comes first
   (with BPM per pattern on, a pattern's own still leads). Shift + B1 SEQUENCE:
   K1 sets the sequence's tempo (below 30 BPM: None), Push names it
   (the ready names are the markers'). Files keep sequences in SCNE.
