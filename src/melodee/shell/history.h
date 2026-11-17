@@ -135,6 +135,7 @@ struct Edit {
     std::vector<std::pair<uint8_t, PadState>> pads_before, pads_after;
     int16_t pattern = -1;         // a pattern of the track, or -1
     std::unique_ptr<Pattern> pattern_before, pattern_after;
+    int16_t pattern_was = -1;     // the track's pattern before the edit made `pattern` the one it plays (Chop's TO PADS), or -1
     std::unique_ptr<Song> song_before, song_after;       // a take into the song
     std::unique_ptr<TrackMotion> motion_before, motion_after; // a track's patterns' motion (an effect moved or removed)
     std::unique_ptr<TrackState> track_before, track_after; // a track copied onto this one (`track`)

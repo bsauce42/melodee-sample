@@ -302,7 +302,8 @@ When it is on, TO PADS also writes a pattern with a note for each slice where
 it falls, so **PLAY** gives you the loop back, now on pads you can change. It
 goes into the track's pattern if that is empty, else into the first empty
 one, which then plays. The notes follow how the pads play: with Warp or
-Follow at the loop's own tempo, else as it was recorded.
+Follow at the loop's own tempo, else as it was recorded. Undo takes back the
+pads, the pattern and which pattern plays in one step.
 
 MONO and THRU use the chopped pad's mute group, or the first free one.
 Slices put on pads keep the chopped pad's tune, Warp, mute group and other

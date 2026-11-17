@@ -1534,6 +1534,11 @@ void Context::apply_edit(const Edit& e, bool after) {
     if (const auto& m = after ? e.sound_after : e.sound_before) restore_sound(e.track, *m);
     if (const auto& m = after ? e.master_after : e.master_before) restore_master(*m);
     if (const auto& m = after ? e.chop_after : e.chop_before) restore_chop(*m);
+    if (e.pattern_was >= 0 && e.pattern >= 0) { // the pattern it played before, or the one the edit made it play
+        auto& tr = project.tracks[e.track % track_count];
+        tr.pattern = uint8_t(unsigned(after ? e.pattern : e.pattern_was) % pattern_count);
+        send({Type::Pattern, uint8_t(e.track % track_count), 0, 0, int16_t(tr.pattern)});
+    }
     if (const auto& m = after ? e.tempo_after : e.tempo_before) {
         for (unsigned n = 0; n < pattern_count; ++n)
             if (project.pattern_tempo[n] != m->patterns[n]) { project.pattern_tempo[n] = m->patterns[n]; send({Type::PatternTempo, 0, 0, uint16_t(n), int16_t(m->patterns[n])}); }
@@ -1707,12 +1712,15 @@ void Context::chop_to_pads(SlicePlay play, bool with_pattern) {
     const uint8_t group = slice_group(parent, t.pads); // MONO and THRU: one at a time
     std::array<int, max_slices> keys; // each slice's note, for the pattern
     keys.fill(-1);
+    Edit edit = begin_edit("Slices to pads", ui.track, -1, false); // one undo: the pads, the pattern and which plays
     unsigned pad = 0, laid = 0;
     for (unsigned n = 0; n < ui.slices.count; ++n) {
         while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the first free pad on
         if (pad >= sampler_pads) break;
+        edit.pads_before.emplace_back(uint8_t(pad), pad_state(t, pad));
         t.pads[pad] = slice_pad(parent, ui.slices, n, frames, play, group);
         send_pad(ui.track, pad);
+        edit.pads_after.emplace_back(uint8_t(pad), pad_state(t, pad));
         keys[n] = int(sampler_first_note + pad);
         ++laid;
     }
@@ -1728,14 +1736,18 @@ void Context::chop_to_pads(SlicePlay play, bool with_pattern) {
             const uint32_t region = ui.slices.end(ui.slices.count - 1, frames) - ui.slices.start[0];
             const double per_frame = slice_ticks_per_frame(parent, t.params[sampler::Follow] != 0, region, project.tempo);
             Pattern made = slice_pattern(ui.slices, frames, keys, per_frame, project.bar_ticks(), project.max_length());
+            edit.pattern = int16_t(target);
+            edit.pattern_before = std::make_unique<Pattern>(slots[target]);
             slots[target] = made;
+            edit.pattern_after = std::make_unique<Pattern>(made);
             sync_pattern(ui.track, target);
-            if (target != t.pattern % pattern_count) launch(ui.track, target);
+            if (target != t.pattern % pattern_count) { edit.pattern_was = int16_t(t.pattern % pattern_count); launch(ui.track, target); }
             const unsigned bars = made.length / std::max(1u, project.bar_ticks());
             said += (said.empty() ? "" : "; ") + std::string("P") + std::to_string(target + 1) + ": " + std::to_string(made.events.size()) +
                     " notes, " + std::to_string(bars) + (bars == 1 ? " bar" : " bars");
         } else said += (said.empty() ? "" : "; ") + std::string("No empty pattern for the slices");
     }
+    if (laid) edits.push(std::move(edit));
     if (!said.empty()) notice(said);
 }
 
