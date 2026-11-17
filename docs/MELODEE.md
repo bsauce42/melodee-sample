@@ -1610,7 +1610,7 @@ the file holds, to the bit.
   30 ms. Which beat is a bar's 1 is the region's start: kicks and snares alone
   did not tell it apart. A sample with no steady pulse cuts at the project's
   tempo.
-  Manual with no cut yet (K3 onto it, Erase + pad 1 to start over; `chop_fresh`):
+  Manual with no cut yet (K3 onto it, Erase + Chop to start over; `chop_fresh`):
   pad 1 blinks red and plays the region; then the red walks to the pad of
   the slice the next tap makes, and only it cuts, each cut pulled onto the
   strongest hit; after pad 16 the pads turn to bank B with its pad 1 red, up
@@ -1623,7 +1623,8 @@ the file holds, to the bit.
   goes on, is one undo step (`Context::open_take` / `end_take`, ended by any
   other control, undo, leaving the page or playing out). Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
-  takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
+  takes a slice out (into the one before; slice 1 into the one after, the
+  pads after it moving down one; `Context::chop_erase`), Erase + Chop every cut. B3 TO PADS asks how they play, as Simpler's Playback
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's
   end; the last pick kept with the settings) and lays the slices on pads, B1 CANCEL drops
   the chop. As on the MPC, slices belong to the sample and live in its WAV

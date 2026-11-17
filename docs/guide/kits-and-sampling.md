@@ -252,7 +252,8 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **B1** (**CANCEL**) | Leave without changing the pads. |
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
-| **ERASE** + pad | Remove a slice. **ERASE** + pad 1: take every cut out and start over. |
+| **ERASE** + pad | Remove a slice: it joins the one before (pad 1's joins the one after); the pads after it move down one. |
+| **ERASE** + **CHOP** | Take every cut out and start over. |
 | **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
 
 With more than 16 slices, the pads show the bank of the selected slice, and
@@ -287,8 +288,8 @@ no steady beat uses the project's tempo. A chop holds at most 64 slices: if
 a division needs more, the last slice runs to the end, and Melodee says so.
 
 **Manual chop**: set **K3** to Manual. With no cuts yet, pad 1 blinks red
-(with cuts already there, they stay as they are; **ERASE** + pad 1 takes
-them all out to start over). Tap the red pad 1: the sample plays and pad 2 blinks red. Tap the red pad on each
+(with cuts already there, they stay as they are; **ERASE** + **CHOP**
+takes them all out to start over). Tap the red pad 1: the sample plays and pad 2 blinks red. Tap the red pad on each
 hit you want to cut at; the red moves on to the next pad. After pad 16 the
 pads switch to bank B and its pad 1 blinks red, up to bank D (64 slices).
 While it plays, only the red pad cuts. Tap a lit pad to go back: the

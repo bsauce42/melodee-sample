@@ -122,6 +122,30 @@ void Context::chop_tick(uint32_t ms) {
     send(c);
 }
 
+// Erase + a slice's pad (or Erase alone on the slice in hand): the slice goes into its neighbour, the one before, or
+// for slice 1 the one after (its cut taken out either way, so a new chop leaves it out), and the slices after it move
+// down a pad. The slice that held its sound stays in hand.
+void Context::chop_erase(unsigned slice) {
+    auto& sl = ui.slices;
+    if (slice >= sl.count || sl.count <= 1) return;
+    const unsigned cut = slice ? slice : 1; // the cut that goes: slice 1's own, or for slice 1, the one after it
+    ui.chop_hand.take_out(sl.start[cut]);
+    sl.remove(cut);
+    if (ui.chop_slice >= cut) ui.chop_slice = uint8_t(ui.chop_slice - 1);
+    ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, sl.count - 1));
+}
+
+// Erase + Chop: every cut out, one slice again, the hand's cuts forgotten (on Manual, pad 1 blinks red for a new take).
+void Context::chop_clear() {
+    auto& sl = ui.slices;
+    if (sl.count <= 1) return;
+    end_take();
+    sl.whole(sl.start[0], sl.stop[sl.count - 1]);
+    ui.chop_hand.clear(); ui.chop_slice = 0; ui.chop_more = false; ui.chop_focus = 0;
+    chop_unfollow(ui);
+    notice("All cuts out");
+}
+
 // SHIFT + the wheel on Chop: the cut the wheel moves (the slice's start, or its end after K2) onto the next hit the way
 // it turns, a hit a detent (shell/chop.h next_hit).
 void Context::chop_jump(int delta) {

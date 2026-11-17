@@ -21,7 +21,7 @@
 // made or moved by hand (K1 / K2, Split, Manual's taps) stays through a new
 // chop by type or amount, drawn in the track's colour with a tab on top, and
 // one taken out (Erase, Merge) stays out, as Simpler keeps its manual slices.
-// Manual with no cut yet (K3 onto it, Erase + pad 1; chop_fresh): pad 1
+// Manual with no cut yet (K3 onto it, Erase + Chop; chop_fresh): pad 1
 // blinks red and plays the region; then the red walks, the pad of the slice
 // the next tap makes, and only it cuts (after pad 16 the pads turn to bank B,
 // its pad 1 red; up to 64 slices, shell/chop_mode.cpp). A lit pad tapped
@@ -31,14 +31,14 @@
 // goes on; played to the end, no red. A take is one undo step.
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
-// Erase + pad takes a slice out (it joins the one before). B3 TO PADS asks
+// Erase + pad takes a slice out (it joins the one before; slice 1 the one after). B3 TO PADS asks
 // how they play, as Simpler's Playback (cards POLY, MONO, THRU, starting on
 // the last pick, kept with the settings; the wheel moves, Push lays them, B1
 // BACK), then lays every slice onto pads from the first free one as regions
 // of the same file (MONO: one mute group; THRU: that, each on to the
 // region's end); B1
 // drops the chop; B2 is free: Zero Snap is always on (every cut onto a zero
-// crossing, shell/chop.h). Erase + pad 1 takes every cut out (one slice
+// crossing, shell/chop.h). Erase + Chop takes every cut out (one slice
 // again; on Manual pad 1 red for a new take); Push only lays TO PADS' cards.
 // The picture: the slices as bands, the one in hand lit with
 // the pad it lands on as a chip above it, their numbers under them; the
@@ -290,20 +290,8 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     auto& ui = c.ui;
     if (!down) return;
     ui.sheet_open = false; // a pad leaves TO PADS' cards and plays as ever
-    if (ui.erase) { // the slice out: it joins the one before, and a new chop leaves its cut out
-        const unsigned slice = pad_slice(chop_bank_slice(c.project, ui, c.now), pad); // in the bank in view
-        if (slice == 0) { // slice 1: every cut out, one slice again; on Manual pad 1 blinks red for a new take
-            if (ui.slices.count <= 1) return;
-            c.end_take();
-            ui.slices.whole(ui.slices.start[0], ui.slices.stop[ui.slices.count - 1]);
-            ui.chop_hand.clear(); ui.chop_slice = 0; ui.chop_more = false; ui.chop_focus = 0; // Manual: armed again (chop_armed)
-            c.notice("All cuts out");
-            return;
-        }
-        if (slice >= ui.slices.count) return;
-        ui.chop_hand.take_out(ui.slices.start[slice]);
-        ui.slices.remove(slice);
-        ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count - 1));
+    if (ui.erase) { // the slice out: it joins the one before (slice 1: the one after), the rest move down a pad
+        c.chop_erase(pad_slice(chop_bank_slice(c.project, ui, c.now), pad)); // in the bank in view
         return;
     }
     c.chop_tap(pad, velocity);

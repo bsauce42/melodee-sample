@@ -86,7 +86,11 @@ void loop_button(Context& c) {
 void chop_button(Context& c) {
     auto& ui = c.ui;
     if (ui.shift) { c.toggle_note_on(); return; } // Note On, as printed
-    if (ui.page == PageId::Chop) { c.open(PageId::Trim); return; }
+    if (ui.page == PageId::Chop) { // Erase + Chop: every cut out (one undo step); else back to Trim
+        if (ui.erase) c.chop_clear();
+        else c.open(PageId::Trim);
+        return;
+    }
     if (c.track().engine != EngineKind::Sampler || !c.pad().used()) return;
     if (c.refuse_instrument("Chop")) return;
     const auto& pad = c.pad();

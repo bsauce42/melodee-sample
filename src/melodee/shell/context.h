@@ -519,6 +519,8 @@ public:
     void chop_tap(unsigned pad, uint8_t velocity);                     // Chop: a pad (audition, or Manual's taps)
     void chop_tick(uint32_t ms);                                       // Chop: a take played out ends; a moved cut heard once
     void chop_jump(int delta);                                         // Chop: SHIFT + wheel, the cut onto the next hit
+    void chop_erase(unsigned slice);                                   // Chop: Erase + pad, Erase: the slice joins its neighbour
+    void chop_clear();                                                 // Chop: Erase + Chop, every cut out
     std::unique_ptr<Edit> chop_take_edit;                              // Chop's take in progress: one undo step
     void open_take();                                                  // before a take begins (pad 1, the red after one)
     void end_take(uint32_t ms = 0);                                    // the take kept as one step; stopped short, the red stays

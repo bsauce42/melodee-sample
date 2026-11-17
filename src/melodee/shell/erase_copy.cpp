@@ -43,14 +43,10 @@ bool erase_step(Context& c) {
     return true;
 }
 
-// Chop: the slice in hand joins the one before, as Erase + its pad; a new chop leaves its cut out.
+// Chop: the slice in hand joins its neighbour, as Erase + its pad (Context::chop_erase); a new chop leaves its cut out.
 bool erase_slice(Context& c) {
-    auto& ui = c.ui;
-    if (!ui.slices.count) return false;
-    if (ui.chop_slice == 0) { c.notice("The first slice stays"); return true; }
-    ui.chop_hand.take_out(ui.slices.start[ui.chop_slice]);
-    ui.slices.remove(ui.chop_slice);
-    ui.chop_slice = uint8_t(ui.chop_slice - 1);
+    if (!c.ui.slices.count) return false;
+    c.chop_erase(c.ui.chop_slice);
     return true;
 }
 } // namespace
