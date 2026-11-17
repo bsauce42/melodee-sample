@@ -339,10 +339,10 @@ inline PreviewPlace preview_place(const std::array<PlayHead, HeadTrail::size>& h
 }
 
 // Chop (mock 5): what the audition voice's newest head plays of the slices.
-// A pad starts it on one slice (`slice`: the one its region lies in); with
-// Pad Slicing (`take_armed`: a slice's pad started it) it plays from a
-// slice's start on to the region's end, and `take` holds while that voice is
-// heard. Neither: a slice moved under it, or none.
+// A pad starts it on one slice (`slice`: the one its region lies in); in
+// Manual's take (`take_armed`: the take started) pad 1 starts it on the whole
+// region, from the first slice's start to the last one's end, and `take`
+// holds while that voice is heard. Neither: a slice moved under it, or none.
 struct ChopSound {
     int slice = -1;
     bool take = false;
@@ -351,7 +351,7 @@ inline ChopSound chop_sound(const PlayHead* head, const Slices& slices, uint32_t
     ChopSound out;
     if (!head || !slices.count) return out;
     const uint32_t region_from = slices.start[0], region_to = slices.end(slices.count - 1, frames);
-    out.take = take_armed && head->from >= region_from && head->from < region_to && head->to == region_to && head->sounding();
+    out.take = take_armed && head->from == region_from && head->to == region_to && head->sounding();
     if (out.take) return out; // the take draws its own line, not a slice
     for (unsigned n = 0; n < slices.count; ++n)
         if (head->from >= slices.start[n] && head->to <= slices.end(n, frames) && head->from < head->to) {

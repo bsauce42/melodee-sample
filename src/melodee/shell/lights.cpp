@@ -35,7 +35,6 @@
 #include "melodee/ui/tokens.h"
 #include "surface/led_colours.h"
 #include "melodee/shell/mpc_wav_slices.h"
-#include "melodee/model/slice_banks.h"
 #include "melodee/model/card_folders.h"
 #include <algorithm>
 #include <cstdio>
@@ -186,7 +185,6 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (change.back && ui_.page == PageId::CardAccess) { context_.open(PageId::Project); context_.notice("Card ejected"); }
     }
     update_tick();
-    context_.chop_hold_tick(now); // Chop's hold to fix: its start, and the attack again and again
     autosave_tick(now);
     // Power was pressed: the Exit sheet opens (the service thread only counts presses).
     // The library found files or finished a sample: the lengths go into the project.
@@ -478,8 +476,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
             unsigned used = 0;
             for (const auto& ref : project_->samples) used += ref.used();
             bool taking = ui_.chop_take_at && now - ui_.chop_take_at < 60000;
-            chop_bits.store(uint32_t(ui_.chop_mode) | uint32_t(ui_.chop_armed) << 2 | uint32_t(taking) << 3 | uint32_t(ui_.chop_fixing) << 4
-                            | uint32_t(ui_.slices.count & 0xff) << 8
+            chop_bits.store(uint32_t(ui_.chop_mode) | uint32_t(ui_.chop_armed) << 2 | uint32_t(taking) << 3 | uint32_t(ui_.slices.count & 0xff) << 8
                             | uint32_t(ui_.chop_slice) << 16 | uint32_t(used) << 24, std::memory_order_relaxed);
             pad_start_now.store(pad.start, std::memory_order_relaxed); pad_end_now.store(pad.end, std::memory_order_relaxed);
             files_bits.store(uint32_t(ui_.files_count) | uint32_t(ui_.files_cursor & 0x3fff) << 16 | uint32_t(ui_.files_drive & 1) << 30
@@ -539,10 +536,9 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         lights.fader(level <= 0 ? Rgb {} : master ? led_colour::white(level) : pad_light::track(ui.track, level).rgb);
     }
     // Bank lights A-H: with Seq held or on Patterns, the bank of patterns in view; else the sampler track's bank in view, or the Drums
-    // pads' (A-D), or the Prog pads' (A-C); on Chop, the slices on the pads (A 1-16, B 17-32 ...).
+    // pads' (A-D), or the Prog pads' (A-C).
     for (unsigned bank = 0; bank < surface_bank_lights; ++bank)
         lights.bank(bank, ui.seq_held || ui.page == PageId::Patterns || ui.page == PageId::Scenes ? bank == ui.pattern_bank % pattern_banks
-                                      : ui.page == PageId::Chop ? bank == slice_bank(ui.chop_slice)
                                       : (track.engine == EngineKind::Sampler && bank == track.bank % sampler_banks) || (drum_pads(track) && bank == drum_bank(track))
                                         || (prog_pads(track) && bank == prog_bank(track)));
     { // The meters beside the screen, as on the MPC: the input source while Record or Input Config is in view or a

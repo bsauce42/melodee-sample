@@ -2,7 +2,6 @@
 // Melodee's model and audio side on the host: pad layouts, knob bindings,
 // the engine host's sequencer and mixer, and synth tracks as plug-ins.
 #include "melodee/engine/effects.h"
-#include "melodee/model/slice_banks.h"
 #include "melodee/engine/macros.h"
 #include <sstream>
 #include <fstream>
@@ -921,7 +920,7 @@ void sampler_kit() {
     // Chop: hits at the clicks, even parts, beats at 120 BPM (22050 frames each).
     auto even = chop(ChopMode::Regions, 4, data.model_frames(), hits, found, 1200);
     CHECK(even.count == 4 && even.start[2] == 22050);
-    auto beats = chop(ChopMode::Beats, 4, data.model_frames(), hits, found, 1200);
+    auto beats = chop(ChopMode::Beats, 1, data.model_frames(), hits, found, 1200);
     CHECK(beats.count == 2 && beats.start[1] == 22050);
     auto clicks = chop(ChopMode::Threshold, 0, data.model_frames(), hits, found, 1200);
     CHECK(clicks.count >= 4);
@@ -3920,82 +3919,16 @@ void beat_grid() {
     CHECK(loop.grid.found() && loop.grid.tempo == 930);
     // A slice a beat from the start: on the beats, at most 3 ms early.
     auto on_beat = [](uint32_t cut, double seconds) { return cut <= seconds * 44100 + 44 && cut + 133 >= seconds * 44100; };
-    auto ones = chop(ChopMode::Beats, 4, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
+    auto ones = chop(ChopMode::Beats, 1, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
     CHECK(ones.count == 8);
     for (unsigned n = 1; n < ones.count; ++n) CHECK(on_beat(ones.start[n], n * beat));
-    auto bars = chop(ChopMode::Beats, 16, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
+    auto bars = chop(ChopMode::Beats, 4, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
     CHECK(bars.count == 2 && on_beat(bars.start[1], 4 * beat));
     // From a region that starts on beat 2: a slice every two beats from there.
-    auto twos = chop(ChopMode::Beats, 8, uint32_t(beat * 44100), 0, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
+    auto twos = chop(ChopMode::Beats, 2, uint32_t(beat * 44100), 0, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
     CHECK(twos.count == 4 && on_beat(twos.start[1], 3 * beat) && on_beat(twos.start[2], 5 * beat) && on_beat(twos.start[3], 7 * beat));
     // Without the sample's beats, the project's tempo as before: 120 BPM, a slice every 22050 frames.
-    CHECK(chop(ChopMode::Beats, 4, loop.sample.frames, loop.hits, loop.count, 1200).start[1] == 22050);
-    // Simpler's divisions under a beat: 1/8 cuts on the beats and the hats between them, 1/16 on the grid between those.
-    auto eighths = chop(ChopMode::Beats, 2, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
-    CHECK(eighths.count == 16);
-    for (unsigned n = 1; n < eighths.count; ++n) CHECK(on_beat(eighths.start[n], n * beat / 2));
-    auto near_grid = [](uint32_t cut, double seconds) { return std::fabs(double(cut) - seconds * 44100) <= 177; }; // 4 ms
-    auto sixteenths = chop(ChopMode::Beats, 1, loop.sample.frames, loop.hits, loop.count, 1200, &loop.grid);
-    CHECK(sixteenths.count == 32);
-    for (unsigned n = 1; n < sixteenths.count; ++n) CHECK(near_grid(sixteenths.start[n], n * beat / 4));
-    // Past 64 slices the rest are left out and the chop says so; 4 bars of 1/16 is 64 exactly, nothing left out.
-    {
-        std::array<Hit, max_hits> none {};
-        bool capped = false;
-        auto full = chop(ChopMode::Beats, 1, 0, 0, 44100 * 20, none, 0, 1200, nullptr, &capped); // 160 16ths at 120 BPM
-        CHECK(capped && full.count == max_slices);
-        auto exact = chop(ChopMode::Beats, 1, 0, 0, 44100 * 8, none, 0, 1200, nullptr, &capped);
-        CHECK(!capped && exact.count == 64);
-        CHECK(chop(ChopMode::Beats, 4, 0, 0, 44100 * 8, none, 0, 1200, nullptr, &capped).count == 16 && !capped);
-    }
-    CHECK(division_sixteenths(0, 16) == 1 && division_sixteenths(1, 16) == 2 && division_sixteenths(quarter_division, 16) == 4);
-    CHECK(division_sixteenths(3, 16) == 8 && division_sixteenths(4, 16) == 16 && division_sixteenths(6, 16) == 64);
-    CHECK(division_sixteenths(4, 12) == 12 && division_sixteenths(5, 14) == 28 && division_sixteenths(99, 16) == 64); // 3/4, 7/8; past 4 bars
-    CHECK(std::string(division_value(1)) == "1/8" && std::string(division_unit(0)).empty());
-    CHECK(std::string(division_unit(4)) == "bar" && std::string(division_unit(6)) == "bars" && std::string(division_value(6)) == "4");
-    // Hand cuts (Simpler's manual slices): a new chop keeps the cuts made or moved by hand and leaves out those taken out.
-    {
-        std::array<Hit, max_hits> none {};
-        const uint32_t frames = 44100 * 4;
-        auto quarters = chop(ChopMode::Regions, 4, 0, 0, frames, none, 0, 1200); // cuts at 44100, 88200, 132300
-        HandCuts hand;
-        CHECK(with_hand(quarters, hand, frames).same(quarters)); // none: the chop as it is
-        hand.move(88200, 100000);                                // an automatic cut moved by hand
-        hand.pin(20000);                                         // one made by hand (Split, a tap)
-        hand.take_out(132300);                                   // one taken out (Erase, Merge)
-        CHECK(hand.pinned(100000) && hand.pinned(20200) && !hand.pinned(88200) && hand.dropped(88200) && hand.dropped(132300));
-        auto has = [](const Slices& s, uint32_t frame) {
-            for (unsigned n = 1; n < s.count; ++n) if (s.start[n] == frame) return true;
-            return false;
-        };
-        // Eight regions now (22050 apart): the hand cuts in, the moved and the taken-out ones out, the rest as cut.
-        auto eighths = with_hand(chop(ChopMode::Regions, 8, 0, 0, frames, none, 0, 1200), hand, frames);
-        CHECK(eighths.count == 8 && eighths.start[1] == 20000 && eighths.start[2] == 22050 && has(eighths, 100000) && has(eighths, 110250));
-        CHECK(!has(eighths, 88200) && !has(eighths, 132300) && has(eighths, 154350) && eighths.stop[7] == frames);
-        hand.move(100000, 101000); // a hand cut moved again: no second automatic cut dropped
-        CHECK(hand.pinned(101000) && !hand.pinned(100000) && hand.drop_count == 2 && hand.pin_count == 2);
-        HandCuts near;
-        near.pin(44500); // an automatic cut within 20 ms of a hand cut gives way to it
-        auto kept = with_hand(quarters, near, frames);
-        CHECK(kept.count == 4 && has(kept, 44500) && !has(kept, 44100));
-        bool full = false; // 64 regions and a hand cut between two of them: one too many, the hand cut kept
-        HandCuts early;
-        early.pin(1000);
-        auto most = with_hand(chop(ChopMode::Regions, 64, 0, 0, frames, none, 0, 1200), early, frames, &full);
-        CHECK(full && most.count == max_slices && most.start[1] == 1000);
-        HandCuts other = hand;
-        CHECK(other.same(hand) && !other.same(near));
-        other.clear();
-        CHECK(other.empty());
-    }
-    // Hold to fix: the zoom that shows about 120 ms round the cut, none where the region is shorter.
-    CHECK(zoom_for_width(4000, fix_view) == 0 && zoom_for_width(176400, 200) == zoom_top);
-    for (uint32_t span : {22050u, 176400u, 44100u * 60}) {
-        const int z = zoom_for_width(span, fix_view);
-        const uint32_t w = zoom_width(span, z);
-        CHECK(z > 0 && z < zoom_top && w > fix_view * 9 / 10 && w < fix_view * 11 / 10);
-    }
-    CHECK(fix_attack == 11025 && fix_hold_ms > 300 && fix_settle_ms > 0 && fix_settle_ms < fix_hold_ms);
+    CHECK(chop(ChopMode::Beats, 1, loop.sample.frames, loop.hits, loop.count, 1200).start[1] == 22050);
 
     // The same tempo with the kick on 1, the and of 2 and 4's second 16th (3 + 3 + 2) and swung hats: still 93 BPM
     // (or 186), not the 124 its dotted spacing suggests.
@@ -4025,7 +3958,7 @@ void beat_grid() {
     CHECK(late.grid.found() && late.grid.tempo == 930);
     double gap = std::fmod(late.grid.first / 44100.0 - 0.3 + 8 * beat, beat);
     CHECK(std::min(gap, beat - gap) < 0.03);
-    auto after_lead = chop(ChopMode::Beats, 4, late.sample.frames, late.hits, late.count, 1200, &late.grid);
+    auto after_lead = chop(ChopMode::Beats, 1, late.sample.frames, late.hits, late.count, 1200, &late.grid);
     CHECK(after_lead.count == 9 && on_beat(after_lead.start[1], 0.3));
     for (unsigned n = 2; n < after_lead.count; ++n) CHECK(on_beat(after_lead.start[n], 0.3 + (n - 1) * beat));
     // The same 8 beats between a free intro and a free outro (hits off the beat): from the file's start, the intro
@@ -4037,11 +3970,11 @@ void beat_grid() {
     for (double at : {0.21, 0.83}) add_noise(free_take, 2.0 + 8 * beat + at, 0.3, 0.05);
     auto framed = analysed(free_take);
     CHECK(framed.grid.found());
-    auto parts = chop(ChopMode::Beats, 4, framed.sample.frames, framed.hits, framed.count, 1200, &framed.grid);
+    auto parts = chop(ChopMode::Beats, 1, framed.sample.frames, framed.hits, framed.count, 1200, &framed.grid);
     CHECK(parts.count == 10 && on_beat(parts.start[1], 2.0));
     for (unsigned n = 2; n < parts.count; ++n) CHECK(on_beat(parts.start[n], 2.0 + (n - 1) * beat));
     // A region that starts 50 ms before a beat counts from that beat: no lead-in slice that short.
-    auto sloppy = chop(ChopMode::Beats, 8, uint32_t((0.3 + 4 * beat - 0.05) * 44100), 0, late.sample.frames, late.hits, late.count, 1200,
+    auto sloppy = chop(ChopMode::Beats, 2, uint32_t((0.3 + 4 * beat - 0.05) * 44100), 0, late.sample.frames, late.hits, late.count, 1200,
                        &late.grid);
     CHECK(sloppy.count == 2 && on_beat(sloppy.start[1], 0.3 + 6 * beat));
 
@@ -4052,7 +3985,7 @@ void beat_grid() {
     for (double at : kicks) { add_kick(wave, at); add_noise(wave, at, 0.1, 0.01); }
     auto take = analysed(wave);
     CHECK(take.grid.found() && take.grid.tempo > 1000 && take.grid.tempo < 1065);
-    auto followed = chop(ChopMode::Beats, 4, uint32_t(kicks[0] * 44100), 0, take.sample.frames, take.hits, take.count, 1200, &take.grid);
+    auto followed = chop(ChopMode::Beats, 1, uint32_t(kicks[0] * 44100), 0, take.sample.frames, take.hits, take.count, 1200, &take.grid);
     CHECK(followed.count >= kicks.size() - 1);
     for (unsigned n = 1; n < followed.count && n < kicks.size(); ++n) CHECK(on_beat(followed.start[n], kicks[n]));
 
@@ -4077,7 +4010,7 @@ void chop_and_browser() {
     CHECK(chop(ChopMode::Threshold, 0, 5000, 0, frames, hits, found, 1200).count == 6);
     CHECK(chop(ChopMode::Threshold, 100, 5000, 0, frames, hits, found, 1200).count == 1); // higher, fewer (as on the MPC)
     // Beats at 120 BPM: a slice a beat (22050 frames) from the region's start.
-    auto beats = chop(ChopMode::Beats, 4, 1000, 0, frames, hits, found, 1200);
+    auto beats = chop(ChopMode::Beats, 1, 1000, 0, frames, hits, found, 1200);
     CHECK(beats.count == 3 && beats.start[1] == 23050 && beats.start[2] == 45100);
     // Manual starts as one slice, the whole region; up to 16 cuts.
     auto manual = chop(ChopMode::Manual, 0, 2000, 50000, frames, hits, found, 1200);
@@ -4155,9 +4088,6 @@ void chop_and_browser() {
     auto shifted = page_bindings(project, ui, pattern, true);
     CHECK(shifted[0].kind == Binding::Kind::ChopZoom && shifted[0].id == 0 && shifted[1].id == 1);
     CHECK(shifted[2].kind == Binding::Kind::ChopAmount && shifted[2].max == int(max_slices));
-    ui.chop_mode = ChopMode::Beats; // Shift + K3 on Beats: the division, 1/16 to 4 bars, from 1/4
-    shifted = page_bindings(project, ui, pattern, true);
-    CHECK(shifted[2].min == 0 && shifted[2].max == int(beat_divisions) - 1 && shifted[2].value == int(quarter_division));
     ui.chop_mode = ChopMode::Manual;
     CHECK(!shift_bindings(project, ui, pattern)[2].bound() && page_bindings(project, ui, pattern, true)[2].kind == Binding::Kind::ChopMode);
 
@@ -5919,8 +5849,7 @@ void projects_and_polish() {
     ui.page = PageId::Compressor; CHECK(press_scope(project, ui, B::TopLeft, false).kind == S::Master);
     CHECK(scope_name(project, ui, press_scope(project, ui, B::TopLeft, false)) == "Compressor");
     ui.page = PageId::Chop; CHECK(press_scope(project, ui, B::TopMiddle, false).kind == S::Chop);
-    ui.chop_armed = true; CHECK(press_scope(project, ui, B::Count, true).kind == S::Chop); // Pad Slicing's cuts: a step each
-    ui.chop_armed = false;
+    ui.chop_armed = true; CHECK(press_scope(project, ui, B::Count, true).none()); // Manual's taps
     ui.page = PageId::PlayPage; CHECK(press_scope(project, ui, B::Count, true).kind == S::Pad);
     CHECK(scope_name(project, ui, UndoScope {S::Pad, 2, 17}) == "B02");
     CHECK(scope_name(project, ui, UndoScope {S::Chain, 0, uint16_t(bus_chain(1))}) == "Bus B FX");
@@ -7921,68 +7850,6 @@ void zero_snap() {
     CHECK(back.preview);
     back.read(fresh.text());
     CHECK(!back.preview);
-
-    // TO PADS as Simpler's Playback: POLY as before, MONO in one mute group, THRU that and on to the region's end;
-    // the pick kept with the settings, POLY at first.
-    {
-        Slices sl;
-        sl.whole(1000, 40000); sl.add(10000, 50000); sl.add(20000, 50000);
-        PadSound parent;
-        parent.sample = 3;
-        auto poly = slice_pad(parent, sl, 1, 50000, SlicePlay::Poly, 4);
-        CHECK(poly.start == 10000 && poly.end == 20000 && poly.group == 0);
-        auto mono = slice_pad(parent, sl, 1, 50000, SlicePlay::Mono, 4);
-        CHECK(mono.start == 10000 && mono.end == 20000 && mono.group == 4);
-        auto thru = slice_pad(parent, sl, 0, 50000, SlicePlay::Thru, 4);
-        CHECK(thru.start == 1000 && thru.end == 40000 && thru.group == 4);
-        std::array<PadSound, 4> pads {};
-        pads[0].sample = 1; pads[0].group = 1; pads[1].sample = 2; pads[1].group = 2; pads[2].group = 3; // pad 3 empty: its group free
-        CHECK(slice_group(parent, pads) == 3);
-        parent.group = 7;
-        CHECK(slice_group(parent, pads) == 7 && slice_pad(parent, sl, 2, 50000, SlicePlay::Poly, 4).group == 7);
-        CHECK(std::string(slice_play_name(SlicePlay::Thru)) == "THRU" && fresh.slice_play == 0);
-        Settings picked; picked.slice_play = 2;
-        back.read(picked.text());
-        CHECK(back.slice_play == 2);
-    }
-    // TO PADS' pattern (Live's Slice to New MIDI Track): the slices' notes where they fall, as the pads play them.
-    {
-        PadSound plain;
-        auto ticks = [](double per_frame, uint32_t frames) { return std::lround(per_frame * frames); };
-        CHECK(ticks(slice_ticks_per_frame(plain, false, 88200, 1200), 44100) == 192);  // as recorded: a second at 120 BPM, 2 beats
-        CHECK(ticks(slice_ticks_per_frame(plain, false, 88200, 900), 44100) == 144);   // the same second at 90 BPM
-        PadSound follows = plain; follows.own_tempo = 900;
-        CHECK(ticks(slice_ticks_per_frame(follows, true, 88200, 1200), 44100) == 144); // Follow: at its own 90, whatever the project's
-        CHECK(ticks(slice_ticks_per_frame(follows, false, 88200, 1200), 44100) == 192); // Follow off: as recorded
-        PadSound seq = plain; seq.warp = warp_seq; seq.beats = 8;                       // 8 beats in 4 s: 120 BPM of its own
-        CHECK(ticks(slice_ticks_per_frame(seq, false, 176400, 900), 44100) == 192);
-        PadSound twice = plain; twice.warp = 200;                                       // 200 %: twice as long
-        CHECK(ticks(slice_ticks_per_frame(twice, false, 88200, 1200), 44100) == 384);
-        // Four slices of a bar at 120 BPM (2 s) on pads A01-A03 and A05: a bar with a note on each beat, as long as its slice.
-        Slices sl;
-        sl.whole(0, 88200); sl.add(22050, 88200); sl.add(44100, 88200); sl.add(66150, 88200);
-        std::array<int, max_slices> keys;
-        keys.fill(-1);
-        keys[0] = 36; keys[1] = 37; keys[2] = 38; keys[3] = 40;
-        const double per = slice_ticks_per_frame(plain, false, 88200, 1200);
-        Pattern made = slice_pattern(sl, 88200, keys, per, 384, 384 * 64);
-        CHECK(made.length == 384 && made.events.size() == 4);
-        CHECK(made.events[0].tick == 0 && made.events[1].tick == 96 && made.events[3].tick == 288 && made.events[3].key == 40);
-        CHECK(made.events[2].length == 96 && made.events[2].velocity == 127);
-        keys[1] = -1; // a slice with no pad: no note
-        CHECK(slice_pattern(sl, 88200, keys, per, 384, 384 * 64).events.size() == 3);
-        // Near a bar's end it is that bar; past an eighth more, the next whole one; never past `most`.
-        Slices near;
-        near.whole(0, 86900);
-        CHECK(slice_pattern(near, 86900, keys, per, 384, 384 * 64).length == 384);
-        Slices longer;
-        longer.whole(0, 132300); // a bar and a half
-        CHECK(slice_pattern(longer, 132300, keys, per, 384, 384 * 64).length == 768);
-        CHECK(slice_pattern(longer, 132300, keys, per, 384, 384).length == 384);
-        Settings none; none.slice_pattern = false;
-        back.read(none.text());
-        CHECK(fresh.slice_pattern && !back.slice_pattern);
-    }
 
     // The engine: a level sample, so the fades are all there is to hear.
     SampleData level;
@@ -11085,8 +10952,8 @@ void voice_heads() {
     }
 }
 
-// Mock 5 (shell/playheads.h): the slice Chop's audition voice plays, found from its region; Pad Slicing's playing,
-// from a slice's start on to the region's end, is the take while it is heard, and no slice.
+// Mock 5 (shell/playheads.h): the slice Chop's audition voice plays, found from its region; Manual's take is the
+// whole region while it is heard, and no slice.
 void chop_heads() {
     Slices sl;
     sl.whole(1000, 12000); sl.add(5000, 20000); sl.add(9000, 20000);
@@ -11102,9 +10969,6 @@ void chop_heads() {
     ChopSound take = chop_sound(&h, sl, 20000, true);
     CHECK(take.take && take.slice == -1);
     CHECK(!chop_sound(&h, sl, 20000, false).take);
-    h.from = 5000;               // Pad Slicing from the second slice on to the region's end: the take too
-    CHECK(chop_sound(&h, sl, 20000, true).take && chop_sound(&h, sl, 20000, false).slice == -1);
-    h.from = 1000;
     h.level = 0;                 // played out: no take, and no slice for it either
     take = chop_sound(&h, sl, 20000, true);
     CHECK(!take.take && take.slice == -1);
@@ -11912,18 +11776,9 @@ void pad_lights() {
     // Chop: the slices, the one in hand Full; Manual armed, pad 1 flashes red.
     ui.page = PageId::Chop; ui.slices.count = 5; ui.chop_slice = 2; light({});
     CHECK(is(2, Hue::Track, 4) && is(0, Hue::Track, 2) && is(6, Hue::None, 0));
-    // Past sixteen slices the pads hold the bank of the slice in hand (Pad Bank steps it): slice 18 on pad 2.
-    ui.slices.count = 20; ui.chop_slice = 17; light({});
-    CHECK(is(1, Hue::Track, 4) && is(0, Hue::Track, 2) && is(3, Hue::Track, 2) && is(4, Hue::None, 0));
-    CHECK(slice_bank(17) == 1 && slice_banks(20) == 2 && slice_banks(16) == 1 && slice_banks(0) == 1);
-    CHECK(pad_slice(17, 3) == 19 && pad_slice(2, 3) == 3 && pad_slice(63, 15) == 63);
-    ui.slices.count = 5; ui.chop_slice = 2;
-    // Pad Slicing (Push's): the slices as before, the empty pads Faint white, where a tap cuts.
     ui.chop_mode = ChopMode::Manual; ui.chop_armed = true; light({}, 1000);
-    CHECK(is(2, Hue::Track, 4) && is(0, Hue::Track, 2) && is(6, Hue::White, 1) && is(15, Hue::White, 1));
-    ui.chop_armed = false; light({}, 1000);
-    CHECK(is(6, Hue::None, 0));
-    ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
+    CHECK(is(0, Hue::Red, 4) && is(1, Hue::None, 0));
+    ui.chop_armed = false; ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
     // Record: the take's pad red, a sample Dim, empty Faint (never 0.07, which drove tracks 1 and 2 red).
     ui.page = PageId::Record; ui.rec_track = 1; ui.rec_pad = 12; light({}, 1000);
     CHECK(is(12, Hue::Red, 4) && is(0, Hue::Track, 2) && is(13, Hue::Track, 1));

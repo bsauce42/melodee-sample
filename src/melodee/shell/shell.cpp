@@ -1084,7 +1084,7 @@ std::string Shell::sample_summary() const {
     for (auto& ch : folder) if (ch == ' ') ch = '_';
     return " melodee_chop_type=" + std::string(chop_mode_name(ChopMode(c & 3))) + " melodee_chop_slices=" + std::to_string((c >> 8) & 0xff) +
            " melodee_chop_slice=" + std::to_string(((c >> 16) & 0xff) + 1) + " melodee_chop_armed=" + std::to_string((c >> 2) & 1) +
-           " melodee_chop_taking=" + std::to_string((c >> 3) & 1) + " melodee_chop_fixing=" + std::to_string((c >> 4) & 1) + " melodee_pad_slots=" + std::to_string(c >> 24) +
+           " melodee_chop_taking=" + std::to_string((c >> 3) & 1) + " melodee_pad_slots=" + std::to_string(c >> 24) +
            " melodee_pad_start=" + std::to_string(pad_start_now.load()) + " melodee_pad_end=" + std::to_string(pad_end_now.load()) +
            " melodee_pad_name=" + (name.empty() ? "-" : name) + " melodee_pad_root=" + std::to_string(pad_root_now.load()) +
            " melodee_files=" + std::to_string(f & 0xffff) +

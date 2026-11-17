@@ -291,9 +291,8 @@ struct UiState {
     uint8_t warp_stretch = 0;   // Shift + Pad 15: the Follow how (Beats or Tones) Time stretch goes back to
     // Chop (parity phase 5): the last pad's region cut into slices.
     ChopMode chop_mode = ChopMode::Threshold;
-    std::array<int, 4> chop_amount {{50, 8, int(quarter_division), 0}}; // per mode: threshold, slice count, Beats' division (shell/chop.h; Manual: none)
+    std::array<int, 4> chop_amount {{50, 8, 1, 0}}; // per mode: threshold, slice count, beats a slice (Manual: none)
     Slices slices;              // Chop's slices of the sample in hand
-    HandCuts chop_hand;         // its cuts made or moved by hand: a new chop keeps them (model/chop_slices.h)
     uint16_t chop_sample = no_sample;
     uint32_t chop_from = 0, chop_to = 0; // the pad's region it chops (to 0: the end)
     uint8_t chop_slice = 0;
@@ -301,17 +300,8 @@ struct UiState {
     uint8_t chop_focus = 0;     // and where: 0 the slice's start, 1 its end
     bool chop_fine = false;     // K1 / K2 touched: the wheel fine-edits the handle in focus until a pad picks another slice
     ZoomView chop_view;         // the view zoomed in, kept
-    bool chop_armed = false;    // Pad Slicing (Push's): a slice's pad plays on to the region's end, an empty pad cuts there
-    uint32_t chop_take_at = 0;  // ms when a slice's pad started that, 0 none
-    uint32_t chop_take_from = 0; // the frame it started from
-    // Hold to fix: a slice's pad held past fix_hold_ms (shell/chop.h) stops what plays and zooms to the slice's start;
-    // the wheel moves that cut, and its first 250 ms play once when the wheel is still; letting go puts the zoom back.
-    int8_t chop_hold_pad = -1;   // the slice's pad held, -1 none
-    uint8_t chop_hold_velocity = 100;
-    uint32_t chop_hold_at = 0;   // ms it went down
-    bool chop_fixing = false;    // held long enough: fixing its cut
-    uint8_t chop_zoom_was = 0;   // the zoom to go back to
-    uint32_t chop_loop_at = 0;   // ms the moved start plays, 0 none due
+    bool chop_armed = false;    // Manual: pad 1 plays the region and the pads tapped meanwhile cut it
+    uint32_t chop_take_at = 0;  // ms when pad 1 started that take, 0 none
     int8_t levels_hit = -1;     // Levels: the pad played last, 0..15
     int16_t levels_value = 0;   // and what it played: a velocity or semitones
     // Sample Record (parity phase 6; Input Config itself is in settings.input).

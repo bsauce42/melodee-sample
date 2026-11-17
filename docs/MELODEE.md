@@ -1586,10 +1586,8 @@ the file holds, to the bit.
   hits at least that strong: a hit is a change in the spectrum (a drum, a hat
   over a held pad, a chord change at the same loudness), cut at the quiet
   point just before its attack, its strength against the sample's strongest
-  hit (`engine/onsets.cpp`). Beats cuts every division of the sample's own
-  beats, as Simpler's Division (1/16, 1/8, 1/4, 1/2, 1, 2 or 4 bars, a bar
-  as the project's time signature holds; more than 64 slices and the last
-  runs on, with a notice), counted from its beat nearest the region's start (a lead-in before it a
+  hit (`engine/onsets.cpp`). Beats cuts every 1-8 of the sample's own beats,
+  counted from its beat nearest the region's start (a lead-in before it a
   slice of its own), or from where its steady beat starts when that is later
   (a free intro before it, and a free ending after its last beat, one slice
   each): its tempo, beats and where they fall are found when it
@@ -1601,27 +1599,11 @@ the file holds, to the bit.
   30 ms. Which beat is a bar's 1 is the region's start: kicks and snares alone
   did not tell it apart. A sample with no steady pulse cuts at the project's
   tempo.
-  Push turns Pad Slicing on and off, as on Ableton Push (K3 onto Manual
-  turns it on; the header chip reads PAD SLICE): a slice's pad plays from
-  its start on to the region's end, and an empty pad tapped meanwhile cuts
-  there, each cut pulled onto the strongest hit, the slices kept, up to 64.
-  Cuts made or moved by hand (K1 / K2, Split, Pad Slicing) stay through a
-  new chop by type or amount and cuts taken out (Erase, Merge) stay out, as
-  Simpler's manual slices (`HandCuts`, `model/chop_slices.h`; kept with the
-  chop while the project is open, not in the WAV); they draw in the track's
-  colour with a tab on top. Past 16 slices Pad Bank steps the pads through
-  them (A 1-16 ... D 49-64). Hold to fix: a slice's pad held 400 ms stops
-  what plays and zooms to about 120 ms round its start (chip FIX CUT); the
-  wheel moves that cut, and 150 ms after the wheel is still its first
-  250 ms play once (nothing repeats); letting go puts the zoom back. Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
+  Manual (K3 or Push):
+  pad 1 plays the region and pads tapped meanwhile cut it, each pulled onto
+  the strongest hit. Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
-  takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
-  (cards POLY, MONO: one mute group, THRU: that and each on to the region's
-  end; the last pick kept with the settings; PATTERN on, as Live's Slice to
-  New MIDI Track, a note for each slice where it falls, at the pad's speed
-  (Warp's Seq or Follow: the region's own tempo; 50-200 %; else as
-  recorded), into the track's pattern when empty, else the first empty one,
-  which then plays) and lays the slices on pads, B1 CANCEL drops
+  takes a slice out. B3 TO PADS lays the slices on pads, B1 CANCEL drops
   the chop. As on the MPC, slices belong to the sample and live in its WAV
   file (the `atem` and `slic` chunks, `shell/mpc_wav_slices.cpp`): read
   when the sample loads (a project opened or imported, a file from
@@ -1641,7 +1623,7 @@ the file holds, to the bit.
   The slice a pad plays lights faintly in the track colour with a head
   and its wake running through it, its bars full colour and its number
   bold in the track colour (the newest, if several); the slice in hand
-  keeps its ground and handles. Pad Slicing's line follows the voice as
+  keeps its ground and handles. Manual's take line follows the voice as
   heard. Zoomed in, the view stays put.
   B2 SNAP (its LED lit while on) is Zero Snap (on by default, kept with the settings):
   every cut (each type's, Manual's taps, K1 / K2, Split, Sample Record's

@@ -122,7 +122,7 @@ Things the remote cannot hear or move. Tick them off here when tried.
 - [ ] Phase 6: Seq take while playing (Resample or a cable): starts with the pattern and loops cleanly on its pad.
 - [ ] Phase 6: Audio Recall after playing something into the source: the last 25 s, starting at the first sound.
 - [ ] Phase 6: Resample heard on its pad (loops in time with the pattern); a mixdown WAV opened on a computer (length, the tail, the level against what the jacks play).
-- [ ] Phase 5: Pad Slicing by hand: a slice's pad plays on to the region's end, empty-pad taps land on the hits meant (each pulled onto the strongest hit up to 50 ms before the tap); say if cuts land late or early.
+- [ ] Phase 5: Manual chop by hand: pad 1 plays the region, taps land on the hits meant (each pulled onto the strongest hit up to 50 ms before the tap); say if cuts land late or early.
 - [ ] Phase 5: the browser's B3 preview heard on a card file and on an internal category file (stops when the cursor moves, on folders, off the page); Extract / Trim Sample / a load keeping settings sound as expected.
 - [ ] Phase 4: a looped pad heard going round (Loop on A01, one shot: hit, it loops; hit again, it stops; Note On: loops while held), reversed loops, and the loop point moved with K3 on Trim (clicks at the seam?).
 - [ ] Phase 4: the pad filter by ear: each type (Classic ringing at high resonance, LPF2 / 4, HPF2 / 4, BPF2 / 4), the filter envelope opening it (Filt Env depth), and 16 Levels Filter sweeping it across the pads.

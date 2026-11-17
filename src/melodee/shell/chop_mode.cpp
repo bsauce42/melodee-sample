@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // Chop's pads (parity phase 5): a pad plays its slice and picks it for K1 /
-// K2. Pad Slicing on (Push's; Push turns it on and off, K3 onto Manual turns
-// it on): a slice's pad plays from its start on to the region's end, and an
-// empty pad tapped meanwhile cuts there, the slices kept (up to 64), each cut
-// pulled onto the strongest hit just before it, since a tap comes a little
-// after the sound it means, and kept as a hand cut. With Zero Snap on (B2,
-// kept with the settings) every cut then lands on a zero crossing.
+// K2. In Manual, armed (K3 onto Manual, or Push), pad 1 plays the whole
+// region and every pad tapped while it plays cuts it there (up to 16
+// slices, as the MPC's), each cut pulled onto the strongest hit just before
+// it, since a tap comes a little after the sound it means. With Zero Snap on
+// (B2, kept with the settings) every cut then lands on a zero crossing.
 #include "melodee/shell/context.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/mpc_wav_slices.h"
-#include "melodee/shell/zoom_view.h"
-#include "melodee/model/slice_banks.h"
 #include <thread>
 
 namespace melodee {
@@ -21,81 +18,35 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
     auto& sl = ui.slices;
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (!frames || !sl.count) return;
-    auto audition = [&](uint32_t from, uint32_t to) { chop_audition(from, to, velocity); };
-    const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
-    const uint32_t region_end = sl.end(sl.count - 1, frames);
-    if (ui.chop_armed && slice < sl.count) { // Pad Slicing: the slice plays on to the region's end, for the empty pads to cut
-        if (slice != ui.chop_slice) ui.chop_fine = false;
-        ui.chop_slice = uint8_t(slice);
-        ui.chop_take_from = sl.start[slice];
-        ui.chop_take_at = now ? now : 1;
-        audition(sl.start[slice], region_end);
-        return;
-    }
-    if (ui.chop_armed) { // an empty pad: a cut where the playing has got to, kept with the slices there
-        if (ui.chop_take_at) {
-            uint32_t at = ui.chop_take_from + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10);
-            if (at >= region_end) { ui.chop_take_at = 0; notice("Played out: tap a slice first"); return; }
+    auto audition = [&](uint32_t from, uint32_t to) {
+        Command a {Command::Type::Audition, ui.track, 0, 0, int16_t(velocity)};
+        a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
+        send(a);
+    };
+    if (ui.chop_take_at) { // Manual's take: a cut where the region is now
+        uint32_t at = sl.start[0] + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10);
+        if (at < sl.end(sl.count - 1, frames)) {
             if (library) {
                 auto loaded = library->slot(ui.chop_sample);
                 at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
             }
-            if (sl.add(at, frames)) {
-                ui.chop_hand.pin(at); // a cut by hand: it stays when the type or amount changes
+            if (sl.add(at, frames, manual_slices))
                 for (unsigned n = 0; n < sl.count; ++n) if (sl.start[n] == at) ui.chop_slice = uint8_t(n);
-            } else if (sl.count >= max_slices) notice("64 slices, the most");
             return;
         }
-        notice("Tap a slice, then an empty pad to cut");
+        ui.chop_take_at = 0; // it has played out: the pads play slices again
+    }
+    if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) {
+        if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // the take starts from one slice, the whole region
+        ui.chop_slice = 0; ui.chop_armed = false;
+        ui.chop_take_at = now ? now : 1;
+        audition(sl.start[0], sl.end(0, frames));
         return;
     }
-    if (slice >= sl.count) return;
-    if (slice != ui.chop_slice) ui.chop_fine = false; // another slice: the wheel picks slices again until K1 / K2
-    ui.chop_slice = uint8_t(slice);
-    audition(sl.start[slice], sl.end(slice, frames));
-}
-
-void Context::chop_audition(uint32_t from, uint32_t to, uint8_t velocity) {
-    Command a {Command::Type::Audition, ui.track, 0, 0, int16_t(velocity)};
-    a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
-    send(a);
-}
-
-// Hold to fix (MIDI thread, from the lights' pass): a slice's pad held past fix_hold_ms stops what plays, the view
-// closes in on the slice's start and the wheel moves it (fine, as after K1); once the wheel has been still for
-// fix_settle_ms the new start's first 250 ms play once. Nothing repeats. Let go, the page leaves or the slice goes:
-// the zoom as it was.
-void Context::chop_hold_tick(uint32_t ms) {
-    if (ui.chop_hold_pad < 0) return;
-    auto& sl = ui.slices;
-    const uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
-    if (ui.page != PageId::Chop || !(ui.held_pads & (1u << unsigned(ui.chop_hold_pad))) || ui.chop_slice >= sl.count || !frames) {
-        chop_hold_end();
-        return;
-    }
-    if (!ui.chop_fixing) {
-        if (ms - ui.chop_hold_at < fix_hold_ms) return;
-        ui.chop_fixing = true;
-        ui.chop_take_at = 0; // Pad Slicing's playing on stops
-        Command stop {Command::Type::Audition, ui.track, 0, 0, 0};
-        stop.pad.sample = no_sample; // and whatever the audition voice plays
-        send(stop);
-        ui.chop_zoom_was = ui.chop_zoom;
-        const uint32_t span = sl.end(sl.count - 1, frames) - sl.start[0];
-        ui.chop_zoom = uint8_t(std::max<int>(ui.chop_zoom, zoom_for_width(span, fix_view)));
-        ui.chop_focus = 0; ui.chop_fine = true; ui.chop_view = {};
-        ui.chop_loop_at = 0; // silent until the wheel moves the cut
-    }
-    if (!ui.chop_loop_at || int32_t(ms - ui.chop_loop_at) < 0) return;
-    const unsigned n = ui.chop_slice;
-    chop_audition(sl.start[n], std::min(sl.start[n] + fix_attack, sl.end(n, frames)), ui.chop_hold_velocity);
-    ui.chop_loop_at = 0; // once
-}
-
-void Context::chop_hold_end() {
-    if (ui.chop_fixing) { ui.chop_zoom = ui.chop_zoom_was; ui.chop_view = {}; ui.chop_fine = false; }
-    ui.chop_fixing = false;
-    ui.chop_hold_pad = -1;
+    if (pad >= sl.count) return;
+    if (pad != ui.chop_slice) ui.chop_fine = false; // another slice: the wheel picks slices again until K1 / K2
+    ui.chop_slice = uint8_t(pad);
+    audition(sl.start[pad], sl.end(pad, frames));
 }
 
 // The slices Chop holds as its sample's chop, written into the sample's WAV file when they changed (as the MPC
@@ -107,11 +58,8 @@ void Context::keep_chop() {
         now.from = ui.chop_from; now.to = ui.chop_to; now.mode = ui.chop_mode;
         now.amount = int16_t(ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()]);
         now.slices = ui.slices;
-        now.hand = ui.chop_hand;
-        const bool same = kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount
-                       && kept.slices.same(now.slices);
-        if (!same || !kept.hand.same(now.hand)) {
-            now.unwritten = kept.unwritten || !same; // the hand cuts alone are not in the file: nothing to write
+        if (!(kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount && kept.slices.same(now.slices))) {
+            now.unwritten = true;
             project.chops.edit(ui.chop_sample) = now;
         }
     }
@@ -142,7 +90,6 @@ bool Context::restore_chop() {
     const uint32_t frames = project.samples[ui.chop_sample].frames, pad_from = ui.chop_from;
     ui.chop_from = kept.from; ui.chop_to = kept.to;
     ui.slices = kept.slices;
-    ui.chop_hand = kept.hand;
     for (unsigned n = 0; n < ui.slices.count; ++n) // the slice the pad plays, selected
         if (ui.slices.start[n] <= pad_from && pad_from < ui.slices.end(n, frames ? frames : UINT32_MAX)) ui.chop_slice = uint8_t(n);
     ui.chop_mode = kept.mode;

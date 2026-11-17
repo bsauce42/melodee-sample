@@ -43,7 +43,7 @@ MasterState master_of(const Project& p) {
 }
 ChopState chop_of(const UiState& ui) {
     ChopState c {};
-    c.slices = ui.slices; c.hand = ui.chop_hand; c.mode = uint8_t(ui.chop_mode); c.slice = ui.chop_slice; c.amount = ui.chop_amount;
+    c.slices = ui.slices; c.mode = uint8_t(ui.chop_mode); c.slice = ui.chop_slice; c.amount = ui.chop_amount;
     c.sample = ui.chop_sample; c.from = ui.chop_from; c.to = ui.chop_to;
     return c;
 }
@@ -130,7 +130,7 @@ UndoScope press_scope(const Project& project, const UiState& ui, SurfaceButton b
     case PageId::Tracks: case PageId::Sends: return of(S::Mix, ui);
     case PageId::Rack: case PageId::Bus: case PageId::Master: case PageId::PadFx: return of(S::Chain, ui, page_chain(project, ui));
     case PageId::KnobFx: case PageId::Compressor: case PageId::FlexBeat: case PageId::Punch: return of(S::Master, ui);
-    case PageId::Chop: return of(S::Chop, ui); // Pad Slicing's cuts too, each a step
+    case PageId::Chop: return ui.chop_armed && pad ? UndoScope {} : of(S::Chop, ui); // Manual's taps are one take, not a step each
     case PageId::Trim: case PageId::PadMix: case PageId::EnvelopePage: case PageId::PadPage: case PageId::PlayPage:
     case PageId::PadFilterPage: case PageId::FilterEnvPage: case PageId::Pads: case PageId::LayersPage:
         return pad_scope(ui, project);

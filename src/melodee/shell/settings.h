@@ -48,8 +48,6 @@ struct Settings {
     bool count_in = false;    // a bar before Seq Record records (phase 2)
     bool rec_quantize = true; // recorded notes onto the pattern's Q, as the MPC (Shift + Pad 10, or SEQ's Rec quantize row)
     bool zero_snap = true;    // Chop's cuts onto zero crossings (Chop's B2; shell/chop.h)
-    uint8_t slice_play = 0;   // Chop's TO PADS: the last playback picked, 0 Poly, 1 Mono, 2 Thru (shell/chop.h SlicePlay)
-    bool slice_pattern = true; // and whether it writes a pattern of the slices too (Live's Slice to New MIDI Track)
     bool stems_best = true;   // STEMS' B2 BEST: up to 16 kHz in two passes, about three times as long (shell/stems.h)
     bool preview = false;     // the sample browser's B3 PREVIEW: each file plays as the cursor lands on it
     bool double_copies = true; // Double Seq (Shift + Pad 3): the new half plays the notes again (the MPC's way), or starts empty
@@ -244,7 +242,7 @@ struct Settings {
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize)
-            << "\nzero_snap=" << int(zero_snap) << "\nslice_play=" << int(slice_play) << "\nslice_pattern=" << int(slice_pattern) << "\nstems_best=" << int(stems_best) << "\npreview=" << int(preview) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level)
+            << "\nzero_snap=" << int(zero_snap) << "\nstems_best=" << int(stems_best) << "\npreview=" << int(preview) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure) << "\nrepeat_pressure=" << int(repeat_pressure) << "\nseq_follow=" << int(seq_follow)
             << "\ninput_source=" << int(input.source) << "\nmonitor=" << int(input.monitor) << "\nmonitor_before_mic=" << int(input.before_mic) << "\nthreshold=" << int(input.threshold)
@@ -298,8 +296,6 @@ struct Settings {
             else if (key == "count_in") count_in = value != 0;
             else if (key == "rec_quantize") rec_quantize = value != 0;
             else if (key == "zero_snap") zero_snap = value != 0;
-            else if (key == "slice_play") slice_play = uint8_t(std::clamp(value, 0, 2));
-            else if (key == "slice_pattern") slice_pattern = value != 0;
             else if (key == "stems_best") stems_best = value != 0;
             else if (key == "preview") preview = value != 0;
             else if (key == "double_copies") double_copies = value != 0;

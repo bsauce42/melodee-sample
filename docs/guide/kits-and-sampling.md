@@ -244,73 +244,30 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **K1** / **K2** | Start / end of the selected slice. |
 | **K3** | Chop type: Threshold, Regions, Beats or Manual. |
 | Encoder | Select a slice. After **K1** or **K2**, move that cut in fine steps. |
-| Push the encoder | Pad slicing on or off. |
-| **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
+| **SHIFT** + **K3** | The amount for that type (threshold, number of regions, beats). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
 | **B2** (**SNAP**) | Snap cuts to zero crossings, so slices do not click. |
-| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru, with a pattern of them. |
+| **B3** (**TO PADS**) | Put the slices on pads. |
 | **B1** (**CANCEL**) | Leave without changing the pads. |
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
 | **ERASE** + pad | Remove a slice. |
-| Hold a slice's pad | Fix its cut: turn the encoder; the new start plays when you stop. |
-| **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
-
-With more than 16 slices, the pads show the bank of the selected slice, and
-the bank lights and **BANK** at the top of the screen show which. Selecting
-a slice with the encoder moves the pads to its bank.
 
 **Threshold chop**: cuts at every hit at least as strong as the threshold.
 A hit is a change in the sound: a drum, a hat over a held note, or a chord
 change at the same loudness. Each cut lands just before the hit's attack.
 
 **Beats chop**: Melodee finds the sample's own tempo and where its beats
-fall when it loads. Beats cuts a slice every division: 1/16, 1/8, 1/4 (one
-beat), 1/2, 1 bar, 2 bars or 4 bars (**SHIFT** + **K3**; a bar follows the
-project's time signature). It counts from the beat nearest the region's
-start, so a lead-in before the first beat gets a slice of its own. A free
-intro or ending with no steady beat stays one slice. The tempo shows at the
-top right. Each cut lands on the hit at that place, if there is one. To cut
-on the bar, set the region's start near the bar's first beat. A sample with
-no steady beat uses the project's tempo. A chop holds at most 64 slices: if
-a division needs more, the last slice runs to the end, and Melodee says so.
+fall when it loads. Beats cuts a slice every 1–8 of those beats, counted from
+the beat nearest the region's start, so a lead-in before the first beat gets
+a slice of its own. A free intro or ending with no steady beat stays one
+slice. The tempo shows at the top right. Each cut lands on the hit at that
+beat. To cut on the bar, set the region's start near the bar's first beat. A
+sample with no steady beat uses the project's tempo.
 
-**Pad slicing** (as on Ableton Push): push the encoder to turn it on or off.
-Setting **K3** to Manual turns it on. **PAD SLICE** shows at the top left
-while it is on. Tap a slice's pad: it plays from there to the end of the
-region. Tap an empty pad while it plays to cut there. The slices you have
-stay, up to 64. Empty pads light white; brighter while you can cut.
+**Manual chop**: set **K3** to Manual, or push the encoder. Pad 1 plays the
+sample. Tap other pads while it plays to cut there.
 
-**Fix a cut**: hold a slice's pad. Playing stops and the screen closes in
-on the slice's start (**FIX CUT** at the top left). Turn the encoder to move
-the cut. When you stop turning, the first quarter second from the new start
-plays once. Let go when it sounds right. The zoom goes back to where it
-was.
-
-**Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
-**SHIFT** + **B2** Split, or pad slicing) stays when you change the chop
-type, threshold, division or number of regions. It shows in the track's
-colour with a tab on top. A cut you take out (**ERASE** + pad, **SHIFT** +
-**B3** Merge) stays out. Hand cuts are kept while the project is open.
-
-**TO PADS** asks how the slices play, as Simpler's Playback. Turn the
-encoder to choose and push it to put the slices on pads. It starts on your
-last choice. **B1** goes back.
-
-- **POLY**: slices play over each other.
-- **MONO**: one slice at a time. The slices share a mute group.
-- **THRU**: one slice at a time, and each plays on to the end of the region,
-  so a slice's pad carries the loop on from there.
-
-The **PATTERN** card turns the pattern on or off (push the encoder on it).
-When it is on, TO PADS also writes a pattern with a note for each slice where
-it falls, so **PLAY** gives you the loop back, now on pads you can change. It
-goes into the track's pattern if that is empty, else into the first empty
-one, which then plays. The notes follow how the pads play: with Warp or
-Follow at the loop's own tempo, else as it was recorded. Undo takes back the
-pads, the pattern and which pattern plays in one step.
-
-MONO and THRU use the chopped pad's mute group, or the first free one.
 Slices put on pads keep the chopped pad's tune, Warp, mute group and other
 settings. Press **CHOP** again to return to **TRIM**.
 

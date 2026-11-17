@@ -515,10 +515,7 @@ public:
     void send_pad(unsigned track, unsigned pad);
     int sample_slot(const std::string& path, const std::string& name); // the project's slot for a file, asking for it to load
     void rechop();                                                     // Chop's slices from its type and amount
-    void chop_tap(unsigned pad, uint8_t velocity);                     // Chop: a pad (audition, or Pad Slicing's taps)
-    void chop_audition(uint32_t from, uint32_t to, uint8_t velocity);  // Chop's audition voice: from .. to of the sample
-    void chop_hold_tick(uint32_t ms);                                  // hold to fix: starts it, plays a moved start once
-    void chop_hold_end();                                              // the held pad let go: the zoom back
+    void chop_tap(unsigned pad, uint8_t velocity);                     // Chop: a pad (audition, or Manual's taps)
     uint32_t zero_cut(uint32_t frame) const;                           // Chop: a cut on a zero crossing, with Zero Snap on
     void snap_slices();                                                // Chop: every cut of the slices onto one
     void toggle_zero_snap();                                           // Chop, B2: Zero Snap on / off (a setting)
@@ -528,7 +525,7 @@ public:
     void trim_moved(const FrameView& was); // a Trim or Chop handle moved: the view zoomed in keeps it in sight
     void chop_moved(const FrameView& was);
     bool exact_cut = false;                // the wheel's cut is where it goes (not pulled back by zero_cut)
-    void chop_to_pads(SlicePlay play, bool pattern);                   // the slices onto pads, from the first free one, as `play` lays them; `pattern`: a pattern of them too
+    void chop_to_pads();                                               // the slices onto pads, from the first free one
     void follow_tempos(); // Follow on: each pad's own tempo, from its length as whole bars
     bool host_recording() const;                                       // a take is armed, cued or running
     // Input Config and Sample Record (parity phase 6, shell/sample_record.cpp).

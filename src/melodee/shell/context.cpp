@@ -806,19 +806,13 @@ void Context::apply(const Binding& b, int value) {
     }
     case Kind::ChopMode: ui.chop_mode = ChopMode(value); rechop(); break;
     case Kind::ChopAmount: ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] = value; rechop(); break;
-    case Kind::ChopStart: case Kind::ChopEnd: { // a cut moved by hand: it stays through a new chop by type or amount (in frames)
+    case Kind::ChopStart: case Kind::ChopEnd: { // editing a slice makes the chop Manual, as on the MPC (in frames)
         auto was = chop_view(project, ui);
         uint32_t frames = chop_frames(project, ui), at = std::min(uint32_t(value), frames);
         if (!exact_cut) at = zero_cut(at); // onto a zero crossing near where the pot is
-        auto& sl = ui.slices;
-        const unsigned n = unsigned(b.id);
-        const bool start = b.kind == Kind::ChopStart;
-        // A cut inside the region (not its first start or its last end, which the pad's region sets).
-        const bool inside = n < sl.count && (start ? n > 0 : n + 1 < sl.count);
-        const uint32_t before = !inside ? 0 : start ? sl.start[n] : sl.end(n, frames);
-        if (start) sl.move_start(n, at, frames);
-        else sl.move_end(n, at, frames);
-        if (inside) ui.chop_hand.move(before, start ? sl.start[n] : sl.end(n, frames));
+        if (b.kind == Kind::ChopStart) ui.slices.move_start(unsigned(b.id), at, frames);
+        else ui.slices.move_end(unsigned(b.id), at, frames);
+        ui.chop_mode = ChopMode::Manual; ui.chop_armed = false;
         chop_moved(was);
         break;
     }
@@ -1533,11 +1527,6 @@ void Context::apply_edit(const Edit& e, bool after) {
     if (const auto& m = after ? e.sound_after : e.sound_before) restore_sound(e.track, *m);
     if (const auto& m = after ? e.master_after : e.master_before) restore_master(*m);
     if (const auto& m = after ? e.chop_after : e.chop_before) restore_chop(*m);
-    if (e.pattern_was >= 0 && e.pattern >= 0) { // the pattern it played before, or the one the edit made it play
-        auto& tr = project.tracks[e.track % track_count];
-        tr.pattern = uint8_t(unsigned(after ? e.pattern : e.pattern_was) % pattern_count);
-        send({Type::Pattern, uint8_t(e.track % track_count), 0, 0, int16_t(tr.pattern)});
-    }
     if (const auto& m = after ? e.tempo_after : e.tempo_before) {
         for (unsigned n = 0; n < pattern_count; ++n)
             if (project.pattern_tempo[n] != m->patterns[n]) { project.pattern_tempo[n] = m->patterns[n]; send({Type::PatternTempo, 0, 0, uint16_t(n), int16_t(m->patterns[n])}); }
@@ -1656,22 +1645,17 @@ int Context::sample_slot(const std::string& path, const std::string& name) {
     return free;
 }
 
-// Chop's slices of the region it holds, by its type, with the cuts made by
-// hand. Manual is the whole region and those, with Pad Slicing on: a slice's
-// pad plays on, and the empty pads tapped meanwhile cut it (chop_tap()).
+// Chop's slices of the region it holds, by its type. Manual starts as one
+// slice, the whole region, armed: pad 1 plays it and the pads tapped
+// meanwhile cut it (chop_tap()).
 void Context::rechop() {
     if (!library || ui.chop_sample >= sample_slots) { ui.slices = {}; return; }
     auto loaded = library->slot(ui.chop_sample);
-    int amount = ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()];
-    if (ui.chop_mode == ChopMode::Beats) amount = int(division_sixteenths(unsigned(std::max(amount, 0)), project.bar_ticks() / sixteenth_ticks)); // in 16ths
-    bool capped = false, full = false;
-    ui.slices = with_hand(chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo,
-                               &loaded.beats, &capped),
-                          ui.chop_hand, loaded.frames, &full); // the cuts made by hand stay
-    if (capped || full) notice("64 slices, the most: the last runs to the end");
+    ui.slices = chop(ui.chop_mode, ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()], ui.chop_from, ui.chop_to, loaded.frames,
+                     loaded.hits, loaded.hit_count, project.tempo, &loaded.beats);
     snap_slices();
     ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count ? ui.slices.count - 1 : 0));
-    if (ui.chop_mode == ChopMode::Manual) ui.chop_armed = true; // Manual cuts by Pad Slicing
+    ui.chop_armed = ui.chop_mode == ChopMode::Manual;
     ui.chop_take_at = 0;
 }
 
@@ -1696,7 +1680,7 @@ void Context::follow_tempos() {
 
 bool Context::host_recording() const { return host.recorder().state() != TakeRecorder::State::Idle; }
 
-void Context::chop_to_pads(SlicePlay play, bool with_pattern) {
+void Context::chop_to_pads() {
     auto& t = track();
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (!frames) return;
@@ -1708,46 +1692,13 @@ void Context::chop_to_pads(SlicePlay play, bool with_pattern) {
     const auto& last = t.pads[t.last_pad % sampler_pads];
     if (last.used() && last.sample == ui.chop_sample) parent = last;
     else for (const auto& p : t.pads) if (chopped(p)) { parent = p; break; }
-    const uint8_t group = slice_group(parent, t.pads); // MONO and THRU: one at a time
-    std::array<int, max_slices> keys; // each slice's note, for the pattern
-    keys.fill(-1);
-    Edit edit = begin_edit("Slices to pads", ui.track, -1, false); // one undo: the pads, the pattern and which plays
-    unsigned pad = 0, laid = 0;
+    unsigned pad = 0;
     for (unsigned n = 0; n < ui.slices.count; ++n) {
         while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the first free pad on
         if (pad >= sampler_pads) break;
-        edit.pads_before.emplace_back(uint8_t(pad), pad_state(t, pad));
-        t.pads[pad] = slice_pad(parent, ui.slices, n, frames, play, group);
+        t.pads[pad] = slice_sound(parent, ui.slices.start[n], ui.slices.end(n, frames));
         send_pad(ui.track, pad);
-        edit.pads_after.emplace_back(uint8_t(pad), pad_state(t, pad));
-        keys[n] = int(sampler_first_note + pad);
-        ++laid;
     }
-    std::string said = play == SlicePlay::Poly ? "" : std::string(play == SlicePlay::Thru ? "Thru" : "Mono") + ", mute group " + std::to_string(group);
-    // The pattern (Live's Slice to New MIDI Track): into the track's pattern when it holds nothing, else the first that
-    // holds nothing, which then plays; none free, none written.
-    if (with_pattern && laid) {
-        auto& slots = patterns.at[ui.track % track_count];
-        auto free = [&](unsigned p) { return slots[p].empty() && slots[p].motion.empty(); };
-        unsigned target = t.pattern % pattern_count;
-        if (!free(target)) for (target = 0; target < pattern_count && !free(target); ++target) {}
-        if (target < pattern_count) {
-            const uint32_t region = ui.slices.end(ui.slices.count - 1, frames) - ui.slices.start[0];
-            const double per_frame = slice_ticks_per_frame(parent, t.params[sampler::Follow] != 0, region, project.tempo);
-            Pattern made = slice_pattern(ui.slices, frames, keys, per_frame, project.bar_ticks(), project.max_length());
-            edit.pattern = int16_t(target);
-            edit.pattern_before = std::make_unique<Pattern>(slots[target]);
-            slots[target] = made;
-            edit.pattern_after = std::make_unique<Pattern>(made);
-            sync_pattern(ui.track, target);
-            if (target != t.pattern % pattern_count) { edit.pattern_was = int16_t(t.pattern % pattern_count); launch(ui.track, target); }
-            const unsigned bars = made.length / std::max(1u, project.bar_ticks());
-            said += (said.empty() ? "" : "; ") + std::string("P") + std::to_string(target + 1) + ": " + std::to_string(made.events.size()) +
-                    " notes, " + std::to_string(bars) + (bars == 1 ? " bar" : " bars");
-        } else said += (said.empty() ? "" : "; ") + std::string("No empty pattern for the slices");
-    }
-    if (laid) edits.push(std::move(edit));
-    if (!said.empty()) notice(said);
 }
 
 // A track chain changed shape: motion on its effects named slots that now

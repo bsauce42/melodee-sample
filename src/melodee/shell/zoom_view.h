@@ -26,13 +26,6 @@ inline uint32_t zoom_width(uint32_t span, int zoom) {
     double w = double(span) * std::pow(double(zoom_closest) / double(span), f);
     return std::clamp(uint32_t(std::lround(w)), zoom_closest, span);
 }
-// The zoom that shows about `width` of `span` (Chop's hold to fix): 0 where all of it fits.
-inline int zoom_for_width(uint32_t span, uint32_t width) {
-    if (span <= width) return 0;
-    if (width <= zoom_closest || span <= zoom_closest) return zoom_top;
-    double f = std::log(double(width) / double(span)) / std::log(double(zoom_closest) / double(span));
-    return std::clamp(int(std::lround(f * zoom_top)), 0, zoom_top);
-}
 // How many times closer than unzoomed, for the screen.
 inline double zoom_factor(uint32_t span, int zoom) { return double(span) / std::max(1u, zoom_width(span, zoom)); }
 

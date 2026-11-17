@@ -115,13 +115,12 @@ struct TempoState {
 // Chop's slices of the region in hand (UI state, not saved).
 struct ChopState {
     Slices slices {};
-    HandCuts hand {};
     uint8_t mode = 0, slice = 0;
     std::array<int, 4> amount {};
     uint16_t sample = 0;
     uint32_t from = 0, to = 0;
     bool operator==(const ChopState& o) const {
-        return slices.same(o.slices) && hand.same(o.hand) && mode == o.mode
+        return slices.same(o.slices) && mode == o.mode
             && slice == o.slice && amount == o.amount && sample == o.sample && from == o.from && to == o.to;
     }
 };
@@ -135,7 +134,6 @@ struct Edit {
     std::vector<std::pair<uint8_t, PadState>> pads_before, pads_after;
     int16_t pattern = -1;         // a pattern of the track, or -1
     std::unique_ptr<Pattern> pattern_before, pattern_after;
-    int16_t pattern_was = -1;     // the track's pattern before the edit made `pattern` the one it plays (Chop's TO PADS), or -1
     std::unique_ptr<Song> song_before, song_after;       // a take into the song
     std::unique_ptr<TrackMotion> motion_before, motion_after; // a track's patterns' motion (an effect moved or removed)
     std::unique_ptr<TrackState> track_before, track_after; // a track copied onto this one (`track`)
