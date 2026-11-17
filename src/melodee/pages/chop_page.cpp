@@ -17,6 +17,9 @@
 // slices. Push turns Pad Slicing on and off (K3 onto Manual turns it on; the
 // header's chip reads PAD SLICE): a slice's pad plays from its start on to
 // the region's end, and an empty pad tapped meanwhile cuts there, up to 64.
+// Hold to fix: a slice's pad held stops what plays, zooms to its start and
+// repeats its first 250 ms while the wheel moves that cut (chip FIX CUT);
+// letting go puts the zoom back (Context::chop_hold_tick()).
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
 // Erase + pad takes a slice out (it joins the one before). B3 TO PADS asks
@@ -56,7 +59,8 @@ void draw(Paint& p, const Snapshot& s) {
     const auto& slices = s.ui.slices;
     uint32_t frames = s.sample.frames;
     Header h = header_of(s);
-    h.left.push_back(s.ui.chop_armed ? chip(Icon::Scissors, "PAD SLICE", c) : chip("CHOP", c)); // Pad Slicing on (Push)
+    h.left.push_back(s.ui.chop_fixing ? chip(Icon::Wheel, "FIX CUT", c) // a slice's pad held: the wheel moves its start
+                     : s.ui.chop_armed ? chip(Icon::Scissors, "PAD SLICE", c) : chip("CHOP", c)); // Pad Slicing on (Push)
     h.left.push_back(pill(Icon::Scissors, juce::String(slices.count), c));
     if (slices.count > 16) // the sixteen slices on the pads (Pad Bank steps them)
         h.left.push_back(pill(Icon::Pads, "BANK " + juce::String::charToString(juce::juce_wchar('A' + slice_bank(s.ui.chop_slice))), colour::text));
@@ -200,7 +204,8 @@ void draw(Paint& p, const Snapshot& s) {
 
 void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     auto& ui = c.ui;
-    if (!down) return;
+    if (!down) { if (int(pad % 16) == ui.chop_hold_pad) c.chop_hold_end(); return; } // hold to fix: let go
+    if (ui.chop_fixing) return; // fixing a cut: the other pads wait
     ui.sheet_open = false; // a pad leaves TO PADS' cards and plays as ever
     if (ui.erase) { // the slice out: it joins the one before, and a new chop leaves its cut out
         const unsigned slice = pad_slice(ui.chop_slice, pad); // in the bank in view
@@ -210,12 +215,14 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
         ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count - 1));
         return;
     }
+    const bool on_slice = pad_slice(ui.chop_slice, pad) < ui.slices.count; // held long enough, it fixes this slice's cut
     c.chop_tap(pad, velocity);
+    if (on_slice) { ui.chop_hold_pad = int8_t(pad % 16); ui.chop_hold_at = c.now; ui.chop_hold_velocity = velocity; }
 }
 
 // Minus / Plus, and the wheel before K1 or K2 was touched: the slice before or after.
 void pick(Context& c, int delta) {
-    if (!c.ui.slices.count) return;
+    if (!c.ui.slices.count || c.ui.chop_fixing) return; // hold to fix keeps its slice
     c.ui.chop_slice = uint8_t(std::clamp<int>(c.ui.chop_slice + delta, 0, int(c.ui.slices.count) - 1));
     c.ui.chop_fine = false;
 }
@@ -226,6 +233,7 @@ void wheel(Context& c, int delta) {
     if (!ui.chop_fine || !ui.slices.count) { pick(c, delta); return; }
     unsigned n = std::min<unsigned>(ui.chop_slice, ui.slices.count - 1), k = ui.chop_focus % 2;
     c.fine_edit(Binding {k ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, 1, 0}, delta);
+    if (ui.chop_fixing) ui.chop_loop_at = c.now; // hold to fix: heard again at once
     auto& pot = ui.pots[k];
     pot.engaged = false; pot.bound = 0; // the value left the pot: it picks it up again
     ui.turning = int8_t(k); ui.turned_at = c.now;

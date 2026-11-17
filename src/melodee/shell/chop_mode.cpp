@@ -11,6 +11,7 @@
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/mpc_wav_slices.h"
+#include "melodee/shell/zoom_view.h"
 #include "melodee/model/slice_banks.h"
 #include <thread>
 
@@ -20,11 +21,7 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
     auto& sl = ui.slices;
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (!frames || !sl.count) return;
-    auto audition = [&](uint32_t from, uint32_t to) {
-        Command a {Command::Type::Audition, ui.track, 0, 0, int16_t(velocity)};
-        a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
-        send(a);
-    };
+    auto audition = [&](uint32_t from, uint32_t to) { chop_audition(from, to, velocity); };
     const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
     const uint32_t region_end = sl.end(sl.count - 1, frames);
     if (ui.chop_armed && slice < sl.count) { // Pad Slicing: the slice plays on to the region's end, for the empty pads to cut
@@ -56,6 +53,45 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
     if (slice != ui.chop_slice) ui.chop_fine = false; // another slice: the wheel picks slices again until K1 / K2
     ui.chop_slice = uint8_t(slice);
     audition(sl.start[slice], sl.end(slice, frames));
+}
+
+void Context::chop_audition(uint32_t from, uint32_t to, uint8_t velocity) {
+    Command a {Command::Type::Audition, ui.track, 0, 0, int16_t(velocity)};
+    a.pad.sample = ui.chop_sample; a.pad.start = from; a.pad.end = to;
+    send(a);
+}
+
+// Hold to fix (MIDI thread, from the lights' pass): a slice's pad held past fix_hold_ms stops what plays, the view
+// closes in on the slice's start and the wheel moves it (fine, as after K1), while its first 250 ms play again every
+// fix_period_ms, at once after a move. Let go, the page leaves or the slice goes: the zoom as it was.
+void Context::chop_hold_tick(uint32_t ms) {
+    if (ui.chop_hold_pad < 0) return;
+    auto& sl = ui.slices;
+    const uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
+    if (ui.page != PageId::Chop || !(ui.held_pads & (1u << unsigned(ui.chop_hold_pad))) || ui.chop_slice >= sl.count || !frames) {
+        chop_hold_end();
+        return;
+    }
+    if (!ui.chop_fixing) {
+        if (ms - ui.chop_hold_at < fix_hold_ms) return;
+        ui.chop_fixing = true;
+        ui.chop_take_at = 0; // Pad Slicing's playing on stops: the attack repeats instead
+        ui.chop_zoom_was = ui.chop_zoom;
+        const uint32_t span = sl.end(sl.count - 1, frames) - sl.start[0];
+        ui.chop_zoom = uint8_t(std::max<int>(ui.chop_zoom, zoom_for_width(span, fix_view)));
+        ui.chop_focus = 0; ui.chop_fine = true; ui.chop_view = {};
+        ui.chop_loop_at = ms;
+    }
+    if (int32_t(ms - ui.chop_loop_at) < 0) return;
+    const unsigned n = ui.chop_slice;
+    chop_audition(sl.start[n], std::min(sl.start[n] + fix_attack, sl.end(n, frames)), ui.chop_hold_velocity);
+    ui.chop_loop_at = ms + fix_period_ms;
+}
+
+void Context::chop_hold_end() {
+    if (ui.chop_fixing) { ui.chop_zoom = ui.chop_zoom_was; ui.chop_view = {}; ui.chop_fine = false; }
+    ui.chop_fixing = false;
+    ui.chop_hold_pad = -1;
 }
 
 // The slices Chop holds as its sample's chop, written into the sample's WAV file when they changed (as the MPC

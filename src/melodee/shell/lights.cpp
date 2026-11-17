@@ -174,6 +174,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (change.back && ui_.page == PageId::CardAccess) { context_.open(PageId::Project); context_.notice("Card ejected"); }
     }
     update_tick();
+    context_.chop_hold_tick(now); // Chop's hold to fix: its start, and the attack again and again
     autosave_tick(now);
     // Power was pressed: the Exit sheet opens (the service thread only counts presses).
     // The library found files or finished a sample: the lengths go into the project.
@@ -459,7 +460,8 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
             unsigned used = 0;
             for (const auto& ref : project_->samples) used += ref.used();
             bool taking = ui_.chop_take_at && now - ui_.chop_take_at < 60000;
-            chop_bits.store(uint32_t(ui_.chop_mode) | uint32_t(ui_.chop_armed) << 2 | uint32_t(taking) << 3 | uint32_t(ui_.slices.count & 0xff) << 8
+            chop_bits.store(uint32_t(ui_.chop_mode) | uint32_t(ui_.chop_armed) << 2 | uint32_t(taking) << 3 | uint32_t(ui_.chop_fixing) << 4
+                            | uint32_t(ui_.slices.count & 0xff) << 8
                             | uint32_t(ui_.chop_slice) << 16 | uint32_t(used) << 24, std::memory_order_relaxed);
             pad_start_now.store(pad.start, std::memory_order_relaxed); pad_end_now.store(pad.end, std::memory_order_relaxed);
             files_bits.store(uint32_t(ui_.files_count) | uint32_t(ui_.files_cursor & 0x3fff) << 16 | uint32_t(ui_.files_drive & 1) << 30

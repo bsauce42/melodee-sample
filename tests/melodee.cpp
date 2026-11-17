@@ -3995,6 +3995,14 @@ void beat_grid() {
         other.clear();
         CHECK(other.empty());
     }
+    // Hold to fix: the zoom that shows about 120 ms round the cut, none where the region is shorter.
+    CHECK(zoom_for_width(4000, fix_view) == 0 && zoom_for_width(176400, 200) == zoom_top);
+    for (uint32_t span : {22050u, 176400u, 44100u * 60}) {
+        const int z = zoom_for_width(span, fix_view);
+        const uint32_t w = zoom_width(span, z);
+        CHECK(z > 0 && z < zoom_top && w > fix_view * 9 / 10 && w < fix_view * 11 / 10);
+    }
+    CHECK(fix_attack == 11025 && fix_hold_ms > 300 && fix_period_ms > fix_attack * 1000 / 44100);
 
     // The same tempo with the kick on 1, the and of 2 and 4's second 16th (3 + 3 + 2) and swung hats: still 93 BPM
     // (or 186), not the 124 its dotted spacing suggests.
