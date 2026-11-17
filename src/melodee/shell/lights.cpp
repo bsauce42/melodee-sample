@@ -473,7 +473,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
                             | uint32_t(ui_.chop_slice) << 16 | uint32_t(used) << 24, std::memory_order_relaxed);
             pad_start_now.store(pad.start, std::memory_order_relaxed); pad_end_now.store(pad.end, std::memory_order_relaxed);
             files_bits.store(uint32_t(ui_.files_count) | uint32_t(ui_.files_cursor & 0x3fff) << 16 | uint32_t(ui_.files_drive & 1) << 30
-                             | uint32_t(ui_.preview) << 31, std::memory_order_relaxed);
+                             | uint32_t(ui_.settings.preview) << 31, std::memory_order_relaxed);
             std::string folder = library_ ? library_->folder() : std::string();
             std::lock_guard<std::mutex> guard(text_lock);
             pad_name_text = pad.used() ? project_->samples[pad.sample % sample_slots].name : "";

@@ -271,7 +271,6 @@ struct UiState {
     uint16_t files_cursor = 0;  // Samples, the browser: the row under the cursor
     uint16_t files_count = 0;   // rows in the folder listed, copied in by the shell
     uint8_t files_drive = 0;    // B2: 0 the card, 1 the internal drive (Drive in sample_library.h)
-    bool preview = false;       // B3: each file plays as the cursor lands on it
     uint8_t trim_zoom = 0;      // Trim: 0 the whole sample .. 100 a few hundred frames (shell/zoom_view.h)
     ZoomView trim_view;         // and the view it keeps
     uint8_t pad_layer = 0;      // Layers (roadmap P3): the layer in hand, 0-3

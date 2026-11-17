@@ -52,10 +52,10 @@ void draw(Paint& p, const Snapshot& s) {
     h.right.push_back(tag_of(s, s.ui.track));
     juce::String other = drive == Drive::Card ? "INTERNAL" : "CARD";
     // The file under the cursor as it previews (mock 7): its row fills as it plays; B3 lit while there is sound.
-    PreviewPlace heard = s.ui.preview ? preview_place(s.heads, int(sampler_pads), uint16_t(preview_slot), dsp::model_rate) : PreviewPlace {};
+    PreviewPlace heard = s.ui.settings.preview ? preview_place(s.heads, int(sampler_pads), uint16_t(preview_slot), dsp::model_rate) : PreviewPlace {};
     SoftKeys keys {{s.files_top ? "CANCEL" : "BACK", other, "PREVIEW"}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}};
     keys.toggles = 4; // PREVIEW names a thing that is on or off: its LED, never ON / OFF (the row fills while it sounds)
-    keys.lit = s.ui.preview ? 4 : 0;
+    keys.lit = s.ui.settings.preview ? 4 : 0;
     frame(p, s, keys, h);
     if (s.files.empty()) { // a glyph and two words: no card, or nothing here
         bool no_card = drive == Drive::Card && s.sample_root.empty();
@@ -137,7 +137,11 @@ void soft(Context& c, int key) {
         ui.files_drive = uint8_t(to);
         c.library->browse(Drive(to), back.set ? back.folder : std::string());
     }
-    if (key == 2) { ui.preview = !ui.preview; c.preview_cursor(); } // its LED says which
+    if (key == 2) { // its LED says which; kept with the settings, as it was left
+        ui.settings.preview = !ui.settings.preview;
+        if (c.store) c.store->save_settings(ui.settings.text());
+        c.preview_cursor();
+    }
 }
 } // namespace
 

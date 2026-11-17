@@ -67,7 +67,8 @@ a single sample. Its pads play notes, as on a plug-in track.
 
 To make one: select an empty track, turn to **Keygroup** and push the
 encoder. Pick the instrument or sample in the browser. **SAMPLE SELECT** on
-the track opens the browser again to change it.
+the track opens the browser again to change it. **B3** (**PREVIEW**) plays
+each file when you move to it, as on a kit.
 
 | Key | Pages |
 | --- | --- |

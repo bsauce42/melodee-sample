@@ -1562,7 +1562,7 @@ const Preview previews[] {
          s.ui.files_count = uint16_t(s.files.size()); s.ui.turning = 1; s.ui.turned_at = s.now;
      }},
     {"samplespreview", [](Shell&, Snapshot& s) { // B3 on: the file under the cursor fills its row as it plays, 1.2 of 3.1 s
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.preview = true; s.ui.files_cursor = 5; s.sample_root = "/media/card/Samples";
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.settings.preview = true; s.ui.files_cursor = 5; s.sample_root = "/media/card/Samples";
          s.files_folder = s.sample_root; s.files_top = false;
          for (auto name : {"EDITS", "LOOPER", "RECORDED"}) s.files.push_back({std::string("/media/card/Samples/") + name, name, 0, true});
          const char* files[] {"BASS LOOP", "BREAK", "DRUM LOOP", "KEYS", "PERC", "VOCAL"};
@@ -1587,7 +1587,7 @@ const Preview previews[] {
          s.ui.name.start(NameTarget::Bank, "KIT B", name_length - 1, true);
      }},
     {"browserinternal", [](Shell&, Snapshot& s) { // B2: the internal drive's categories, preview on
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_drive = 1; s.ui.preview = true; s.ui.files_cursor = 7;
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_drive = 1; s.ui.settings.preview = true; s.ui.files_cursor = 7;
          s.sample_root = "/media/card/Samples"; s.files_folder = ""; s.files_top = true;
          for (auto name : {"808", "BASS", "BREAK", "CLAPS", "CYMBALS", "FX", "HI-HATS", "KICKS", "LOOPS", "MELODIC", "PERC", "PHRASES", "SNARES", "TOMS", "USER", "VOCAL"})
              s.files.push_back({std::string("/content/Samples/") + name, name, 0, true});

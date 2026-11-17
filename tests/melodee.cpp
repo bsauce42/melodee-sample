@@ -7867,6 +7867,13 @@ void zero_snap() {
     CHECK(!back.stems_best);
     back.read(fresh.text());
     CHECK(back.stems_best);
+    // The sample browser's PREVIEW: off at first, on kept.
+    CHECK(!fresh.preview);
+    Settings hearing; hearing.preview = true;
+    back.read(hearing.text());
+    CHECK(back.preview);
+    back.read(fresh.text());
+    CHECK(!back.preview);
 
     // TO PADS as Simpler's Playback: POLY as before, MONO in one mute group, THRU that and on to the region's end;
     // the pick kept with the settings, POLY at first.

@@ -382,7 +382,7 @@ void Context::preview_cursor() {
     if (!library) return;
     auto files = library->files();
     const SampleFile* file = ui.files_cursor < files.size() ? &files[ui.files_cursor] : nullptr;
-    std::string path = ui.preview && file && !file->folder && !file->bank && !file->midi ? file->path : std::string(); // a MIDI file has no sound to preview
+    std::string path = ui.settings.preview && file &&!file->folder && !file->bank && !file->midi ? file->path : std::string(); // a MIDI file has no sound to preview
     stop_preview(); // what played stops as the cursor moves on
     library->preview(path);
 }
@@ -397,14 +397,14 @@ void Context::stop_preview() {
 
 void Context::browser_tick() {
     if (!library) return;
-    bool here = ui.page == PageId::Samples && track().engine == EngineKind::Sampler;
+    bool here = ui.page == PageId::Samples && track().sampled(); // a kit's browser or a keygroup's
     auto folder = library->folder();
     if (folder != files_folder_seen) { // a new folder: the cursor on the one it came out of, else the top
         files_folder_seen = folder;
         ui.files_cursor = uint16_t(files_row_wanted >= 0 ? files_row_wanted : std::max(library->came_from(), 0)); // B2's drive: its row
         files_row_wanted = -1;
         ui.files_drive = uint8_t(library->drive());
-        if (here && ui.preview) preview_cursor();
+        if (here && ui.settings.preview) preview_cursor();
     }
     if (!here && previewing >= 0) { // away from the browser: what it played stops (B3 stays as it was)
         stop_preview();
@@ -414,7 +414,7 @@ void Context::browser_tick() {
     if (arrived == previews_seen) return;
     previews_seen = arrived;
     auto files = library->files();
-    if (!here || !ui.preview || ui.files_cursor >= files.size() || files[ui.files_cursor].path != library->previewed()) return;
+    if (!here || !ui.settings.preview || ui.files_cursor >= files.size() || files[ui.files_cursor].path != library->previewed()) return;
     Command a {Command::Type::Audition, ui.track, 0, 0, int16_t(ui.audition_velocity)};
     a.pad.sample = uint16_t(preview_slot); a.pad.start = 0; a.pad.end = 0;
     send(a);
