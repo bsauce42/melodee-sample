@@ -779,7 +779,8 @@ hold to steer, Shift + Seq to zoom in**.
   notes (with none marked, the chord in the cursor's step; keys only), and a
   Loop tap plays only the bars in view (the marked notes' bars) over and
   over, Loop lit and header LOOP, until Loop again or the editor, track or
-  pattern changes;
+  pattern changes (the same bars on a track at another speed; a project
+  loaded after it plays whole);
   the view scrolls a step at a time, and dots on its edges mark notes above
   and below. It opens on the pattern's notes: when none lies in the rows it
   would show, the cursor's pitch goes to the note nearest its step. The note at the cursor is in focus, drawn white and named in

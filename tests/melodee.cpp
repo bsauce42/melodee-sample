@@ -13361,6 +13361,40 @@ void track_speed() {
         int at = host.position_of(0); // 12800 frames: 55 ticks played, 110 of the pattern as written
         CHECK(at >= 108 && at <= 112);
     }
+    // An editor's loop (Loop on Roll or Step Edit) is sent in the pattern's ticks as written: on a track at another
+    // speed it plays the same bar. Bar 2 of two looped: at x2 the loop was ignored (it starts past the pattern as it
+    // plays), at x1/2 beats 3 and 4 of bar 1 played. A project loaded after it does not keep the loop.
+    for (unsigned speed : {4u, 0u, speed_normal}) {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        synth(project->tracks[0], 0);
+        project->tracks[0].speed = uint8_t(speed);
+        project->tempo = 1200;
+        bank->at[0][0].length = 768;
+        auto host = std::make_unique<EngineHost>();
+        host->load(*project, *bank);
+        tones_for(*host, *project);
+        Command loop {Command::Type::EditLoop, 0};
+        loop.position = 384; loop.index = 384;
+        host->send(loop);
+        host->send({Command::Type::Play});
+        std::vector<int32_t> out(256);
+        int low = INT32_MAX, high = -1;
+        for (unsigned b = 0; b < 2200; ++b) { // 1226 ticks: every tick of the loop at any speed
+            host->render(out.data(), 128, 1);
+            low = std::min(low, host->position_of(0)); high = std::max(high, host->position_of(0));
+        }
+        CHECK(low == 384 && high >= 760 && high < 768);
+        Command reload {Command::Type::Reload};
+        reload.pack = new ProjectPack(*project, *bank);
+        host->send(reload);
+        host->send({Command::Type::Play});
+        low = INT32_MAX;
+        for (unsigned b = 0; b < 400; ++b) { host->render(out.data(), 128, 1); low = std::min(low, host->position_of(0)); }
+        CHECK(low < 24);
+        const ProjectPack* done = nullptr;
+        while (host->take_done_pack(done)) delete done;
+    }
     // The file: TSPD; without it every track at x1.
     {
         auto project = std::make_unique<Project>();
