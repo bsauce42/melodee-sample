@@ -906,7 +906,10 @@ void Context::apply(const Binding& b, int value) {
     case Kind::EntryVelocity: ui.entry_velocity = uint8_t(std::clamp(value, 0, 127)); break;
     case Kind::EntryChance: ui.entry_chance = uint8_t(std::clamp(value, 0, 100)); break;
     case Kind::EventNudge: set_event_nudge(*this, value); break;
-    case Kind::MarksRamp: roll_marks_ramp(*this, value); break;                               // Roll's Shift + K2, marked notes                             // Roll's Shift + K1
+    case Kind::MarksVelocity: // Roll's K2, marked notes: their velocities moved together
+        if (ui.page == PageId::Roll && roll_selected(ui, t.pattern) && roll_marks_velocity(pattern(), ui, value)) sync_pattern(ui.track, t.pattern);
+        break;
+    case Kind::MarksRamp: roll_marks_ramp(*this, value); break;                              // Roll's Shift + K2, marked notes                             // Roll's Shift + K1
     case Kind::EuclidHits: case Kind::EuclidSteps: case Kind::EuclidRotate: set_euclid(b.kind, value); break;
     case Kind::TrackSpeed: set_speed(unsigned(b.id), value); break;
     case Kind::VaryAmount: ui.vary_amount = uint8_t(std::clamp(value, 0, 100)); break;

@@ -20,8 +20,9 @@
 // Shift + wheel marks notes one by one along the wheel's walk (drawn with a
 // white outline). Shift let go, the marked notes take the controls: the wheel
 // moves them a step of Q, Shift + wheel a row, Erase deletes, Mute mutes
-// (drawn hollow; again plays them), Note Repeat steps their ratchet, K1-K3
-// set all of them; a Shift tap clears the marks.
+// (drawn hollow; again plays them), Note Repeat steps their ratchet, K1 and
+// K3 set all of them, K2 moves their velocities together; a Shift tap clears
+// the marks.
 #include "melodee/engine/engine_host.h"
 #include "melodee/model/scales.h"
 #include "melodee/pages/common.h"

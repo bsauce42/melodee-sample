@@ -1062,17 +1062,20 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         return {Binding {Kind::PluginJump, 0, 0, std::max(int(ui.plugins_count) - 1, 1), ui.plugins_cursor}, Binding {}, Binding {}};
     case PageId::Roll: { // the note in focus: K1 its length in steps of Q, K2 velocity, K3 chance; none, no cards
         int at = roll_focus(pattern, ui, roll_lane(track));
-        if (at < 0 && roll_selected(ui, track.pattern)) { // marked notes: the cards set them all, read off the first
+        const bool marks = roll_selected(ui, track.pattern) && ui.held_note < 0;
+        if (at < 0 && marks) { // marked notes: K1 and K3 set them all, read off the first
             auto marked = roll_marked_events(pattern, ui);
-            if (!marked.empty() && ui.held_note < 0) at = int(marked.front());
+            if (!marked.empty()) at = int(marked.front());
         }
         if (at < 0) return {};
         const auto& e = pattern.events[size_t(at)];
         if (ui.held_note >= 0) return lock_cards(project, ui, pattern, e.tick); // its pad held: locks there (roadmap P1)
         if (ui.trig_cards) return trig_cards(e, false); // B2 again: its ratchet and ramp
         unsigned q = pattern.q(), steps = std::max(1u, (e.length + q / 2) / q);
-        return {Binding {Kind::EventLength, 0, 1, 64, int(std::min(steps, 64u))}, Binding {Kind::EventVelocity, 0, 1, 127, e.velocity},
-                Binding {Kind::EventChance, 0, 0, 100, e.chance}};
+        Binding velocity {Kind::EventVelocity, 0, 1, 127, e.velocity};
+        int low = 0, high = 0; // marked notes: K2 moves every velocity by as much, the card their lowest
+        if (marks && roll_marks_span(pattern, ui, low, high)) velocity = Binding {Kind::MarksVelocity, 0, 1, 127 - (high - low), low};
+        return {Binding {Kind::EventLength, 0, 1, 64, int(std::min(steps, 64u))}, velocity, Binding {Kind::EventChance, 0, 0, 100, e.chance}};
     }
     case PageId::Stage: return stage_bindings(project, ui, pattern, false);
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader

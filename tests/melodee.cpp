@@ -7241,6 +7241,51 @@ void roll_marks() {
     CHECK(p.events[0].key == 62 && p.events[1].key == 64 && p.events[1].tick == 10 * s);
 }
 
+// Roll's K2 over marked notes: every velocity moved by as much, the spacing kept; the card their lowest to highest.
+void roll_marks_velocity_shift() {
+    Pattern p;
+    p.length = 4 * 4 * ticks_per_quarter;
+    auto add = [&](unsigned step, uint8_t key, uint8_t velocity) {
+        Event e; e.tick = step * sixteenth_ticks; e.key = key; e.velocity = velocity; CHECK(p.add(e));
+    };
+    add(0, 60, 60); add(2, 62, 85); add(4, 64, 100); add(6, 65, 40); // the last one stays unmarked
+    UiState ui;
+    ui.page = PageId::Roll; ui.track = 0; ui.step_cursor = 0; ui.roll_key = 60;
+    roll_mark_walk(p, ui, 1, 0);                  // C4, then the empty step 1
+    roll_mark_walk(p, ui, 2, 0);                  // D4, the empty step 3
+    roll_mark_walk(p, ui, 1, 0);                  // E4
+    ui.roll_marking = false;
+    CHECK(roll_marked_events(p, ui).size() == 3);
+    auto velocities = [&] { std::vector<int> v; for (const auto& e : p.events) v.push_back(e.velocity); return v; };
+    int low = 0, high = 0;
+    CHECK(roll_marks_span(p, ui, low, high) && low == 60 && high == 100);
+    // +10: 60, 85, 100 to 70, 95, 110; the unmarked note keeps 40.
+    CHECK(roll_marks_velocity(p, ui, 70));
+    CHECK(velocities() == (std::vector<int> {70, 95, 110, 40}));
+    // Down again, back as they were.
+    CHECK(roll_marks_velocity(p, ui, 60) && velocities() == (std::vector<int> {60, 85, 100, 40}));
+    // Held at the ends: the highest stops at 127, the lowest at 1, and the spacing stays.
+    CHECK(roll_marks_velocity(p, ui, 120) && velocities() == (std::vector<int> {87, 112, 127, 40}));
+    CHECK(!roll_marks_velocity(p, ui, 127));
+    CHECK(roll_marks_velocity(p, ui, -5) && velocities() == (std::vector<int> {1, 26, 41, 40}));
+    CHECK(roll_marks_velocity(p, ui, 60));
+    // The card: K2 is the marks' lowest, room for the whole group; K1 and K3 still the cards that set them all.
+    Project project;
+    synth(project.tracks[0], 0);
+    project.tracks[0].pattern = 0;
+    ui.roll_key = 70;                             // no note in focus
+    auto cards = page_bindings(project, ui, p);
+    CHECK(cards[0].kind == Binding::Kind::EventLength && cards[2].kind == Binding::Kind::EventChance);
+    CHECK(cards[1].kind == Binding::Kind::MarksVelocity && cards[1].value == 60 && cards[1].min == 1 && cards[1].max == 87);
+    ui.roll_key = 64;                             // a marked note in focus: K2 still moves them all
+    CHECK(page_bindings(project, ui, p)[1].kind == Binding::Kind::MarksVelocity);
+    CHECK(binding_scope(project, ui, cards[1]).kind == UndoScope::Kind::Pattern);
+    ui.roll_marking = true;                       // still marking: the note in focus alone
+    CHECK(page_bindings(project, ui, p)[1].kind == Binding::Kind::EventVelocity);
+    ui.roll_marking = false; ui.held_note = 2;    // a pad held: its locks, not the marks
+    CHECK(page_bindings(project, ui, p)[1].kind != Binding::Kind::MarksVelocity);
+}
+
 // The note editors' printed buttons (model/note_edits.h): split, legato, reverse, quantize, ramp, arp to notes.
 void note_edits() {
     const uint32_t s = sixteenth_ticks;
@@ -17637,6 +17682,7 @@ int main() {
     looper_rates();
     roll();
     roll_marks();
+    roll_marks_velocity_shift();
     note_edits();
     roll_opens_on_notes();
     roll_levels();

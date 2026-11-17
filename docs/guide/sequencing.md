@@ -192,8 +192,13 @@ controls act on all the marked notes:
 
 - The encoder moves them a step. **SHIFT** + encoder moves them a row.
 - **−** / **+** move them an octave.
-- **K1**–**K3** set their length, velocity and chance. **SHIFT** + **K2**
-  (**VEL RAMP**) ramps their velocity from the first to the last.
+- **K1** and **K3** set their length and chance.
+- **K2** moves their velocities together: 60, 85 and 100 turned up by 10
+  become 70, 95 and 110. The card shows the lowest and the highest
+  (**60-100**). It stops when the highest reaches 127 or the lowest 1.
+- **SHIFT** + **K2** (**VEL RAMP**) ramps their velocity from the first to
+  the last. At 0 they all take the first note's velocity, so **K2** then
+  sets them all to one value.
 - **ERASE** + encoder pulls them towards the grid, a quarter of the way
   for each click.
 - **ERASE** deletes them. **MUTE** mutes them (drawn hollow); press it again

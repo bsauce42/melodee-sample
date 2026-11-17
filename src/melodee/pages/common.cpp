@@ -248,6 +248,11 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::StepLength: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "step" : "steps"; break;
     case Kind::StepVelocity: c.label = "VELOCITY"; c.value = juce::String(b.value); break;
     case Kind::EventVelocity: c.label = "VELOCITY"; c.value = juce::String(b.value); break;
+    case Kind::MarksVelocity: { // Roll's K2 over marked notes: lowest to highest, moving together
+        int high = b.value + 127 - b.max;
+        c.label = "VELOCITY"; c.value = juce::String(b.value) + (high > b.value ? "-" + juce::String(high) : juce::String());
+        break;
+    }
     case Kind::EventLength: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "step" : "steps"; break;
     case Kind::StepChance: case Kind::EventChance: c.label = "CHANCE"; c.value = juce::String(b.value); c.unit = "%"; break;
     case Kind::EntryLength: c.label = "LENGTH"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "step" : "steps"; break;

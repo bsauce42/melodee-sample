@@ -69,6 +69,7 @@ struct Binding {
         // Step Edit as step entry (round 2, step-edit2 C): what a pad writes at the caret, length in steps of Q,
         // velocity (0: as played), chance; Roll's Shift + K1 NUDGE: the note in focus off its grid line, in ticks.
         EntryLength, EntryVelocity, EntryChance, EventNudge, MarksRamp, // MarksRamp: Roll's Shift + K2 over marked notes, percent
+        MarksVelocity, // Roll's K2 over marked notes: the lowest velocity among them, the rest moved by as much (shell/roll.h)
         // A pattern's feel (roadmap P1, model/pattern.h Feel), heard live: strength toward Q 0..100, its swing 50..75,
         // humanize timing and velocity 0..100, a groove taken from a pattern (0 none, else 1 + track * 16 + pattern)
         // and how much of it 0..100. The selected track's pattern playing.

@@ -767,7 +767,9 @@ hold to steer, Shift + Seq to zoom in**.
   in the way), Shift + wheel moves them a row, Erase deletes them, Mute
   mutes them (drawn hollow; kept but not played or exported; Mute again
   plays them), Note Repeat steps their ratchet 2, 3, 4, 6, 8, off, and
-  K1-K3 set length, velocity and chance on all of them, Shift + K2 their
+  K1 and K3 set length and chance on all of them, K2 moves their
+  velocities together by as much (the card their lowest to highest, held
+  so none passes 1 or 127; 60, 85, 100 up 10: 70, 95, 110), Shift + K2 their
   velocity ramp (VEL RAMP, the last note this far off the first), Erase +
   wheel pulls them a quarter of the way to the grid each detent, − / + move
   them an octave, and Shift + Erase copies them (header COPY: Push pastes
