@@ -17,7 +17,7 @@ back. The header lights **IN** and **OUT** as MIDI passes.
 | Track channel | Off or 1–16: the selected track's own channel. It plays that track whichever track is selected, and the track's notes go out on it. |
 | Track MIDI in | Where the track's own channel is heard: Any, External or USB |
 | Pad MIDI in | On or off: whether notes and pressure in play the tracks |
-| Pad MIDI out | Never, Always or Empty |
+| Pad MIDI out | Never, Always or Empty (only pads and tracks with no sound of their own send notes) |
 | MIDI sync in / out | Off, MIDI Clock or MTC |
 | MIDI thru | On or off |
 | Receive program change | Off or Sequence: a program change launches that pattern on every track |
@@ -26,9 +26,9 @@ back. The header lights **IN** and **OUT** as MIDI passes.
 | Remote pattern CC | Launches a pattern on the selected track. Value 0 is A01. Default CC 103. |
 | Remote sequence CC | Launches a sequence. Value 0 is the first sequence. Default CC 104. |
 | CV/sync out | On or off: clock pulses on the sync output. **CV/sync base** (1–8) and **CV/sync division** (1–24) set how many a quarter note. |
-| Takeover rows | Knob, Knob FX and fader takeover |
+| Parameter, Knob FX and Fader takeover | As in Settings, **KNOBS**: Pickup, Scaled or Instant |
 | MIDI panic | Push: ends every note on every channel and port |
-| Reset factory settings | Push, then **B3** to reset or **B1** to keep |
+| Reset factory settings | Push, then **B3** to reset or **B1** to keep. Your starred sounds and Basic or Full are kept. |
 
 - **MIDI in**: notes, pressure, CC 1 (mod wheel), the pitch wheel, the
   sustain pedal and other CCs, and All Notes Off, on every page and every
@@ -48,12 +48,16 @@ back. The header lights **IN** and **OUT** as MIDI passes.
   - On **Step Edit** and **Roll**, keys write notes as the pads do. Step Edit
     writes at the caret and moves on when every key is let go. With a step
     held on Step Edit's pads, the keys played go into that step.
-- **MIDI clock in**: Start, Continue, Stop and tempo. The header shows **EXT
-  CLOCK**.
+- **MIDI clock in**: Start, Continue, Stop, Song Position and tempo. The
+  header shows **EXT CLOCK**. Continue plays on from the Song Position,
+  counted at the selected track's speed (see
+  [The Tracks page](tracks.md#the-tracks-page)), as **SHIFT** + **PLAY**
+  counts it.
 - **MTC in** (24, 25, 29.97 drop-frame and 30 fps): Melodee follows the
-  timecode. The header shows **EXT MTC**.
-- **MIDI out**: pads, patterns, the arpeggiator, MIDI clock, MTC and the CV
-  clock.
+  timecode: the song on Song, else the patterns. The header shows **EXT
+  MTC**. A cue while stopped moves the playhead there, counted the same way.
+- **MIDI out**: pads, patterns, the arpeggiator, MIDI clock (with Start,
+  Continue, Stop and Song Position), MTC and the CV clock.
 
 ## Using a MIDI controller
 

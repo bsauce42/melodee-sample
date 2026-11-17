@@ -69,7 +69,7 @@ The same page updates Melodee: drop the release zip on **Update**, press
 ## Plug-in instruments
 
 1. Select an empty track with **PAD BANK** + pad. Stage shows the
-   track types.
+   track types. A new project opens on track 1 with the track types.
 2. Turn the encoder to **Plugin** and push it. The plug-in picker opens.
 3. Turn the encoder to a plug-in and push to load it.
 
@@ -117,8 +117,9 @@ on Stage (**EDIT**) to see the same parameters there.
   the tempo.
 
 **Presets**: turn the encoder to a preset and push to load it. The page
-stays open, so you can play each preset in turn. **B1** goes back. Push
-the encoder on Stage's **PRESETS** page to open the same list.
+stays open, so you can play each preset in turn. **K1**–**K3** still set
+the three parameters shown on Edit. **B1** goes back. Push the encoder on
+Stage's **PRESETS** page to open the same list.
 
 ![Plug-in presets](../images/screens/pluginpresets.png)
 

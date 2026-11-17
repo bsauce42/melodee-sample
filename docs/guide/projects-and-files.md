@@ -11,10 +11,11 @@ Press **SHIFT** + **Pad 16**.
 - **B1** (**SAVE AS**): save the project under a new name. The old file
   stays as it was.
 - **B2** (**OPEN**): the list of projects.
-- **B3** (**NEW**): start a new project (asks first). On the question,
+- **B3** (**NEW**): start a new project (asks first). The question says
+  whether the open project is saved first or its changes are lost.
   **B3** (**NEW**) starts it with no tracks and opens the track types on
   track 1. **B2** (**KIT**) starts it with one of the MPC's factory kits on
-  track 1, so the pads play at once.
+  track 1, so the pads play at once. **B1** cancels.
 
 Or turn the encoder to pick one and push it.
 
@@ -23,16 +24,21 @@ Or turn the encoder to pick one and push it.
 Melodee saves the project in the background, as the stock app does. Three
 seconds after you last used a control it writes the project to its file, as
 long as nothing plays, records or prints. A new project gets a file of its
-own the first time: **Project 1**, **Project 2** and so on, or its own name
-when it came from an MPC project.
+own the first time: **Project 1**, **Project 2** and so on.
 
 - The Project page shows **SAVED**, or **UNSAVED** until the next save.
 - While the sequencer plays, nothing is saved. Stop, and the save follows.
+- An MPC project you open is not saved in the background. Press **B1**
+  (**SAVE AS**) to give it a file of its own.
 - The Exit screen saves before it powers off or leaves.
 - Undo and redo are not saved with the project.
 - To keep an earlier state, press **B1** (**SAVE AS**) before you go on.
 
 The header shows **UNSAVED** in amber while the project has changes.
+
+A sample's chop is saved in the sample's WAV file, as the MPC saves slices:
+the slices, the chop type and the cuts made by hand. The chop comes back
+with the sample in any project.
 
 ![The project list](../images/screens/projectlist.png)
 
@@ -57,6 +63,8 @@ In the list:
 - Save (or Load) is picked when the sheet opens. Turn the encoder to pick
   another card and push it. **B1** closes the sheet. Delete says **PRESS
   AGAIN**: push once more to delete.
+- **ERASE** on a project opens its sheet on Delete. Press **ERASE** again
+  to delete it. **SHIFT** + **ERASE** duplicates it.
 
 ![A project's sheet](../images/screens/filesheetscroll.png)
 
@@ -65,8 +73,8 @@ out and back in.
 
 ## Naming
 
-The Name sheet opens when you save or rename a project, sample, bank or
-marker.
+The Name sheet opens when you save or rename a project, sample, sound, bank
+or marker.
 
 ![The Name sheet](../images/screens/nameproject.png)
 
@@ -87,11 +95,14 @@ project list shows it as the **MPC Sample** folder. Press **B2**
 factory demos and kits.
 
 Their sheet has Load and Load kit. Load opens a copy. The stock project is
-not changed. Save makes a Melodee
-project (`.mldp`) that plays the samples from where they are.
+not changed. **SAVE AS** on the Project page makes a Melodee project
+(`.mldp`) that plays the samples from where they are.
 
 - Each Drum track becomes a kit track. Each sequence becomes that numbered
   pattern, with its tempo.
+- MPC 3 projects open the same way. Their Keygroup tracks become keygroup
+  tracks, and their Audio tracks become audio tracks (see
+  [Audio tracks](audio-tracks.md)).
 - Carried over: pad regions, tune, volume, pan, play type, mono, mute
   group, envelope, loop, Warp, filter, and pads with several layers.
 - Not carried over: Pad FX, insert effects, sends and songs.
@@ -110,9 +121,11 @@ taking it out.
 
 ![SD card access](../images/screens/cardaccess.png)
 
-While the card is mounted on the computer, the pads still play the selected track.
-USB audio and USB MIDI keep working. If you press **B1** before you eject
-the drive, Melodee asks whether to eject anyway.
+While the card is mounted on the computer, the pads still play the selected
+track, and **PLAY**, **STOP** and **MAIN VOLUME** still work. The other
+controls wait. USB audio and USB MIDI keep working. If you press **B1**
+before you eject the drive, the page shows **STILL MOUNTED**. Press **B1**
+again and Melodee asks whether to eject anyway.
 
 ## Files on the card
 
@@ -135,7 +148,9 @@ the drive, Melodee asks whether to eject anyway.
 | `Melodee/settings` | Melodee's settings |
 
 Melodee makes no other folders at the top of the card. `Samples/` and
-`SysEx/` there, where older versions kept them, are still read.
+`SysEx/` there, where older versions kept them, are still read. Move what
+is in `Samples/` into `Melodee/Samples`, and projects find their samples in
+the new place.
 
 ## The web page
 
@@ -151,8 +166,8 @@ four tabs:
 - **Files**: the folders on the card. Play audio files in the browser,
   download files, upload files (with **Upload** or by dropping them on the
   list), make folders and delete files or folders. The browser asks before
-  it deletes. An upload never replaces a file of the same name.
-  `autorun` and `sample-base` are not shown.
+  it deletes. An upload never replaces a file of the same name. The
+  `autorun` folder is not shown.
 - **Quickstart** and **Manual**: the quickstart and this guide. They work
   without an internet connection.
 

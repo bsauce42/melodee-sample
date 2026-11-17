@@ -1602,7 +1602,7 @@ the file holds, to the bit.
   hits at least that strong: a hit is a change in the spectrum (a drum, a hat
   over a held pad, a chord change at the same loudness), cut at the quiet
   point just before its attack, its strength against the sample's strongest
-  hit (`engine/onsets.cpp`). Beats cuts every 1-8 of the sample's own beats,
+  hit (`engine/onsets.cpp`). Beats cuts every division (1/16, 1/8, 1/4, 1/2, 1, 2 or 4 bars) of the sample's own beats,
   counted from its beat nearest the region's start (a lead-in before it a
   slice of its own), or from where its steady beat starts when that is later
   (a free intro before it, and a free ending after its last beat, one slice

@@ -15,7 +15,7 @@
 // and the tests.
 namespace melodee {
 
-// The kit a new project starts with, and a lesson plays: one of the MPC's own, on its internal storage.
+// The kit New project's KIT starts with, and a lesson plays: one of the MPC's own, on its internal storage.
 constexpr const char* factory_kit_path = "/content/Projects/Kits/Kit-SFM MPC60 Bang 75.xpj";
 constexpr const char* factory_kit_name = "MPC60 Bang";
 

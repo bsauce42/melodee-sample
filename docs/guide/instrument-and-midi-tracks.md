@@ -43,8 +43,8 @@ encoder or press **−** / **+** to move through them.
 ![SENDS](../images/screens/stagesends.png)
 
 **ARP**: **K1** mode (Up, Down, Up-down, Random, Order), **K2** rate (1/4 to
-1/32T), **K3** octaves. **SHIFT** + **K1** gate, **SHIFT** + **K2** turns the
-arpeggiator on or off, **SHIFT** + **K3** hold. The arpeggiator is separate from
+1/64T), **K3** octaves (1–4). **SHIFT** + **K1** gate, **SHIFT** + **K2**
+turns the arpeggiator on or off, **SHIFT** + **K3** hold. The arpeggiator is separate from
 **NOTE REPEAT**: Note Repeat plays every pad held together on each step.
 
 ![ARP](../images/screens/stagearp.png)
@@ -68,7 +68,8 @@ a single sample. Its pads play notes, as on a plug-in track.
 To make one: select an empty track, turn to **Keygroup** and push the
 encoder. Pick the instrument or sample in the browser. **SAMPLE SELECT** on
 the track opens the browser again to change it. **B3** (**PREVIEW**) plays
-each file when you move to it, as on a kit.
+each sample, program or instrument when you move to it, as on a kit.
+Melodee keeps the **PREVIEW** setting when you restart.
 
 | Key | Pages |
 | --- | --- |
@@ -78,15 +79,33 @@ each file when you move to it, as on a kit.
 
 ![ZONES on a keygroup track](../images/screens/keygroupzones.png)
 
-**TUNE** moves every note. A single sample that holds one note plays its own
-pitch on that note, between G3 and F#4; any other single sample plays its
-own pitch on C4 (note 60).
+**TUNE** moves every note.
 
 The fader starts on the sound's volume and can take pitch bend. A MIDI
 keyboard's pitch wheel and sustain pedal play it too.
 
 In an MPC 3 export a keygroup track is an MPC keygroup track, and an MPC 3
 project's keygroup tracks open as keygroup tracks.
+
+### A single sample's note
+
+When a sample is loaded or recorded, Melodee finds the note it holds: a bass
+note, a sung note, a synth note, or the root of a chord stab. A keygroup
+track of that one sample plays it at its own pitch on the key of that note,
+between G3 and F#4. The pads and a MIDI keyboard then play the notes they
+name.
+
+1. Make a keygroup track and load a bass note played in E.
+2. Play E4 on the pads or a MIDI keyboard. The sample plays as recorded.
+3. Play D4. The sample plays a tone lower.
+
+- A drum, a phrase, a noise or a sliding pitch has no note. It plays at its
+  own pitch on C4 (note 60).
+- An instrument (SFZ, program, EXS, DecentSampler, SoundFont) keeps the
+  notes set in its file.
+- Samples in projects saved with older versions play on C4, as before.
+- **TUNE** moves the sample from there.
+- An MPC 3 export plays the sample from the same note.
 
 ### Auto sample a plug-in
 
@@ -124,11 +143,10 @@ When it is done, the program is in **Melodee/Samples/Keygroups/<name>/**:
   an MPC on version 2 and MPC Beats. To use it there, copy the whole
   **<name>** folder and load the .xpm from inside **<name>_[TrackData]**.
 
-The first
-empty track becomes a keygroup track with the plug-in track's patterns, Song
-clips, mix and pitch bend. With **TAP** at Pre FX it also gets the plug-in
-track's effects (not plug-in effects); at Post FX the effects are in the
-samples. The plug-in track stays as it was. **SHIFT** + **−** undoes the new
+The first empty track becomes a keygroup track with the plug-in track's
+patterns, Song clips, mix and pitch bend. With **TAP** at Pre FX it also
+gets the plug-in track's effects (not plug-in effects); at Post FX the
+effects are in the samples. The plug-in track stays as it was. **SHIFT** + **−** undoes the new
 track; the files stay on the card.
 
 The check sets these for you; the sheet's chip shows the type:
@@ -200,14 +218,15 @@ plays for its hold and its release.
 
 ![The AUTO SAMPLE sheet on a MIDI track](../images/screens/autosamplemidi.png)
 
-Melodee first listens to the input with nothing playing, then plays one
-short note to measure how long the instrument takes to answer. The check
-(**CHECKING**) and the sampling follow in one go. Each sample starts where
-its sound starts.
+Melodee first listens to the input once with nothing playing, then plays
+one short note to measure how long the instrument takes to answer. The check
+(**CHECKING**) follows, and the sampling starts straight after it without
+listening to the input again. Each sample starts where its sound starts.
 
 - Do not play the instrument while it samples. Pressing **PLAY** stops it.
-- **INPUT** is the track's own audio input (the **AUDIO** page in Edit), so
-  you hear the instrument through the track. Input Config's source is not
+- **INPUT** is the track's own audio input (the **AUDIO** page in Edit; see
+  [Hear the instrument through the track](#hear-the-instrument-through-the-track)),
+  so you hear the instrument through the track. Input Config's source is not
   used and does not change; its gain applies.
 - **No sound at the input**: check the cables, the MIDI channel and
   **INPUT**.
@@ -215,7 +234,7 @@ its sound starts.
   before the first note.
 - **The input clips**: turn the instrument down and sample again.
 - The program goes on the first empty track as a keygroup track with the
-  MIDI track's patterns. The MIDI track stays as it was.
+  MIDI track's patterns, Song clips and mix. The MIDI track stays as it was.
 
 ## Keys
 
@@ -238,7 +257,8 @@ The key and scale belong to the project. The layout belongs to each track.
 
 ## Chord progressions
 
-The quickest way to chords, on any track: hold **16 LEVELS** and press
+The quickest way to chords, on any track but an audio track or one on the
+Drums layout: hold **16 LEVELS** and press
 **B2** (**CHORDS**). The pads then play the track's chord progression. Hold
 **16 LEVELS** again for **B2** (**FILE**), the progression files on the
 card, and **B3** (**SET**), to make chords of your own. See
@@ -295,11 +315,14 @@ The project keeps the progression of each track, its key and its voicing.
 A MIDI track sends its pads, patterns and arpeggiator to an external
 instrument on its own port and channel.
 
+To make one: select an empty track, turn to **MIDI** and push the encoder.
+Turn to **Out jack**, **USB-C** or **All USB** and push again.
+
 | Key | Pages |
 | --- | --- |
 | **B1** | **DEVICE**, **PROGRAM**, **CC** |
 | **B2** | **ARP**, **CHORD** |
-| **B3** | **EDIT**: opens the Edit pages (below). |
+| **B3** | **EDIT**: opens the Edit pages. |
 
 **DEVICE**: **K1** port (the MIDI Out jack, USB-C, all USB devices, or a
 USB device by name), **K2** channel. The picture shows the notes going out.
@@ -307,26 +330,65 @@ USB device by name), **K2** channel. The picture shows the notes going out.
 ![DEVICE](../images/screens/stagemidi.png)
 
 **PROGRAM**: bank MSB, bank LSB and program number. Melodee sends them
-when they change and when the track loads.
+when they change and when the track loads. **Off** sends none.
 
-**EDIT** (**B3**): every page of the MIDI track: device, program, eight
-pages of slots, the drum map (**PADS**), expression, audio in and SysEx.
-Press **SAMPLE** to go back to Stage.
+**EDIT** (**B3**): every page of the MIDI track (see
+[Edit pages on a MIDI track](#edit-pages-on-a-midi-track)). Press **SAMPLE**
+to go back to Stage.
 
-**CC**: three MIDI CCs on **K1**–**K3**. **SHIFT** + knob selects the CC
-number. Knob moves record as Motion.
+**CC**: three MIDI CCs on **K1**–**K3**. **SHIFT** + knob sets what the
+knob sends: a CC number, a 14-bit CC, pitch bend, channel pressure or an
+NRPN. Knob moves record as Motion.
 
 ![CC](../images/screens/stagemidicc.png)
 
-Edit on a MIDI track has more pages: eight **SLOTS** pages with 24 knobs
-(CC, 14-bit CC, pitch bend, channel pressure or NRPN), **EXPRESS** (pitch
-bend and pad pressure), **PADS** (Keys or Drums with General MIDI drum
-names), **AUDIO** (route an input into the track's mixer strip) and
-**SYSEX** (send a `.syx` file from the `Melodee/SysEx` folder on the card).
 **SHIFT** + **Pad 11** samples the instrument into a keygroup program; see
 [Auto sample an external instrument](#auto-sample-an-external-instrument). For
 how MIDI tracks were designed, see the
 [MIDI tracks design notes](../MIDI_TRACKS.md).
+
+### Edit pages on a MIDI track
+
+Press **B3** (**EDIT**) on Stage. **B1** and **B3** go to the page before
+and after. **B2** (**MAP**) lists every page: turn the encoder to one and
+push to open it. On a page with two rows of cards, turn the encoder to
+change rows.
+
+| Page | K1 | K2 | K3 |
+| --- | --- | --- | --- |
+| **DEVICE** | **PORT** | **CHANNEL** | **DELAY**: −50 to +50 ms |
+| **PROGRAM** | **BANK MSB** | **BANK LSB** | **PROGRAM**. Second row: this pattern's own program, sent when the pattern starts |
+| **SLOTS 1**–**8** | Three knobs a page, 24 in all. Second row: what each sends (CC, 14-bit CC, pitch bend, channel pressure or NRPN). | | |
+| **PADS** | **LAYOUT**, as on Keys | **NOTE**: on Drums, the note of the last pad played, with its General MIDI drum name | |
+| **EXPRESS** | **BEND** | **PRESSURE**: how pad pressure goes out (Poly, Channel or Off) | |
+| **AUDIO** | **INPUT** | **MONITOR** | **LEVEL** |
+| **SYSEX** | **FILE**: a `.syx` file in `Melodee/SysEx` on the card | **ON LOAD**: send it when the project loads | Push the encoder to send it now |
+
+The first three slots are the **CC** page's knobs on Stage.
+
+### Hear the instrument through the track
+
+The **AUDIO** page brings the instrument's sound back into Melodee on the
+MIDI track. It then plays through the track's level, pan, effects and sends,
+as any other track's sound does.
+
+1. Connect the instrument's audio to the rear inputs (or the mic input, or
+   USB).
+2. Select the MIDI track and press **B3** (**EDIT**) on Stage.
+3. Press **B2** (**MAP**), turn to **Audio** and push the encoder.
+4. Turn **K1** (**INPUT**) to the input the instrument is on.
+5. Play the pads. The instrument plays through the track.
+
+| Control | Action |
+| --- | --- |
+| **K1** (**INPUT**) | None, Rear L, Rear R, Rear, Mic or USB. |
+| **K2** (**MONITOR**) | On: the input plays through the track. Off: the track is silent. |
+| **K3** (**LEVEL**) | The input's level in the track. |
+
+The MPC takes sound from the mic or the rear inputs, not both at once, and
+the rear inputs come first. While another MIDI track or a Looper loop uses
+the rear inputs, a track set to **Mic** shows **IN USE** and is silent. Two
+MIDI tracks can take Rear L and Rear R.
 
 ---
 

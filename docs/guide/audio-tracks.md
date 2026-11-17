@@ -9,8 +9,11 @@ in the **Song**. The pads play nothing on an audio track.
 
 ## Make an audio track
 
-Pick **Audio**, the last of the [new track cards](tracks.md#make-a-new-track).
-Stage opens on **INPUT**.
+1. Select an empty track with **PAD BANK** + pad. Stage shows the
+   [track types](tracks.md#make-a-new-track). A new project opens on track 1
+   with the track types.
+2. Turn the encoder to **Audio**, the last card, and push it. Stage opens on
+   **INPUT**.
 
 ![The Audio card](../images/screens/stageemptyaudio.png)
 

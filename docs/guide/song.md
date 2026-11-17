@@ -13,29 +13,53 @@ cursor's bar and time, and the loop.
 | Control | Action |
 | --- | --- |
 | Encoder | Move the cursor by a bar. |
-| Pads | Select a lane. An empty track opens Stage to make it. |
+| Pads | Select a lane. An empty track opens its [new track cards](tracks.md#make-a-new-track), then comes back to Song. |
 | **K1** | Zoom (4–64 bars). |
-| **K2** / **K3** | The next clip's pattern and length, or the clip under the cursor. |
-| **B3** | Place a clip. On a clip: duplicate it after itself. |
+| **K2** / **K3** | The next clip's pattern and length (1–16 bars), or those of the clip under the cursor. |
+| **B3** | Place a clip of the pattern and length on **K2** and **K3**. On a clip: duplicate it after itself. |
 | **B2** | Mute or unmute the clip. |
-| **SHIFT** + **B2** | The clip's Motion on or off. |
-| **SHIFT** + **B3** | Make the clip's pattern its own copy. |
+| **SHIFT** + **B2** (**MOTION**) | Open the clip's pattern on the Motion page. |
+| **SHIFT** + **B3** (**OWN PATTERN**) | Make the clip's pattern its own copy. |
 | Encoder push | Open the clip's notes: Roll, or Step Edit on a kit. On empty time, place a clip. |
 | **CHOP** | Split the clip at the cursor. |
 | **ERASE** | Delete the clip. |
 | **SHIFT** + **ERASE** | Copy the clip, placed after itself. |
 | **NOTE REPEAT** | Repeat the clip up to the next marker. |
-| **LOOP** | Loop the clip's bars. |
+| **LOOP** | Loop the clip's bars. Press it again, or on empty time, to turn the loop off. |
 | **SHIFT** + encoder push | Add a marker. On a marker: name it. |
-| **−** / **+** | Jump between markers. |
+| **−** / **+** | Jump between markers (with no markers, between clip edges). |
 | **PLAY** | Play the song from the cursor. |
+| **SHIFT** + **PLAY** | After the song stopped: continue it from the bar where it stopped. |
 
-When the song plays, patterns you launch are recorded as clips.
+Each clip edit is one undo step. While the loop plays, each time it comes
+round every track's clip plays its pattern from where the song is, so a
+loop inside a longer clip stays in time. A clip you change while it plays
+is heard from the next bar.
 
-**Tempo lane**: **SHIFT** + **K1** sets the tempo from the cursor's bar.
-**SHIFT** + **K2** sets the change as a step or a ramp.
+**Tempo lane**: **SHIFT** + **K1** (**BAR TEMPO**) sets the tempo from the
+cursor's bar. Turn it below 30 (**Off**) to remove that point. **SHIFT** +
+**K2** (**SHAPE**) makes the change a **Step** at its bar or a **Ramp**
+from the point before. Before the first point, the project's tempo plays.
+With points, the lane shows over the tracks with the tempo at the cursor.
 
 ![The tempo lane](../images/screens/songtempo.png)
+
+## Record into the song
+
+With **SEQ RECORD** on while the song plays, each pattern you launch
+becomes a clip.
+
+1. Press **PLAY** on Song. The song plays from the cursor.
+2. Press **SEQ RECORD**.
+3. Launch patterns or sequences: on Patterns, on Sequences, or with **SEQ**
+   held. Each launch starts a clip on that track's lane at the next bar.
+   The clip grows a bar at a time while the pattern plays. After 16 bars a
+   new clip carries on.
+4. Press **SEQ RECORD** again, or **STOP**. Each clip ends with the bar that
+   was playing.
+
+Pad FX punches you play while recording are written into the song too.
+They end where the song ends.
 
 ## Export
 
@@ -44,7 +68,9 @@ Press **B1** (**EXPORT**):
 - **B2** exports. Turn the encoder first to choose what: a **MIXDOWN**
   (32-bit float, 24-bit or 16-bit WAV), **STEMS** (one WAV per track and
   bus, plus the mix), a **MIDI FILE**, or an **MPC 3** project. The key
-  shows the choice.
+  shows the choice. Then name the export (see
+  [Naming](projects-and-files.md#naming)). A **MIDI FILE** and an **MPC 3**
+  project also work with an empty song: they take the patterns.
 - **B3** (**PATTERN**) writes the song into new patterns, end to end.
 - **B1** (**CANCEL**) goes back to the song.
 
@@ -64,6 +90,9 @@ folder with the samples. MPC One, Live, Key, X and the MPC 3 software open it.
 - A pad playing an instrument (SFZ, MPC keygroup program, EXS, DecentSampler),
   and a sample pad its patterns play at other pitches, becomes a keygroup
   track of its own. Its notes go with it.
+- A keygroup track becomes an MPC keygroup track.
+- An audio track becomes an MPC audio track. Each pattern's take becomes an
+  audio region in its sequence.
 - A plug-in track becomes an audio track of its prints. The export prints
   each pattern with notes first, skipping prints that are up to date. The
   project needs a file for its prints: save it first.

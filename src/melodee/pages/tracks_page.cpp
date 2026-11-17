@@ -3,8 +3,8 @@
 // TRACKS (the MIX hub's B1: Pad Bank held + B1): the
 // sixteen tracks as the pads sit, each with its pattern, engine and level,
 // and the track in hand as a strip on the right (pages/track_grid.cpp): its
-// fader, meter, pan and send. A pad picks its track; K1 the track, K2 its
-// level, K3 its pan; the wheel or Minus / Plus the track, Push its Stage.
+// fader, meter, pan and send. A pad picks its track; K1 its level, K2 its
+// pan, K3 its send to bus A; the wheel or Minus / Plus the track, Push its Stage.
 // Each cell's bottom edge and the header show what a track takes of a block
 // (roadmap P2), so the heavy one is found before it crackles.
 // The MIX hub's row (shell/mix_hub.h): B1 TRACKS (here), B2 SENDS, B3 FX. Shift + B2 MOVE, Shift + B3 COPY: then a

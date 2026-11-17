@@ -37,7 +37,9 @@ page and control, read the [user guide](docs/GUIDE.md).
   Mix, Amp Env, Tune, Play, Filter, Filt Env) plus Layers, Follow (tempo
   follow), Cloud (granular) and a kit filter. Each pad has its own effects
   and sends to the four buses.
-- **Sampling**: Chop, Sample Record, Audio Recall, Resample and 16 Levels.
+- **Sampling**: Chop (by hits, regions, beats, or by hand as the sample
+  plays, up to 64 slices), Sample Record, Audio Recall, Resample and 16
+  Levels.
   Samples load from WAV, MP3, FLAC, Ogg Vorbis and AIFF files. A sample
   longer than 10 seconds plays from the card, up to 6 hours; a project holds
   as many samples as fit in memory.
@@ -72,8 +74,8 @@ page and control, read the [user guide](docs/GUIDE.md).
   shortcuts, and the 16 places laid out as the pads. Four short **lessons**
   run on the MPC itself.
 - **Basic and Full**: Basic shows the stock app's pages plus tracks,
-  plug-ins, the mixer and Song. Full shows every page. A new install starts
-  on Basic.
+  plug-ins, the mixer and Song. Full shows every page. Melodee starts on
+  Full.
 - **Web page**: connect the MPC to a computer by USB-C and open
   http://melodee.local to install updates and plug-ins, manage the card's
   files and read this guide. The MPC can also show up as a USB webcam with

@@ -9,18 +9,19 @@ On a page, turn the encoder to a row and push to open it. Turn the encoder
 to change it and push again to keep it. **−** / **+** change the row under
 the cursor at once. A page with more rows than the screen holds scrolls: a
 bar at the right edge shows where you are, with an arrow at the top or
-bottom while more rows are that way. The header shows the sample rate and buffer the audio
-runs at, and in amber the audio dropouts since Melodee started.
+bottom while more rows are that way. On the first page and on **AUDIO**,
+the header shows the sample rate and the buffer (in ms) the audio runs at,
+and in amber the audio dropouts since Melodee started.
 
 ![Settings](../images/screens/settings.png)
 
 | Page | Settings |
 | --- | --- |
 | **PADS** | Pad response (soft, medium, hard, full level), pad pressure, Repeat velocity (Strike: every repeat as hard as the pad was struck; Pressure: as hard as the pad is held), pad lights (track colours, white, off), **Pad fade** (how fast a pad's light fades after its sound stops: 60, 100, 150 or 250 ms), **Tap Tempo light** (flashes on the beat while playing, on or off) |
-| **SEQ** | **Rec quantize** (as **SHIFT** + **Pad 10**), **Follow** (Step Edit and Roll while the pattern plays: Off, Page or Step; see [Sequencing](sequencing.md)), what Double Seq copies, Capture length and grid |
+| **SEQ** | **Rec quantize** (on or off, as **SHIFT** + **Pad 10**: recorded notes land on the pattern's **Q**), **Follow** (Step Edit and Roll while the pattern plays: Off, Page or Step; see [Sequencing](sequencing.md)), what Double Seq copies, Capture length and grid |
 | **KNOBS** | Knob, Knob FX and fader takeover: Pickup, Scaled or Instant |
-| **SCREEN** | **Palette** and **Font** (see below), **Brightness** (20 to 100 %), place bar at the top or bottom, Screen mirror (on or off) and its resolution: the screen as a USB camera for a computer |
-| **AUDIO** | Sample rate (44.1, 48 or 96 kHz) and audio buffer (256 to 1024 frames). A longer buffer gives fewer crackles on a busy project. A shorter one responds sooner. |
+| **SCREEN** | **Palette** and **Font** (see below), **Brightness** (20 to 100 %), place bar at the top or bottom, Screen mirror (on or off), its resolution and frame rate: the screen as a USB camera for a computer |
+| **AUDIO** | Sample rate (44.1, 48 or 96 kHz) and audio buffer (256 to 1024 frames). A longer buffer gives fewer crackles on a busy project. A shorter one responds sooner. Under the rows: **DSP**, the audio's processor load, with the dropouts in amber, and **PDC**, how long plug-in delay compensation holds the sound back while a plug-in needs it. |
 | **SAMPLING** | Audio Recall settings, when a Free take ends on its own, and the level that counts as silence (**Silence below**) |
 | **MIDI** | MIDI Config (see [MIDI and sync](midi-and-sync.md)) |
 | **ABOUT** | How the MPC is doing: processor load, audio dropouts, card space, plug-in load. **B3** shows the version and what Melodee is built on. |
@@ -31,6 +32,18 @@ runs at, and in amber the audio dropouts since Melodee started.
 
 Settings are the same for every project. A sample rate change stops
 playback for about a second while the audio restarts.
+
+Melodee keeps the settings on the card, in `Melodee/settings`. These
+choices made outside Settings are kept there too:
+
+- **Full Level** (**SHIFT** + **Pad 1**), **Count-In** (**SHIFT** + **Pad 4**)
+  and **Rec Quantize** (**SHIFT** + **Pad 10**)
+- The metronome and its level
+- Input Config
+- Your starred sounds
+- **PREVIEW** in the sample browser, on or off
+- **BEST** (**B2**) on a sample's stems
+- How Chop's **TO PADS** plays the slices: **POLY**, **MONO** or **THRU**
 
 ## Basic and Full
 
@@ -45,16 +58,17 @@ switch: what a project holds keeps playing, and Full shows it again.
 | Area | Basic leaves out |
 | --- | --- |
 | The MENU's **GO** | **MOTION**, **SENDS** and **LOOPER**. The other places keep their pads. |
+| The MENU's **HERE** | **LOOPER**, **FREEZE** and **FOLLOW TO ALL** |
 | **SEQ** | **B3** (**MOTION**, **MOD**, **MACRO**), unless the pattern holds Motion. Follow actions and **VARY**. |
 | The mixer | **B2** (**SENDS**). Tracks keeps level, pan and send A. |
 | A kit pad's **SAMPLE** pages | **LAYERS**, **COLOUR**, **FOLLOW**, **CLOUD**, **SENDS** and **KIT FILT**. The stock app's seven pages stay: Trim, Tune, Amp Env, Play, Mix, Filter, Filt Env. |
 | Other tracks' **SAMPLE** pages | **SENDS** |
 | **LOOP** | The Looper: **LOOP** held and **LOOP** + **16 LEVELS**. A tap of **LOOP** still loops the last pad. |
 
-These still work in Basic by their own keys: Step Edit's **TRIG** and
-**EUCLID** cards, freeze (**SAMPLE RECORD** on a plug-in track), the auto
-sampler, a sample's stems (**SHIFT** + **B3** on **TRIM**), stems and MPC
-export on Song, the buses' effect chains.
+These still work in Basic by their own keys: every track type, Step Edit's
+**TRIG** and **EUCLID** cards, freeze (**SAMPLE RECORD** on a plug-in
+track), the auto sampler, a sample's stems (**SHIFT** + **B3** on
+**TRIM**), stems and MPC export on Song, the buses' effect chains.
 
 ## Palette and Font
 

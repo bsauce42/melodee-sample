@@ -1561,6 +1561,19 @@ const Preview previews[] {
          }
          s.ui.files_count = uint16_t(s.files.size()); s.ui.turning = 1; s.ui.turned_at = s.now;
      }},
+    {"samplesloadkit", [](Shell&, Snapshot& s) { // Push on an MPC kit: LOAD KIT, its bank A (16 pads) into bank C, B (1 pad) left out
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.sample_root = "/media/card/Melodee/Samples";
+         s.files_folder = s.sample_root + "/Drums"; s.files_top = false;
+         SampleFile f;
+         f.path = s.files_folder + "/Drum Kit.xpm"; f.name = "DRUM KIT"; f.kit = true;
+         s.files.push_back(f);
+         s.ui.files_count = 1; s.ui.files_cursor = 0;
+         s.ui.sheet_open = true; s.ui.sheet_row = 4; // BANK C
+         auto& k = s.ui.kit_sheet;
+         std::snprintf(k.name, sizeof(k.name), "Drum Kit");
+         k.pads[0] = 16; k.pads[1] = 1;
+         k.into[2] = 0;
+     }},
     {"samplespreview", [](Shell&, Snapshot& s) { // B3 on: the file under the cursor fills its row as it plays, 1.2 of 3.1 s
          s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.settings.preview = true; s.ui.files_cursor = 5; s.sample_root = "/media/card/Melodee/Samples";
          s.files_folder = s.sample_root; s.files_top = false;
@@ -2674,7 +2687,10 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
         // The pattern in view follows the track the preview picked (unless it set one of its own).
         const auto& track = snapshot->project.tracks[snapshot->ui.track];
         if (snapshot->pattern == before) snapshot->pattern = shell.patterns().at[snapshot->ui.track][track.pattern];
-        for (int scale : {1, 2}) {
+        // MELODEE_PREVIEW_SCALE: one more size beside 1x and 2x (4: the docs' drawings, as <name>@4x.png).
+        std::vector<int> scales {1, 2};
+        if (auto* v = std::getenv("MELODEE_PREVIEW_SCALE"); v && std::atoi(v) > 2 && std::atoi(v) <= 8) scales.push_back(std::atoi(v));
+        for (int scale : scales) {
             juce::Image image(juce::Image::ARGB, screen_width * scale, screen_height * scale, true);
             std::vector<ui::TextIssue> issues;
             ui::audit_text(scale == 1 ? &issues : nullptr);
@@ -2689,7 +2705,7 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
                             i.text.toRawUTF8(), double(i.size), double(i.needed), double(i.box));
                 ++text_issues;
             }
-            save_png(image, folder + "/" + preview.name + (scale == 2 ? "@2x" : "") + ".png");
+            save_png(image, folder + "/" + preview.name + (scale == 1 ? std::string() : "@" + std::to_string(scale) + "x") + ".png");
         }
         ++written;
     }

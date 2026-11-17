@@ -7,7 +7,9 @@ in place of the stock app. It changes nothing on the MPC itself.
 
 A Melodee **project** has:
 
-- **16 tracks**, one for each pad. A track is one of these types:
+- **16 tracks**, one for each pad. A new project has none: it opens on
+  track 1 with the track types (see [Make a new track](tracks.md#make-a-new-track)).
+  A track is one of these types:
   - **Kit** (SAMPLER): 128 pads in 8 banks (A–H), each pad playing a sample
     or a sampled instrument.
   - **Keygroup** (KEYGROUP): one sampled instrument, or one sample, played
@@ -41,6 +43,10 @@ Around the project:
 - **Plug-ins** go in `Melodee/Plugins` on the card. The plug-in picker
   can also load one from any folder on the card (see
   [Plug-ins](plug-ins.md)).
+- **The card**: everything Melodee makes is in the `Melodee` folder, such
+  as projects in `Melodee/Projects` and samples in `Melodee/Samples`. The
+  only other folder Melodee needs at the card's top is `autorun` (see
+  [Files on the card](projects-and-files.md#files-on-the-card)).
 - **The web page**: connect the MPC to a computer with USB-C and open
   **http://melodee.local** while Melodee runs. Its tabs are **Device**
   (updates and plug-in zips), **Files** (the card's files), **Quickstart**

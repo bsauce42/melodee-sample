@@ -5,9 +5,8 @@
 // K1 source (Mic, Rear, Rear L / R, Resample, USB, USB L / R, then each
 // track with a sound: shell/input_choices.h; Shift + K1 its tap), K2 rec length
 // (Free, Seq, Melodee's 1-16 bars), K3 threshold (-96 dB: at once; Shift +
-// K3 Melodee's gain); B1 back, as on every sheet, B2 monitor (Off, Auto while
-// Record is in view, On; its LED amber on Auto, green on On), B3 Rec Input FX
-// (LED). Record's cards are the same ones, so the two pages always agree. The
+// K3 Melodee's gain); B1 monitor (Off, Auto while Record is in view, On; its
+// LED amber on Auto, green on On), B2 Rec Input FX (LED). Record's cards are the same ones, so the two pages always agree. The
 // picture is the back panel: the sources as the sockets they are (the mic,
 // the rear jacks, USB-C, then Melodee's own sound: Resample and a track),
 // the one chosen glowing with its lead running into the stereo meter and

@@ -19,6 +19,22 @@ on **Tracks** (see [The Tracks page](tracks.md#the-tracks-page)). Tracks,
 Sends and the effect chains share one row of keys: **B1** (**TRACKS**),
 **B2** (**SENDS**) and **B3** (**FX**).
 
+### Level meters
+
+The meter lights right of the screen show the mix, left and right, before
+**MAIN VOLUME**. On Record and Input Config, and while a take waits or
+runs, they show the input instead. They light as on the stock MPC Sample:
+
+| Light, from the bottom | Lights above |
+| --- | --- |
+| 1, green | −24.1 dBFS |
+| 2, green | −12.1 dBFS |
+| 3, green | −6.1 dBFS |
+| 4, yellow | −3.1 dBFS |
+| 5, red | −0.1 dBFS |
+
+A level shows at once and falls back by 60 dB a second.
+
 ## Sends
 
 Press **B2** (**SENDS**) on Tracks or on an effect chain to
@@ -200,7 +216,9 @@ pattern is in: a row for each punch, where it sounds.
 - **B3** (**KEEP**) records the punches of the last pass into the pattern.
   They play back with it and end where the pattern ends. **ERASE** + pad
   removes a pad's kept punches.
-  **ERASE** + **B3** removes them all (asks first).
+  **ERASE** + **B3** removes them all (asks first). Punches kept on a track
+  go with it when you move the track (see
+  [Select a track](tracks.md#select-a-track)).
 - **SHIFT** + **B3** (**QUANTIZE**) turns quantize on or off. On (the
   default), a punch pressed while the sequence plays starts on the next
   line of the **SNAP** grid. Off, it starts at once, and the header shows

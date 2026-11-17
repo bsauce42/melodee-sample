@@ -40,7 +40,7 @@ To install Melodee:
    the next time the plug-in picker opens. See
    [Plug-ins](guide/plug-ins.md) for what runs.
 4. Put the card in the MPC and switch it on. The stock app starts first. A
-   few seconds later Melodee starts.
+   few seconds later Melodee starts, with a new project open on track 1.
 
 Melodee changes nothing on the MPC itself. To stop it from starting, delete
 the `autorun` folder from the card.
@@ -91,8 +91,9 @@ To select a track, hold **PAD BANK** and press a pad. This works on any
 page.
 
 A new project has no tracks. It opens on track 1 with the track types, so
-you choose what it is first (see [step 7](#7-add-a-plug-in-instrument)). The
-other tracks stay empty until you choose what they are.
+you choose what it is first ([step 4](#4-load-samples-into-a-kit) makes it a
+kit). The other tracks stay empty until you choose what they are (see
+[step 7](#7-add-a-plug-in-instrument)).
 
 To see all tracks as a mixer, press **PAD FX** and **KNOB FX** together to
 open **Tracks**.
@@ -108,13 +109,17 @@ Melodee reads WAV (16, 24 or 32-bit), MP3, FLAC, Ogg Vorbis and AIFF files (any 
 a WAV up to 6 hours) from `Melodee/Samples` on the card, or anywhere else on it. It can
 also read the MPC's internal factory samples.
 
-1. Select track 1 (hold **PAD BANK**, press pad 1).
-2. Press **SAMPLE SELECT**. The sample browser opens.
+1. Select track 1 (hold **PAD BANK**, press pad 1). In a new project it
+   shows the track types.
+2. Turn the encoder to **Drum** and push it, then push it on **Card**.
+   Track 1 is now a kit, and the sample browser opens. On a track that is already a
+   kit, press **SAMPLE SELECT** to open the browser.
 3. Turn the encoder to move through the list. Push the encoder to open a
    folder. Press **B1** to go back out of a folder.
 4. Press **B2** to switch between the card (**CARD**) and the MPC's
    factory samples (**INTERNAL**).
 5. Press **B3** to turn on **PREVIEW**. Each file plays when you move to it.
+   **PREVIEW** stays on until you turn it off.
 6. Hit the pad you want to load onto, then push the encoder on a file. The
    file loads onto the last pad you hit.
 
@@ -125,6 +130,8 @@ To load a file onto the next empty pad, hold **SHIFT** and press any pad.
 The browser also loads SFZ, MPC programs and expansions, EXS24, SoundFont
 and DecentSampler instruments onto a pad. See
 [Sampled instruments](guide/kits-and-sampling.md#sampled-instruments).
+Push on an MPC kit to open **LOAD KIT**: it loads the whole kit, or only the
+banks you pick. See [Loading samples](guide/kits-and-sampling.md#loading-samples).
 
 ## 5. Edit a pad
 
@@ -154,12 +161,13 @@ To chop a sample into slices, press **CHOP**. See [Chop](guide/kits-and-sampling
 
 ## 6. Record a beat
 
-1. Press **SEQ** to open **Sequences**. If Roll or Motion opens instead,
-   press **B1** (**SEQUENCES**). The bank's 16 sequences are laid out as
+1. Press **SEQ** to open **Sequences**. If Patterns, Roll or Motion opens
+   instead, press **B1** (**SEQUENCES**). The bank's 16 sequences are laid out as
    the pads: pad 1 bottom left. A sequence is one number on every track:
    sequence 1 is pattern 1 of each track.
-2. Hold **SEQ** and use **K1** to set the pattern length in bars, **K2**
-   the grid (Q) and **K3** the swing. They set the selected track's pattern.
+2. Hold **SEQ** and use **K1** to set the pattern length in bars and **K2**
+   the grid (Q) of the selected track's pattern. **K3** sets the swing of
+   the project.
 3. To change to another sequence, press its pad. Pad 1 is sequence 1. Every
    track goes to that number, and a track with no notes there is silent. On
    other pages, hold **SEQ** and press a pad.
@@ -183,8 +191,8 @@ Each take is one undo step. Press **SHIFT** + **−** to undo it.
 Recording options:
 
 - **SHIFT** + **Pad 4**: turn the one-bar count-in on or off.
-- **SHIFT** + **Pad 10**: turn **Rec Quantize** on or off. Notes land on
-  the pattern's Q.
+- **SHIFT** + **Pad 10**: turn **Rec Quantize** on or off. It is on at
+  first: recorded notes land on the pattern's Q.
 - **SHIFT** + **TAP TEMPO**: set the metronome to Off, On or Rec.
 
 To edit the notes, press **B2** (**ROLL**) for the piano roll, or **SHIFT** +

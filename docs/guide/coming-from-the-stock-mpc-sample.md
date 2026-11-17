@@ -47,12 +47,13 @@ stock app's pages plus tracks, plug-ins, the mixer and Song (see
   (**SAVE AS**) saves it under a new name.
 - Knob FX, Pad FX, Flex Beat and the master compressor work as on the stock
   app, with the stock effects in the stock order.
+- The level meters light at the stock app's levels.
 
 ## What is different
 
 | On the stock app | In Melodee |
 | --- | --- |
-| A project is one kit. | A project has 16 tracks. A new project has none: it opens on track 1 with the track types. Each track can be a kit, a keygroup, a plug-in instrument, a MIDI track or an audio track. |
+| A project is one kit. | A project has 16 tracks. Each track can be a kit, a keygroup, a plug-in instrument, a MIDI track or an audio track. A new project has none: it opens on track 1 with the track types. To start with the MPC's factory kit on track 1, press **B3** (**NEW**) on the Project page, then **B2** (**KIT**). |
 | **PAD BANK** held + Pads 1–8 jumps to bank A–H. | **PAD BANK** held + pad selects track 1–16. To jump banks, hold **PAD BANK** and turn the encoder or press **−** / **+**. |
 | **SAMPLE** opens Sample mode. | **SAMPLE** opens **Stage**, the selected track's sound pages, from any page. On a kit, Stage has the Sample mode pages. On Stage, **SAMPLE** goes back to **B1**'s first page. Hold **SAMPLE** to see the track's pads: **Pads** on a kit, **Keys** on an instrument. |
 | In Sequence mode the pads select sequences. | The same: **SEQ** opens **Sequences**, and the pads launch a sequence on every track. You can also hold **SEQ** and press a pad on any page. **B2** and **B3** open **Roll** and **Motion**. |
@@ -61,8 +62,8 @@ stock app's pages plus tracks, plug-ins, the mixer and Song (see
 | Projects are on the internal drive. | Melodee's projects are on the card in `Melodee/Projects`. On the project list, **B2** (**INTERNAL**) shows the internal drive. Stock projects open as copies (see [MPC Sample projects](projects-and-files.md#mpc-sample-projects)). |
 | **SHIFT** + **KNOB FX** (FX Select) picks pad effects. | **SHIFT** + **KNOB FX** opens the effect chains: Track, Bus, Master and, on a kit, Pad. |
 | **SHIFT** + **SEQ RECORD** brings the last loop into the sequence. | **SHIFT** + **SEQ RECORD** (Recall) puts the last phrase you played on every track into each track's next empty pattern. |
-| **SAMPLE RECORD** records a sample. | On a kit, the same. On a plug-in or MIDI track, **SAMPLE RECORD** opens the **PRINT** sheet, which freezes the track to audio (see [Freeze a track](tracks.md#freeze-a-track)). On an audio track it opens the track's **INPUT**. |
-| No looper. | Press **LOOP** and **16 LEVELS** together to open the **Looper**. |
+| **SAMPLE RECORD** records a sample. | On a kit, the same. On a keygroup, plug-in or MIDI track, **SAMPLE RECORD** opens the **PRINT** sheet, which freezes the track to audio (see [Freeze a track](tracks.md#freeze-a-track)). On an audio track it opens the track's **INPUT**. |
+| No looper. | Press **LOOP** and **16 LEVELS** together to open the **Looper** (in Full). |
 | No mixer. | Press **PAD FX** and **KNOB FX** together to open the mixer: **Tracks**, **Sends** and the effect chains. |
 | Power off with **POWER**. | A short press of **POWER** opens the Exit screen: stay, power off, or go back to the stock app. |
 
@@ -75,11 +76,12 @@ These are the actions stock users look for first.
 1. **Pick a track before you play.** The pads play the selected track. Hold
    **PAD BANK** and press a pad to choose one. The header shows the selected
    track on the right.
-2. **Use the kit as before.** Track 1 is a kit. **SAMPLE SELECT**, **SAMPLE**,
-   **CHOP**, **SAMPLE RECORD** and **16 LEVELS** work on the kit as on the
-   stock app.
+2. **Make a kit and use it as before.** In a new project, track 1 shows the
+   track types: push the encoder on **Drum**, then on a source. **SAMPLE
+   SELECT**, **SAMPLE**, **CHOP**, **SAMPLE RECORD** and **16 LEVELS** work on
+   the kit as on the stock app.
 3. **Hold SEQ to change sequences.** A tap of **SEQ** opens **Sequences** (or
-   Roll or Motion, if one of them was open last on the track). Holding
+   Patterns, Roll or Motion, if one of them was open last on the track). Holding
    **SEQ** turns the pads into the sequences, from any page. Every track
    changes at the next bar, or at once when stopped.
 

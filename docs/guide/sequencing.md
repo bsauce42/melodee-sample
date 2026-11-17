@@ -31,7 +31,9 @@ it to put a track on a pattern of its own, different from the other tracks.
 out as the pads. Press a pad to launch the pattern in that cell on the
 selected track only. The header shows the sequence in view (**SEQ 2**), with
 its name when it has one. The sequence in view is the number the selected
-track is on.
+track is on. When there is room, the header also shows the bank
+(**BANK A**) and Rec Quantize: a magnet with **ON** or **OFF**. A track at
+another speed shows its speed (**×2**) on the right.
 
 ![Patterns](../images/screens/patterns.png)
 
@@ -54,8 +56,8 @@ light as the cells.
 | --- | --- |
 | Pad | Launch the selected track's pattern at the next bar (at once when stopped). |
 | Hold a pad + pad | Copy the pattern. |
-| **ERASE** + pad | Clear the pattern (asks first). |
-| **ERASE** alone | Clear the selected track's pattern (asks first). |
+| **ERASE** + pad | Clear the pattern: its notes and Motion (asks first). |
+| **ERASE** alone | Clear the selected track's pattern the same way (asks first). |
 | **SHIFT** + **ERASE** | Copy a pattern: press the pattern, then where it goes (on this or another track). |
 | **SHIFT** + pad | The printed **SHIFT** jobs. |
 | Encoder | Select the previous / next track. |
@@ -63,7 +65,7 @@ light as the cells.
 | Encoder push | Launch the sequence of the selected track's pattern on every track. |
 | **PAD BANK** | Pattern bank A–H. The bank LEDs show it. |
 | **−** / **+** | Select the previous / next track. |
-| **K1** | Pattern length: 1, 2, 4 … 128 bars. **SHIFT**: any number of bars. |
+| **K1** | Pattern length: 1, 2, 4 … 128 bars. **SHIFT**: any number of bars. Notes past a shorter length are kept and play again when the pattern is longer. |
 | **K2** | Grid (Q): 1/4 to 1/64, with triplets. **SHIFT**: time signature. |
 | **K3** | Swing (50–75 %). **SHIFT**: metronome level. |
 | **SHIFT** + **B1** | **SEQUENCE**: the sequence's tempo and name. |
@@ -73,15 +75,19 @@ light as the cells.
 **SHIFT** + **B1** or **B2** again goes back to the pattern cards. **B1**
 goes to Sequences.
 
+**SHIFT** + **PLAY** continues from where playback stopped: the selected
+track's place in its pattern, also on a track at another speed.
+
 **VARY**
 
 ![VARY](../images/screens/patternsvary.png)
 
 - Turn the encoder to pick Thinner, Busier, Humanised, Reversed, Octave up
-  or Octave down.
-- **K1** sets the amount.
+  or Octave down. Octave up and Octave down are not available on a kit.
+- **K1** sets the amount of Thinner, Busier and Humanised.
 - Push the encoder or press **B3** (**DO IT**) to write the result into the
-  next empty pattern. **B1** (**BACK**) closes the sheet.
+  next empty pattern. It plays from the next bar. **B1** (**BACK**) closes
+  the sheet.
 
 ## Hold SEQ
 
@@ -107,8 +113,9 @@ Some jobs with **SEQ** held work on the selected track's pattern:
 
 - Hold a pad and press another to copy the pattern. Hold a pad, step the
   bank and press a pad to copy across banks.
-- **ERASE** + pad clears the pattern (asks first). **SHIFT** + **ERASE**
-  copies a pattern: press the pattern, then where it goes.
+- **ERASE** + pad clears the pattern's notes and Motion (asks first).
+  **SHIFT** + **ERASE** copies a pattern: press the pattern, then where it
+  goes.
 - **SEQ RECORD** starts a new take in the track's next empty pattern.
 - **SAMPLE RECORD** freezes or thaws patterns. See
   [Freeze a track](tracks.md#freeze-a-track).
@@ -122,6 +129,7 @@ number on a pad shows its place in the chain.
 
 On the Patterns page, **SEQ** held keeps the pads on the selected track's
 patterns: a pad launches that track only, and a chain is that track's.
+**SHIFT** + pad launches the whole sequence.
 
 ## Record
 
@@ -142,7 +150,8 @@ step. Turn a knob while recording to record it as Motion.
 - **SHIFT** + **TAP TEMPO**: metronome Off, On, or Rec (only while
   recording).
 - **SHIFT** + **Pad 10**: **Rec Quantize** on or off, as on the stock MPC.
-  Notes land on the pattern's Q (**K2** on Patterns).
+  Notes land on the pattern's Q (**K2** on Patterns). The Patterns header
+  shows a magnet with **ON** or **OFF**.
 - Hold **PLAY** while playing: Fill. Notes with a FILL condition play.
 - **ERASE** + **SEQ RECORD** on a kit: erase all notes of the selected pad
   (asks first).
@@ -150,7 +159,12 @@ step. Turn a knob while recording to record it as Motion.
 **Recall** (**SHIFT** + **SEQ RECORD**): Melodee always keeps the notes you
 play, recording or not. Recall puts the last phrase into patterns: every
 track that played goes into its next empty pattern, and those patterns
-start playing. This is one undo step.
+start playing. This is one undo step. In [Settings](settings.md) (**SEQ**),
+**Capture bars** sets how many bars Recall takes and **Capture quantize**
+how it places the notes.
+
+While the song plays, **SEQ RECORD** also writes the patterns you launch
+into the song. See [Record into the song](song.md#record-into-the-song).
 
 ## The pattern editors
 
@@ -160,6 +174,9 @@ start playing. This is one undo step.
 The header of Roll, Motion and Step Edit names the pattern they edit
 (**P20**). It is amber while the track plays another pattern. The cards
 that belong to one pattern name it too: **P20 LENGTH**, **P20 Q**.
+
+A MIDI keyboard playing the track writes notes on Roll and Step Edit as the
+pads do.
 
 **Roll**
 
@@ -177,12 +194,15 @@ Roll is a piano roll. On a kit, each row is a pad.
   **SHIFT** + **K1**: nudge the note early or late.
 - Hold a pad on the note under the cursor and turn **K1**–**K3** to lock
   Motion lanes on it.
-- **ERASE** pressed alone deletes the note under the cursor.
+- **ERASE** pressed alone deletes the note under the cursor. **ERASE** + pad
+  deletes every note of that pad's key (asks first).
 - Push the encoder for the note sheet: accent, slide, tie and delete as
   cards. Turn the encoder to pick one and push it. **B1** closes it.
-- Press **ROLL** again for the note's ratchet.
+- Press **ROLL** again for the note's **TRIG** cards: **K1** ratchet, **K2**
+  ramp, **K3** trig condition, as on Step Edit. Press **ROLL** again to go
+  back.
 - On a kit with 16 Levels on, Roll shows the 16 Levels pad, a row for each
-  pitch.
+  pitch. The rows are named from the sample's own note when it has one.
 
 **Marked notes**: hold **SHIFT** and turn the encoder to mark notes one by
 one. The header shows how many (**4 SEL**). Let go of **SHIFT**, and the
@@ -216,9 +236,11 @@ cursor. They work on Step Edit too:
   next.
 - **SHIFT** + **LOOP** reverses them (with none marked, the notes in view).
 - **SHIFT** + **NOTE REPEAT** writes the track's arp over each chord as
-  notes.
-- **LOOP** plays only the bars in view over and over, until you press
-  **LOOP** again or leave the editor.
+  notes. Not on kit pads.
+- **LOOP** plays only the bars in view over and over (on Roll with notes
+  marked, their bars), also on a track at another speed. It stops when you
+  press **LOOP** again, leave the editor, or select another track or
+  pattern.
 
 **Follow**: with **Follow** set in [Settings](settings.md) (**SEQ**),
 Step Edit and Roll move with the playhead while the pattern plays:
@@ -255,7 +277,8 @@ PLAY mode (step entry):
 - The encoder moves the caret through every bar.
 - **K1** length, **K2** velocity (Played uses your velocity), **K3** chance
   of what a pad writes.
-- **ERASE** + pad erases all of that pad's events (asks first).
+- **ERASE** + pad erases all of that pad's events (asks first). **ERASE**
+  pressed alone deletes the note at the caret.
 
 STEPS mode:
 
@@ -270,9 +293,10 @@ STEPS mode:
   parameter lock). Turn the encoder to change its pitch; on a kit this moves
   the note to the next pad.
 - **K1** length, **K2** velocity, **K3** chance of the step. On a kit,
-  **SHIFT** + **K1** sets the lane length, so a pad's lane can loop at its
-  own length.
-- **ERASE** + pad clears the step.
+  **SHIFT** + **K1** (**LANE**) sets the pad's lane length. See
+  [Lanes of their own length](#lanes-of-their-own-length).
+- **ERASE** + pad clears the step. **ERASE** pressed alone clears the
+  caret's step.
 
 ![A step lock](../images/screens/stepslock.png)
 
@@ -305,8 +329,8 @@ In both modes:
 **Motion**
 
 Motion shows the pattern's recorded knob movements as lanes. To record
-Motion, turn a knob while **SEQ RECORD** is on. To clear a lane, press
-**ERASE** + the knob (asks first).
+Motion, turn a knob while **SEQ RECORD** is on. To clear a lane, hold
+**ERASE** and turn its knob (asks first).
 
 ![Motion](../images/screens/motion.png)
 
@@ -321,8 +345,47 @@ and **B2** stay **SEQUENCES** and **ROLL** on all three.
   once, each between its own low and high value.
 - **SHIFT** + **B3** (**ADD**) assigns the last knob you turned to the
   modulator or macro in view.
+- **−** / **+** select the modulator or macro. Turn the encoder to pick a
+  target. Push the encoder or press **ERASE** to remove it.
+
+| Page | **K1** | **K2** | **K3** |
+| --- | --- | --- | --- |
+| **MOD** | Modulator 1–8 | Rate (a follower: rise) | The target's depth |
+| **MOD**, **SHIFT** | Off, LFO or Follow | LFO shape, or the follower's source | Free or Sync (a follower: fall) |
+| **MACRO** | Macro 1–8 | Its value | The target's high end |
+| **MACRO**, **SHIFT** | | | The target's low end |
 
 ![An LFO modulator](../images/screens/modlfo.png)
+
+## Lanes of their own length
+
+On a kit, each pad's lane can loop at a length of its own, shorter than the
+pattern. A hi-hat lane of 6 steps in a 16-step pattern goes round on its
+own against the other pads.
+
+![A lane of 6 steps](../images/screens/stepslane.png)
+
+1. Press **SHIFT** + **SEQ** to open Step Edit.
+2. Press **SHIFT** + **B1** (**PADS**) for STEPS mode.
+3. Hold **SAMPLE** and press the pad whose lane you want to set.
+4. Hold **SHIFT** and turn **K1** (**LANE**) to set the lane's length in
+   steps. **All** is the pattern's length.
+
+The header shows the lane's length (**LANE 6**). The steps past its end are
+dark, and the playhead goes round with the lane.
+
+| Control | Action |
+| --- | --- |
+| **SHIFT** + **K1** in STEPS mode | Set the lane's length: 1 step to **All**. |
+| **SHIFT** + **K1** on the **EUCLID** cards | The same. |
+
+- The lane starts with the pattern, then loops on its own. Trig conditions
+  count the lane's own passes.
+- **SEQ RECORD** and Note Repeat write the lane's notes where the lane plays
+  them.
+- Time Correct and the pattern's feel keep the lane's notes inside the
+  lane.
+- Notes past the lane's end are kept but not played.
 
 ## Time Correct
 
@@ -334,13 +397,22 @@ without moving the notes.
 - **K1** grid, **K2** strength, **K3** swing.
 - **SHIFT** + **K1** humanize, **SHIFT** + **K2** velocity humanize,
   **SHIFT** + **K3** groove amount.
-- Press a pad to take the groove from another pattern of the track.
+- Press a pad to take the groove from another pattern of the track. Press
+  it again to take the groove off.
 - **B3** (**QUANTIZE**) turns it off and on, to compare.
 - **B2** (**ALL**) applies the same settings to the track's other patterns.
 - Press **SHIFT** + **Pad 14** again to close it.
 
-**SHIFT** + **Pad 2** / **Pad 3** halve / double the pattern length.
-**SHIFT** + **Pad 6** / **Pad 7** play it at half / double speed.
+## Half and double
+
+| Control | Action |
+| --- | --- |
+| **SHIFT** + **Pad 2** (Half Seq) | Halve the pattern's length. What lies in the second half is removed. |
+| **SHIFT** + **Pad 3** (Double Seq) | Double the pattern's length. The new half is a copy of the first, or empty: **Double Seq** in [Settings](settings.md) (**SEQ**). |
+| **SHIFT** + **Pad 6** (Half Speed) | Each note twice as far from the start and twice as long. The length stays: notes moved past the end are removed. |
+| **SHIFT** + **Pad 7** (Double Speed) | Each note half as far from the start and half as long. The length stays. |
+
+Motion and kept Pad FX punches go with the notes. Each is one undo step.
 
 ## Sequences and follow actions
 

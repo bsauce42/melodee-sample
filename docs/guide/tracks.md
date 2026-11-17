@@ -15,7 +15,10 @@ it is held, on any page.
 
 - Press **B1** (**TRACKS**) to open the Tracks page.
 - Press **B2** (**MOVE**), then a track, then a pad to move the track there.
-  A track already there swaps places with it.
+  A track already there swaps places with it. The track takes its sound,
+  patterns and mixer strip, and everything that refers to it: its Song
+  clips, Looper sources, Knob FX tracks, sidechain keys, the Pad FX punches
+  kept in any pattern, and **MOD** and **MACRO** lanes.
 - Press **B3** (**COPY**) or **SHIFT** + **ERASE**, then a track, then a pad
   to copy the track there.
 - During a move or copy the screen shows the tracks. **B1** (**BACK**) steps
@@ -41,7 +44,7 @@ from 60 %, red from 85 %).
 | Control | Action |
 | --- | --- |
 | Pads | Select a track. An empty track opens its [new track cards](#make-a-new-track). |
-| Encoder | Select a track. |
+| Encoder, **−** / **+** | Select a track. |
 | **ERASE** + pad | Clear that track (asks first). |
 | **K1** | Level of the selected track. |
 | **K2** | Pan of the selected track. |
@@ -50,7 +53,7 @@ from 60 %, red from 85 %).
 | Fader | Level of the selected track. |
 | Encoder push | Open the track's Stage. |
 | **B1** | Come back to Tracks from Sends or an effect chain. |
-| **B2** | Open Sends. |
+| **B2** | Open Sends (Full only). |
 | **B3** | Open the effect chains (press again for the next chain). |
 | **SHIFT** + **B2** / **B3** | Move / copy a track. |
 
@@ -60,6 +63,8 @@ page. A frozen track shows a snowflake in its cell (see
 [Freeze a track](#freeze-a-track)).
 
 ## Make a new track
+
+A new project has no tracks: it opens on track 1 with the track types.
 
 Select an empty track with **PAD BANK** + pad, or press **SAMPLE** on an
 empty track. Stage shows the track types as on the MPC: **Drum**,
@@ -93,7 +98,12 @@ Drum and MIDI show their sources next. Push makes the card in the middle.
 
 Until the track is made, the other buttons wait. **PLAY**, **STOP** and
 **TAP TEMPO** still work, and **PAD BANK** + pad selects another track.
-On the types, **B1** (**CANCEL**) selects the nearest track that is not empty.
+To reach Project or Settings, hold the encoder for the
+[Menu](basics.md#the-menu), press **B3** (**GO**), then pad 14 (Project)
+or pad 15 (Settings).
+
+On the types, **B1** (**CANCEL**) selects the nearest track that is not
+empty. When every track is empty, **B1** has no job.
 
 When you pick an empty track with a pad (on Tracks, with **PAD BANK** held,
 or on a Song lane), Stage opens and, once the track is made, you go back to

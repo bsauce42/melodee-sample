@@ -8,6 +8,9 @@ memory is full, a sample longer than 2 seconds plays from the card instead. A
 shorter one is not loaded: its pad stays silent and **Memory full** shows on
 the screen.
 
+To empty a pad, or to close the gap an empty pad leaves, see
+[Erase and copy](basics.md#erase-and-copy).
+
 ## Stage on a kit
 
 Press **SAMPLE** to open Stage. On a kit, Stage shows the pages of the last
@@ -144,6 +147,10 @@ you hit.
 | **SHIFT** + pad | Load the file onto the next empty pad. |
 | **ERASE** | Delete the file or folder under the cursor from the card. Melodee asks first: **B3 DELETE**, **B1 CANCEL**. |
 
+In a folder, MPC kits come first, then instruments, then folders, then
+samples. Push on a MIDI file (a note icon, **MIDI**) puts its notes on the
+track's pattern in place of the notes there.
+
 **ERASE** deletes for good; undo does not bring a file back.
 
 - A folder goes with everything in it.
@@ -189,30 +196,13 @@ icon and its type at the right.
 | --- | --- |
 | SFZ | `.sfz`, shown as **SFZ** |
 | MPC keygroup program | `.xpm` (**XPM**), or `.xty` from MPC 3 (**XTY**) |
-| MPC drum program | `.xpm` or `.xty` with a pads icon: Push opens **LOAD KIT** (below) |
+| MPC drum program | `.xpm` or `.xty` with a pads icon: Push opens **LOAD KIT** (see [Loading banks of an MPC kit](#loading-banks-of-an-mpc-kit)) |
 | MPC expansion | `.xpn` with a down arrow: installs into `Melodee/Samples/Expansions` |
 | Logic EXS24 / Sampler | `.exs` (**EXS**), with its samples in the same folder |
 | SoundFont | `.sf2` (**SF2**): opens as a folder of presets |
 | DecentSampler | `.dspreset` (**DS**): opens with its controls as its own screen sets them |
 
 ![Instruments in the browser](../images/screens/samplesinstruments.png)
-
-### Loading banks of an MPC kit
-
-Push on an MPC drum program opens **LOAD KIT**. Its header shows the kit's
-filled banks and how many pads each has. The wheel moves between the cards
-and Push presses one.
-
-| Card | What it does |
-| --- | --- |
-| **LOAD** | Puts the banks picked below into this kit, as one undo |
-| **WHOLE KIT** | Loads the whole kit as the track's kit, with its pad colours and sends |
-| **BANK A** to **BANK H** | Your kit's banks. Push steps through the kit's filled banks, then none. |
-
-At first, the bank in view takes the kit's first filled bank. Only the kit's
-filled pads are loaded: the other pads and banks of your kit stay as they
-are. A bank card in red replaces pads you already have. B1 goes back
-without loading.
 
 An instrument streams from the card. One made of WAV files opens at once:
 its files are played as they are. FLAC, Ogg, AIFF and SoundFont samples are
@@ -250,9 +240,39 @@ A bank file saves one bank of 16 pads, with their settings and effects.
 
 ![Bank files in the browser](../images/screens/banks.png)
 
+### Loading banks of an MPC kit
+
+**LOAD KIT** puts banks of an MPC drum program (`.xpm` or `.xty`, a pads
+icon in the browser) into banks of your kit. Only the program's filled pads
+are loaded: the other pads and banks of your kit stay as they are.
+
+![LOAD KIT](../images/screens/samplesloadkit.png)
+
+1. Select bank C with **PAD BANK**.
+2. Press **SAMPLE SELECT**, move to the MPC kit and push the encoder.
+   **LOAD KIT** opens. **BANK C** reads `from A · 16 pads`: the kit's first
+   filled bank goes into the bank in view.
+3. To add the kit's bank B as your bank D, turn to **BANK D** and push
+   until it reads `from B`.
+4. Turn to **LOAD** and push.
+
+The header shows the kit's filled banks and how many pads each has. Turn
+the encoder to move between the cards; push it to press one.
+
+| Card | What it does |
+| --- | --- |
+| **LOAD** | Puts the banks picked below into your kit, as one undo. |
+| **WHOLE KIT** | Loads the whole program as the track's kit, with its pad colours and sends, in place of every pad you have. |
+| **BANK A** to **BANK H** | Your kit's banks. Push steps through the program's filled banks, then none. |
+
+A card in red replaces pads you already have. **B1** (**BACK**) closes the
+sheet without loading.
+
 ## Chop
 
-Press **CHOP** to slice the last pad's sample. The pads play the slices.
+Press **CHOP** to slice the last pad's sample. The pads play the slices: tap
+a pad to play its slice and select it. Press **CHOP** again to go back to
+**TRIM**. Chop does not work on a sampled instrument.
 
 ![Chop](../images/screens/chop.png)
 
@@ -260,96 +280,133 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | --- | --- |
 | **K1** / **K2** | Start / end of the selected slice. |
 | **K3** | Chop type: Threshold, Regions, Beats or Manual. |
+| **SHIFT** + **K3** | The amount for that type: threshold, number of slices or division. |
 | Encoder | Move the selected slice's start in fine steps (its end after **K2**). |
 | **SHIFT** + encoder | Move that cut to the next or previous hit. |
 | **−** / **+** | The slice before / after. |
-| **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
-| **SHIFT** + **K1** / **K2** | Zoom. |
-| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru. |
+| **SHIFT** + **K1** / **K2** | Zoom in at the slice's start / end. |
+| **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). **SHIFT** + **PAD BANK**: the 16 before. |
 | **B1** (**CANCEL**) | Leave without changing the pads. |
-| **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
-| **SHIFT** + **B2** / **B3** | Split / merge slices. |
-| **ERASE** + pad | Remove a slice: it joins the one before (pad 1's joins the one after); the pads after it move down one. |
-| **ERASE** + **CHOP** | Take every cut out and start over. |
-| **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
+| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru. |
+| **SHIFT** + **B1** (**EXTRACT**) | Save the slice as a new file in `Melodee/Samples/Edits` and put it on the next empty pad. **SHIFT** + **ERASE** does the same. |
+| **SHIFT** + **B2** (**SPLIT**) | Split the slice in two. |
+| **SHIFT** + **B3** (**MERGE**) | Join the slice to the one before. |
+| **ERASE** + pad | Take a slice out: it joins the one before (pad 1's joins the one after), and the pads after it move down one. **ERASE** on its own takes out the selected slice. |
+| **ERASE** + **CHOP** | Take every cut out. |
 
-With more than 16 slices, the pads show the bank of the selected slice, and
-the bank lights show which. Selecting a slice with **−** / **+** moves the
-pads to its bank.
+Every cut lands on a zero crossing, so slices do not click.
 
-**Fixing a cut**: tap the slice's pad. It plays once and its start is
-selected (the wider line; bottom left reads **START**). Turn the encoder to
-move it, or hold **SHIFT** and turn to jump it from hit to hit (the small
-marks along the bottom of the waveform). A jump stays between the cuts on
-either side; with no hit left that way, the cut stays put. The screen zooms
-in on the cut while you turn;
-when you stop, you hear it once, from just before the cut into the slice
-(for an end: the slice's last second). To move where the slice ends, turn **K2**: the encoder then
-moves the end (**END**) until you tap another pad. The next pad, **−** / **+**
-or **K1** / **K2** zoom back out. **SHIFT** + **K1** / **K2** set a zoom of
-your own, which stays.
+With more than 16 slices, the pads show the bank of the selected slice. The
+bank lights and the header (**BANK B**) show which. Selecting a slice with
+**−** / **+** moves the pads to its bank.
 
-**Threshold chop**: cuts at every hit at least as strong as the threshold.
-A hit is a change in the sound: a drum, a hat over a held note, or a chord
-change at the same loudness. Each cut lands just before the hit's attack.
+### Fixing a cut
+
+1. Tap the slice's pad. It plays once and its start is selected: the wider
+   line, with **START** at the bottom left.
+2. Turn the encoder to move the start. The screen zooms in on the cut. When
+   you stop, you hear the cut once, from just before it into the slice.
+3. To jump the cut from hit to hit, hold **SHIFT** and turn the encoder. The
+   hits are the small marks along the bottom of the waveform.
+
+![Fixing a cut, zoomed in](../images/screens/chopfine.png)
+
+- To move the slice's end, turn **K2**. The encoder then moves the end
+  (**END**) until you select another slice. You hear the slice's last
+  second.
+- A jump stays between the cuts on either side. With no hit left that way,
+  the cut stays where it is.
+- The next pad, **−** / **+** or **K1** / **K2** zoom back out. **SHIFT** +
+  **K1** / **K2** set a zoom of your own, which stays.
+
+### Chop types
+
+**Threshold chop**: cuts at every hit at least as strong as the threshold
+(0–100 %: the higher, the fewer slices). A hit is a change in the sound: a
+drum, a hat over a held note, or a chord change at the same loudness. Each
+cut lands just before the hit's attack.
+
+**Regions chop**: cuts the region into 2 to 64 equal slices.
 
 **Beats chop**: Melodee finds the sample's own tempo and where its beats
 fall when it loads. Beats cuts a slice every division: 1/16, 1/8, 1/4 (one
-beat), 1/2, 1 bar, 2 bars or 4 bars (**SHIFT** + **K3**; a bar follows the
-project's time signature). It counts from the beat nearest the region's
-start, so a lead-in before the first beat gets a slice of its own. A free
-intro or ending with no steady beat stays one slice. The tempo shows at the
-top right. Each cut lands on the hit at that place, if there is one. To cut
-on the bar, set the region's start near the bar's first beat. A sample with
-no steady beat uses the project's tempo. A chop holds at most 64 slices: if
-a division needs more, the last slice runs to the end, and Melodee says so.
+beat), 1/2, 1 bar, 2 bars or 4 bars (a bar follows the project's time
+signature). It counts from the beat nearest the region's start, so a
+lead-in before the first beat gets a slice of its own. A free intro or
+ending with no steady beat stays one slice. The tempo shows at the top
+right. Each cut lands on the hit at that place, if there is one. To cut on
+the bar, set the region's start near the bar's first beat. A sample with no
+steady beat uses the project's tempo.
 
-**Manual chop**: set **K3** to Manual. With no cuts yet, pad 1 blinks red
-(with cuts already there, they stay as they are; **ERASE** + **CHOP**
-takes them all out to start over). Tap the red pad 1: the sample plays and pad 2 blinks red. Tap the red pad on each
-hit you want to cut at; the red moves on to the next pad. After pad 16 the
-pads switch to bank B and its pad 1 blinks red, up to bank D (64 slices).
-While it plays, only the red pad cuts. Tap a lit pad to go back: the
-sample plays again from that slice and the cuts after it are taken out.
-When the sample has played to the end, the take is done and the pads play
-the slices. Stop a take before the end (press another button, turn a knob or
-leave Chop) and the sound stops, but the red stays on the next pad: tap it
-to play on from the last cut and keep cutting. **UNDO** takes back a whole
-take at once.
+A chop holds at most 64 slices: if a type needs more, the last slice runs to
+the end, and Melodee says so.
 
-**Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
-**SHIFT** + **B2** Split, or Manual's taps) stays when you change the chop
-type, threshold, division or number of regions. It shows in the track's
-colour with a tab on top. A cut you take out (**ERASE** + pad, **SHIFT** +
-**B3** Merge) stays out. Hand cuts are saved in the sample's file with its
-slices, so they are kept after a restart too. Where an automatic cut would
-land just next to a hand cut (a beat line a little before your tap), the hand
-cut wins and no sliver is left. A new Manual take (pad 1) starts over.
+### Manual chop
 
-**TO PADS** asks how the slices play, as Simpler's Playback. Turn the
-encoder to choose and push it to put the slices on pads. It starts on your
-last choice. **B1** goes back.
+Manual cuts where you tap the pads while the sample plays.
 
-- **POLY**: slices play over each other.
-- **MONO**: one slice at a time. The slices share a mute group.
-- **THRU**: one slice at a time, and each plays on to the end of the region,
-  so a slice's pad carries the loop on from there.
+![A Manual take](../images/screens/chopmanual.png)
 
-MONO and THRU use the chopped pad's mute group, or the first free one.
-Slices put on pads keep the chopped pad's tune, Warp, mute group and other
-settings. Press **CHOP** again to return to **TRIM**.
+1. Set **K3** to Manual. The cuts the other types made are taken out; your
+   hand cuts stay (see [Hand cuts](#hand-cuts)). With no cuts, pad 1 blinks
+   red. To start over on a chop with cuts, press **ERASE** + **CHOP**.
+2. Tap pad 1. The sample plays and pad 2 blinks red.
+3. Tap the red pad on each hit you want to cut at. The red moves on to the
+   next pad. After pad 16 the pads switch to bank B and its pad 1 blinks
+   red, up to bank D (64 slices).
+4. Let the sample play to the end. The take is done and the pads play the
+   slices.
+
+- While the take plays, only the red pad cuts. Each cut moves onto the
+  strongest hit just before your tap.
+- Tap a lit pad to go back: the sample plays again from that slice, and the
+  cuts after it are taken out.
+- To stop a take before the end, press another button, turn a knob or leave
+  Chop. The red stays on the next pad: tap it to play on from the last cut.
+- Undo (**SHIFT** + **−**) takes back a whole take.
+
+### Hand cuts
+
+A cut you make or move with **K1**, **K2**, the encoder, **SHIFT** + **B2**
+(**SPLIT**) or a Manual take is a hand cut. Hand cuts stay when you change
+the chop type, threshold, division or number of slices. They show in the
+track's colour with a tab on top. A cut you take out with **ERASE** or
+**SHIFT** + **B3** (**MERGE**) stays out. Where an automatic cut would
+land just next to a hand cut, the hand cut wins and no sliver is left.
+**ERASE** + **CHOP** takes out the hand cuts too.
+
+### Slices on pads
+
+1. Press **B3** (**TO PADS**). The sheet shows the number of slices and the
+   first empty pad they go on, such as **from A05**. It starts on your last
+   choice.
+2. Turn the encoder to **POLY**, **MONO** or **THRU**:
+   - **POLY**: slices play over each other.
+   - **MONO**: one slice at a time. The slices share a mute group.
+   - **THRU**: one slice at a time, and each plays on to the end of the
+     region, so a slice's pad carries the loop on from there.
+3. Push the encoder. The slices go on the empty pads from that pad on, and
+   Stage opens.
+
+**B1** (**BACK**) closes the sheet. MONO and THRU use the chopped pad's mute
+group, or the first free one. Slices put on pads keep the chopped pad's
+tune, Warp, mute group and other settings.
+
+### Slices in the WAV file
 
 As on the MPC, slices belong to the sample and are stored in its WAV file.
-Slices made on an MPC load with the file, from an MPC project or from
-**Samples**. When you change the slices, Melodee writes them back into the
-WAV file, so the MPC and other projects using the file see the same slices.
-**CHOP** on any pad of a chopped sample shows its slices, with the pad's
-slice selected.
+Melodee also stores the chop type, its amount and your hand cuts there, so
+they are kept after a restart. When you change the slices, Melodee writes
+them back into the WAV file, so the MPC and other projects using the file
+see the same slices. Slices made on an MPC load with the file, from an MPC
+project or from the sample browser. They open as a Manual chop, with every
+cut a hand cut. **CHOP** on any pad of a chopped sample shows its slices,
+with the pad's slice selected. A sample that is not a WAV file keeps its
+slices only while the project is open.
 
 Each slice has its own start and end, so gaps between slices stay.
 **K1** or **K2** moves an edge alone across a gap, and moves both slices
-where two slices touch. A sample that is not a WAV file keeps its slices
-only while the project is open.
+where two slices touch.
 
 ## Record a sample
 
@@ -359,8 +416,9 @@ Press **SAMPLE RECORD** on a kit to open **Record**.
 
 1. Use **K1** to choose the source, **K2** the length (Free, Seq, or 1–16
    bars) and **K3** the threshold.
-2. Tap a pad. Recording starts at the threshold, or when the pattern comes
-   round if the length is Seq.
+2. Tap a pad, or push the encoder to record onto the first empty pad.
+   Recording starts at the threshold, or when the pattern comes round if
+   the length is Seq. To start at once, push the encoder again.
 3. Tap other pads during the take to cut it there.
 4. To stop, tap the pad again, press **STOP** or push the encoder. To stop
    and open **TRIM**, press **SAMPLE RECORD**.
@@ -399,11 +457,13 @@ the pads play that track.
   the next empty pad.
 - **Resample** (**SHIFT** + **Pad 11**, then a pad): records the selected
   pattern with every track playing onto the pad you press. On the Song page,
-  it records the song.
+  it records the song. On a plug-in or MIDI track, **SHIFT** + **Pad 11**
+  opens **AUTO SAMPLE** instead (see
+  [Auto sample a plug-in](instrument-and-midi-tracks.md#auto-sample-a-plug-in)).
 - **Trim Sample** (**SHIFT** + **Pad 13**): save the pad's region as a new
-  file and set the pad to all of it.
-- **Save Sample** (**SHIFT** + **SAMPLE SELECT**): save the pad's region as
-  a WAV file in `Melodee/Samples`.
+  file in `Melodee/Samples/Edits` and set the pad to all of it.
+- **Save Sample** (**SHIFT** + **SAMPLE SELECT**): name the pad's region and
+  save it as a WAV file in `Melodee/Samples`.
 
 ## Stems
 
@@ -423,7 +483,7 @@ its music (all other instruments) and its vocals.
 ![STEMS](../images/screens/stems.png)
 
 With **BEST** on, a 13-second sample takes about 40 seconds and a
-60-second sample about 2 minutes; with it off, about 15 and 40 seconds.
+60-second sample under 2 minutes; with it off, about 15 and 40 seconds.
 You can leave the sheet and keep playing while the job runs. To stop it,
 press **B1** (**CANCEL**) on the sheet.
 

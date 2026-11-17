@@ -13,7 +13,7 @@
 // goes back out, B2 picks the drive (the card, or the internal one: the
 // factory categories and the stock app's samples, read only), B3 hears each
 // file as the cursor lands on it. Shift + pad loads the file onto the
-// kit's next empty pad (here instead of the printed Shift + pad jobs). K2
+// kit's next empty pad (here instead of the printed Shift + pad jobs). K1
 // jumps. The pads play the kit.
 #include "melodee/shell/smf_jobs.h"
 #include "melodee/pages/common.h"
