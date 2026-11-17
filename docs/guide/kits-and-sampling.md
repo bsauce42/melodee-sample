@@ -476,9 +476,9 @@ Levels on or off.
 
 In Scale and Chords, a sample that holds one note, such as a bass note, a
 sung note or a synth note, plays from that note, so pad 1 plays the root of
-the key. Melodee finds the note when the sample is loaded or recorded. A
-drum, a phrase or a chord plays as if it were a C, as do the samples of
-projects saved with older versions.
+the key. A chord stab plays from its chord's root. Melodee finds the note
+when the sample is loaded or recorded. A drum or a phrase plays as if it
+were a C, as do the samples of projects saved with older versions.
 
 While 16 Levels is on a kit pad, a MIDI keyboard plays that pad on every key.
 On a sample that holds one note, each key plays its own note. On other

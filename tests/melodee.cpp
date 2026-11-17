@@ -17409,6 +17409,14 @@ void sample_roots() {
     for (int note : {60, 67, 60, 67}) { const auto t = tone(hz(note), 0.3, 6, 1); two.insert(two.end(), t.begin(), t.end()); }
     CHECK(!find_root(noise).found() && !find_root(phrase).found() && !find_root(two).found());
     CHECK(find_root(tone(hz(96), 1, 1, 0)).pitch_class == 0); // C7
+    // Chord stabs: a minor chord never repeats exactly, so it is read as a chord, its root where the bass is.
+    auto chord = [&](std::initializer_list<int> notes) {
+        std::vector<float> x(66150);
+        for (int note : notes) { const auto t = tone(hz(note), 1.5, 6, 0.5); for (size_t n = 0; n < x.size(); ++n) x[n] += t[n] / float(notes.size()); }
+        return find_root(x);
+    };
+    CHECK(chord({57, 60, 64}).pitch_class == 9 && chord({48, 51, 55}).pitch_class == 0); // Am, Cm
+    CHECK(chord({45, 60, 64, 67}).pitch_class == 9); // Am7 over its root, not C6
     CHECK(!find_root(std::vector<float>(44100)).found() && !find_root(tone(hz(60), 0.06, 5, 0)).found()); // silence, a blip
 
     // 16 Levels on a G sample in C minor: pad 1 plays it up to C, a chord's C4 and MIDI's C4 the same.

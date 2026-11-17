@@ -1651,7 +1651,12 @@ the file holds, to the bit.
   (`engine/root_find.cpp`): the normalized square difference in 93 ms
   windows over its loud part at 22.05 kHz, A0 to C8; a note when at least
   half the loud windows repeat clearly and 70% of those agree on a pitch
-  class (none for a drum, a noise, a phrase, a gliding pitch, most chords). Kept with the slot
+  class. Where it has no one pitch (a minor chord never repeats exactly) the
+  peaks' pitch classes from 50 Hz to 5 kHz, moved by the sound's tuning, are
+  fitted to chord shapes in 186 ms windows, the bass breaking ties between
+  shapes of the same notes (Am7 over A, not C6); a root when the windows hold
+  steady (cosine 0.95 window to window) and 70% agree. None for a drum, a
+  noise, a phrase, a gliding pitch. Kept with the slot
   (`SampleRef::root`, SMPL's byte after the name; a file without it: none, so
   older projects play as before) and found once, when a file first lands in
   a slot. 16 Levels Scale and Chords, MIDI into 16 Levels, Roll's row names
