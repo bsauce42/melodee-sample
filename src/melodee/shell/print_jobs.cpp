@@ -38,10 +38,7 @@ void Context::print(const PrintAsk& ask) {
     job.project = std::make_unique<Project>(project);
     job.bank = std::make_unique<PatternBank>(patterns);
     if (plugins) job.states = plugins->states();
-    if (library) {
-        auto root = library->root();
-        job.card_top = root.empty() ? std::string() : std::filesystem::path(root).parent_path().string();
-    }
+    if (library) job.card_top = library->card();
     job.known = prints;
     if (!printer->start(std::move(job))) printer->note("busy: a print is under way");
 }
@@ -180,10 +177,7 @@ void Context::print_tick() {
         job.project = std::make_unique<Project>(project);
         job.bank = std::make_unique<PatternBank>(patterns);
         if (plugins) job.states = plugins->states();
-        if (library) {
-            auto root = library->root();
-            job.card_top = root.empty() ? std::string() : std::filesystem::path(root).parent_path().string();
-        }
+        if (library) job.card_top = library->card();
         job.known = prints;
         bool empty = job.patterns.empty();
         if (empty || printer->start(std::move(job))) freeze_waiting &= ~(1u << t);

@@ -78,7 +78,7 @@ Each loop is in one state: **Empty**, **Armed** (waits for its boundary),
   (rendered on the service thread while it plays on; Push again cancels),
   then the overdub starts. Fitting forgets the undo; a loop too long for its
   memory at the new tempo cannot be fitted.
-- **Commit to pad** (kit tracks): the loop as `Samples/Looper/L<n> Loop m.wav`
+- **Commit to pad** (kit tracks): the loop as `Melodee/Samples/Looper/L<n> Loop m.wav`
   (the number counts up) onto the selected kit's next empty pad, one undo;
   **+ note** also writes one note at bar 1 of the kit's pattern as long as
   the loop, and stops the loop. A loop recording or overdubbing cannot be

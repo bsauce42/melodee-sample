@@ -118,6 +118,7 @@ the drive, Melodee asks whether to eject anyway.
 | Folder | Contents |
 | --- | --- |
 | `autorun/` | Melodee itself. Do not change it. |
+| `Melodee/Samples/` | Your samples. Melodee writes `Recorded/`, `Edits/`, `Banks/`, `Looper/`, `Expansions/`, `Keygroups/` (auto sampled programs) and `Stems/` (a sample's stems) here. |
 | `Melodee/Projects/` | Projects (`.mldp`), and each project's `Loops`, `Prints` and `Audio` folders |
 | `Melodee/Mixdowns/` | Song mixdowns |
 | `Melodee/Stems/` | A song's stems |
@@ -129,9 +130,11 @@ the drive, Melodee asks whether to eject anyway.
 | `Melodee/Plugins/` | VST3, LV2, CLAP and VST2 plug-ins |
 | `Melodee/Plugin Data/` | Plug-in settings and presets |
 | `Melodee/Crashes/` | Crash reports, one file a crash (see [Troubleshooting](exit-and-troubleshooting.md#troubleshooting)) |
+| `Melodee/SysEx/` | `.syx` files for MIDI tracks |
 | `Melodee/settings` | Melodee's settings |
-| `Samples/` | Your samples. Melodee writes `Recorded/`, `Edits/`, `Banks/`, `Looper/`, `Expansions/`, `Keygroups/` (auto sampled programs) and `Stems/` (a sample's stems) here. |
-| `SysEx/` | `.syx` files for MIDI tracks |
+
+Melodee makes no other folders at the top of the card. `Samples/` and
+`SysEx/` there, where older versions kept them, are still read.
 
 ## The web page
 

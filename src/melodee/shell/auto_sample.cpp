@@ -107,7 +107,7 @@ void Context::autosample(unsigned track, const AutoSampleSettings& settings, boo
     job.project = std::make_unique<Project>(project);
     job.bank = std::make_unique<PatternBank>(patterns);
     if (plugins) job.states = plugins->states();
-    job.card_top = fs::path(root).parent_path().string();
+    job.card_top = library->card();
     if (outside) { // in real time: nothing else may play the instrument, and the input's ring hears the track's input
         if (host.playing()) stop();
         job.external = true;
@@ -136,7 +136,7 @@ bool Context::autosample_check(unsigned track, const AutoSampleSettings& setting
     job.project = std::make_unique<Project>(project);
     job.bank = std::make_unique<PatternBank>(patterns);
     if (plugins) job.states = plugins->states();
-    if (library && !library->root().empty()) job.card_top = fs::path(library->root()).parent_path().string();
+    if (library) job.card_top = library->card();
     return printer->start(std::move(job));
 }
 

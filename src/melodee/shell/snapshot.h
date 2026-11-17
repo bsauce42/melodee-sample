@@ -84,7 +84,7 @@ struct Snapshot {
     bool monitoring = false, speaker_quieted = false;
     uint8_t usb_state = 0;             // UsbStreamState
     std::vector<SampleFile> files;     // Samples: the folder listed
-    std::string sample_root;           // the card's Samples folder; empty: no card
+    std::string sample_root;           // the card's Samples folder, Melodee/Samples; empty: no card
     std::string files_folder;          // the folder listed (empty: the internal drive's categories)
     bool files_top = true;             // nothing above it (B1 has no job)
     PluginRack::View plugins;          // the PLUG-INS picker: the folder listed

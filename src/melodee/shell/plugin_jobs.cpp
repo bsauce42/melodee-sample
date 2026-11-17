@@ -259,10 +259,7 @@ int Context::plugin_in_focus() const {
 
 void Context::plugins_tick(uint32_t at) {
     if (!plugins) return;
-    if (library) { // the card's top folder, from the sample library's Samples folder beside Plugins
-        auto root = library->root();
-        plugins->set_card(root.empty() ? std::string() : std::filesystem::path(root).parent_path().string());
-    }
+    if (library) plugins->set_card(library->card()); // the card's top folder, as the sample library found it
     split_shared_plugins();
     plugins->sync(project, plugins_asleep());
     delete_tick(*this); // the picker listed again once a plug-in is deleted (shell/delete_jobs.h)

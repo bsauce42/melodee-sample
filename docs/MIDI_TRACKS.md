@@ -311,7 +311,8 @@ roadmap's rules (docs/ROADMAP.md "Decisions made by sessions"):
   reaches it by learning its pot (fader C), not a new Pitch Bend target.
 - **Drum map** on PADS: K1 the layout, K2 the last pad's note; names are
   General MIDI's (shortened to fit a pad), not typed.
-- **SysEx** files live in the card's `SysEx` folder (K1 picks one), not
+- **SysEx** files live in the card's `Melodee/SysEx` folder (K1 picks one;
+  `SysEx` at the card's top, where older builds read them, too), not
   beside the project; sent whole in 256-byte pieces through the base's
   existing send (no base change), paced at 320 µs a byte on the jacks, and
   every other message waits behind it.

@@ -409,7 +409,7 @@ beat; the meters show the mix.
   (Pad Bank, bank lights). Pads show the chord's short name (C#m9; a slash
   bass on a second line), the file's Root chord in the track's colour, a pad
   with no chord dark. The encoder walks the card's progressions
-  (Melodee/Progressions, Progressions, Samples/Expansions) and shows the
+  (Melodee/Progressions, Progressions, Melodee/Samples/Expansions, Samples/Expansions) and shows the
   name large for 1.5 s; K1 KEY moves every chord (−6..+5 semitones, names
   follow), K2 VOICING File / Close / Open / Spread, −/+ the octave (OCT 2
   plays the file's notes). A chord holds up to eight notes
@@ -562,7 +562,7 @@ a mix strip (level, pan, mute, solo, send and bus) and a chain of six.
 - **Kept**: with the project, as `<project> Loops/Loop N.wav` beside its
   file (hidden on Project, and moved, renamed, duplicated and deleted with
   it); a loop saved stopped comes back stopped. **Commit to pad** (a kit
-  track selected): `Samples/Looper/L<n> Loop m.wav` onto the kit's next empty
+  track selected): `Melodee/Samples/Looper/L<n> Loop m.wav` onto the kit's next empty
   pad, one undo; + note writes a note at bar 1 as long as the loop (the
   pattern made long enough) and stops the loop.
 
@@ -1073,8 +1073,8 @@ program when LEVEL is −1 dB (its loudest sample at -1 dB, 24 dB at
 most), and the program `<name>.xpm` beside them: the MPC 2
 XML with the MPC's own layout (128 instruments, four layers each, the
 program's pads JSON, pad note and group maps; a loop is a slice loop).
-The WAVs and the .xpm are in `Samples/Keygroups/<name>/<name>_[TrackData]/`,
-and `Samples/Keygroups/<name>/<name>.xty` beside that folder is the same
+The WAVs and the .xpm are in `Melodee/Samples/Keygroups/<name>/<name>_[TrackData]/`,
+and `Melodee/Samples/Keygroups/<name>/<name>.xty` beside that folder is the same
 program as MPC 3's track file (`write_mpc3_track()`, `shell/mpc3_export.h`:
 the MPC 3 export's Keygroup track on its own, gzip under a
 SerialisableTrackData header). MPC 3 looks for a track file's samples in
@@ -1353,7 +1353,7 @@ the file holds, to the bit.
   (KIT) first, then instruments (XPM, XTY, SFZ), then folders, then files;
   an expansion's `[Previews]` and a program's own `_[TrackData]` are not
   listed; wheel and −/+ move, Push opens a folder or loads onto the last pad
-  (keeping its settings), B1 back out, B2 the drive (CARD from `Samples`,
+  (keeping its settings), B1 back out, B2 the drive (CARD from `Melodee/Samples`,
   or INTERNAL: the factory categories and the stock app's User folder, read
   only; each drive keeps its folder and row, so B2 there and back lands
   where it was), B3 PREVIEW (its LED) plays each file as the cursor lands (its row
@@ -1488,7 +1488,7 @@ the file holds, to the bit.
   (`mpc_pad_colours()`, `PadSound::colour`, saved in PCOL, a bank's BCOL).
   Shift + pad on it says Push loads a kit.
 - **MPC expansions** (`.xpn`, tagged INSTALL): Push installs one onto the card,
-  a file a pass, into `Samples/Expansions/<its title>` (from its
+  a file a pass, into `Melodee/Samples/Expansions/<its title>` (from its
   `Expansion.xml`), then opens that folder; a file already there at its size
   is kept, so installing again only finishes what was left. B3 PREVIEW on a
   program plays its own preview, `[Previews]/<program file>.mp3` or `.wav`,
@@ -1496,7 +1496,7 @@ the file holds, to the bit.
   nearest middle C and a kit stays quiet.
 - **Banks** (kit tracks only): one bank of a kit's sixteen pads as a file.
   **Save Bank** is Shift + Sample Select on Samples: the Name sheet (the kit's
-  name and bank letter first), then `Samples/Banks/<name>.mldb` with every
+  name and bank letter first), then `Melodee/Samples/Banks/<name>.mldb` with every
   pad's values, its own chain and the paths of the files it plays (nothing
   is copied). Bank files show in the browser tagged BANK; **Push** on one
   loads it into the bank in view (Pad Bank picks it): its sixteen pads and
@@ -1610,7 +1610,7 @@ the file holds, to the bit.
   them (A 1-16 ... D 49-64). Hold to fix: a slice's pad held 400 ms stops
   what plays and zooms to about 120 ms round its start (chip FIX CUT); the
   wheel moves that cut, and 150 ms after the wheel is still its first
-  250 ms play once (nothing repeats); letting go puts the zoom back. Shift + B1 Extract (`Samples/Edits/<NAME>-Slice n.wav`
+  250 ms play once (nothing repeats); letting go puts the zoom back. Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
   takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's
@@ -1664,9 +1664,9 @@ the file holds, to the bit.
   the MPC 3 export's layer root) play it from that note, the nearest way
   from C.
 - **Trim Sample** (Shift + Pad 13): the region as
-  `Samples/Edits/<NAME>-Trimmed.wav` in a new slot, the pad onto all of it;
+  `Melodee/Samples/Edits/<NAME>-Trimmed.wav` in a new slot, the pad onto all of it;
   one undo; then Stage's TRIM. **Save Sample** (Shift + Sample Select on a kit): the Name
-  sheet, then `Samples/<name>.wav`; the pad unchanged.
+  sheet, then `Melodee/Samples/<name>.wav`; the pad unchanged.
 - **Input Config** (Shift + Sample; B2 on Record): K1 source (Mic, Rear,
   Rear L, Rear R, Resample, USB, USB L, USB R, then **Track n** for each
   track with a sound of its own: a synth, another kit; not the kit
@@ -1694,7 +1694,7 @@ the file holds, to the bit.
   round: a track source's own pattern); other pads tapped during the take
   cut it there. The pad again, Stop or Push ends it and Record stays;
   Sample Record ends it and opens Stage's TRIM.
-  `Samples/Recorded/TAKE n.wav`: with a card it is written there as it is
+  `Melodee/Samples/Recorded/TAKE n.wav`: with a card it is written there as it is
   recorded, so a Free take goes on past the 60 s the recorder's buffer holds
   (up to 6 hours; a card that cannot keep up cuts it short, and says so),
   and it is loaded from the file once done, a long one played from the
@@ -1707,14 +1707,14 @@ the file holds, to the bit.
   Free, the take ends on its own after a quiet stretch (Settings: Take auto
   end), cut 10 ms after the last sound; Push or Stop end it sooner.
 - **Audio Recall** (Shift + Sample Record): the source always fills a 25 s
-  ring; this copies it out as `Samples/Recorded/RECALL n.wav` onto the next
+  ring; this copies it out as `Melodee/Samples/Recorded/RECALL n.wav` onto the next
   empty pad, cut as Settings says: the last phrase (after the last quiet gap
   of Recall gap, the default), from the first sound, or the whole 25 s;
   the quiet after the last sound left out unless Recall trim end is off.
   One undo.
 - **Resample** (Shift + Pad 11, then a pad): the selected track's pattern
   with every track playing, rendered in real time onto that pad
-  (`Samples/Recorded/RESAMPLE n.wav`, written there as it plays, up to 6 hours,
+  (`Melodee/Samples/Recorded/RESAMPLE n.wav`, written there as it plays, up to 6 hours,
   then loaded from it; without a card 60 s, in memory). One undo. On **Song**
   (roadmap P3) it is the song's: from bar 1 to its end, once, loop or not,
   on through its tails as the mixdown plays it, onto the pad tapped (the
@@ -1728,7 +1728,7 @@ the file holds, to the bit.
   slower, better separation below; B3 SEPARATE (or Push) starts it, B1
   calls it off, and it goes on
   with the sheet closed (the pads play the kit meanwhile). The files are
-  `Samples/Stems/<NAME> DRUMS.wav`, `<NAME> BASS.wav`, `<NAME> MUSIC.wav`
+  `Melodee/Samples/Stems/<NAME> DRUMS.wav`, `<NAME> BASS.wav`, `<NAME> MUSIC.wav`
   and `<NAME> VOCALS.wav`, 44.1 kHz and as long as the sample to the frame.
   They land together on those pads, one undo, each pad as the sample's pad
   was at SEPARATE: its region, loop, tune, warp, envelope and filter, and
@@ -1971,7 +1971,7 @@ while following.
   AUDIO: an input (Rear L / R, Rear, Mic, USB) as the track's sound
   through its strip, chain, sends, stems and bounce, MONITOR and LEVEL;
   IN USE while the ADC is routed to the other input. SYSEX: a `.syx` from
-  the card's `SysEx` folder (K1), ON LOAD, Push sends it in pieces paced
+  the card's `Melodee/SysEx` folder (K1), ON LOAD, Push sends it in pieces paced
   for the jacks while everything else waits behind it.
 
 ### Project and system
@@ -2478,9 +2478,15 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
 - `Melodee/settings`: Melodee's settings, MIDI Config, Input Config, the
   favourites, the project to open at start (`start=`) and the one last
   opened or saved (`last=`), opened at start when none is set.
-- `Samples/`: loaded from anywhere under it; Melodee writes `Recorded/`,
-  `Edits/` and saved samples there, bank files in `Banks/`, committed
-  loops in `Looper/`, and a sample's stems in `Stems/`.
+- `Melodee/Samples/`: loaded from anywhere under it; Melodee writes
+  `Recorded/`, `Edits/` and saved samples there, bank files in `Banks/`,
+  committed loops in `Looper/`, expansions in `Expansions/`, auto sampled
+  programs in `Keygroups/`, and a sample's stems in `Stems/`
+  (`samples_folder()`, model/card_folders.h). Older builds wrote these to
+  `Samples/` at the card's top: still browsed, and a project's sample saved
+  there opens from the same place in `Melodee/Samples` once it is moved
+  (`card_sample_path()`, followed as each slot loads; the project saves the
+  new path).
 - `autorun/melodee/stems/`: the program Stems runs and its model (above,
   "Stems"), part of the release.
 - `Melodee/Cache/*.f32`: an instrument's FLAC, Ogg, AIFF and SoundFont
@@ -2495,8 +2501,11 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
   files are. Safe to delete: each is made again when its sample next loads.
 - `Melodee/Projects/**/<project> Loops/Loop N.wav`: a project's loops.
   `Melodee/Mixdowns/` holds song mixdowns, `Melodee/Stems/` stems,
-  `Melodee/MIDI/` MIDI files, `SysEx/` (at the card's top) a MIDI track's
-  `.syx` files.
+  `Melodee/MIDI/` MIDI files, `Melodee/SysEx/` a MIDI track's `.syx`
+  files (`SysEx/` at the card's top, where older builds read them, too).
+
+Melodee makes no folder at the card's top: what it writes is under
+`Melodee/`. `autorun/` is the release's, which the stock firmware starts.
 
 Nothing is created on the card until something is saved. On a host,
 `$MELODEE_PROJECTS`, `$MELODEE_SAMPLES`, `$MELODEE_INTERNAL` and

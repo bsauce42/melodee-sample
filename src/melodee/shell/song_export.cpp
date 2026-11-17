@@ -73,10 +73,7 @@ void Context::mpc3_tick() {
         job.project = std::make_unique<Project>(project);
         job.bank = std::make_unique<PatternBank>(patterns);
         if (plugins) job.states = plugins->states();
-        if (library) {
-            auto root = library->root();
-            job.card_top = root.empty() ? std::string() : std::filesystem::path(root).parent_path().string();
-        }
+        if (library) job.card_top = library->card();
         job.known = prints;
         if (!printer->start(std::move(job))) return; // busy after all: the next pass
         mpc3_pending &= ~(1u << t);

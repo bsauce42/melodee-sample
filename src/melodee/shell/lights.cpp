@@ -36,10 +36,22 @@
 #include "surface/led_colours.h"
 #include "melodee/shell/mpc_wav_slices.h"
 #include "melodee/model/slice_banks.h"
+#include "melodee/model/card_folders.h"
 #include <algorithm>
 #include <cstdio>
 
 namespace melodee {
+
+namespace {
+// A sample saved in Samples at the card's top, where older builds wrote samples, and since moved into Melodee/Samples:
+// its slot names it there before it loads (model/card_folders.h), and the project is saved with that path.
+void follow_moved_sample(Project& project, unsigned slot, const SampleLibrary& library) {
+    const auto& ref = project.samples[slot % sample_slots];
+    if (!ref.used() || ref.path[0] != '/') return;
+    const std::string now = card_sample_path(library.card(), ref.path);
+    if (now != ref.path && now.size() < sizeof(SampleRef::path)) std::snprintf(project.samples.edit(slot).path, sizeof(SampleRef::path), "%s", now.c_str());
+}
+} // namespace
 
 // Updates from the card (shell/update.h). Opens the update question when the service thread found a newer
 // release, playback is stopped and no other sheet is open. After INSTALL (shell/ask.cpp), waits for the project
@@ -300,6 +312,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     // Slots a Load Kit or Load Bank named past what the queue holds, as it drains.
     while (library_ && !context_.slots_waiting.empty()) {
         unsigned slot = context_.slots_waiting.front();
+        follow_moved_sample(*project_, slot, *library_);
         const auto& ref = project_->samples[slot % sample_slots];
         if (ref.used() && !library_->load(slot, ref.path, ref.root == root_unread)) break;
         context_.slots_waiting.erase(context_.slots_waiting.begin());
@@ -308,6 +321,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     // and the library holds nothing in is passed over: nothing to ask for.
     while (library_ && context_.samples_to_load < sample_slots) {
         const unsigned slot = context_.samples_to_load;
+        follow_moved_sample(*project_, slot, *library_);
         const auto& ref = project_->samples[slot];
         bool real = ref.used() && ref.path[0] == '/';
         if ((real || library_->held(slot)) && !library_->load(slot, real ? ref.path : "", real && ref.root == root_unread)) break;

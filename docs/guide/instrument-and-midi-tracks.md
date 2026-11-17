@@ -116,7 +116,7 @@ their octave. While it samples, the marks over the keys light as each note is
 done, and the note being recorded is drawn as it plays: the held part, then
 the release. **B1 CANCEL** stops it and deletes what was made.
 
-When it is done, the program is in **Samples/Keygroups/<name>/**:
+When it is done, the program is in **Melodee/Samples/Keygroups/<name>/**:
 
 - **<name>.xty**: the track file for MPC 3. Melodee's browser shows this
   one.
@@ -272,7 +272,7 @@ Melodee looks for progressions in these folders on the SD card:
 
 - `Melodee/Progressions` (your own progressions)
 - `Progressions`
-- `Samples/Expansions` (in each expansion's folders)
+- `Melodee/Samples/Expansions` (in each expansion's folders)
 
 ### Make your own chords
 
@@ -322,7 +322,7 @@ Edit on a MIDI track has more pages: eight **SLOTS** pages with 24 knobs
 (CC, 14-bit CC, pitch bend, channel pressure or NRPN), **EXPRESS** (pitch
 bend and pad pressure), **PADS** (Keys or Drums with General MIDI drum
 names), **AUDIO** (route an input into the track's mixer strip) and
-**SYSEX** (send a `.syx` file from the `SysEx` folder on the card).
+**SYSEX** (send a `.syx` file from the `Melodee/SysEx` folder on the card).
 **SHIFT** + **Pad 11** samples the instrument into a keygroup program; see
 [Auto sample an external instrument](#auto-sample-an-external-instrument). For
 how MIDI tracks were designed, see the

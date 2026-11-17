@@ -466,8 +466,9 @@ void SampleLibrary::service(Hardware& hardware) {
         if (pending && !heard.empty()) hear(heard);
     }
     hear_more(); // the preview's next piece, every pass, so the reading keeps ahead of what plays
-    // The card's Samples folder: $MELODEE_SAMPLES, else the first card's, looked for every few seconds. A card
-    // without one is still a card: what Melodee writes makes the folder, and browsing starts at the card's top.
+    // The card's Samples folder, Melodee/Samples (model/card_folders.h): $MELODEE_SAMPLES, else the first card's,
+    // looked for every few seconds. A card without one is still a card: what Melodee writes makes the folder, and
+    // browsing starts at the card's top.
     bool browse_wanted;
     { std::lock_guard<std::mutex> guard(lock); browse_wanted = wanted.pending; }
     if (++ticks % 600 == 1 || scan_wanted.load() || browse_wanted) {
@@ -475,7 +476,7 @@ void SampleLibrary::service(Hardware& hardware) {
         if (const char* forced = std::getenv("MELODEE_SAMPLES")) root = top = forced;
         else
             for (const auto& space : platform.storage())
-                if (space.path.rfind("/media/", 0) == 0) { top = space.path; root = space.path + "/Samples"; break; }
+                if (space.path.rfind("/media/", 0) == 0) { top = space.path; root = samples_folder(space.path); break; }
         bool changed = root != root_seen;
         if (changed) { root_seen = root; std::lock_guard<std::mutex> guard(lock); card_top = top; known.root = root; }
         if (changed) {

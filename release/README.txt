@@ -36,8 +36,8 @@ mixer and Song. For every page, press SHIFT + Pad 8 (Settings) and turn
 K1 (FEATURES) to Full. Hold the encoder for the Menu; its GO page (B3)
 has LEARN on pad 16, four short lessons.
 
-Projects are saved on the card in Melodee/Projects. Put samples in a
-folder named "Samples" at the top level of the card.
+Projects are saved on the card in Melodee/Projects. Put samples in
+Melodee/Samples. Melodee keeps everything it writes in the Melodee folder.
 
 Plug-ins: put VST3, LV2 and CLAP plug-ins built for 64-bit ARM Linux, VST2
 plug-ins built for 64-bit or 32-bit ARM Linux, and Open MPC plug-ins, in

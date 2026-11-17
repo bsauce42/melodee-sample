@@ -76,7 +76,7 @@ void drum_kit(Project& project, unsigned t) {
     load_sound(project.tracks[t], EngineKind::Sampler, 0);
     project.tracks[t].set_name("DRUMS");
     for (unsigned n = 0; n < 3; ++n) {
-        std::snprintf(project.samples.edit(n).path, sizeof(SampleRef::path), "/media/card/Samples/%s.wav", drum_names[n]);
+        std::snprintf(project.samples.edit(n).path, sizeof(SampleRef::path), "/media/card/Melodee/Samples/%s.wav", drum_names[n]);
         std::snprintf(project.samples.edit(n).name, sizeof(SampleRef::name), "%s", drum_names[n]);
         project.samples.edit(n).frames = 22050;
         project.tracks[t].pads[n].sample = uint16_t(n);
@@ -187,7 +187,7 @@ void board_project(Shell& shell) {
         const char* names[] {"KICK", "SNARE", "HAT", "OPEN", "BREAK"};
         const uint32_t lengths[] {22050, 26460, 8820, 30870, 230087};
         for (unsigned n = 0; n < 5; ++n) {
-            std::snprintf(project.samples.edit(n).path, sizeof(SampleRef::path), "/media/card/Samples/%s.wav", names[n]);
+            std::snprintf(project.samples.edit(n).path, sizeof(SampleRef::path), "/media/card/Melodee/Samples/%s.wav", names[n]);
             std::snprintf(project.samples.edit(n).name, sizeof(SampleRef::name), "%s", names[n]);
             project.samples.edit(n).frames = lengths[n];
         }
@@ -251,7 +251,7 @@ void pad_waves(Snapshot& s) {
 void choir_pad(Snapshot& s, unsigned pad) {
     auto& sound = s.project.tracks[3].pads[pad % sampler_pads];
     auto& ref = s.project.samples.edit(sound.sample % sample_slots);
-    std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Choir/Choir.exs");
+    std::snprintf(ref.path, sizeof(ref.path), "/media/card/Melodee/Samples/Choir/Choir.exs");
     std::snprintf(ref.name, sizeof(ref.name), "CHOIR");
     ref.frames = 0;
     sound.play = PadPlay::Gate; sound.start = sound.end = 0;
@@ -275,7 +275,7 @@ void choir_pad(Snapshot& s, unsigned pad) {
 void piano_pad(Snapshot& s, unsigned pad) {
     auto& sound = s.project.tracks[3].pads[pad % sampler_pads];
     auto& ref = s.project.samples.edit(sound.sample % sample_slots);
-    std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Piano/Piano.sfz");
+    std::snprintf(ref.path, sizeof(ref.path), "/media/card/Melodee/Samples/Piano/Piano.sfz");
     std::snprintf(ref.name, sizeof(ref.name), "PIANO");
     ref.frames = 0;
     sound.play = PadPlay::Gate; sound.start = sound.end = 0;
@@ -1518,16 +1518,16 @@ const Preview previews[] {
          std::snprintf(s.ui.notice, sizeof(s.ui.notice), "Undo Delete A05"); s.ui.notice_at = s.now;
      }},
     {"samples", [](Shell&, Snapshot& s) { // the browser on the card: folders first, then files
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.playing = true; s.ui.files_cursor = 3; s.sample_root = "/media/card/Samples";
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.playing = true; s.ui.files_cursor = 3; s.sample_root = "/media/card/Melodee/Samples";
          s.files_folder = s.sample_root; s.files_top = false;
-         for (auto name : {"EDITS", "LOOPER", "RECORDED"}) s.files.push_back({std::string("/media/card/Samples/") + name, name, 0, true});
+         for (auto name : {"EDITS", "LOOPER", "RECORDED"}) s.files.push_back({std::string("/media/card/Melodee/Samples/") + name, name, 0, true});
          const char* files[] {"BASS LOOP", "BREAK", "DRUM LOOP", "KEYS", "PERC", "VOCAL"};
-         for (auto name : files) s.files.push_back({std::string("/media/card/Samples/") + name + ".wav", name, 0, false});
+         for (auto name : files) s.files.push_back({std::string("/media/card/Melodee/Samples/") + name + ".wav", name, 0, false});
          s.files[4].path = s.project.samples[4].path;
          s.ui.files_count = uint16_t(s.files.size()); s.ui.turning = 1; s.ui.turned_at = s.now;
      }},
     {"samplesdelete", [](Shell&, Snapshot& s) { // Erase on a row of the browser: the question (shell/delete_jobs.h), B3 DELETE
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 1; s.sample_root = "/media/card/Samples";
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 1; s.sample_root = "/media/card/Melodee/Samples";
          s.files_folder = s.sample_root + "/Keygroups/Huge Saw"; s.files_top = false;
          s.files.push_back({s.files_folder + "/Huge Saw.xty", "HUGE SAW", 0, false});
          s.files.back().instrument = true;
@@ -1536,15 +1536,15 @@ const Preview previews[] {
          std::snprintf(s.ui.ask_name.data(), s.ui.ask_name.size(), "Huge Saw.xty");
      }},
     {"samplesdeletefolder", [](Shell&, Snapshot& s) { // a folder: all in it goes
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.sample_root = "/media/card/Samples";
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.sample_root = "/media/card/Melodee/Samples";
          s.files_folder = s.sample_root; s.files_top = false;
-         for (auto name : {"EDITS", "KEYGROUPS", "RECORDED"}) s.files.push_back({std::string("/media/card/Samples/") + name, name, 0, true});
+         for (auto name : {"EDITS", "KEYGROUPS", "RECORDED"}) s.files.push_back({std::string("/media/card/Melodee/Samples/") + name, name, 0, true});
          s.ui.files_count = uint16_t(s.files.size()); s.ui.files_cursor = 0;
          s.ui.ask = UiState::Ask::DeleteFile; s.ui.ask_target = int(DeleteWhat::Folder);
          std::snprintf(s.ui.ask_name.data(), s.ui.ask_name.size(), "Edits");
      }},
     {"samplesinstruments", [](Shell&, Snapshot& s) { // a folder of instruments: each tagged by its kind, a kit, an expansion
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.playing = true; s.ui.files_cursor = 0; s.sample_root = "/media/card/Samples";
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.playing = true; s.ui.files_cursor = 0; s.sample_root = "/media/card/Melodee/Samples";
          s.files_folder = s.sample_root + "/Instruments"; s.files_top = false;
          struct Row { const char* name; const char* file; bool instrument, kit, expansion; };
          const Row rows[] {{"CHOIR", "Choir.exs", true, false, false},
@@ -1562,11 +1562,11 @@ const Preview previews[] {
          s.ui.files_count = uint16_t(s.files.size()); s.ui.turning = 1; s.ui.turned_at = s.now;
      }},
     {"samplespreview", [](Shell&, Snapshot& s) { // B3 on: the file under the cursor fills its row as it plays, 1.2 of 3.1 s
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.settings.preview = true; s.ui.files_cursor = 5; s.sample_root = "/media/card/Samples";
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.settings.preview = true; s.ui.files_cursor = 5; s.sample_root = "/media/card/Melodee/Samples";
          s.files_folder = s.sample_root; s.files_top = false;
-         for (auto name : {"EDITS", "LOOPER", "RECORDED"}) s.files.push_back({std::string("/media/card/Samples/") + name, name, 0, true});
+         for (auto name : {"EDITS", "LOOPER", "RECORDED"}) s.files.push_back({std::string("/media/card/Melodee/Samples/") + name, name, 0, true});
          const char* files[] {"BASS LOOP", "BREAK", "DRUM LOOP", "KEYS", "PERC", "VOCAL"};
-         for (auto name : files) s.files.push_back({std::string("/media/card/Samples/") + name + ".wav", name, 0, false});
+         for (auto name : files) s.files.push_back({std::string("/media/card/Melodee/Samples/") + name + ".wav", name, 0, false});
          s.files[4].path = s.project.samples[4].path;
          s.ui.files_count = uint16_t(s.files.size());
          PlayHead h; // the audition voice on the preview slot
@@ -1575,20 +1575,20 @@ const Preview previews[] {
          s.heads[0] = h;
      }},
     {"banks", [](Shell&, Snapshot& s) { // the card's Samples/Banks: bank files, Push loads one into the bank in view
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 1; s.sample_root = "/media/card/Samples";
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_cursor = 1; s.sample_root = "/media/card/Melodee/Samples";
          s.files_folder = s.sample_root + "/Banks"; s.files_top = false; s.project.tracks[3].bank = 2;
          for (auto name : {"BREAKS", "DRUMS A", "VOCAL CHOPS"}) s.files.push_back({s.files_folder + "/" + name + ".mldb", name, 0, false, true});
          s.ui.files_count = uint16_t(s.files.size());
          std::snprintf(s.ui.notice, sizeof(s.ui.notice), "Bank C: DRUMS A"); s.ui.notice_at = s.now;
      }},
     {"savebank", [](Shell&, Snapshot& s) { // Shift + Sample Select on Samples: Save Bank's Name sheet
-         s.ui.page = PageId::Samples; s.ui.track = 3; s.sample_root = "/media/card/Samples"; s.files_folder = s.sample_root;
+         s.ui.page = PageId::Samples; s.ui.track = 3; s.sample_root = "/media/card/Melodee/Samples"; s.files_folder = s.sample_root;
          s.project.tracks[3].bank = 1; s.sample = break_sample();
          s.ui.name.start(NameTarget::Bank, "KIT B", name_length - 1, true);
      }},
     {"browserinternal", [](Shell&, Snapshot& s) { // B2: the internal drive's categories, preview on
          s.ui.page = PageId::Samples; s.ui.track = 3; s.ui.files_drive = 1; s.ui.settings.preview = true; s.ui.files_cursor = 7;
-         s.sample_root = "/media/card/Samples"; s.files_folder = ""; s.files_top = true;
+         s.sample_root = "/media/card/Melodee/Samples"; s.files_folder = ""; s.files_top = true;
          for (auto name : {"808", "BASS", "BREAK", "CLAPS", "CYMBALS", "FX", "HI-HATS", "KICKS", "LOOPS", "MELODIC", "PERC", "PHRASES", "SNARES", "TOMS", "USER", "VOCAL"})
              s.files.push_back({std::string("/content/Samples/") + name, name, 0, true});
          s.ui.files_count = uint16_t(s.files.size());
@@ -2393,7 +2393,7 @@ const Preview previews[] {
          auto& t = s.project.tracks[3]; t.levels = true; t.levels_pad = 8; t.last_pad = 8; t.levels_kind = uint8_t(LevelsKind::Zones);
          t.octave = kit_level_octave;
          auto& ref = s.project.samples.edit(t.pads[8].sample % sample_slots);
-         std::snprintf(ref.path, sizeof(ref.path), "/media/card/Samples/Percussion/Percussion.dspreset");
+         std::snprintf(ref.path, sizeof(ref.path), "/media/card/Melodee/Samples/Percussion/Percussion.dspreset");
          std::snprintf(ref.name, sizeof(ref.name), "PERCUSSION");
          ref.frames = 0; ref.zones = 67; ref.keys = {};
          for (unsigned key : {48u, 50u, 52u, 53u, 55u, 57u, 59u, 60u, 61u, 62u, 63u, 64u, 65u, 66u, 67u, 68u, 69u, 70u, 71u, 72u, 74u, 76u, 77u})

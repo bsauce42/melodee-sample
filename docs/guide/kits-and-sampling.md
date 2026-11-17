@@ -149,14 +149,14 @@ you hit.
 - A folder goes with everything in it.
 - An MPC 3 track file (`.xty`) or program goes with its own data folder, so
   an auto sampled keygroup goes whole. To delete one, press **ERASE** on its
-  folder in `Samples/Keygroups`, or on its `.xty` inside.
+  folder in `Melodee/Samples/Keygroups`, or on its `.xty` inside.
 - A file the open project uses is not deleted (**In use by this project**).
   Take it off its pad or track first, or open another project.
 - Only files on the card can be deleted, and not the folders at the top of
-  the card or anything in the `Melodee` folder. Plug-ins are deleted in the
-  plug-in picker, projects on the Project page.
+  the card or anything in the `Melodee` folder outside `Melodee/Samples`.
+  Plug-ins are deleted in the plug-in picker, projects on the Project page.
 
-Put your samples in a folder named `Samples` at the top level of the card.
+Put your samples in `Melodee/Samples` on the card, or anywhere else on it.
 Melodee reads WAV (16, 24 or 32-bit), MP3, FLAC, Ogg Vorbis and AIFF files, any sample
 rate. A sample can be up to 6 hours long. One longer than 10 seconds plays
 from the card, not from memory: a WAV straight from its file, an MP3, FLAC,
@@ -165,7 +165,12 @@ card. Making that WAV takes a moment the first time the sample loads; later
 loads use it again. Your own file is not changed. Without a card, or with no
 room on it, a long MP3, FLAC, Ogg or AIFF is read into memory whole. MP3, FLAC, Ogg and AIFF rows show their format at
 the right. A row with a pad chip is a sample this kit already plays. Melodee
-writes recordings and edits into `Samples` too.
+writes recordings and edits into `Melodee/Samples` too. Melodee makes no
+folders at the top of the card: everything it writes is in `Melodee`.
+
+Older versions kept samples in a `Samples` folder at the top of the card.
+Those still load. To tidy the card, move what is in it into
+`Melodee/Samples`: projects then find their samples in the new place.
 
 To move samples without taking the card out, connect the MPC to a computer
 with USB-C and open **http://melodee.local** while Melodee runs. On
@@ -185,7 +190,7 @@ icon and its type at the right.
 | SFZ | `.sfz`, shown as **SFZ** |
 | MPC keygroup program | `.xpm` (**XPM**), or `.xty` from MPC 3 (**XTY**) |
 | MPC drum program | `.xpm` or `.xty` with a pads icon: loads as the whole kit, with its pad colours and sends |
-| MPC expansion | `.xpn` with a down arrow: installs into `Samples/Expansions` |
+| MPC expansion | `.xpn` with a down arrow: installs into `Melodee/Samples/Expansions` |
 | Logic EXS24 / Sampler | `.exs` (**EXS**), with its samples in the same folder |
 | SoundFont | `.sf2` (**SF2**): opens as a folder of presets |
 | DecentSampler | `.dspreset` (**DS**): opens with its controls as its own screen sets them |
@@ -222,7 +227,7 @@ on its kit.
 A bank file saves one bank of 16 pads, with their settings and effects.
 
 - To save the bank in view: open the sample browser and press **SHIFT** +
-  **SAMPLE SELECT**. Name the bank. It is saved in `Samples/Banks`.
+  **SAMPLE SELECT**. Name the bank. It is saved in `Melodee/Samples/Banks`.
 - To load a bank: select the bank with **PAD BANK**, then push the encoder
   on a bank file (the stacked-layers icon) in the browser.
 
@@ -335,7 +340,7 @@ Press **SAMPLE RECORD** on a kit to open **Record**.
 4. To stop, tap the pad again, press **STOP** or push the encoder. To stop
    and open **TRIM**, press **SAMPLE RECORD**.
 
-Takes are saved in `Samples/Recorded`. With a card, a take can run up to 6
+Takes are saved in `Melodee/Samples/Recorded`. With a card, a take can run up to 6
 hours; without one, 60 seconds. With the length Free, a take also ends by
 itself after a quiet stretch.
 
@@ -373,7 +378,7 @@ the pads play that track.
 - **Trim Sample** (**SHIFT** + **Pad 13**): save the pad's region as a new
   file and set the pad to all of it.
 - **Save Sample** (**SHIFT** + **SAMPLE SELECT**): save the pad's region as
-  a WAV file in `Samples`.
+  a WAV file in `Melodee/Samples`.
 
 ## Stems
 
@@ -401,7 +406,7 @@ When the job is done, **DRUMS**, **BASS**, **MUSIC** and **VOCALS** are on
 the next four empty pads after the sample's pad. Each plays as the
 sample's pad does: the same start, end, loop, tuning, warp, envelope and
 filter, and the same slices in Chop. Played together, the four give the
-sample back. One Undo removes all four. The files are in `Samples/Stems`.
+sample back. One Undo removes all four. The files are in `Melodee/Samples/Stems`.
 
 Stems needs a sample of one second or more and four empty pads on the
 track. It does not work on a sampled instrument. **BEST** needs more

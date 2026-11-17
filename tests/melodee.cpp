@@ -11280,6 +11280,36 @@ void nam_page() {
     fs::remove_all(home);
 }
 
+// Melodee's folders on the card (model/card_folders.h): samples in Melodee/Samples, .syx files in Melodee/SysEx. A
+// sample saved in the old top-level Samples folder opens from Melodee/Samples once it is there (a program's pad by its
+// file), else where it was; any other path as saved.
+void card_sample_paths() {
+    namespace fs = std::filesystem;
+    auto top = fs::temp_directory_path() / ("melodee-samples-" + std::to_string(getpid()));
+    const std::string t = top.string();
+    fs::remove_all(top);
+    fs::create_directories(top / "Samples" / "Recorded");
+    fs::create_directories(top / "Melodee" / "Samples" / "Kits");
+    { std::ofstream(top / "Samples" / "Recorded" / "TAKE 1.wav") << "x"; }
+    { std::ofstream(top / "Melodee" / "Samples" / "Kits" / "Kick.wav") << "x"; }
+    { std::ofstream(top / "Melodee" / "Samples" / "Kits" / "Kit.xpm") << "x"; }
+    CHECK(samples_folder(t) == t + "/Melodee/Samples" && sysex_folder(t) == t + "/Melodee/SysEx");
+    CHECK(old_samples_folder(t) == t + "/Samples" && old_sysex_folder(t) == t + "/SysEx");
+    CHECK(samples_folder("").empty() && sysex_folder("").empty() && old_samples_folder("").empty());
+    CHECK(card_sample_path(t, t + "/Samples/Recorded/TAKE 1.wav") == t + "/Samples/Recorded/TAKE 1.wav"); // not moved
+    CHECK(card_sample_path(t, t + "/Samples/Kits/Kick.wav") == t + "/Melodee/Samples/Kits/Kick.wav");     // moved
+    CHECK(card_sample_path(t, t + "/Samples/Kits/Kit.xpm#3") == t + "/Melodee/Samples/Kits/Kit.xpm#3");   // a pad of a moved program
+    CHECK(card_sample_path(t, t + "/Samples/Gone.wav") == t + "/Samples/Gone.wav");                       // on neither: as saved
+    CHECK(card_sample_path(t, t + "/Melodee/Samples/Kits/Kick.wav") == t + "/Melodee/Samples/Kits/Kick.wav");
+    CHECK(card_sample_path(t, t + "/SamplesMore/Kick.wav") == t + "/SamplesMore/Kick.wav");               // not the folder
+    CHECK(card_sample_path(t, "/content/Samples/Kick.wav") == "/content/Samples/Kick.wav");               // the internal drive
+    CHECK(card_sample_path("", t + "/Samples/Kits/Kick.wav") == t + "/Samples/Kits/Kick.wav");            // no card
+    fs::create_directories(top / "Melodee" / "Samples" / "Recorded");                                     // both: the new one
+    { std::ofstream(top / "Melodee" / "Samples" / "Recorded" / "TAKE 1.wav") << "x"; }
+    CHECK(card_sample_path(t, t + "/Samples/Recorded/TAKE 1.wav") == t + "/Melodee/Samples/Recorded/TAKE 1.wav");
+    fs::remove_all(top);
+}
+
 // The card's plug-in folder (plugin/plugin_files.h): Melodee/Plugins. A path saved in the old top-level Plugins folder,
 // relative or absolute, opens from Melodee/Plugins once it is there, else where it was; any other path as saved.
 void card_plugin_paths() {
@@ -17563,6 +17593,7 @@ int main() {
     preset_folders();
     nam_page();
     card_plugin_paths();
+    card_sample_paths();
     qlink_pages();
     synths_as_plugins();
     voice_taps();
