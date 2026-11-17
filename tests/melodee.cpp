@@ -3995,7 +3995,7 @@ void beat_grid() {
         const uint32_t w = zoom_width(span, z);
         CHECK(z > 0 && z < zoom_top && w > fix_view * 9 / 10 && w < fix_view * 11 / 10);
     }
-    CHECK(fix_attack == 11025 && fix_settle_ms > 0 && fix_settle_ms < 400);
+    CHECK(fix_attack == 11025 && fix_hold_ms > 300 && fix_settle_ms > 0 && fix_settle_ms < fix_hold_ms);
 
     // The same tempo with the kick on 1, the and of 2 and 4's second 16th (3 + 3 + 2) and swung hats: still 93 BPM
     // (or 186), not the 124 its dotted spacing suggests.
@@ -10875,26 +10875,6 @@ void voice_taps() {
         block(e);
         auto t = tapped(e);
         CHECK(t.count == 1 && t.voice[0].pad == int(sampler_pads) && t.voice[0].from == 5000);
-    }
-    // Pad Slicing let go (audition_end): the audition playing on to the file's end stops where its slice ends; one
-    // already past that point fades out at once; with nothing playing it does nothing.
-    {
-        SamplerEngine e;
-        e.set_samples(&table);
-        auto blocks_left = [&] { unsigned n = 0; while (tapped(e).count && n < 40) { block(e); ++n; } return n; };
-        e.audition(2, 5000, 0, 100);
-        block(e);
-        e.audition_end(5000 + 128 * 4); // its slice ends four blocks in
-        const unsigned to_slice_end = blocks_left();
-        CHECK(to_slice_end >= 3 && to_slice_end <= 6);
-        e.audition(2, 5000, 0, 100);
-        for (unsigned b = 0; b < 4; ++b) block(e);
-        e.audition_end(5100);
-        CHECK(blocks_left() <= 3);
-        e.audition_end(5100);
-        CHECK(!tapped(e).count);
-        e.audition(2, 5000, 0, 100); // not let go: on past forty blocks
-        CHECK(blocks_left() == 40);
     }
     // The board: what one side publishes the other reads whole.
     {

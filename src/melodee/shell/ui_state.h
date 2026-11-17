@@ -304,15 +304,13 @@ struct UiState {
     bool chop_armed = false;    // Pad Slicing (Push's): a slice's pad plays on to the region's end, an empty pad cuts there
     uint32_t chop_take_at = 0;  // ms when a slice's pad started that, 0 none
     uint32_t chop_take_from = 0; // the frame it started from
-    // Hold to fix: the wheel turned while a slice's pad is held stops what plays and zooms to the slice's start; the
-    // wheel moves that cut, and its first 250 ms play once when the wheel is still; letting go puts back the zoom,
-    // the handle in focus and the wheel's job as they were.
+    // Hold to fix: a slice's pad held past fix_hold_ms (shell/chop.h) stops what plays and zooms to the slice's start;
+    // the wheel moves that cut, and its first 250 ms play once when the wheel is still; letting go puts the zoom back.
     int8_t chop_hold_pad = -1;   // the slice's pad held, -1 none
     uint8_t chop_hold_velocity = 100;
-    bool chop_fixing = false;    // the wheel turned while it is held: fixing its cut
-    uint8_t chop_zoom_was = 0, chop_focus_was = 0; // what to go back to
-    bool chop_fine_was = false;
-    ZoomView chop_view_was;
+    uint32_t chop_hold_at = 0;   // ms it went down
+    bool chop_fixing = false;    // held long enough: fixing its cut
+    uint8_t chop_zoom_was = 0;   // the zoom to go back to
     uint32_t chop_loop_at = 0;   // ms the moved start plays, 0 none due
     int8_t levels_hit = -1;     // Levels: the pad played last, 0..15
     int16_t levels_value = 0;   // and what it played: a velocity or semitones

@@ -1602,23 +1602,18 @@ the file holds, to the bit.
   did not tell it apart. A sample with no steady pulse cuts at the project's
   tempo.
   Push turns Pad Slicing on and off, as on Ableton Push (K3 onto Manual
-  turns it on; the header chip reads PAD SLICE): a slice's pad held plays
-  from its start on to the region's end, and an empty pad tapped meanwhile
-  cuts there, each cut pulled onto the strongest hit, the slices kept, up to
-  64; let go, the audition ends at the end of the slice it has reached
-  (`SamplerEngine::audition_end`, Audition command index 1), so a tap plays
-  one slice.
+  turns it on; the header chip reads PAD SLICE): a slice's pad plays from
+  its start on to the region's end, and an empty pad tapped meanwhile cuts
+  there, each cut pulled onto the strongest hit, the slices kept, up to 64.
   Cuts made or moved by hand (K1 / K2, Split, Pad Slicing) stay through a
   new chop by type or amount and cuts taken out (Erase, Merge) stay out, as
   Simpler's manual slices (`HandCuts`, `model/chop_slices.h`; kept with the
   chop while the project is open, not in the WAV); they draw in the track's
   colour with a tab on top. Past 16 slices Pad Bank steps the pads through
-  them (A 1-16 ... D 49-64). Hold to fix: the wheel turned while a slice's
-  pad is held stops what plays and zooms to about 120 ms round its start
-  (chip FIX CUT; holding alone only plays); the next detents move that cut,
-  and 150 ms after the wheel is still its first 250 ms play once (nothing
-  repeats); letting go puts back the zoom, the handle in focus and the
-  wheel's job as they were. Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
+  them (A 1-16 ... D 49-64). Hold to fix: a slice's pad held 400 ms stops
+  what plays and zooms to about 120 ms round its start (chip FIX CUT); the
+  wheel moves that cut, and 150 ms after the wheel is still its first
+  250 ms play once (nothing repeats); letting go puts the zoom back. Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
   takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's
@@ -1647,10 +1642,7 @@ the file holds, to the bit.
   and its wake running through it, its bars full colour and its number
   bold in the track colour (the newest, if several); the slice in hand
   keeps its ground and handles. Pad Slicing's line follows the voice as
-  heard. Zoomed in, the view stays put. Every change of view eases over
-  180 ms about the point both views share. Bottom left: the wheel's job
-  (SLICE, or START / END in K1's / K2's colour) and, zoomed in, a strip with
-  the view's place in the region and its factor (×N).
+  heard. Zoomed in, the view stays put.
   B2 SNAP (its LED lit while on) is Zero Snap (on by default, kept with the settings):
   every cut (each type's, Manual's taps, K1 / K2, Split, Sample Record's
   pad cuts) lands on the nearest zero crossing of both sides summed,

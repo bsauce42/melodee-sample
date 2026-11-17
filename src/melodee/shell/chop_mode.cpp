@@ -35,7 +35,7 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
     if (ui.chop_armed) { // an empty pad: a cut where the playing has got to, kept with the slices there
         if (ui.chop_take_at) {
             uint32_t at = ui.chop_take_from + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10);
-            if (at >= region_end) { ui.chop_take_at = 0; notice("Played out: hold a slice first"); return; }
+            if (at >= region_end) { ui.chop_take_at = 0; notice("Played out: tap a slice first"); return; }
             if (library) {
                 auto loaded = library->slot(ui.chop_sample);
                 at = zero_cut(snap_to_hit(at, loaded.hits, loaded.hit_count));
@@ -46,7 +46,7 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
             } else if (sl.count >= max_slices) notice("64 slices, the most");
             return;
         }
-        notice("Hold a slice, tap an empty pad to cut");
+        notice("Tap a slice, then an empty pad to cut");
         return;
     }
     if (slice >= sl.count) return;
@@ -61,70 +61,39 @@ void Context::chop_audition(uint32_t from, uint32_t to, uint8_t velocity) {
     send(a);
 }
 
-// Hold to fix: the wheel turned while a slice's pad is held (only holding a pad does nothing more than play it).
-// What plays stops, the view closes in on the slice's start, and from the next detent on the wheel moves that cut
-// (fine, as after K1); once the wheel has been still for fix_settle_ms the new start's first 250 ms play once.
-// True when this detent began it.
-bool Context::chop_fix_begin() {
-    auto& sl = ui.slices;
-    const uint32_t frames = chop_frames(project, ui);
-    if (ui.chop_fixing || ui.chop_hold_pad < 0 || !(ui.held_pads & (1u << unsigned(ui.chop_hold_pad))) || ui.chop_slice >= sl.count
-        || !frames)
-        return false;
-    ui.chop_fixing = true;
-    ui.chop_take_at = 0; // Pad Slicing's playing on stops
-    Command stop {Command::Type::Audition, ui.track, 0, 0, 0};
-    stop.pad.sample = no_sample; // and whatever the audition voice plays
-    send(stop);
-    ui.chop_zoom_was = ui.chop_zoom; ui.chop_focus_was = ui.chop_focus; ui.chop_fine_was = ui.chop_fine; ui.chop_view_was = ui.chop_view;
-    const uint32_t span = sl.end(sl.count - 1, frames) - sl.start[0];
-    ui.chop_zoom = uint8_t(std::max<int>(ui.chop_zoom, zoom_for_width(span, fix_view)));
-    ui.chop_focus = 0; ui.chop_fine = true; ui.chop_view = {};
-    ui.chop_loop_at = 0; // silent until the wheel moves the cut
-    return true;
-}
-
-// MIDI thread, from the lights' pass: the held pad let go, the page left or the slice gone ends the hold; a moved
-// start plays once when the wheel has been still.
+// Hold to fix (MIDI thread, from the lights' pass): a slice's pad held past fix_hold_ms stops what plays, the view
+// closes in on the slice's start and the wheel moves it (fine, as after K1); once the wheel has been still for
+// fix_settle_ms the new start's first 250 ms play once. Nothing repeats. Let go, the page leaves or the slice goes:
+// the zoom as it was.
 void Context::chop_hold_tick(uint32_t ms) {
     if (ui.chop_hold_pad < 0) return;
-    const uint32_t frames = chop_frames(project, ui);
-    if (ui.page != PageId::Chop || !(ui.held_pads & (1u << unsigned(ui.chop_hold_pad))) || ui.chop_slice >= ui.slices.count || !frames) {
+    auto& sl = ui.slices;
+    const uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
+    if (ui.page != PageId::Chop || !(ui.held_pads & (1u << unsigned(ui.chop_hold_pad))) || ui.chop_slice >= sl.count || !frames) {
         chop_hold_end();
         return;
     }
-    if (!ui.chop_fixing || !ui.chop_loop_at || int32_t(ms - ui.chop_loop_at) < 0) return;
-    const auto& sl = ui.slices;
+    if (!ui.chop_fixing) {
+        if (ms - ui.chop_hold_at < fix_hold_ms) return;
+        ui.chop_fixing = true;
+        ui.chop_take_at = 0; // Pad Slicing's playing on stops
+        Command stop {Command::Type::Audition, ui.track, 0, 0, 0};
+        stop.pad.sample = no_sample; // and whatever the audition voice plays
+        send(stop);
+        ui.chop_zoom_was = ui.chop_zoom;
+        const uint32_t span = sl.end(sl.count - 1, frames) - sl.start[0];
+        ui.chop_zoom = uint8_t(std::max<int>(ui.chop_zoom, zoom_for_width(span, fix_view)));
+        ui.chop_focus = 0; ui.chop_fine = true; ui.chop_view = {};
+        ui.chop_loop_at = 0; // silent until the wheel moves the cut
+    }
+    if (!ui.chop_loop_at || int32_t(ms - ui.chop_loop_at) < 0) return;
     const unsigned n = ui.chop_slice;
     chop_audition(sl.start[n], std::min(sl.start[n] + fix_attack, sl.end(n, frames)), ui.chop_hold_velocity);
     ui.chop_loop_at = 0; // once
 }
 
-// A slice's pad let go. Pad Slicing plays on only while it is held: the sound ends at the end of the slice it has
-// reached (a tap plays its slice alone), and the empty pads cut no more. Fixing a cut ends too.
-void Context::chop_let_go(unsigned pad) {
-    if (int(pad % 16) != ui.chop_hold_pad) return;
-    const auto& sl = ui.slices;
-    const uint32_t frames = chop_frames(project, ui);
-    if (ui.chop_take_at && !ui.chop_fixing && frames && sl.count) {
-        const uint32_t at = ui.chop_take_from + uint32_t(uint64_t(now - ui.chop_take_at) * 441 / 10); // where it has got to
-        unsigned n = 0;
-        while (n + 1 < sl.count && sl.start[n + 1] <= at) ++n;
-        Command end {Command::Type::Audition, ui.track, 0, 1, 0};
-        end.pad.sample = ui.chop_sample; end.pad.start = sl.start[n]; end.pad.end = sl.end(n, frames);
-        send(end);
-        ui.chop_take_at = 0;
-    }
-    chop_hold_end();
-}
-
 void Context::chop_hold_end() {
-    if (ui.chop_fixing) { // all as it was before the hold, the view carried along to show the handle where it is now
-        ui.chop_zoom = ui.chop_zoom_was; ui.chop_focus = ui.chop_focus_was; ui.chop_fine = ui.chop_fine_was;
-        ui.chop_view = ui.chop_view_was;
-        if (ui.chop_zoom && ui.slices.count) chop_moved(chop_view(project, ui));
-        else ui.chop_view = {};
-    }
+    if (ui.chop_fixing) { ui.chop_zoom = ui.chop_zoom_was; ui.chop_view = {}; ui.chop_fine = false; }
     ui.chop_fixing = false;
     ui.chop_hold_pad = -1;
 }
