@@ -1603,7 +1603,9 @@ the file holds, to the bit.
   pad 1 plays the region and pads tapped meanwhile cut it, each pulled onto
   the strongest hit. Shift + B1 Extract (`Melodee/Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
-  takes a slice out. B3 TO PADS lays the slices on pads, B1 CANCEL drops
+  takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
+  (cards POLY, MONO: one mute group, THRU: that and each on to the region's
+  end; the last pick kept with the settings) and lays the slices on pads, B1 CANCEL drops
   the chop. As on the MPC, slices belong to the sample and live in its WAV
   file (the `atem` and `slic` chunks, `shell/mpc_wav_slices.cpp`): read
   when the sample loads (a project opened or imported, a file from

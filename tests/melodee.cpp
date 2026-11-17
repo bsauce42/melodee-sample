@@ -7913,6 +7913,30 @@ void zero_snap() {
     back.read(fresh.text());
     CHECK(!back.preview);
 
+    // TO PADS as Simpler's Playback: POLY as before, MONO in one mute group, THRU that and on to the region's end;
+    // the pick kept with the settings, POLY at first.
+    {
+        Slices sl;
+        sl.whole(1000, 40000); sl.add(10000, 50000); sl.add(20000, 50000);
+        PadSound parent;
+        parent.sample = 3;
+        auto poly = slice_pad(parent, sl, 1, 50000, SlicePlay::Poly, 4);
+        CHECK(poly.start == 10000 && poly.end == 20000 && poly.group == 0);
+        auto mono = slice_pad(parent, sl, 1, 50000, SlicePlay::Mono, 4);
+        CHECK(mono.start == 10000 && mono.end == 20000 && mono.group == 4);
+        auto thru = slice_pad(parent, sl, 0, 50000, SlicePlay::Thru, 4);
+        CHECK(thru.start == 1000 && thru.end == 40000 && thru.group == 4);
+        std::array<PadSound, 4> pads {};
+        pads[0].sample = 1; pads[0].group = 1; pads[1].sample = 2; pads[1].group = 2; pads[2].group = 3; // pad 3 empty: its group free
+        CHECK(slice_group(parent, pads) == 3);
+        parent.group = 7;
+        CHECK(slice_group(parent, pads) == 7 && slice_pad(parent, sl, 2, 50000, SlicePlay::Poly, 4).group == 7);
+        CHECK(std::string(slice_play_name(SlicePlay::Thru)) == "THRU" && fresh.slice_play == 0);
+        Settings picked; picked.slice_play = 2;
+        back.read(picked.text());
+        CHECK(back.slice_play == 2);
+    }
+
     // The engine: a level sample, so the fades are all there is to hear.
     SampleData level;
     level.frames = 10000;
