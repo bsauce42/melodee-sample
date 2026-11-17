@@ -384,13 +384,18 @@ its music (all other instruments) and its vocals.
 2. Press **SHIFT** + **B3** (**STEMS**). The STEMS sheet shows the four
    empty pads the stems go on, the sample's length and how long the job
    takes. **STEMS** in the Menu on Stage opens the same sheet.
-3. Press **B3** (**SEPARATE**) or **Push**.
+3. **B2** (**BEST**) is on at first: the stems are separated up to
+   16 kHz, in two passes. Turn it off for a job about three times
+   quicker that separates up to 11 kHz in one pass; the highs above that
+   are shared out as the band below them is.
+4. Press **B3** (**SEPARATE**) or **Push**.
 
 ![STEMS](../images/screens/stems.png)
 
-A 13-second sample takes about 15 seconds; a longer sample takes less
-than its own length. You can leave the sheet and keep playing while the
-job runs. To stop it, press **B1** (**CANCEL**) on the sheet.
+With **BEST** on, a 13-second sample takes about 40 seconds and a
+60-second sample about 2 minutes; with it off, about 15 and 40 seconds.
+You can leave the sheet and keep playing while the job runs. To stop it,
+press **B1** (**CANCEL**) on the sheet.
 
 When the job is done, **DRUMS**, **BASS**, **MUSIC** and **VOCALS** are on
 the next four empty pads after the sample's pad. Each plays as the
@@ -399,7 +404,9 @@ filter, and the same slices in Chop. Played together, the four give the
 sample back. One Undo removes all four. The files are in `Samples/Stems`.
 
 Stems needs a sample of one second or more and four empty pads on the
-track. It does not work on a sampled instrument.
+track. It does not work on a sampled instrument. **BEST** needs more
+memory: when a long sample does not fit, the notice says whether it fits
+with **BEST** off.
 
 ## 16 Levels
 

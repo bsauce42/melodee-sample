@@ -11,6 +11,7 @@
 // envelope and filter, and the sample's slices in Chop. It leaves the pad's
 // layers, mute group and Pad Link behind, so the stems can play together.
 #include "melodee/shell/context.h"
+#include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/stems_room.h"
 #include <cstdio>
@@ -62,9 +63,17 @@ void Context::stems_sheet_go() {
     SampleLibrary::StemsRequest request;
     request.source = uint16_t(sheet.sample % sample_slots);
     std::snprintf(request.name, sizeof(request.name), "%s", stems_base(project.samples[sheet.sample % sample_slots]).c_str());
+    request.best = ui.settings.stems_best;
     if (!library->separate(request)) { notice("Stems: busy"); return; }
     stems_from = {sheet.track, sheet.pad, sound};
     sheet.running = true;
+}
+
+void Context::stems_sheet_best() {
+    if (ui.stems_sheet.running) return; // the job under way keeps what it started with
+    ui.settings.stems_best = !ui.settings.stems_best;
+    if (store) store->save_settings(ui.settings.text());
+    notice(ui.settings.stems_best ? "Stems: best, up to 16 kHz" : "Stems: fast, up to 11 kHz");
 }
 
 void Context::stems_sheet_cancel() {

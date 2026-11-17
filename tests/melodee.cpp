@@ -7868,6 +7868,13 @@ void zero_snap() {
     CHECK(!back.zero_snap);
     back.read(fresh.text());
     CHECK(back.zero_snap);
+    // STEMS' BEST likewise: on at first, off kept.
+    CHECK(fresh.stems_best);
+    Settings fast; fast.stems_best = false;
+    back.read(fast.text());
+    CHECK(!back.stems_best);
+    back.read(fresh.text());
+    CHECK(back.stems_best);
 
     // TO PADS as Simpler's Playback: POLY as before, MONO in one mute group, THRU that and on to the region's end;
     // the pick kept with the settings, POLY at first.

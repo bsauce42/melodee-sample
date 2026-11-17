@@ -1707,7 +1707,9 @@ the file holds, to the bit.
   Stage): the pad's sample separated into its drums, its bass, its music
   (every other instrument) and its vocals. The STEMS sheet shows the four
   empty pads after the pad, the sample's length and the time the job
-  takes; B3 SEPARATE (or Push) starts it, B1 calls it off, and it goes on
+  takes; B2 BEST (a setting, on at first, its LED lit while on) picks the
+  slower, better separation below; B3 SEPARATE (or Push) starts it, B1
+  calls it off, and it goes on
   with the sheet closed (the pads play the kit meanwhile). The files are
   `Samples/Stems/<NAME> DRUMS.wav`, `<NAME> BASS.wav`, `<NAME> MUSIC.wav`
   and `<NAME> VOCALS.wav`, 44.1 kHz and as long as the sample to the frame.
@@ -1725,7 +1727,15 @@ the file holds, to the bit.
   mix in passes of 512 frames by 1024 bins (11.9 s, up to 11 kHz), and
   every bin of the mix is shared between the four by the squares of their
   estimates, so the stems add up to the mix; above 11 kHz a frame is
-  shared as its top quarter below 11 kHz was. The program and its model
+  shared as its top quarter below 11 kHz was. BEST (the program's `best`)
+  runs the same networks on 1536 bins (up to 16 kHz, Deezer's
+  4stems-16kHz settings) in two passes half a pass apart, each frame's
+  estimate the two crossfaded (each counted the less the nearer its
+  pass's edge), so the highs to 16 kHz are each stem's own and no seam is
+  left where a pass ends. Four passes, a second view with left and right
+  swapped, and Deezer's Wiener filter (`--mwf`) were tried on TAKE 13 and
+  left out: scored against Demucs v4's stems, none did better and the
+  Wiener filter did 0.7 to 1 dB worse. The program and its model
   are files on the card, `autorun/melodee/stems/melodee-stems` and
   `spleeter-4stems.f16` beside it (80 MB; with `device.py install-sd`, in
   `sample-base/stems/`), not part of the binary. A job copies the program
@@ -1735,7 +1745,10 @@ the file holds, to the bit.
   is refused; short of memory, the kernel ends the program before anything
   else. On the MPC the program takes 13 s for 13 s of sound and 36 s for
   60 s (a whole job 15 s for 13 s, its files written after), and holds
-  478 MB and 656 MB at its fullest. SD card access waits for a job.
+  478 MB and 656 MB at its fullest; BEST takes 2.7 times as long (50.6 s
+  and 145 s against 18.6 s and 53.6 s, measured side by side with the MPC
+  busier) and holds 634 MB and 788 MB. A BEST job that does not fit says
+  whether one without BEST would. SD card access waits for a job.
   `status` has `melodee_stems` (the percent done, or `idle`).
 
 ### Effects
