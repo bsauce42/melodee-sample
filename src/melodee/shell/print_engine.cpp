@@ -355,8 +355,9 @@ void PrintEngine::run() {
         }
         if (job->autosample) { // the auto sampler: notes, not patterns
             std::string check_failed; // its check found no sound, an input that clips, or was called off: nothing is sampled
+            std::unique_ptr<NoteSource> checked; // an instrument outside: the check's notes, sampled with next
             if (job->probe_first) { // as the sheet does: the check first, its findings sampled with
-                AutoProbeResult heard = probe_track(*job, samples);
+                AutoProbeResult heard = probe_track(*job, samples, job->external ? &checked : nullptr);
                 if (heard.error.empty()) job->sampling.found = heard.found;
                 check_failed = heard.error;
                 std::lock_guard<std::mutex> held(lock);
@@ -370,7 +371,7 @@ void PrintEngine::run() {
                 shown.checking = false;
             }
             AutoSampleResult made;
-            if (check_failed.empty()) made = sample_track(*job, samples);
+            if (check_failed.empty()) made = sample_track(*job, samples, std::move(checked));
             else {
                 made.project_path = job->project_path; made.track = job->track % track_count; made.name = job->sample_name;
                 made.error = check_failed;
@@ -634,7 +635,6 @@ PrintResult PrintEngine::print_one(const PrintJob& job, unsigned pattern, const 
 
 // ---- the auto sampler
 
-namespace {
 // Where the auto sampler's notes are played and heard: a plug-in in a print host of its own, faster than real time,
 // or an instrument outside over MIDI and an input, in real time (engine/external_notes.h).
 struct NoteSource {
@@ -649,6 +649,7 @@ struct NoteSource {
     virtual std::string trouble() const { return {}; }  // what went wrong meanwhile, if anything
 };
 
+namespace {
 struct PluginNotes final : NoteSource {
     std::unique_ptr<Project> project;
     std::unique_ptr<PatternBank> bank;
@@ -772,7 +773,8 @@ std::string key_word(unsigned key) {
 // instrument from two keys pressed legato against the first alone, its glide from how the second's pitch moves, and
 // from two keys apart whether it glides only legato; drums, the keys of the range that sound; the accent from one key
 // at sixteen velocities; takes from three hits of it.
-AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples) {
+AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples,
+                                         std::unique_ptr<NoteSource>* keep) {
     AutoProbeResult r;
     r.project_path = job.project_path;
     r.track = job.track % track_count;
@@ -1069,10 +1071,12 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
     }
     found.heard = true;
     show(4);
+    if (keep) *keep = std::move(source);
     return r;
 }
 
-AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples) {
+AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array<const SampleData*, sample_slots>& samples,
+                                           std::unique_ptr<NoteSource> heard_by) {
     AutoSampleResult r;
     r.project_path = job.project_path;
     r.track = job.track % track_count;
@@ -1115,8 +1119,11 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
         if (!e && room.available < need)
             return fail("card full: " + std::to_string(need >> 20) + " MB needed, " + std::to_string(room.available >> 20) + " MB free");
     }
+    // An instrument outside goes on with the check's notes: their silence was heard before the check played anything.
+    // Opened again here, it would be heard while the check's last notes still ring (a delay's repeats, a slow fade)
+    // and called not quiet.
     std::string why_not;
-    auto source = open_notes(*this, job, samples, roots[roots.size() / 2], cancelled, why_not);
+    auto source = heard_by ? std::move(heard_by) : open_notes(*this, job, samples, roots[roots.size() / 2], cancelled, why_not);
     if (!source) return fail(why_not);
     fs::create_directories(parts, e);
     if (!e) fs::create_directories(files, e);
