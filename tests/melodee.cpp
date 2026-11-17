@@ -12877,6 +12877,18 @@ void pattern_motion() {
         }
         scale_pattern(hidden, false);
         CHECK(hidden.events.empty() && hidden.punches.empty() && hidden.motion.size() == 1 && hidden.motion[0].tick == 2 * sixteenth_ticks);
+        // Clear pattern takes the Motion with the notes, as its question says (the notes went, the Motion played on),
+        // a pattern holding only Motion too; the length, Q and lanes stay.
+        Pattern cleared;
+        cleared.length = 32 * sixteenth_ticks; cleared.division = Division::Eighth;
+        put(cleared, 0, 60, 100);
+        cleared.write_motion(point(4, engine_lane, 10));
+        cleared.set_lane_length(64, 6 * sixteenth_ticks);
+        CHECK(cleared.clear_notes_and_motion() && cleared.events.empty() && cleared.motion.empty());
+        CHECK(cleared.length == 32 * sixteenth_ticks && cleared.division == Division::Eighth && cleared.lanes.size() == 1);
+        CHECK(!cleared.clear_notes_and_motion());
+        cleared.write_motion(point(4, engine_lane, 10));
+        CHECK(cleared.clear_notes_and_motion() && cleared.motion.empty());
     }
     // The file: a pattern's points in MOTK with their ticks and holds; Motion from before (MOT2, MOTP, MOTW on
     // sixteenths of the project's one list) lands in its patterns.

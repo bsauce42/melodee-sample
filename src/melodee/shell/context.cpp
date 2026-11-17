@@ -1364,8 +1364,7 @@ void Context::sync_punches() {
 
 void Context::clear_pattern(unsigned t, unsigned p) {
     auto& pattern = patterns.at[t % track_count][p % pattern_count];
-    if (pattern.events.empty()) return;
-    pattern.events.clear();
+    if (!pattern.clear_notes_and_motion()) return; // its Motion too, as the question says
     sync_pattern(t, p);
 }
 

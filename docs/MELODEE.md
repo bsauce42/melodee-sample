@@ -624,7 +624,7 @@ hold to steer, Shift + Seq to zoom in**.
     launches that column on every track holding notes there (and on the
     selected one): its **sequence**, with the sequence's tempo. Hold a pad
     and tap another to copy. Erase + pad asks,
-    then clears that pattern (one undo). Shift + Erase starts a pattern
+    then clears that pattern, its notes and its Motion (one undo). Shift + Erase starts a pattern
     copy: the pattern, then where (on this or another track; the pads stay
     patterns until it ends).
   - Pad Bank the next bank of patterns (Shift: the previous); the pads,
