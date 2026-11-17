@@ -7892,6 +7892,44 @@ void zero_snap() {
         back.read(picked.text());
         CHECK(back.slice_play == 2);
     }
+    // TO PADS' pattern (Live's Slice to New MIDI Track): the slices' notes where they fall, as the pads play them.
+    {
+        PadSound plain;
+        auto ticks = [](double per_frame, uint32_t frames) { return std::lround(per_frame * frames); };
+        CHECK(ticks(slice_ticks_per_frame(plain, false, 88200, 1200), 44100) == 192);  // as recorded: a second at 120 BPM, 2 beats
+        CHECK(ticks(slice_ticks_per_frame(plain, false, 88200, 900), 44100) == 144);   // the same second at 90 BPM
+        PadSound follows = plain; follows.own_tempo = 900;
+        CHECK(ticks(slice_ticks_per_frame(follows, true, 88200, 1200), 44100) == 144); // Follow: at its own 90, whatever the project's
+        CHECK(ticks(slice_ticks_per_frame(follows, false, 88200, 1200), 44100) == 192); // Follow off: as recorded
+        PadSound seq = plain; seq.warp = warp_seq; seq.beats = 8;                       // 8 beats in 4 s: 120 BPM of its own
+        CHECK(ticks(slice_ticks_per_frame(seq, false, 176400, 900), 44100) == 192);
+        PadSound twice = plain; twice.warp = 200;                                       // 200 %: twice as long
+        CHECK(ticks(slice_ticks_per_frame(twice, false, 88200, 1200), 44100) == 384);
+        // Four slices of a bar at 120 BPM (2 s) on pads A01-A03 and A05: a bar with a note on each beat, as long as its slice.
+        Slices sl;
+        sl.whole(0, 88200); sl.add(22050, 88200); sl.add(44100, 88200); sl.add(66150, 88200);
+        std::array<int, max_slices> keys;
+        keys.fill(-1);
+        keys[0] = 36; keys[1] = 37; keys[2] = 38; keys[3] = 40;
+        const double per = slice_ticks_per_frame(plain, false, 88200, 1200);
+        Pattern made = slice_pattern(sl, 88200, keys, per, 384, 384 * 64);
+        CHECK(made.length == 384 && made.events.size() == 4);
+        CHECK(made.events[0].tick == 0 && made.events[1].tick == 96 && made.events[3].tick == 288 && made.events[3].key == 40);
+        CHECK(made.events[2].length == 96 && made.events[2].velocity == 127);
+        keys[1] = -1; // a slice with no pad: no note
+        CHECK(slice_pattern(sl, 88200, keys, per, 384, 384 * 64).events.size() == 3);
+        // Near a bar's end it is that bar; past an eighth more, the next whole one; never past `most`.
+        Slices near;
+        near.whole(0, 86900);
+        CHECK(slice_pattern(near, 86900, keys, per, 384, 384 * 64).length == 384);
+        Slices longer;
+        longer.whole(0, 132300); // a bar and a half
+        CHECK(slice_pattern(longer, 132300, keys, per, 384, 384 * 64).length == 768);
+        CHECK(slice_pattern(longer, 132300, keys, per, 384, 384).length == 384);
+        Settings none; none.slice_pattern = false;
+        back.read(none.text());
+        CHECK(fresh.slice_pattern && !back.slice_pattern);
+    }
 
     // The engine: a level sample, so the fades are all there is to hear.
     SampleData level;

@@ -1692,7 +1692,7 @@ void Context::follow_tempos() {
 
 bool Context::host_recording() const { return host.recorder().state() != TakeRecorder::State::Idle; }
 
-void Context::chop_to_pads(SlicePlay play) {
+void Context::chop_to_pads(SlicePlay play, bool with_pattern) {
     auto& t = track();
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (!frames) return;
@@ -1705,16 +1705,38 @@ void Context::chop_to_pads(SlicePlay play) {
     if (last.used() && last.sample == ui.chop_sample) parent = last;
     else for (const auto& p : t.pads) if (chopped(p)) { parent = p; break; }
     const uint8_t group = slice_group(parent, t.pads); // MONO and THRU: one at a time
+    std::array<int, max_slices> keys; // each slice's note, for the pattern
+    keys.fill(-1);
     unsigned pad = 0, laid = 0;
     for (unsigned n = 0; n < ui.slices.count; ++n) {
         while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the first free pad on
         if (pad >= sampler_pads) break;
         t.pads[pad] = slice_pad(parent, ui.slices, n, frames, play, group);
         send_pad(ui.track, pad);
+        keys[n] = int(sampler_first_note + pad);
         ++laid;
     }
-    if (play != SlicePlay::Poly && laid)
-        notice(std::string(play == SlicePlay::Thru ? "Thru" : "Mono") + ": mute group " + std::to_string(group));
+    std::string said = play == SlicePlay::Poly ? "" : std::string(play == SlicePlay::Thru ? "Thru" : "Mono") + ", mute group " + std::to_string(group);
+    // The pattern (Live's Slice to New MIDI Track): into the track's pattern when it holds nothing, else the first that
+    // holds nothing, which then plays; none free, none written.
+    if (with_pattern && laid) {
+        auto& slots = patterns.at[ui.track % track_count];
+        auto free = [&](unsigned p) { return slots[p].empty() && slots[p].motion.empty(); };
+        unsigned target = t.pattern % pattern_count;
+        if (!free(target)) for (target = 0; target < pattern_count && !free(target); ++target) {}
+        if (target < pattern_count) {
+            const uint32_t region = ui.slices.end(ui.slices.count - 1, frames) - ui.slices.start[0];
+            const double per_frame = slice_ticks_per_frame(parent, t.params[sampler::Follow] != 0, region, project.tempo);
+            Pattern made = slice_pattern(ui.slices, frames, keys, per_frame, project.bar_ticks(), project.max_length());
+            slots[target] = made;
+            sync_pattern(ui.track, target);
+            if (target != t.pattern % pattern_count) launch(ui.track, target);
+            const unsigned bars = made.length / std::max(1u, project.bar_ticks());
+            said += (said.empty() ? "" : "; ") + std::string("P") + std::to_string(target + 1) + ": " + std::to_string(made.events.size()) +
+                    " notes, " + std::to_string(bars) + (bars == 1 ? " bar" : " bars");
+        } else said += (said.empty() ? "" : "; ") + std::string("No empty pattern for the slices");
+    }
+    if (!said.empty()) notice(said);
 }
 
 // A track chain changed shape: motion on its effects named slots that now

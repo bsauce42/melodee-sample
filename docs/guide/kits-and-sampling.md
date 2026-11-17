@@ -243,7 +243,7 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
 | **B2** (**SNAP**) | Snap cuts to zero crossings, so slices do not click. |
-| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru. |
+| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru, with a pattern of them. |
 | **B1** (**CANCEL**) | Leave without changing the pads. |
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
@@ -296,6 +296,13 @@ last choice. **B1** goes back.
 - **MONO**: one slice at a time. The slices share a mute group.
 - **THRU**: one slice at a time, and each plays on to the end of the region,
   so a slice's pad carries the loop on from there.
+
+The **PATTERN** card turns the pattern on or off (push the encoder on it).
+When it is on, TO PADS also writes a pattern with a note for each slice where
+it falls, so **PLAY** gives you the loop back, now on pads you can change. It
+goes into the track's pattern if that is empty, else into the first empty
+one, which then plays. The notes follow how the pads play: with Warp or
+Follow at the loop's own tempo, else as it was recorded.
 
 MONO and THRU use the chopped pad's mute group, or the first free one.
 Slices put on pads keep the chopped pad's tune, Warp, mute group and other

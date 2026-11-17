@@ -48,6 +48,8 @@ namespace melodee {
 namespace {
 using namespace ui;
 
+constexpr unsigned to_pads_pattern = unsigned(SlicePlay::Count), to_pads_rows = to_pads_pattern + 1; // TO PADS' cards: the three, PATTERN
+
 juce::String seconds(uint32_t frames) {
     char text[24];
     std::snprintf(text, sizeof(text), "%.3f s", frames / 44100.0);
@@ -197,7 +199,9 @@ void draw(Paint& p, const Snapshot& s) {
         m.items[0] = card_item(Icon::Layers, slice_play_name(SlicePlay::Poly), "overlap");
         m.items[1] = card_item(Icon::OneShot, slice_play_name(SlicePlay::Mono), "one at a time");
         m.items[2] = card_item(Icon::ArrowRight, slice_play_name(SlicePlay::Thru), "on to the end");
-        m.count = unsigned(SlicePlay::Count); m.current = s.ui.sheet_row % m.count;
+        const bool pattern = s.ui.settings.slice_pattern; // Push turns it on or off; the sheet stays
+        m.items[3] = card_item(Icon::Pattern, "PATTERN", pattern ? "ON" : "OFF", pattern);
+        m.count = to_pads_rows; m.current = s.ui.sheet_row % m.count;
         card_sheet(p, m);
     }
 }
@@ -229,7 +233,7 @@ void pick(Context& c, int delta) {
 
 void wheel(Context& c, int delta) {
     auto& ui = c.ui;
-    if (ui.sheet_open) { ui.sheet_row = uint8_t(std::clamp<int>(ui.sheet_row + delta, 0, int(SlicePlay::Count) - 1)); return; }
+    if (ui.sheet_open) { ui.sheet_row = uint8_t(std::clamp<int>(ui.sheet_row + delta, 0, int(to_pads_rows) - 1)); return; }
     if (!ui.chop_fine || !ui.slices.count) { pick(c, delta); return; }
     unsigned n = std::min<unsigned>(ui.chop_slice, ui.slices.count - 1), k = ui.chop_focus % 2;
     c.fine_edit(Binding {k ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, 1, 0}, delta);
@@ -239,13 +243,19 @@ void wheel(Context& c, int delta) {
     ui.turning = int8_t(k); ui.turned_at = c.now;
 }
 
-// TO PADS' card picked: the slices laid that way, the choice kept for next time, and their sound opened.
+// TO PADS' card picked: POLY, MONO or THRU lays the slices that way (and their pattern, PATTERN on), the choice kept
+// for next time, and their sound opened; PATTERN turns the pattern on or off, the cards staying.
 void lay(Context& c) {
     auto& ui = c.ui;
+    if (ui.sheet_row % to_pads_rows == to_pads_pattern) {
+        ui.settings.slice_pattern = !ui.settings.slice_pattern;
+        if (c.store) c.store->save_settings(ui.settings.text());
+        return;
+    }
     ui.sheet_open = false;
     ui.settings.slice_play = uint8_t(ui.sheet_row % unsigned(SlicePlay::Count));
     if (c.store) c.store->save_settings(ui.settings.text());
-    c.chop_to_pads(SlicePlay(ui.settings.slice_play));
+    c.chop_to_pads(SlicePlay(ui.settings.slice_play), ui.settings.slice_pattern);
     c.open(PageId::Stage); // the slices' sound (Sample held shows their pads)
 }
 
