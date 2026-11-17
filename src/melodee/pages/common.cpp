@@ -616,11 +616,6 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::PunchTail: c.label = "TAIL"; c.value = punch_tails[b.value % 3]; break;
     case Kind::ClickLevel: c.label = "CLICK"; c.value = juce::String(b.value); c.unit = "%"; break;
     case Kind::Features: c.label = "FEATURES"; c.value = b.value ? "Full" : "Basic"; break;
-    case Kind::RecGrid: // the pattern's Q, named, or a grid of its own
-        c.label = "GRID";
-        if (b.value) c.value = division_name(grid_division(unsigned(b.value), s.pattern.division));
-        else { c.value = "Q"; c.unit = division_name(s.pattern.division); }
-        break;
     case Kind::ArpMode: c.label = "MODE"; c.value = arp_mode_name(ArpMode(b.value)); break;
     case Kind::ArpRate: c.label = "RATE"; c.value = arp_rate_name(unsigned(b.value)); break;
     case Kind::ArpOctaves: c.label = "OCTAVES"; c.value = juce::String(b.value); break;

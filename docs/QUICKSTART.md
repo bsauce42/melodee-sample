@@ -183,8 +183,8 @@ Each take is one undo step. Press **SHIFT** + **−** to undo it.
 Recording options:
 
 - **SHIFT** + **Pad 4**: turn the one-bar count-in on or off.
-- **SHIFT** + **Pad 10**: open **Rec Quantize**. Press **B3** to turn it on
-  or off, and turn the encoder to choose the grid.
+- **SHIFT** + **Pad 10**: turn **Rec Quantize** on or off. Notes land on
+  the pattern's Q.
 - **SHIFT** + **TAP TEMPO**: set the metronome to Off, On or Rec.
 
 To edit the notes, press **B2** (**ROLL**) for the piano roll, or **SHIFT** +

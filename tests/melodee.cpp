@@ -2482,8 +2482,7 @@ void shift_pads() {
                                    "Trim Sample", "Time Correct", "Warp", "Project"};
     for (unsigned n = 0; n < 16; ++n) CHECK(std::string(shift_pad_job(n).name) == printed[n]);
     using K = ShiftPadJob::Kind;
-    for (unsigned n : {0u, 3u}) CHECK(shift_pad_job(n).kind == K::Toggle);
-    CHECK(shift_pad_job(9).kind == K::Open); // Rec Quantize: its page (on / off and the grid)
+    for (unsigned n : {0u, 3u, 9u}) CHECK(shift_pad_job(n).kind == K::Toggle); // Full Level, Count-In, Rec Quantize (one press, as the MPC)
     CHECK(shift_pad_job(2).kind == K::Action && shift_pad_job(11).kind == K::Open && shift_pad_job(15).kind == K::Open);
     for (unsigned n : {1u, 5u, 6u}) CHECK(shift_pad_job(n).kind == K::Action); // Half Seq, Half / Double Speed (phase 2)
     CHECK(shift_pad_job(13).kind == K::Open);                                  // Time Correct (phase 2)
@@ -2503,7 +2502,7 @@ void shift_pads() {
     ui.settings.count_in = true; ui.settings.rec_quantize = false;
     Settings kept; kept.read(ui.settings.text()); // the toggles live in Melodee's settings file
     CHECK(kept.full_level() && kept.count_in && !kept.rec_quantize);
-    CHECK(shift_pad_level(ui, 9) == 1); // off: the pad faint, its page still there
+    CHECK(shift_pad_level(ui, 9) == 1); // off: the pad faint
     // Rec Quantize's grid: kept with the settings; a file from before it follows the pattern's Q.
     CHECK(kept.rec_grid == 0);
     ui.settings.rec_grid = 1 + unsigned(Division::ThirtySecondTriplet);
@@ -2515,11 +2514,18 @@ void shift_pads() {
     CHECK(old.rec_grid == unsigned(Division::Count)); // clamped to the last, 1/64
     CHECK(grid_division(0, Division::Eighth) == Division::Eighth && grid_division(5, Division::Eighth) == Division::Sixteenth);
     CHECK(grid_division(9, Division::Eighth) == Division::SixtyFourth && grid_division(10, Division::Eighth) == Division::Eighth);
-    {
-        Project project; UiState g; g.page = PageId::RecQuantize; g.settings.rec_grid = 3;
-        Pattern none;
-        auto cards = page_bindings(project, g, none);
-        CHECK(cards[0].kind == Binding::Kind::RecGrid && cards[0].value == 3 && cards[0].max == int(Division::Count) && !cards[1].bound());
+    { // Settings' SEQ rows: Rec quantize as Shift + Pad 10, Rec grid from the pattern's Q to 1/64 and no further
+        Settings g;
+        CHECK(g.value_text(Settings::RecQuantize) == "On" && g.value_text(Settings::RecGrid) == "Pattern Q");
+        g.step(Settings::RecQuantize, 1);
+        CHECK(!g.rec_quantize && g.value_text(Settings::RecQuantize) == "Off");
+        g.step(Settings::RecGrid, -1);
+        CHECK(g.rec_grid == 0);
+        g.step(Settings::RecGrid, 1);
+        CHECK(g.rec_grid == 1 && g.value_text(Settings::RecGrid) == "1/4");
+        for (int n = 0; n < 20; ++n) g.step(Settings::RecGrid, 1);
+        CHECK(g.rec_grid == unsigned(Division::Count) && g.value_text(Settings::RecGrid) == "1/64");
+        CHECK(std::string(Settings::row_name(Settings::RecGrid)) == "Rec grid");
     }
     kept.toggle_full_level();
     CHECK(kept.pad_response == 2); // back to the curve it came from

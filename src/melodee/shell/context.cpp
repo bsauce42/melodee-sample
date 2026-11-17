@@ -460,7 +460,7 @@ void Context::play_pad(unsigned pad, uint8_t velocity, bool down) {
 // message's stamp less the output latency, on the nearest tick: by the time the
 // MIDI thread sees it the playhead has moved on), or with Rec Quantize on
 // (Shift + Pad 10) on the nearest step of its grid (the pattern's Q, or one of
-// its own: Settings::rec_grid). A note moved ahead of the playhead is skipped
+// its own: Settings' Rec grid, Settings::rec_grid). A note moved ahead of the playhead is skipped
 // once by the audio thread, as it was heard live.
 void Context::record(int key, int velocity, int cutoff) {
     if (!ui.recording || !host.playing()) return;
@@ -860,10 +860,6 @@ void Context::apply(const Binding& b, int value) {
         break;
     case Kind::PunchSnap: project.punch_snap = uint8_t(value); break;
     case Kind::PunchTail: project.punch_tail = uint8_t(value); break;
-    case Kind::RecGrid: // the REC QUANTIZE page's K1: the pattern's Q, or a grid of its own
-        ui.settings.rec_grid = uint8_t(std::clamp(value, 0, int(Division::Count)));
-        settings_save_at = std::max<uint32_t>(now, 1) + 1000;
-        break;
     case Kind::Features: // Settings' K1: Basic or Full; nothing in the project changes
         if (ui.settings.full_features == (value != 0)) break;
         ui.settings.full_features = value != 0;

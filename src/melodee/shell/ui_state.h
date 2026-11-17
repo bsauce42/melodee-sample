@@ -26,7 +26,6 @@ enum class PageId : uint8_t { Stage, Keys, Sounds, Edit, Roll, Motion, Patterns,
                             CardAccess,                        // parity phase 10b: Project's SD card access
                             Tracks,                            // Sample's second stop: the sixteen tracks and the strip in hand
                             Looper,                            // LOOPER on Tracks: the four loops (docs/LOOPER.md)
-                            RecQuantize,                       // Shift + Pad 10: Rec Quantize on or off, and its grid
                             Plugins,                           // the plug-in picker: the card's Plugins folder (docs/MELODEE.md)
                             PluginPresets,                     // PRESETS: a plug-in's programs (docs/MELODEE.md)
                             LayersPage,                        // roadmap P3: a kit pad's four layers

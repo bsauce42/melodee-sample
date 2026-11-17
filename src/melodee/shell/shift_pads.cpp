@@ -47,9 +47,13 @@ void shift_pad(Context& c, unsigned pad) {
         settings.count_in = !settings.count_in;
         toggled(c, job.name, settings.count_in);
         return;
-    case 9: // Rec Quantize: its page, on or off (B3) and the grid recorded notes land on (the pattern's Q or its own)
-        open_tool(PageId::RecQuantize);
+    case 9: { // Rec Quantize: on or off in one press, as the MPC; the notice names the grid (the pattern's Q, or Settings' Rec grid)
+        settings.rec_quantize = !settings.rec_quantize;
+        std::string grid = settings.rec_quantize ? std::string(": ") + division_name(grid_division(settings.rec_grid, c.pattern().division)) : "";
+        c.notice(std::string(job.name) + (settings.rec_quantize ? " on" : " off") + grid);
+        if (c.store) c.store->save_settings(settings.text());
         return;
+    }
     case 14: // Warp: Time stretch or Pitch for the kit (its Follow how)
         c.toggle_warp_mode();
         return;

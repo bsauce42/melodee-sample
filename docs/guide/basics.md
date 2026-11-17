@@ -36,7 +36,7 @@ the right edge. **K1** jumps through any list.
 | Encoder (push) | Open the item under the cursor, or move to the next card. It acts when you let go. |
 | Encoder (hold) | Open the **Menu** (see below). |
 | **SHIFT** + encoder push | Go back one page. |
-| The button that opened a page | On Fader, Rec Quantize, Time Correct, Compressor, Settings, Song, Project, Input Config and Step Edit, press it again to close the page. |
+| The button that opened a page | On Fader, Time Correct, Compressor, Settings, Song, Project, Input Config and Step Edit, press it again to close the page. |
 | **−** / **+** | Change the octave on play pages, the bank on kit pages, or move through a list. |
 | **SHIFT** + **−** / **+** | Undo / redo. |
 

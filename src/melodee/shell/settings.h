@@ -7,6 +7,7 @@
 #include "drivers/screen_mirror.h"
 #include "melodee/model/input_config.h"
 #include "melodee/model/midi_config.h"
+#include "melodee/model/pattern.h"
 #include "melodee/ui/faces.h"
 #include "melodee/ui/palettes.h"
 #include <cmath>
@@ -37,7 +38,7 @@ inline const char* takeover_name(Takeover t) {
 struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
-                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, Rows };
+                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, RecQuantize, RecGrid, Rows };
     // FEATURES (shell/features.h; Settings' K1): Full shows every page, Basic the stock app's pages plus tracks,
     // plug-ins, the mixer and Song. A first install (no settings file) starts on Basic; a file from before this
     // row stays on Full, as it was (read()).
@@ -46,8 +47,8 @@ struct Settings {
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
-    bool rec_quantize = true; // recorded notes onto the grid (off: phase 2)
-    uint8_t rec_grid = 0;     // and which grid: 0 the pattern's Q, else 1 + a Division, 1/4 .. 1/64 (grid_division(), model/pattern.h)
+    bool rec_quantize = true; // recorded notes onto the grid (Shift + Pad 10, or SEQ's Rec quantize row)
+    uint8_t rec_grid = 0;     // and which grid (SEQ's Rec grid row): 0 the pattern's Q, else 1 + a Division, 1/4 .. 1/64 (grid_division(), model/pattern.h)
     bool zero_snap = true;    // Chop's cuts onto zero crossings (Chop's B2; shell/chop.h)
     uint8_t slice_play = 0;   // Chop's TO PADS: the last playback picked, 0 Poly, 1 Mono, 2 Thru (shell/chop.h SlicePlay)
     bool slice_pattern = true; // and whether it writes a pattern of the slices too (Live's Slice to New MIDI Track)
@@ -128,7 +129,7 @@ struct Settings {
         static const char* names[] {"Palette", "Pad response", "Pad pressure", "Pad lights", "Knob takeover", "Knob FX takeover",
                                     "Fader takeover", "Double Seq", "Capture bars", "Capture quantize", "Brightness", "Place bar", "Sample rate", "Audio buffer", "Recall grab", "Recall gap",
                                     "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Screen mirror", "Resolution", "Frame rate",
-                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow", "Font"};
+                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow", "Font", "Rec quantize", "Rec grid"};
         return names[row % Rows];
     }
     std::string value_text(unsigned row) const {
@@ -170,6 +171,8 @@ struct Settings {
         case TapLight: return tap_light ? "On" : "Off";
         case RepeatVelocity: return repeat_pressure ? "Pressure" : "Strike";
         case SeqFollow: return seq_follow == 1 ? "Page" : seq_follow == 2 ? "Step" : "Off";
+        case RecQuantize: return rec_quantize ? "On" : "Off";
+        case RecGrid: return rec_grid ? division_name(grid_division(rec_grid, Division::Sixteenth)) : "Pattern Q";
         default: return std::to_string(screen) + " %";
         }
     }
@@ -204,6 +207,8 @@ struct Settings {
         case TapLight: tap_light = !tap_light; break;
         case RepeatVelocity: repeat_pressure = !repeat_pressure; break;
         case SeqFollow: seq_follow = uint8_t(step_in(seq_follow % 3, 3, way)); break;
+        case RecQuantize: rec_quantize = !rec_quantize; break;
+        case RecGrid: rec_grid = uint8_t(step_in(rec_grid, unsigned(Division::Count) + 1, way)); break;
         default: break;
         }
     }

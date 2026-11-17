@@ -159,7 +159,7 @@ holds the table the dispatch and the lights share.
 | Pad | Job | Pad | Job |
 | --- | --- | --- | --- |
 | 1 | Full Level (every hit at 127; again back) | 9 | Fader page |
-| 2 | Half Seq | 10 | Rec Quantize: on / off (B3) and its grid |
+| 2 | Half Seq | 10 | Rec Quantize: on / off (grid: Settings > SEQ) |
 | 3 | Double Seq | 11 | Resample (then a pad; on a plug-in or MIDI track AUTO SAMPLE) |
 | 4 | Count-In on / off | 12 | Song |
 | 5 | Compressor | 13 | Trim Sample |
@@ -700,10 +700,11 @@ hold to steer, Shift + Seq to zoom in**.
   nearest tick, not where the playhead has got to by the time the MIDI
   thread sees it); with **Rec Quantize** on they land on its grid (a note
   moved ahead of the playhead is not played twice). A pad hit in the
-  count-in's last sixteenth goes on the take's first tick. Shift + Pad 10 opens
-  REC QUANTIZE: B3 turns it on or off, K1, the wheel or −/+ pick the grid,
-  the pattern's Q or one of its own (1/4 .. 1/64 with triplets), kept with
-  Melodee's settings; B1 back, the pads play. Patterns' header names it
+  count-in's last sixteenth goes on the take's first tick. Shift + Pad 10
+  turns Rec Quantize on or off in one press, as on the MPC (the notice names
+  the grid). The grid is the pattern's Q, or one of its own (1/4 .. 1/64
+  with triplets) set in Settings' SEQ door (Rec grid); both kept with
+  Melodee's settings. Patterns' header names it
   (REC Q 1/32T, REC Q OFF). Overdub. A take is one undo.
   While the song plays, a pattern launched is written as a clip.
 - **Step Edit** (Shift + Seq, over the page in view): the step editor. A

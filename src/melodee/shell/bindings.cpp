@@ -897,8 +897,6 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         Binding depth = g.used() ? Binding {Kind::ModDepth, 0, -100, 100, g.depth} : Binding {};
         return {pick, rate, depth};
     }
-    case PageId::RecQuantize: // K1 the grid: the pattern's Q, or 1/4 .. 1/64 of its own
-        return {Binding {Kind::RecGrid, 0, 0, int(Division::Count), ui.settings.rec_grid}, Binding {}, Binding {}};
     case PageId::StepEdit: { // B1's card sets on the caret's step; on a kit (or Drums) its lane's note, the last pad's
         unsigned at = unsigned(std::max<int>(ui.step_cursor, 0)) % pattern.steps();
         if (ui.held_step >= 0) return lock_cards(project, ui, pattern, unsigned(ui.held_step) % pattern.steps() * pattern.q()); // STEPS, held: locks

@@ -1109,14 +1109,6 @@ const Preview previews[] {
     {"pickerplugins", [](Shell&, Snapshot& s) { // the effect picker on the Plug-ins family
          s.ui.page = PageId::Rack; s.ui.track = 0; s.ui.picker_open = true; s.ui.picker_family = uint8_t(Family::Plugins); s.ui.picker_items = true;
      }},
-    {"recquantize", [](Shell&, Snapshot& s) { // Shift + Pad 10: on, a grid of its own, 1/32T, K1 turning
-         s.ui.page = PageId::RecQuantize; s.ui.track = 0; s.playing = true;
-         s.ui.settings.rec_quantize = true; s.ui.settings.rec_grid = 1 + unsigned(Division::ThirtySecondTriplet);
-         s.ui.turning = 0; s.ui.turned_at = s.now;
-     }},
-    {"recquantizeoff", [](Shell&, Snapshot& s) { // off, following the pattern's Q
-         s.ui.page = PageId::RecQuantize; s.ui.track = 3; s.ui.settings.rec_quantize = false; s.ui.settings.rec_grid = 0;
-     }},
     {"seqsheet", [](Shell&, Snapshot& s) { // Seq held over Stage: track 3 plays P2, P4 waits for the bar
          s.ui.page = PageId::Stage; s.ui.track = 2; s.playing = true;
          const uint8_t live[] {1, 0, 0, 2, 1, 0, 0, 0};
@@ -2054,7 +2046,7 @@ const Preview previews[] {
     {"settings", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.playing = true; s.ui.settings_door = 4; }}, // the doors, AUDIO in hand
     {"settingspads", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 0; s.ui.settings_cursor = Settings::PadResponse; }},
     {"settingslights", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 0; s.ui.settings_cursor = Settings::PadFade; }},
-    {"settingsseq", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::SeqFollow; s.ui.settings.seq_follow = 1; }},
+    {"settingsseq", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 1; s.ui.settings_cursor = Settings::RecGrid; s.ui.settings.seq_follow = 1; s.ui.settings.rec_grid = 1 + unsigned(Division::SixteenthTriplet); }},
     {"settingsscreen", [](Shell&, Snapshot& s) { s.ui.page = PageId::SettingsPage; s.ui.settings_in = true; s.ui.settings_door = 3; s.ui.settings_cursor = Settings::Palette; }},
     // Push on Palette / Font: the cards, the screen in the one lit (DAY; Melodee Pixel).
     {"settingspalette", [](Shell&, Snapshot& s) {
@@ -2701,7 +2693,7 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
         }
         ++written;
     }
-    require(written > 0, "Unknown Melodee page; use stage stagemix stagemidi stageemptysynth tracks keys sounds edit mix steps roll notesheet motion patterns recquantize recquantizeoff seqsheet seqbpm seqclear rollkit song songzoom songclip songshift length rack sends bus fxpick pads samples trim chop chopfine levels record project filesheet tempo arp chord capture pad play envelope filter follow cloud padmix padfilter filterenv trimloop trimshift trimzoom ampenv tune levelsfilter levelssynth shift exit exitcard exitoff exitsaved");
+    require(written > 0, "Unknown Melodee page; use stage stagemix stagemidi stageemptysynth tracks keys sounds edit mix steps roll notesheet motion patterns seqsheet seqbpm seqclear rollkit song songzoom songclip songshift length rack sends bus fxpick pads samples trim chop chopfine levels record project filesheet tempo arp chord capture pad play envelope filter follow cloud padmix padfilter filterenv trimloop trimshift trimzoom ampenv tune levelsfilter levelssynth shift exit exitcard exitoff exitsaved");
     std::cout << "MELODEE_PREVIEW pages=" << written << " text_issues=" << text_issues << '\n';
     // Text under the floor or cut by its box fails the build check.
     return text_issues ? 1 : 0;
