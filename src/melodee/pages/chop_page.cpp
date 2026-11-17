@@ -2,7 +2,9 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // CHOP (Chop on a sampler track; Chop again goes back to Trim): the MPC's
 // Chop Mode on the last pad's region. Pads play their slice and pick it; the
-// wheel picks one too. K1 the slice's start, K2 its end (a neighbour's end
+// wheel picks one too. Past sixteen slices Pad Bank steps the pads through
+// them (A 1-16, B 17-32 ...; the bank of the slice in hand, its pill BANK B
+// beside the count). K1 the slice's start, K2 its end (a neighbour's end
 // or start moves with it), K3 the chop type: Threshold, Regions, Beats
 // (Melodee's) or Manual; Shift + K1 / K2 zoom at the slice's start or end
 // (0-100%, smoothly, shell/zoom_view.h), Shift + K3 the type's amount
@@ -27,6 +29,7 @@
 #include "melodee/pages/sampler_common.h"
 #include "melodee/shell/zoom_view.h"
 #include "melodee/ui/waveform.h"
+#include "melodee/model/slice_banks.h"
 #include <cstdio>
 
 namespace melodee {
@@ -46,6 +49,8 @@ void draw(Paint& p, const Snapshot& s) {
     Header h = header_of(s);
     h.left.push_back(chip("CHOP", c));
     h.left.push_back(pill(Icon::Scissors, juce::String(slices.count), c));
+    if (slices.count > 16) // the sixteen slices on the pads (Pad Bank steps them)
+        h.left.push_back(pill(Icon::Pads, "BANK " + juce::String::charToString(juce::juce_wchar('A' + slice_bank(s.ui.chop_slice))), colour::text));
     h.right.push_back(tag_of(s, s.ui.track));
     if (s.ui.shift) frame(p, s, {{"EXTRACT", "SPLIT", "MERGE"}, -1, c}, h);
     else {
@@ -172,8 +177,9 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     auto& ui = c.ui;
     if (!down) return;
     if (ui.erase) { // the slice out: it joins the one before (the chop is Manual from here)
-        if (pad == 0 || pad >= ui.slices.count) return;
-        ui.slices.remove(pad);
+        const unsigned slice = pad_slice(ui.chop_slice, pad); // in the bank in view
+        if (slice == 0 || slice >= ui.slices.count) return;
+        ui.slices.remove(slice);
         ui.chop_mode = ChopMode::Manual; ui.chop_armed = false;
         ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count - 1));
         return;

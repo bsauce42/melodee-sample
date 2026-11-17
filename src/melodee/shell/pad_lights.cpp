@@ -25,6 +25,7 @@
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/step_edit.h"
 #include "melodee/shell/step_lane.h"
+#include "melodee/model/slice_banks.h"
 #include <algorithm>
 #include <cmath>
 
@@ -528,7 +529,7 @@ Look motion_look(const PadScene& s, const Heard& snd, const std::array<bool, 192
 }
 
 // ---- slices, takes and files
-// Chop: how strongly each slice sounds (the audition voice's place in the file).
+// Chop: how strongly each slice of the bank in view sounds (the audition voice's place in the file), by pad.
 std::array<float, 16> slices_sounding(const PadScene& s) {
     std::array<float, 16> out {};
     const auto& t = selected(s);
@@ -536,11 +537,12 @@ std::array<float, 16> slices_sounding(const PadScene& s) {
     const auto& sound = t.pads[t.last_pad % sampler_pads];
     uint32_t frames = sound.used() ? s.project.samples[sound.sample % sample_slots].frames : 0;
     const auto& slices = s.ui.slices;
+    const unsigned first = pad_slice(s.ui.chop_slice, 0), last = std::min(slices.count, first + 16);
     for (unsigned n = 0; n < s.taps.count && n < TrackTaps::voices; ++n) {
         const auto& v = s.taps.voice[n];
         if (v.pad != int(sampler_pads) || (v.flags & tap::Choked)) continue;
-        for (unsigned k = 0; k < slices.count && k < 16; ++k)
-            if (v.at >= slices.start[k] && v.at < slices.end(k, frames)) out[k] = std::max(out[k], v.level);
+        for (unsigned k = first; k < last; ++k)
+            if (v.at >= slices.start[k] && v.at < slices.end(k, frames)) out[k - first] = std::max(out[k - first], v.level);
     }
     return out;
 }
@@ -550,11 +552,12 @@ Look chop_look(const PadScene& s, const std::array<float, 16>& sounding, unsigne
     bool manual = ui.chop_mode == ChopMode::Manual;
     if (manual && ui.chop_armed) return pad == 0 ? (blink(s.now, flash_ms) ? red(full) : red(faint)) : Look {}; // pad 1 starts the take
     bool taking = ui.chop_take_at && s.now - ui.chop_take_at < 60000;
-    if (manual && taking) return pad == 0 ? white(full) : pad < count ? track(at, dim) : white(faint); // tap to cut here
-    if (ui.erase) return pad == 0 ? (count ? track(at, dim) : Look {}) : pad < count ? red(faint) : Look {}; // takes the slice out
+    const unsigned slice = pad_slice(ui.chop_slice, pad); // the pad's slice in the bank in view (Pad Bank)
+    if (manual && taking) return pad == 0 ? white(full) : slice < count ? track(at, dim) : white(faint); // tap to cut here
+    if (ui.erase) return slice == 0 ? (count ? track(at, dim) : Look {}) : slice < count ? red(faint) : Look {}; // takes the slice out
     if (held(s, pad)) return white(full);
-    if (pad >= count) return {};
-    return flare(track(at, pad == ui.chop_slice ? full : dim), sounding[pad]);
+    if (slice >= count) return {};
+    return flare(track(at, slice == ui.chop_slice ? full : dim), sounding[pad % 16]);
 }
 Look record_look(const PadScene& s, unsigned pad) {
     using S = TakeRecorder::State;
