@@ -479,12 +479,16 @@ void Context::record(int key, int velocity, int cutoff) {
     } else if (!host.heard_place(ui.track, hit_ns, position, ticks)) { position = host.position_of(ui.track); ticks = host.ticks(); }
     int playhead = early ? position : host.position_of(ui.track);
     if (playhead < 0) return;
-    uint32_t at = wrap_tick(position, p.length);
+    // A kit lane of its own length: the hit lands where its lane was, as the lane plays (shell/record_place.h).
+    const uint32_t loop = p.lane_length(uint8_t(key)), pass = early ? 0 : host.pass_of(ui.track);
+    const bool lane = loop < p.length;
+    uint32_t at = lane_tick(position, pass, p.length, loop);
     bool ahead = early;
     if (ui.settings.rec_quantize) {
         unsigned grid = division_ticks(grid_division(ui.settings.rec_grid, p.division));
         uint32_t snapped = quantise_tick(p, at, grid); // past the last step: the first, next time round
-        ahead = early || still_ahead(at, snapped, playhead, p.length);
+        if (snapped >= loop) snapped = 0;              // its lane's last step too
+        ahead = early || still_ahead(at, snapped, lane ? int(lane_tick(playhead, pass, p.length, loop)) : playhead, lane ? loop : p.length);
         at = snapped;
     }
     Event e;

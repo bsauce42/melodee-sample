@@ -12122,6 +12122,10 @@ void looper_chord_and_sheet() {
 void hits_on_time() {
     // The place's arithmetic: counted back from the playhead and wrapped; a step snapped onto still to come or not.
     CHECK(wrap_tick(-3, 384) == 381 && wrap_tick(390, 384) == 6 && wrap_tick(5, 384) == 5);
+    // A hit on a kit lane of its own length lands where the lane was: 72 ticks round, from where the pattern began.
+    CHECK(lane_tick(100, 0, 384, 72) == 28 && lane_tick(100, 1, 384, 72) == 52); // the second pass: 484 ticks on
+    CHECK(lane_tick(-3, 1, 384, 72) == 21 && lane_tick(-3, 0, 384, 72) == 69);   // counted back into the pass before
+    CHECK(lane_tick(100, 3, 384, 384) == 100 && lane_tick(-3, 3, 384, 0) == 381); // no lane of its own: the pattern's tick
     CHECK(still_ahead(100, 120, 102, 384));  // the playhead two ticks on: the step is still to come, skipped once
     CHECK(!still_ahead(100, 120, 121, 384)); // it played already
     CHECK(!still_ahead(100, 96, 102, 384));  // snapped back: behind the hit
@@ -12808,6 +12812,28 @@ void kit_lanes() {
         CHECK((on[b] == std::vector<int64_t> {0, 3, 6, 9, 12, 15}));
         CHECK((on[three.key] == std::vector<int64_t> {0, 6, 12})); // 1:2 of its own passes
     }
+    // A lane's notes past its own length are hidden, as notes past the pattern's end. A feel does not play one (it
+    // came round into the lane), and Time Correct leaves it where it is; a note Time Correct snaps to the lane's end
+    // goes to the lane's first step, as the feel plays it (it went past the lane's end, unheard).
+    {
+        Pattern q;
+        q.length = 16 * sixteenth_ticks;
+        Event e;
+        e.key = b; e.length = 6;
+        e.tick = 24; q.add(e);
+        e.tick = 340; q.add(e); // past the lane's twelve steps
+        q.set_lane_length(b, 12 * sixteenth_ticks);
+        q.feel.strength = 100;
+        auto played = feel_pattern(q);
+        CHECK(played.events.size() == 1 && played.events[0].tick == 24);
+        q.events[0].tick = 280; // nearest the lane's end
+        CHECK(feel_pattern(q).events.size() == 1 && feel_pattern(q).events[0].tick == 0);
+        q.feel = Feel {};
+        time_correct_all(q, nullptr, 50, 0);
+        CHECK(q.events.size() == 2 && q.events[0].tick == 0 && q.events[1].tick == 340);
+        time_correct_all(q, nullptr, 50, -2); // shifted back: round the lane's end, not the pattern's
+        CHECK(q.events.size() == 2 && q.events[0].tick == 286 && q.events[1].tick == 340);
+    }
     // The file: LANE after the pattern's notes; without it every key loops with the pattern.
     {
         auto project = std::make_unique<Project>();
@@ -12944,6 +12970,50 @@ void note_repeat_p1() {
         for (unsigned b = 0; b < 300; ++b) counted.render(out.data(), 128, 1); // about two beats of the take
         std::vector<EngineHost::ArpWritten> written;
         while (counted.take_arp_written(w)) written.push_back(w);
+        CHECK(written.size() >= 6);
+        for (size_t n = 0; n < written.size(); ++n) CHECK(written[n].tick == n * sixteenth_ticks);
+    }
+    // On a kit lane of its own length the repeats are written where the lane plays them: round its three steps
+    // (they were written along the pattern, most of them past the lane's end, unheard).
+    {
+        auto kit = std::make_unique<Project>();
+        auto kit_bank = std::make_unique<PatternBank>();
+        load_sound(kit->tracks[0], EngineKind::Sampler, 0);
+        kit->tempo = 1200;
+        const unsigned pad = sampler_first_note + 1;
+        kit_bank->at[0][0].set_lane_length(pad, 3 * sixteenth_ticks);
+        auto heap = std::make_unique<EngineHost>();
+        auto& lane = *heap;
+        lane.load(*kit, *kit_bank);
+        lane.send({Command::Type::Repeat, 0, 0, 2, 4}); // 1/16
+        lane.send({Command::Type::Repeat, 0, 0, 0, 1});
+        lane.send({Command::Type::SongRecord, 0, 0, 0, 1});
+        lane.send({Command::Type::Play});
+        lane.send({Command::Type::RepeatKey, 0, 0, uint16_t(pad), 100});
+        for (unsigned b = 0; b < 300; ++b) lane.render(out.data(), 128, 1);
+        std::vector<EngineHost::ArpWritten> written;
+        while (lane.take_arp_written(w)) written.push_back(w);
+        CHECK(written.size() >= 6);
+        for (size_t n = 0; n < written.size(); ++n) CHECK(written[n].key == pad && written[n].tick == n % 3 * sixteenth_ticks);
+    }
+    // In the song, played from a bar inside a clip: the repeats where the pattern is (they fell 256 ticks off, the
+    // clip's start before tick 0 read as a tick far ahead).
+    {
+        auto song = std::make_unique<Project>(*project);
+        auto song_bank = std::make_unique<PatternBank>();
+        song->song.place({0, 0, 0, 8, false});
+        auto heap = std::make_unique<EngineHost>();
+        auto& in_song = *heap;
+        in_song.load(*song, *song_bank);
+        in_song.set_audio_format(44100, 384);
+        in_song.send({Command::Type::Repeat, 0, 0, 2, 4}); // 1/16
+        in_song.send({Command::Type::Repeat, 0, 0, 0, 1});
+        in_song.send({Command::Type::SongRecord, 0, 0, 0, 1});
+        in_song.send({Command::Type::Play, 0, 0, 2, 1}); // the song, from bar 3
+        in_song.send({Command::Type::RepeatKey, 0, 0, 60, 100});
+        for (unsigned b = 0; b < 300; ++b) in_song.render(out.data(), 128, 1);
+        std::vector<EngineHost::ArpWritten> written;
+        while (in_song.take_arp_written(w)) written.push_back(w);
         CHECK(written.size() >= 6);
         for (size_t n = 0; n < written.size(); ++n) CHECK(written[n].tick == n * sixteenth_ticks);
     }

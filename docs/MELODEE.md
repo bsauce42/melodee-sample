@@ -730,7 +730,10 @@ hold to steer, Shift + Seq to zoom in**.
     (LANE: 1 step to the pattern's, All): a shorter lane loops on its own
     from where the pattern began, polymeter inside the kit, and counts its
     own passes for trig conditions; the bar darkens what lies past it, its
-    playhead goes round with it and the header names it (LANE 6). Files
+    playhead goes round with it and the header names it (LANE 6). Seq
+    Record and Note Repeat write a lane's notes where the lane plays
+    them, Time Correct moves them round the lane's own length, and a
+    note past the lane's end stays unheard with a feel on too. Files
     keep lanes in LANE. **Held, a step is locked**: while a pad is down
     the cards are the Motion page's three lanes, each showing its lock on
     that step (else the track's own value), and a turn writes a lock
