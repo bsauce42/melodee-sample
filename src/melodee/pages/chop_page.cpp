@@ -17,9 +17,9 @@
 // slices. Push turns Pad Slicing on and off (K3 onto Manual turns it on; the
 // header's chip reads PAD SLICE): a slice's pad plays from its start on to
 // the region's end, and an empty pad tapped meanwhile cuts there, up to 64.
-// Hold to fix: a slice's pad held stops what plays, zooms to its start and
-// repeats its first 250 ms while the wheel moves that cut (chip FIX CUT);
-// letting go puts the zoom back (Context::chop_hold_tick()).
+// Hold to fix: a slice's pad held stops what plays and zooms to its start;
+// the wheel moves that cut and, once still, its first 250 ms play once
+// (chip FIX CUT); letting go puts the zoom back (Context::chop_hold_tick()).
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
 // Erase + pad takes a slice out (it joins the one before). B3 TO PADS asks
@@ -233,7 +233,7 @@ void wheel(Context& c, int delta) {
     if (!ui.chop_fine || !ui.slices.count) { pick(c, delta); return; }
     unsigned n = std::min<unsigned>(ui.chop_slice, ui.slices.count - 1), k = ui.chop_focus % 2;
     c.fine_edit(Binding {k ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, 1, 0}, delta);
-    if (ui.chop_fixing) ui.chop_loop_at = c.now; // hold to fix: heard again at once
+    if (ui.chop_fixing) ui.chop_loop_at = std::max(1u, c.now + fix_settle_ms); // hold to fix: heard once the wheel is still
     auto& pot = ui.pots[k];
     pot.engaged = false; pot.bound = 0; // the value left the pot: it picks it up again
     ui.turning = int8_t(k); ui.turned_at = c.now;

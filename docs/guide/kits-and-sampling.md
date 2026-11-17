@@ -248,7 +248,7 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
 | **ERASE** + pad | Remove a slice. |
-| Hold a slice's pad | Fix its cut: turn the encoder while its start repeats. |
+| Hold a slice's pad | Fix its cut: turn the encoder; the new start plays when you stop. |
 | **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
 
 With more than 16 slices, the pads show the bank of the selected slice, and
@@ -276,10 +276,11 @@ while it is on. Tap a slice's pad: it plays from there to the end of the
 region. Tap an empty pad while it plays to cut there. The slices you have
 stay, up to 64. Empty pads light white; brighter while you can cut.
 
-**Fix a cut**: hold a slice's pad. Playing stops, the screen closes in on
-the slice's start (**FIX CUT** at the top left) and its first quarter
-second repeats. Turn the encoder to move the cut; you hear the new start at
-once. Let go when it sounds right. The zoom goes back to where it was.
+**Fix a cut**: hold a slice's pad. Playing stops and the screen closes in
+on the slice's start (**FIX CUT** at the top left). Turn the encoder to move
+the cut. When you stop turning, the first quarter second from the new start
+plays once. Let go when it sounds right. The zoom goes back to where it
+was.
 
 **Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
 **SHIFT** + **B2** Split, or pad slicing) stays when you change the chop

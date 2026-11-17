@@ -306,14 +306,14 @@ struct UiState {
     bool chop_armed = false;    // Pad Slicing (Push's): a slice's pad plays on to the region's end, an empty pad cuts there
     uint32_t chop_take_at = 0;  // ms when a slice's pad started that, 0 none
     uint32_t chop_take_from = 0; // the frame it started from
-    // Hold to fix: a slice's pad held past fix_hold_ms (shell/chop.h) stops what plays, zooms to the slice's start
-    // and repeats its first 250 ms while the wheel moves that cut; letting go puts the zoom back (chop_hold_tick()).
+    // Hold to fix: a slice's pad held past fix_hold_ms (shell/chop.h) stops what plays and zooms to the slice's start;
+    // the wheel moves that cut, and its first 250 ms play once when the wheel is still; letting go puts the zoom back.
     int8_t chop_hold_pad = -1;   // the slice's pad held, -1 none
     uint8_t chop_hold_velocity = 100;
     uint32_t chop_hold_at = 0;   // ms it went down
     bool chop_fixing = false;    // held long enough: fixing its cut
     uint8_t chop_zoom_was = 0;   // the zoom to go back to
-    uint32_t chop_loop_at = 0;   // ms the attack plays again
+    uint32_t chop_loop_at = 0;   // ms the moved start plays, 0 none due
     int8_t levels_hit = -1;     // Levels: the pad played last, 0..15
     int16_t levels_value = 0;   // and what it played: a velocity or semitones
     // Sample Record (parity phase 6; Input Config itself is in settings.input).

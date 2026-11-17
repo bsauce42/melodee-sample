@@ -1607,9 +1607,9 @@ the file holds, to the bit.
   chop while the project is open, not in the WAV); they draw in the track's
   colour with a tab on top. Past 16 slices Pad Bank steps the pads through
   them (A 1-16 ... D 49-64). Hold to fix: a slice's pad held 400 ms stops
-  what plays, zooms to about 120 ms round its start (chip FIX CUT) and plays
-  its first 250 ms every 400 ms, at once after each wheel move, while the
-  wheel moves that cut; letting go puts the zoom back. Shift + B1 Extract (`Samples/Edits/<NAME>-Slice n.wav`
+  what plays and zooms to about 120 ms round its start (chip FIX CUT); the
+  wheel moves that cut, and 150 ms after the wheel is still its first
+  250 ms play once (nothing repeats); letting go puts the zoom back. Shift + B1 Extract (`Samples/Edits/<NAME>-Slice n.wav`
   onto the next empty pad), Shift + B2 Split, Shift + B3 Merge; Erase + pad
   takes a slice out. B3 TO PADS asks how they play, as Simpler's Playback
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's

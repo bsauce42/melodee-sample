@@ -4002,7 +4002,7 @@ void beat_grid() {
         const uint32_t w = zoom_width(span, z);
         CHECK(z > 0 && z < zoom_top && w > fix_view * 9 / 10 && w < fix_view * 11 / 10);
     }
-    CHECK(fix_attack == 11025 && fix_hold_ms > 300 && fix_period_ms > fix_attack * 1000 / 44100);
+    CHECK(fix_attack == 11025 && fix_hold_ms > 300 && fix_settle_ms > 0 && fix_settle_ms < fix_hold_ms);
 
     // The same tempo with the kick on 1, the and of 2 and 4's second 16th (3 + 3 + 2) and swung hats: still 93 BPM
     // (or 186), not the 124 its dotted spacing suggests.

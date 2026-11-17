@@ -517,7 +517,7 @@ public:
     void rechop();                                                     // Chop's slices from its type and amount
     void chop_tap(unsigned pad, uint8_t velocity);                     // Chop: a pad (audition, or Pad Slicing's taps)
     void chop_audition(uint32_t from, uint32_t to, uint8_t velocity);  // Chop's audition voice: from .. to of the sample
-    void chop_hold_tick(uint32_t ms);                                  // hold to fix: starts it, repeats the attack
+    void chop_hold_tick(uint32_t ms);                                  // hold to fix: starts it, plays a moved start once
     void chop_hold_end();                                              // the held pad let go: the zoom back
     uint32_t zero_cut(uint32_t frame) const;                           // Chop: a cut on a zero crossing, with Zero Snap on
     void snap_slices();                                                // Chop: every cut of the slices onto one

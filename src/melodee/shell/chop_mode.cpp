@@ -62,8 +62,9 @@ void Context::chop_audition(uint32_t from, uint32_t to, uint8_t velocity) {
 }
 
 // Hold to fix (MIDI thread, from the lights' pass): a slice's pad held past fix_hold_ms stops what plays, the view
-// closes in on the slice's start and the wheel moves it (fine, as after K1), while its first 250 ms play again every
-// fix_period_ms, at once after a move. Let go, the page leaves or the slice goes: the zoom as it was.
+// closes in on the slice's start and the wheel moves it (fine, as after K1); once the wheel has been still for
+// fix_settle_ms the new start's first 250 ms play once. Nothing repeats. Let go, the page leaves or the slice goes:
+// the zoom as it was.
 void Context::chop_hold_tick(uint32_t ms) {
     if (ui.chop_hold_pad < 0) return;
     auto& sl = ui.slices;
@@ -75,17 +76,20 @@ void Context::chop_hold_tick(uint32_t ms) {
     if (!ui.chop_fixing) {
         if (ms - ui.chop_hold_at < fix_hold_ms) return;
         ui.chop_fixing = true;
-        ui.chop_take_at = 0; // Pad Slicing's playing on stops: the attack repeats instead
+        ui.chop_take_at = 0; // Pad Slicing's playing on stops
+        Command stop {Command::Type::Audition, ui.track, 0, 0, 0};
+        stop.pad.sample = no_sample; // and whatever the audition voice plays
+        send(stop);
         ui.chop_zoom_was = ui.chop_zoom;
         const uint32_t span = sl.end(sl.count - 1, frames) - sl.start[0];
         ui.chop_zoom = uint8_t(std::max<int>(ui.chop_zoom, zoom_for_width(span, fix_view)));
         ui.chop_focus = 0; ui.chop_fine = true; ui.chop_view = {};
-        ui.chop_loop_at = ms;
+        ui.chop_loop_at = 0; // silent until the wheel moves the cut
     }
-    if (int32_t(ms - ui.chop_loop_at) < 0) return;
+    if (!ui.chop_loop_at || int32_t(ms - ui.chop_loop_at) < 0) return;
     const unsigned n = ui.chop_slice;
     chop_audition(sl.start[n], std::min(sl.start[n] + fix_attack, sl.end(n, frames)), ui.chop_hold_velocity);
-    ui.chop_loop_at = ms + fix_period_ms;
+    ui.chop_loop_at = 0; // once
 }
 
 void Context::chop_hold_end() {
