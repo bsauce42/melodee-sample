@@ -2153,7 +2153,9 @@ while following.
   Copy): the track, then where it goes. It moves whole, mix strip too; a
   track already there trades places with it, so nothing is lost. The song's
   clips and punches, the Looper's sources, Knob FX's tracks and pads, the
-  compressor's key and Input Config's track follow it. One undo. Not during
+  compressor's key, Input Config's track, the punches kept on it in any
+  pattern, and the modulators' and macros' lanes on it (a follower's
+  source too) follow it. One undo. Not during
   Seq Record, nor while a loop or Sample Record takes from either track.
   While picking, B2 and B3 switch between moving and copying, B1 steps back.
 - **Undo** (Shift + −, redo Shift + +): the last 32 steps. A take is one; a

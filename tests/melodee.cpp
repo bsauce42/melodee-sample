@@ -11919,8 +11919,27 @@ void track_move() {
     p.looper.loops[1].source = looper::source_mix;
     p.knob_fx.set_track(2, true); p.knob_fx.set_pad(6, 0, true);
     p.compressor.key = 6;
+    // What names a track by its number inside the patterns and the modulators: a punch kept on track 3 in its own
+    // pattern and in track 10's, one on the master; an LFO on track 3's lane, a follower hearing track 7 that
+    // moves track 10's lane, a macro on both tracks.
+    bank->at[2][0].punches = {{0, 48, 4, 2, 100, 2, 1}, {96, 48, 4, 255, 100, 2, 1}};
+    bank->at[9][3].punches = {{0, 48, 4, 2, 100, 2, 1}, {96, 48, 4, 6, 100, 2, 1}, {192, 48, 4, 9, 100, 2, 1}};
+    p.modulators[0].kind = ModKind::Lfo; p.modulators[0].source = 15;
+    p.modulators[0].targets[0].track = 2; p.modulators[0].targets[0].param = 7;
+    p.modulators[3].kind = ModKind::Follower; p.modulators[3].source = 6;
+    p.modulators[3].targets[1].track = 9; p.modulators[3].targets[1].param = 4;
+    p.modulators[5].kind = ModKind::Lfo; p.modulators[5].source = 15; p.modulators[5].targets[0].track = 9;
+    p.macros[1].targets[0].track = 2; p.macros[1].targets[1].track = 6; p.macros[1].targets[2].track = 9;
 
     auto changed = swap_tracks(p, *bank, 2, 6);
+    // (They stayed on the numbers: the punch, the LFO and the macro went on moving whatever came to slot 3.)
+    CHECK(bank->at[6][0].punches[0].target == 6 && bank->at[6][0].punches[1].target == 255);
+    CHECK(bank->at[9][3].punches[0].target == 6 && bank->at[9][3].punches[1].target == 2 && bank->at[9][3].punches[2].target == 9);
+    CHECK(changed.kept.size() == 1 && changed.kept[0].first == 9 && changed.kept[0].second == 3); // the two tracks' own go whole
+    CHECK(p.modulators[0].targets[0].track == 6 && p.modulators[0].targets[0].param == 7 && !p.modulators[0].targets[1].used());
+    CHECK(p.modulators[3].source == 2 && p.modulators[3].targets[1].track == 9 && p.modulators[5].targets[0].track == 9);
+    CHECK(changed.mods == (1u << 0 | 1u << 3));
+    CHECK(p.macros[1].targets[0].track == 6 && p.macros[1].targets[1].track == 2 && p.macros[1].targets[2].track == 9 && !p.macros[1].targets[3].used());
     CHECK(p.tracks[6].engine == EngineKind::Plugin && p.tracks[6].mix.level == 90 && p.tracks[6].midi_channel == 3);
     CHECK(p.tracks[2].engine == EngineKind::Sampler && p.tracks[2].pads[0].sample == 4 && p.tracks[2].mix.level == 100);
     CHECK(!bank->at[6][0].events.empty() && bank->at[2][0].events.empty() && !bank->at[2][1].events.empty());
@@ -11931,6 +11950,8 @@ void track_move() {
     CHECK(p.compressor.key == 2);
     CHECK(changed.song && changed.punches && changed.loops == 1 && changed.knob && changed.key);
     swap_tracks(p, *bank, 6, 2); // the undo: as it was
+    CHECK(bank->at[2][0].punches[0].target == 2 && bank->at[9][3].punches[1].target == 6 && p.modulators[0].targets[0].track == 2);
+    CHECK(p.modulators[3].source == 6 && p.macros[1].targets[0].track == 2 && p.macros[1].targets[1].track == 6);
     CHECK(p.tracks[2].engine == EngineKind::Plugin && p.tracks[2].mix.level == 90 && p.tracks[6].pads[0].sample == 4);
     CHECK(!bank->at[2][0].events.empty() && p.song.clip_at(2, 0) >= 0 && p.song.clip_at(6, 4) >= 0 && p.song.punches[0].target == 6);
     CHECK(p.looper.loops[0].source == looper::source_track(2) && p.knob_fx.track_on(2) && p.knob_fx.pad_on(6, 0) && p.compressor.key == 6);
@@ -11939,7 +11960,7 @@ void track_move() {
     CHECK(p.tracks[11].engine == EngineKind::Plugin && !p.tracks[2].used() && p.song.clip_at(11, 0) >= 0 && p.song.clip_at(6, 4) >= 0);
     CHECK(changed.song && !changed.punches && changed.loops == 1 && changed.knob && !changed.key);
     changed = swap_tracks(p, *bank, 4, 4);
-    CHECK(!changed.song && !changed.punches && !changed.loops && !changed.knob && !changed.key);
+    CHECK(!changed.song && !changed.punches && !changed.loops && !changed.knob && !changed.key && !changed.mods && changed.kept.empty());
 
     // The screen's memory of each track goes with it, and the track in hand stays the one it was.
     UiState ui;

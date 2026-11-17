@@ -3,6 +3,7 @@
 #include "melodee/shell/track_copy.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/track_swap.h"
 #include <cstring>
 
@@ -81,6 +82,9 @@ void trade_tracks(Context& c, unsigned a, unsigned b) {
     send_track(c, b);
     if (changed.song) c.sync_song();
     if (changed.punches) c.sync_punches();
+    for (auto [t, n] : changed.kept) c.sync_pattern(t, n); // pad-fx C: other tracks' kept punches on one of the two
+    for (unsigned m = 0; m < modulator_count; ++m) // roadmap P4: the modulators whose lanes or source moved
+        if ((changed.mods >> m) & 1) send_modulator(c, m);
     for (unsigned l = 0; l < loop_tracks; ++l)
         if ((changed.loops >> l) & 1)
             c.send({Command::Type::Looper, uint8_t(l), 0, uint16_t(looper::Do::Source), int16_t(c.project.looper.loops[l].source)});
