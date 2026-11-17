@@ -161,7 +161,7 @@ void MidiIo::receive(Context& c, const MidiPortInfo& port, const MidiPacket& pac
     if (m.isSongPositionPointer()) {
         if (!clock_in) return;
         song_position = uint32_t(m.getSongPositionPointerMidiBeat()) * sixteenth_ticks; // a MIDI beat is a sixteenth
-        if (!c.host.playing()) c.ui.locate = song_position;
+        if (!c.host.playing()) c.ui.locate = uint32_t(written_ticks(song_position, c.track().speed)); // the transport's: as the track in view reads it
         return;
     }
     if (m.isMidiStart() || m.isMidiContinue()) {
@@ -170,7 +170,7 @@ void MidiIo::receive(Context& c, const MidiPortInfo& port, const MidiPacket& pac
         if (c.host.playing()) c.stop();
         ext_running.store(true, std::memory_order_relaxed);
         if (from_start) { c.ui.locate = 0; c.play(true); }
-        else { c.ui.locate = song_position; c.play_continue(true); }
+        else { c.ui.locate = uint32_t(written_ticks(song_position, c.track().speed)); c.play_continue(true); }
         return;
     }
     if (m.isMidiStop()) {
@@ -347,7 +347,7 @@ void MidiIo::follow_mtc(Context& c, const MtcReader::Event& e) {
             if (song.looping() && bar >= song.loop_end) bar = song.loop_start + (bar - song.loop_start) % (song.loop_end - song.loop_start);
             c.ui.song_cursor = uint16_t(std::min(bar, 65535u));
         } else {
-            c.ui.locate = uint32_t(ticks) % std::max<uint32_t>(c.pattern().length, 1);
+            c.ui.locate = uint32_t(written_ticks(uint64_t(ticks), c.track().speed) % std::max<uint32_t>(c.pattern().length, 1));
         }
         break;
     }

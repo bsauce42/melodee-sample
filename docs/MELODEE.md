@@ -656,7 +656,8 @@ hold to steer, Shift + Seq to zoom in**.
   selected track's pattern is the sequence in view (cell n is also sequence n),
   and Push launches it.
   Shift + wheel moves the playhead by Q; stopped, that is where Shift +
-  Play continues. The header chip shows SEQ <n> and the sequence's name, then
+  Play continues (the selected track's place in its pattern, at its own
+  speed too). The header chip shows SEQ <n> and the sequence's name, then
   Rec Quantize when there is room. BPM per pattern (each
   pattern number its own tempo, the one launched last leading) or one for
   the project: Push on the Tempo page. Shift + B1 SEQUENCE and Shift + B2

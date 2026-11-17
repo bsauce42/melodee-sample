@@ -1612,14 +1612,16 @@ void Context::set_seq_tempo(bool on) {
 }
 
 // The wheel on Patterns: the playhead by a beat, or with Shift by Q. Stopped,
-// it sets where Shift + Play carries on from.
+// it sets where Shift + Play carries on from. ui.locate is a place in the
+// selected track's pattern as written; the transport's tick is that place as
+// the track plays it, at its speed.
 void Context::locate(int way) {
     const auto& p = pattern();
     unsigned step = ui.shift ? p.q() : project.beat_ticks();
-    uint32_t from = host.playing() ? host.ticks() : ui.locate;
+    uint32_t from = host.playing() ? uint32_t(written_ticks(host.ticks(), track().speed)) : ui.locate;
     int64_t at = int64_t(from / step * step) + int64_t(way) * step;
     ui.locate = uint32_t(std::max<int64_t>(at, 0)) % std::max<uint32_t>(p.length, 1);
-    if (host.playing() && !host.song_playing()) { Command c {Type::Locate}; c.position = ui.locate; send(c); }
+    if (host.playing() && !host.song_playing()) { Command c {Type::Locate}; c.position = uint32_t(played_ticks(ui.locate, track().speed)); send(c); }
 }
 
 void Context::send_pad(unsigned t, unsigned n) {
@@ -1894,7 +1896,7 @@ void Context::play_continue(bool external) {
     if (ui.rec_armed) { ui.rec_armed = false; set_recording(true); }
     bool count = (ui.recording || host.looper().armed()) && ui.settings.count_in && !external;
     if (played_song) send({Type::Play, uint8_t(count), 0, uint16_t(host.song_bar()), 1}); // from the bar it stopped in
-    else { Command c {Type::Play, uint8_t(count)}; c.position = ui.locate; send(c); }
+    else { Command c {Type::Play, uint8_t(count)}; c.position = uint32_t(played_ticks(ui.locate, track().speed)); send(c); } // as the track plays it
     if (external) send({Type::ExtSync, 0, 0, 3});
 }
 

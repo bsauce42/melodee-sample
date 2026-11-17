@@ -120,7 +120,7 @@ struct UiState {
     uint32_t key_list_at = 0;
     bool rec_armed = false;        // Seq Record pressed while stopped: Play starts the take (its light flashes)
     uint8_t lead_pattern = 0;      // the pattern launched last: whose tempo plays with BPM per pattern on
-    uint32_t locate = 0;           // Patterns: where Shift + Play carries on from, ticks (the wheel moves it)
+    uint32_t locate = 0;           // Patterns: where Shift + Play carries on from, ticks of the track in view's pattern as written (the wheel moves it)
     bool bpm_tenths = false;       // Seq held + Push: the wheel's tempo by whole BPM or tenths
     // Time Correct (Shift + Pad 14): shift in ticks and swing for the notes moved, and the keys chosen.
     int16_t tc_shift = 0;

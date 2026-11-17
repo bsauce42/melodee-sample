@@ -13407,6 +13407,36 @@ void track_speed() {
         const ProjectPack* done = nullptr;
         while (host->take_done_pack(done)) delete done;
     }
+    // Shift + Play on a track at another speed carries on where it stopped: Stop keeps the track's place as written
+    // (position_of), Play gets it as the transport's tick (played_ticks). At x2 it carried on at twice the place, round
+    // the pattern (444 came back as 120). MIDI's song position comes in as the transport's tick (written_ticks).
+    CHECK(played_ticks(444, 4) == 222 && written_ticks(222, 4) == 444 && played_ticks(111, 0) == 222 && played_ticks(333, 3) == 222);
+    CHECK(played_ticks(321, speed_normal) == 321 && written_ticks(321, speed_normal) == 321);
+    for (unsigned speed : {0u, 1u, 3u, 4u}) CHECK(played_ticks(written_ticks(7 * sixteenth_ticks, speed), speed) == 7 * sixteenth_ticks);
+    for (unsigned speed : {4u, 0u, 1u, 3u, speed_normal}) {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        synth(project->tracks[0], 0);
+        project->tracks[0].speed = uint8_t(speed);
+        project->tempo = 1200;
+        bank->at[0][0].length = 768;
+        auto host = std::make_unique<EngineHost>();
+        host->load(*project, *bank);
+        tones_for(*host, *project);
+        std::vector<int32_t> out(256);
+        host->send({Command::Type::Play});
+        for (unsigned b = 0; b < 400; ++b) host->render(out.data(), 128, 1);
+        int stopped = host->position_of(0);
+        host->send({Command::Type::Stop});
+        host->render(out.data(), 128, 1);
+        Command from {Command::Type::Play};
+        from.position = uint32_t(played_ticks(uint32_t(stopped), speed));
+        host->send(from);
+        host->render(out.data(), 128, 1);
+        CHECK(stopped > 0 && std::abs(host->position_of(0) - stopped) <= 1);
+        host->send({Command::Type::Stop});
+        host->render(out.data(), 128, 1);
+    }
     // The file: TSPD; without it every track at x1.
     {
         auto project = std::make_unique<Project>();
