@@ -1370,6 +1370,21 @@ void sampler_kit() {
         CHECK(at(start + 2 * 5512.5 - 1000));
         CHECK(!at(start + 2 * 5512.5 + 1000));
     }
+    // A punch written up to the song's end (or past it) lets go where the song ends; it sounded on until Stop.
+    {
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        project->song.place({0, 0, 0, 1, false});
+        project->song.add_punch({0, 8, 16, uint8_t(PunchKind::Gate), 255, 100});
+        auto host = std::make_unique<EngineHost>();
+        host->load(*project, *bank);
+        host->send({Command::Type::Play, 0, 0, 0, 1});
+        std::vector<int32_t> out(256);
+        for (unsigned n = 0; n < 500; ++n) host->render(out.data(), 128, 1); // the bar's third beat
+        CHECK(host->playing() && host->punching());
+        for (unsigned n = 0; n < 250; ++n) host->render(out.data(), 128, 1); // past the bar's end
+        CHECK(!host->playing() && !host->punching());
+    }
     // Seq Record: a song playing on past its end while recording.
     {
         auto project = std::make_unique<Project>();
@@ -2031,6 +2046,73 @@ void kept_punches() {
             if (n > 384 * 229) least = std::max(least, std::fabs(one[n] - apart[n]));
         }
         CHECK(loud > 0.01f && most < 1e-5f && least > 0.01f);
+    }
+    { // The song comes to its end while a kept punch sounds to its pattern's end: it lets go there. No tick came
+      // after the last to end it, and it sounded on until Stop was pressed.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        bank->at[0][0].length = 384;
+        bank->at[0][0].punches = {{192, 192, uint8_t(PunchKind::Low), 255, 100, 2, 1}};
+        project->song.place({0, 0, 0, 1, false});
+        auto host = kept_host(*project, *bank);
+        std::vector<int32_t> out(256);
+        host->send({Command::Type::Play, 0, 0, 0, 1});
+        unsigned blocks = 0;
+        auto run_to = [&](unsigned n) { for (; blocks < n; ++blocks) host->render(out.data(), 128, 1); };
+        run_to(400); // tick 222
+        CHECK(host->playing() && host->kept_punches() == 1);
+        run_to(700); // past tick 384
+        CHECK(!host->playing() && host->kept_punches() == 0);
+    }
+    { // The wheel moves the playhead (Locate) while a kept punch sounds: where it plays now is outside the punch,
+      // which lets go. Its end was a tick counted from Play, so after a move back it sounded on for a pass and more.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        bank->at[0][0].length = 768;
+        bank->at[0][0].punches = {{700, 60, uint8_t(PunchKind::High), 255, 100, 2, 1}};
+        auto host = kept_host(*project, *bank);
+        std::vector<int32_t> out(256);
+        host->send({Command::Type::Play});
+        unsigned blocks = 0;
+        auto run_to = [&](unsigned n) { for (; blocks < n; ++blocks) host->render(out.data(), 128, 1); };
+        run_to(1275); // tick 710
+        CHECK(host->kept_punches() == 1);
+        Command locate {Command::Type::Locate};
+        locate.position = 96;
+        host->send(locate);
+        run_to(1280); // tick 98
+        CHECK(host->position_of(0) < 110 && host->kept_punches() == 0);
+        run_to(1880); // tick 432
+        CHECK(host->kept_punches() == 0);
+        locate.position = 720; // into the punch: not sounding (as Play from inside one), then on the next pass
+        host->send(locate);
+        run_to(1890);
+        CHECK(host->kept_punches() == 0);
+        run_to(1890 + 1340); // tick 720 + 748: the next pass's 700
+        CHECK(host->kept_punches() == 1);
+    }
+    { // A track loaded whole while it plays (a track copied onto it, an undo): the punch of the pattern it played
+      // lets go with that pattern.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        bank->at[0][0].length = 768;
+        bank->at[0][0].punches = {{96, 600, uint8_t(PunchKind::High), 255, 100, 2, 1}};
+        auto host = kept_host(*project, *bank);
+        std::vector<int32_t> out(256);
+        host->send({Command::Type::Play});
+        unsigned blocks = 0;
+        auto run_to = [&](unsigned n) { for (; blocks < n; ++blocks) host->render(out.data(), 128, 1); };
+        run_to(360); // tick 200
+        CHECK(host->kept_punches() == 1);
+        auto bare = std::make_unique<std::array<Pattern, pattern_count>>();
+        (*bare)[0].length = 768;
+        Command load {Command::Type::TrackLoad};
+        load.track_pack = new TrackPack(0, project->tracks[0], *bare);
+        CHECK(host->send(load));
+        run_to(364);
+        CHECK(host->kept_punches() == 0);
+        const TrackPack* done = nullptr;
+        while (host->take_done_track(done)) delete done;
     }
 }
 

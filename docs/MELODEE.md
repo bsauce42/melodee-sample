@@ -1803,7 +1803,10 @@ loud in what is heard. At 44.1 kHz they play to the bit as before.
   that runs into the second half up to the first half's end; a shorter
   length, Half Speed and an editor's loop end it there too. When the
   pattern is edited, changed for another or stops, a punch it no longer
-  holds lets go at once. A live punch wins: while one sounds the
+  holds lets go at once; so it does when the wheel moves the playhead
+  out of it, when its track is loaded whole (a track copy, an undo) and
+  when the song comes to its end, where a punch written into the song
+  lets go too. A live punch wins: while one sounds the
   kept ones are quiet, and they come back for the rest of their length
   after. Erase + pad takes that pad's kept punches out (one undo; while
   Erase is held the kept ones show red, on the pads and the screen), and
