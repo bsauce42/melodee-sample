@@ -19,8 +19,12 @@
 // the region's end, and an empty pad tapped meanwhile cuts there, up to 64.
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
-// Erase + pad takes a slice out (it joins the one before). B3 lays every
-// slice onto pads from the first free one as regions of the same file; B1
+// Erase + pad takes a slice out (it joins the one before). B3 TO PADS asks
+// how they play, as Simpler's Playback (cards POLY, MONO, THRU, starting on
+// the last pick, kept with the settings; the wheel moves, Push lays them, B1
+// BACK), then lays every slice onto pads from the first free one as regions
+// of the same file (MONO: one mute group; THRU: that, each on to the
+// region's end); B1
 // drops the chop; B2 SNAP turns Zero Snap on or off, its LED lit while on
 // (every cut onto a zero crossing, shell/chop.h; on by default, kept with
 // the settings). The picture: the slices as bands, the one in hand lit with
@@ -33,6 +37,7 @@
 #include "melodee/pages/sampler_common.h"
 #include "melodee/shell/zoom_view.h"
 #include "melodee/ui/waveform.h"
+#include "melodee/ui/widgets.h"
 #include "melodee/model/slice_banks.h"
 #include <cstdio>
 
@@ -56,7 +61,8 @@ void draw(Paint& p, const Snapshot& s) {
     if (slices.count > 16) // the sixteen slices on the pads (Pad Bank steps them)
         h.left.push_back(pill(Icon::Pads, "BANK " + juce::String::charToString(juce::juce_wchar('A' + slice_bank(s.ui.chop_slice))), colour::text));
     h.right.push_back(tag_of(s, s.ui.track));
-    if (s.ui.shift) frame(p, s, {{"EXTRACT", "SPLIT", "MERGE"}, -1, c}, h);
+    if (s.ui.sheet_open && slices.count) frame(p, s, {{"BACK", "", ""}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}, h); // TO PADS' cards
+    else if (s.ui.shift) frame(p, s, {{"EXTRACT", "SPLIT", "MERGE"}, -1, c}, h);
     else {
         SoftKeys keys {{"CANCEL", "SNAP", "TO PADS"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
         keys.toggles = 2; keys.lit = s.ui.settings.zero_snap ? 2 : 0;
@@ -177,11 +183,25 @@ void draw(Paint& p, const Snapshot& s) {
     char text[24];
     std::snprintf(text, sizeof(text), "%.3f s", (slices.end(selected, frames) - slices.start[selected]) / 44100.0);
     p.text(text, x, y + wh + 13, w, 16, plain(colour::text, type::body, Weight::SemiBold), juce::Justification::centredRight);
+    if (s.ui.sheet_open) { // TO PADS asks how the slices play, as Simpler's Playback: the wheel moves, Push lays them
+        CardSheet m;
+        m.chip = "TO PADS"; m.chip_colour = c; m.accent = c;
+        m.title = juce::String(slices.count) + " slices";
+        unsigned first = 0;
+        while (first < sampler_pads && s.track().pads[first].used()) ++first;
+        if (first < sampler_pads) { char label[4]; pad_label(first, label); m.detail = "from " + juce::String(label); }
+        m.items[0] = card_item(Icon::Layers, slice_play_name(SlicePlay::Poly), "overlap");
+        m.items[1] = card_item(Icon::OneShot, slice_play_name(SlicePlay::Mono), "one at a time");
+        m.items[2] = card_item(Icon::ArrowRight, slice_play_name(SlicePlay::Thru), "on to the end");
+        m.count = unsigned(SlicePlay::Count); m.current = s.ui.sheet_row % m.count;
+        card_sheet(p, m);
+    }
 }
 
 void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     auto& ui = c.ui;
     if (!down) return;
+    ui.sheet_open = false; // a pad leaves TO PADS' cards and plays as ever
     if (ui.erase) { // the slice out: it joins the one before, and a new chop leaves its cut out
         const unsigned slice = pad_slice(ui.chop_slice, pad); // in the bank in view
         if (slice == 0 || slice >= ui.slices.count) return;
@@ -202,6 +222,7 @@ void pick(Context& c, int delta) {
 
 void wheel(Context& c, int delta) {
     auto& ui = c.ui;
+    if (ui.sheet_open) { ui.sheet_row = uint8_t(std::clamp<int>(ui.sheet_row + delta, 0, int(SlicePlay::Count) - 1)); return; }
     if (!ui.chop_fine || !ui.slices.count) { pick(c, delta); return; }
     unsigned n = std::min<unsigned>(ui.chop_slice, ui.slices.count - 1), k = ui.chop_focus % 2;
     c.fine_edit(Binding {k ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, 1, 0}, delta);
@@ -210,8 +231,19 @@ void wheel(Context& c, int delta) {
     ui.turning = int8_t(k); ui.turned_at = c.now;
 }
 
-void push(Context& c) { // Pad Slicing on or off (Push's): a slice's pad plays on to the region's end, an empty pad cuts there
+// TO PADS' card picked: the slices laid that way, the choice kept for next time, and their sound opened.
+void lay(Context& c) {
     auto& ui = c.ui;
+    ui.sheet_open = false;
+    ui.settings.slice_play = uint8_t(ui.sheet_row % unsigned(SlicePlay::Count));
+    if (c.store) c.store->save_settings(ui.settings.text());
+    c.chop_to_pads(SlicePlay(ui.settings.slice_play));
+    c.open(PageId::Stage); // the slices' sound (Sample held shows their pads)
+}
+
+void push(Context& c) { // TO PADS' cards: lays them; else Pad Slicing on or off (Push's)
+    auto& ui = c.ui;
+    if (ui.sheet_open) { lay(c); return; }
     ui.chop_armed = !ui.chop_armed;
     ui.chop_take_at = 0;
     c.notice(ui.chop_armed ? "Pad slicing: tap a slice, then an empty pad to cut" : "Pad slicing off");
@@ -219,6 +251,7 @@ void push(Context& c) { // Pad Slicing on or off (Push's): a slice's pad plays o
 
 void soft(Context& c, int key) {
     auto& ui = c.ui;
+    if (ui.sheet_open) { if (key == 0) c.back(); return; } // TO PADS' cards: B1 BACK; the wheel and Push do the rest
     if (ui.shift) {
         uint32_t frames = ui.chop_sample < sample_slots ? c.project.samples[ui.chop_sample].frames : 0;
         if (key == 0) c.extract_slice();
@@ -240,7 +273,7 @@ void soft(Context& c, int key) {
     }
     if (key == 0) c.back();
     if (key == 1) c.toggle_zero_snap();
-    if (key == 2) { c.chop_to_pads(); c.open(PageId::Stage); } // the slices' sound (Sample held shows their pads)
+    if (key == 2 && ui.slices.count) { ui.sheet_open = true; ui.sheet_row = uint8_t(ui.settings.slice_play % unsigned(SlicePlay::Count)); } // asks: POLY, MONO or THRU
 }
 } // namespace
 

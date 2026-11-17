@@ -1692,7 +1692,7 @@ void Context::follow_tempos() {
 
 bool Context::host_recording() const { return host.recorder().state() != TakeRecorder::State::Idle; }
 
-void Context::chop_to_pads() {
+void Context::chop_to_pads(SlicePlay play) {
     auto& t = track();
     uint32_t frames = ui.chop_sample < sample_slots ? project.samples[ui.chop_sample].frames : 0;
     if (!frames) return;
@@ -1704,13 +1704,17 @@ void Context::chop_to_pads() {
     const auto& last = t.pads[t.last_pad % sampler_pads];
     if (last.used() && last.sample == ui.chop_sample) parent = last;
     else for (const auto& p : t.pads) if (chopped(p)) { parent = p; break; }
-    unsigned pad = 0;
+    const uint8_t group = slice_group(parent, t.pads); // MONO and THRU: one at a time
+    unsigned pad = 0, laid = 0;
     for (unsigned n = 0; n < ui.slices.count; ++n) {
         while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the first free pad on
         if (pad >= sampler_pads) break;
-        t.pads[pad] = slice_sound(parent, ui.slices.start[n], ui.slices.end(n, frames));
+        t.pads[pad] = slice_pad(parent, ui.slices, n, frames, play, group);
         send_pad(ui.track, pad);
+        ++laid;
     }
+    if (play != SlicePlay::Poly && laid)
+        notice(std::string(play == SlicePlay::Thru ? "Thru" : "Mono") + ": mute group " + std::to_string(group));
 }
 
 // A track chain changed shape: motion on its effects named slots that now

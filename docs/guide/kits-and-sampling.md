@@ -243,7 +243,7 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
 | **B2** (**SNAP**) | Snap cuts to zero crossings, so slices do not click. |
-| **B3** (**TO PADS**) | Put the slices on pads. |
+| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru. |
 | **B1** (**CANCEL**) | Leave without changing the pads. |
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
@@ -281,6 +281,16 @@ type, threshold, division or number of regions. It shows in the track's
 colour with a tab on top. A cut you take out (**ERASE** + pad, **SHIFT** +
 **B3** Merge) stays out. Hand cuts are kept while the project is open.
 
+**TO PADS** asks how the slices play, as Simpler's Playback. Turn the
+encoder to choose and push it to put the slices on pads. It starts on your
+last choice. **B1** goes back.
+
+- **POLY**: slices play over each other.
+- **MONO**: one slice at a time. The slices share a mute group.
+- **THRU**: one slice at a time, and each plays on to the end of the region,
+  so a slice's pad carries the loop on from there.
+
+MONO and THRU use the chopped pad's mute group, or the first free one.
 Slices put on pads keep the chopped pad's tune, Warp, mute group and other
 settings. Press **CHOP** again to return to **TRIM**.
 

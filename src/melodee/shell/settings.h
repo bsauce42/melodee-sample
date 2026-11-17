@@ -49,6 +49,7 @@ struct Settings {
     bool rec_quantize = true; // recorded notes onto the grid (off: phase 2)
     uint8_t rec_grid = 0;     // and which grid: 0 the pattern's Q, else 1 + a Division, 1/4 .. 1/64 (grid_division(), model/pattern.h)
     bool zero_snap = true;    // Chop's cuts onto zero crossings (Chop's B2; shell/chop.h)
+    uint8_t slice_play = 0;   // Chop's TO PADS: the last playback picked, 0 Poly, 1 Mono, 2 Thru (shell/chop.h SlicePlay)
     bool double_copies = true; // Double Seq (Shift + Pad 3): the new half plays the notes again (the MPC's way), or starts empty
     // Capture (Shift + Seq Record; round 2, capture C): how many of the last bars played it keeps (roadmap P5: 0 Auto,
     // the phrase as long as it is), and how it puts them on the grid: 0 as played, 1 onto sixteenths, 2 onto eighths.
@@ -239,7 +240,7 @@ struct Settings {
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize) << "\nrec_grid=" << int(rec_grid)
-            << "\nzero_snap=" << int(zero_snap) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level)
+            << "\nzero_snap=" << int(zero_snap) << "\nslice_play=" << int(slice_play) << "\ndouble_copies=" << int(double_copies) << "\nclick=" << int(click) << "\nclick_level=" << int(click_level)
             << "\ncapture_bars=" << int(capture_bars) << "\ncapture_quantize=" << int(capture_quantise)
             << "\nresponse_before=" << int(response_before) << "\npressure=" << int(pressure) << "\nrepeat_pressure=" << int(repeat_pressure) << "\nseq_follow=" << int(seq_follow)
             << "\ninput_source=" << int(input.source) << "\nmonitor=" << int(input.monitor) << "\nmonitor_before_mic=" << int(input.before_mic) << "\nthreshold=" << int(input.threshold)
@@ -295,6 +296,7 @@ struct Settings {
             else if (key == "rec_quantize") rec_quantize = value != 0;
             else if (key == "rec_grid") rec_grid = uint8_t(std::clamp(value, 0, 9)); // 0 Q, 1..9 a Division
             else if (key == "zero_snap") zero_snap = value != 0;
+            else if (key == "slice_play") slice_play = uint8_t(std::clamp(value, 0, 2));
             else if (key == "double_copies") double_copies = value != 0;
             else if (key == "capture_bars") { capture_bars = 0; for (auto n : capture_lengths) if (n && int(n) <= value) capture_bars = n; } // the nearest below; 0 Auto
             else if (key == "capture_quantize") capture_quantise = uint8_t(std::clamp(value, 0, 2));
