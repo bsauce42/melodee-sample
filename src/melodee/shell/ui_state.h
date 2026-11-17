@@ -303,7 +303,6 @@ struct UiState {
     bool chop_zoom_auto = false; // the zoom is the wheel's (closed in on the cut it moves); the next pad opens it again
     uint32_t chop_heard_at = 0; // ms the slice in hand plays once, a moved cut gone still (0: none due)
     ZoomView chop_view;         // the view zoomed in, kept
-    bool chop_armed = false;    // Manual: pad 1 plays the region and the pads tapped meanwhile cut it
     uint32_t chop_take_at = 0;  // ms when the take (or its part from a slice: a lit pad, the red one after) began, 0 none
     uint32_t chop_take_from = 0; // the frame it plays from
     bool chop_more = false;     // a take played out: the red stays on the next slice's pad, and tapped it plays on
@@ -501,5 +500,10 @@ struct UiState {
     char notice[32] {};
     uint32_t notice_at = 0;   // ms
 };
+
+// Chop's Manual chop with no cut yet (one slice, the region) is armed: pad 1 blinks red and starts the take. With cuts
+// it is not, however it came to be (K3 onto Manual, a restore, an undo, Split): the cuts show and pad 1 plays slice 1.
+inline bool chop_fresh(const UiState& ui) { return ui.chop_mode == ChopMode::Manual && ui.slices.count <= 1; }
+inline bool chop_armed(const UiState& ui) { return chop_fresh(ui) && !ui.chop_take_at; }
 
 } // namespace melodee

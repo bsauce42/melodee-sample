@@ -18,7 +18,7 @@ struct AutosaveFacts {
     bool recording = false; // a pattern take, a sample take, a print, an auto sample or an export runs
     bool sheet = false;     // a question, the Name sheet, the Exit sheet, SD card access or an update has the controls
     bool loading = false;   // the project's samples are still being read
-    bool editing = false;   // Chop or Record is open (their work is not in the project yet), or an MPC project was
+    bool editing = false;   // a Chop take playing or Record open (their work is not in the project yet), or an MPC project was
                             // opened and has no file of its own (opening one writes nothing; SAVE AS gives it a file)
     bool failed = false;    // the last save found no card
     uint32_t now = 0, last_input = 0, last_try = 0;

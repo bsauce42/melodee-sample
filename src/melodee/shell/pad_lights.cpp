@@ -553,8 +553,7 @@ std::array<float, 16> slices_sounding(const PadScene& s) {
 Look chop_look(const PadScene& s, const std::array<float, 16>& sounding, unsigned pad) {
     const auto& ui = s.ui;
     unsigned at = selected_index(s), count = ui.slices.count;
-    bool manual = ui.chop_mode == ChopMode::Manual;
-    if (manual && ui.chop_armed) return pad == 0 ? (blink(s.now, flash_ms) ? red(full) : red(faint)) : Look {}; // pad 1 starts the take
+    if (chop_armed(ui)) return pad == 0 ? (blink(s.now, flash_ms) ? red(full) : red(faint)) : Look {}; // pad 1 starts the take
     if (chop_taking(s)) { // the take: its slices so far (the newest bright), and the next one's pad blinking red
         const unsigned slice = pad_slice(chop_view(s), pad);
         if (red_slice(slice, count, max_slices)) return blink(s.now, flash_ms) ? red(full) : red(faint);

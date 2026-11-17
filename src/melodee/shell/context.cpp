@@ -804,8 +804,12 @@ void Context::apply(const Binding& b, int value) {
         record_pad_motion(which, value);
         break;
     }
-    case Kind::ChopMode: ui.chop_mode = ChopMode(value); rechop(); break;
-    case Kind::ChopAmount: ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] = value; rechop(); break;
+    case Kind::ChopMode: // the same type again (a pot's noise): nothing, the cuts as they are
+        if (ChopMode(value) == ui.chop_mode) break;
+        ui.chop_mode = ChopMode(value); rechop(); break;
+    case Kind::ChopAmount:
+        if (ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] == value) break;
+        ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] = value; rechop(); break;
     case Kind::ChopStart: case Kind::ChopEnd: { // a cut moved by hand: it stays through a new chop by type or amount (in frames)
         auto was = chop_view(project, ui);
         uint32_t frames = chop_frames(project, ui), at = std::min(uint32_t(value), frames);
@@ -819,7 +823,6 @@ void Context::apply(const Binding& b, int value) {
         if (start) sl.move_start(n, at, frames);
         else sl.move_end(n, at, frames);
         if (inside) ui.chop_hand.move(before, start ? sl.start[n] : sl.end(n, frames));
-        ui.chop_armed = false;
         chop_moved(was);
         ui.chop_heard_at = std::max<uint32_t>(1, now + chop_heard_ms); // heard once the cut is still (chop_tick)
         break;
@@ -1670,7 +1673,6 @@ void Context::rechop() {
     if (capped || full) notice("64 slices, the most: the last runs to the end");
     snap_slices();
     ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count ? ui.slices.count - 1 : 0));
-    ui.chop_armed = ui.chop_mode == ChopMode::Manual;
     ui.chop_take_at = 0;
 }
 

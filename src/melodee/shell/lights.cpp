@@ -72,7 +72,7 @@ void Shell::autosave_tick(uint32_t now) {
                || ui.auto_sheet.sampling || ui.auto_sheet.checking || (store_ && store_->exporting());
     f.sheet = ui.ask != UiState::Ask::None || ui.name.open() || ui.exit_open || card_owns_controls(ui) || ui.update.phase != 0;
     f.loading = ui.loading || context_.samples_to_load < sample_slots;
-    f.editing = ui.page == PageId::Chop || ui.page == PageId::Record || context_.import_unsaved || ui.lesson; // a lesson's project is never saved
+    f.editing = (ui.page == PageId::Chop && ui.chop_take_at) || ui.page == PageId::Record || context_.import_unsaved || ui.lesson; // a lesson's project is never saved; Chop saves between takes
     f.failed = autosave_failed_;
     f.now = now; f.last_input = last_input_; f.last_try = autosave_try_;
     if (!autosave_due(f)) return;
@@ -479,7 +479,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
             unsigned used = 0;
             for (const auto& ref : project_->samples) used += ref.used();
             bool taking = chop_take_playing(*project_, ui_, now); // Manual's take still playing (shell/zoom_view.h)
-            chop_bits.store(uint32_t(ui_.chop_mode) | uint32_t(ui_.chop_armed) << 2 | uint32_t(taking) << 3 | uint32_t(ui_.slices.count & 0xff) << 8
+            chop_bits.store(uint32_t(ui_.chop_mode) | uint32_t(chop_armed(ui_)) << 2 | uint32_t(taking) << 3 | uint32_t(ui_.slices.count & 0xff) << 8
                             | uint32_t(ui_.chop_slice) << 16 | uint32_t(used) << 24, std::memory_order_relaxed);
             pad_start_now.store(pad.start, std::memory_order_relaxed); pad_end_now.store(pad.end, std::memory_order_relaxed);
             files_bits.store(uint32_t(ui_.files_count) | uint32_t(ui_.files_cursor & 0x3fff) << 16 | uint32_t(ui_.files_drive & 1) << 30

@@ -523,7 +523,6 @@ public:
     void end_take(uint32_t ms = 0);                                    // the take kept as one step; stopped short, the red stays
     uint32_t zero_cut(uint32_t frame) const;                           // Chop: a cut on a zero crossing, with Zero Snap on
     void snap_slices();                                                // Chop: every cut of the slices onto one
-    void toggle_zero_snap();                                           // Chop, B2: Zero Snap on / off (a setting)
     // The wheel on a card (shell/fine_edit.cpp): a handle of Trim or Chop by a 1024th of the view on screen, a frame
     // zoomed all the way in, onto the next zero crossing that way with Zero Snap on; any other card a step.
     void fine_edit(const Binding& binding, int delta);

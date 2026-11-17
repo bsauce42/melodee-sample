@@ -5937,7 +5937,10 @@ void projects_and_polish() {
     ui.page = PageId::Compressor; CHECK(press_scope(project, ui, B::TopLeft, false).kind == S::Master);
     CHECK(scope_name(project, ui, press_scope(project, ui, B::TopLeft, false)) == "Compressor");
     ui.page = PageId::Chop; CHECK(press_scope(project, ui, B::TopMiddle, false).kind == S::Chop);
-    ui.chop_armed = true; CHECK(press_scope(project, ui, B::Count, true).none()); // Manual's taps
+    ui.chop_mode = ChopMode::Manual; ui.slices.count = 1; CHECK(press_scope(project, ui, B::Count, true).none()); // Manual's take
+    ui.slices.count = 4; CHECK(press_scope(project, ui, B::Count, true).none()); // a pad picks and plays a slice: no step
+    ui.erase = true; CHECK(press_scope(project, ui, B::Count, true).kind == S::Chop); ui.erase = false; // Erase + pad: a step
+    ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
     ui.page = PageId::PlayPage; CHECK(press_scope(project, ui, B::Count, true).kind == S::Pad);
     CHECK(scope_name(project, ui, UndoScope {S::Pad, 2, 17}) == "B02");
     CHECK(scope_name(project, ui, UndoScope {S::Chain, 0, uint16_t(bus_chain(1))}) == "Bus B FX");
@@ -7916,13 +7919,11 @@ void zero_snap() {
     CHECK(zero_crossing(hit, 5000) <= 5000 && zero_crossing(hit, 5000) + zero_back >= 5000);
     CHECK(zero_crossing(hit, 5030) <= 5000);
 
-    // The setting: on unless turned off, kept with the settings.
+    // Always on now: an older settings file that turned it off reads as on.
     Settings fresh;
     CHECK(fresh.zero_snap);
     Settings off; off.zero_snap = false;
     Settings back; back.read(off.text());
-    CHECK(!back.zero_snap);
-    back.read(fresh.text());
     CHECK(back.zero_snap);
     // STEMS' BEST likewise: on at first, off kept.
     CHECK(fresh.stems_best);
@@ -11894,7 +11895,11 @@ void pad_lights() {
     CHECK(slice_bank(17) == 1 && slice_banks(20) == 2 && slice_banks(16) == 1 && slice_banks(0) == 1);
     CHECK(pad_slice(17, 3) == 19 && pad_slice(2, 3) == 3 && pad_slice(63, 15) == 63);
     ui.slices.count = 5; ui.chop_slice = 2;
-    ui.chop_mode = ChopMode::Manual; ui.chop_armed = true; light({}, 1000);
+    ui.chop_mode = ChopMode::Manual; ui.slices.count = 1; light({}, 1000); // no cut yet: armed
+    CHECK(chop_armed(ui) && is(0, Hue::Red, 4) && is(1, Hue::None, 0));
+    ui.slices.count = 5; light({}, 1000); // cuts there (K3 onto Manual, a restore, Split): they show, no red
+    CHECK(!chop_armed(ui) && is(2, Hue::Track, 4) && looks[0].hue == Hue::Track);
+    ui.slices.count = 1; light({}, 1000);
     CHECK(is(0, Hue::Red, 4) && is(1, Hue::None, 0));
     // The red walks (model/slice_banks.h): while the take plays, the slices so far light (the newest Full) and the
     // next slice's pad blinks red; past sixteen the pads show bank B and its pad 1 is the red one; at 64, no red.
@@ -11903,7 +11908,7 @@ void pad_lights() {
     CHECK(pad_slice(view_slice(15, 16, true, max_slices), 0) == 16 && red_slice(16, 16, max_slices) && slice_bank(16) == 1);
     CHECK(take_frame(1000, 500, 1500) == 45100 && take_live(500, 1000, 50000, 1500) && !take_live(500, 1000, 40000, 1500)
           && !take_live(0, 0, 50000, 1500) && !take_live(2000, 0, 50000, 1500));
-    ui.chop_armed = false; ui.chop_sample = 200; project->samples.edit(200).frames = 441000;
+    ui.chop_sample = 200; project->samples.edit(200).frames = 441000;
     ui.slices = {}; ui.slices.whole(0, 441000);
     for (uint32_t at : {10000u, 20000u, 30000u, 40000u}) ui.slices.add(at, 441000, max_slices);
     ui.chop_slice = 4; ui.chop_take_at = 500; light({}, 1000); // half a second in: 22050 frames, inside slice 3
@@ -11939,8 +11944,11 @@ void pad_lights() {
         CHECK(next_hit(8800, 1, hits, 5, floor) == 9300);      // a cut just before a hit (zero snap) moves past it
         CHECK(next_hit(20000, -1, hits, 5, floor) == 9300 && next_hit(1000, -1, hits, 5, floor) == 1000);
         CHECK(next_hit(1000, 1, hits, 5, 0) == 5000 && next_hit(30000, 1, hits, 5, floor) == 30000);
+        // Inside its room only: the hit that is the next slice's own cut (or within 20 ms of it) is not a place to land.
+        CHECK(next_hit_within(1000, 1, hits, 5, floor, 0, 9000) == 1000 && next_hit_within(1000, 1, hits, 5, floor, 0, 9100) == 9000);
+        CHECK(next_hit_within(20000, -1, hits, 5, floor, 9300, 30000) == 20000 && mark_floor(50) == hit_floor(25) && mark_floor(10) == hit_floor(10));
     }
-    ui.chop_armed = false; ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
+    ui.chop_mode = ChopMode::Threshold; ui.slices.count = 0;
     // Record: the take's pad red, a sample Dim, empty Faint (never 0.07, which drove tracks 1 and 2 red).
     ui.page = PageId::Record; ui.rec_track = 1; ui.rec_pad = 12; light({}, 1000);
     CHECK(is(12, Hue::Red, 4) && is(0, Hue::Track, 2) && is(13, Hue::Track, 1));

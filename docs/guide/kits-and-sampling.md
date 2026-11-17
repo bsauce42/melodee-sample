@@ -248,12 +248,11 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **−** / **+** | The slice before / after. |
 | **SHIFT** + **K3** | The amount for that type (threshold, number of regions, division). |
 | **SHIFT** + **K1** / **K2** | Zoom. |
-| **B2** (**SNAP**) | Snap cuts to zero crossings, so slices do not click. |
 | **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru. |
 | **B1** (**CANCEL**) | Leave without changing the pads. |
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
-| **ERASE** + pad | Remove a slice. |
+| **ERASE** + pad | Remove a slice. **ERASE** + pad 1: take every cut out and start over. |
 | **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
 
 With more than 16 slices, the pads show the bank of the selected slice, and
@@ -263,8 +262,9 @@ pads to its bank.
 **Fixing a cut**: tap the slice's pad. It plays once and its start is
 selected (the wider line; bottom left reads **START**). Turn the encoder to
 move it, or hold **SHIFT** and turn to jump it from hit to hit (the small
-marks along the bottom of the waveform; **SHIFT** + **K3** on Threshold sets
-how strong a hit must be). The screen zooms in on the cut while you turn;
+marks along the bottom of the waveform). A jump stays between the cuts on
+either side; with no hit left that way, the cut stays put. The screen zooms
+in on the cut while you turn;
 when you stop, you hear it once, from just before the cut into the slice
 (for an end: the slice's last second). To move where the slice ends, turn **K2**: the encoder then
 moves the end (**END**) until you tap another pad. The next pad, **−** / **+**
@@ -286,8 +286,9 @@ on the bar, set the region's start near the bar's first beat. A sample with
 no steady beat uses the project's tempo. A chop holds at most 64 slices: if
 a division needs more, the last slice runs to the end, and Melodee says so.
 
-**Manual chop**: set **K3** to Manual, or push the encoder. Pad 1 blinks
-red. Tap it: the sample plays and pad 2 blinks red. Tap the red pad on each
+**Manual chop**: set **K3** to Manual. With no cuts yet, pad 1 blinks red
+(with cuts already there, they stay as they are; **ERASE** + pad 1 takes
+them all out to start over). Tap the red pad 1: the sample plays and pad 2 blinks red. Tap the red pad on each
 hit you want to cut at; the red moves on to the next pad. After pad 16 the
 pads switch to bank B and its pad 1 blinks red, up to bank D (64 slices).
 While it plays, only the red pad cuts. Tap a lit pad to go back: the

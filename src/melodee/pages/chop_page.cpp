@@ -21,7 +21,7 @@
 // made or moved by hand (K1 / K2, Split, Manual's taps) stays through a new
 // chop by type or amount, drawn in the track's colour with a tab on top, and
 // one taken out (Erase, Merge) stays out, as Simpler keeps its manual slices.
-// Manual armed (K3 onto it, or Push): pad 1
+// Manual with no cut yet (K3 onto it, Erase + pad 1; chop_fresh): pad 1
 // blinks red and plays the region; then the red walks, the pad of the slice
 // the next tap makes, and only it cuts (after pad 16 the pads turn to bank B,
 // its pad 1 red; up to 64 slices, shell/chop_mode.cpp). A lit pad tapped
@@ -37,9 +37,10 @@
 // BACK), then lays every slice onto pads from the first free one as regions
 // of the same file (MONO: one mute group; THRU: that, each on to the
 // region's end); B1
-// drops the chop; B2 SNAP turns Zero Snap on or off, its LED lit while on
-// (every cut onto a zero crossing, shell/chop.h; on by default, kept with
-// the settings). The picture: the slices as bands, the one in hand lit with
+// drops the chop; B2 is free: Zero Snap is always on (every cut onto a zero
+// crossing, shell/chop.h). Erase + pad 1 takes every cut out (one slice
+// again; on Manual pad 1 red for a new take); Push only lays TO PADS' cards.
+// The picture: the slices as bands, the one in hand lit with
 // the pad it lands on as a chip above it, their numbers under them; the
 // file's length at the top right (on Beats with the sample's own tempo before
 // it, where it has one), the slice's at the bottom right.
@@ -122,8 +123,7 @@ void draw(Paint& p, const Snapshot& s) {
     if (s.ui.sheet_open && slices.count) frame(p, s, {{"BACK", "", ""}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}, h); // TO PADS' cards
     else if (s.ui.shift) frame(p, s, {{"EXTRACT", "SPLIT", "MERGE"}, -1, c}, h);
     else {
-        SoftKeys keys {{"CANCEL", "SNAP", "TO PADS"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
-        keys.toggles = 2; keys.lit = s.ui.settings.zero_snap ? 2 : 0;
+        SoftKeys keys {{"CANCEL", "", "TO PADS"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
         frame(p, s, keys, h);
     }
     float x = zone::pad, w = zone::width - 2 * zone::pad;
@@ -214,9 +214,9 @@ void draw(Paint& p, const Snapshot& s) {
         p.text(juce::String(n + 1), sx + 1, y + wh + 2, 16, 9, number_style(n));
         drawn_to = std::max(drawn_to, r);
     }
-    // The hits, as strong as Threshold's amount: a small mark at the foot of each, where SHIFT + the wheel lands a cut.
+    // The hits (shell/chop.h mark_floor): a small mark at the foot of each, where SHIFT + the wheel lands a cut.
     {
-        const uint8_t floor = hit_floor(s.ui.chop_amount[size_t(ChopMode::Threshold)]);
+        const uint8_t floor = mark_floor(s.ui.chop_amount[size_t(ChopMode::Threshold)]);
         for (unsigned n = 0; n < s.sample.hit_count && n < max_hits; ++n) {
             const auto& h = s.sample.hits[n];
             if (!h.frame || h.strength < floor) continue;
@@ -292,10 +292,17 @@ void pad(Context& c, unsigned pad, uint8_t velocity, bool down) {
     ui.sheet_open = false; // a pad leaves TO PADS' cards and plays as ever
     if (ui.erase) { // the slice out: it joins the one before, and a new chop leaves its cut out
         const unsigned slice = pad_slice(chop_bank_slice(c.project, ui, c.now), pad); // in the bank in view
-        if (slice == 0 || slice >= ui.slices.count) return;
+        if (slice == 0) { // slice 1: every cut out, one slice again; on Manual pad 1 blinks red for a new take
+            if (ui.slices.count <= 1) return;
+            c.end_take();
+            ui.slices.whole(ui.slices.start[0], ui.slices.stop[ui.slices.count - 1]);
+            ui.chop_hand.clear(); ui.chop_slice = 0; ui.chop_more = false; ui.chop_focus = 0; // Manual: armed again (chop_armed)
+            c.notice("All cuts out");
+            return;
+        }
+        if (slice >= ui.slices.count) return;
         ui.chop_hand.take_out(ui.slices.start[slice]);
         ui.slices.remove(slice);
-        ui.chop_armed = false;
         ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count - 1));
         return;
     }
@@ -342,10 +349,8 @@ void lay(Context& c) {
     c.open(PageId::Stage); // the slices' sound (Sample held shows their pads)
 }
 
-void push(Context& c) { // TO PADS' cards: lays them; else Manual, armed: pad 1 plays the region again and the taps cut it afresh
-    if (c.ui.sheet_open) { lay(c); return; }
-    c.ui.chop_mode = ChopMode::Manual;
-    c.rechop();
+void push(Context& c) { // TO PADS' cards: lays them; else nothing (it once started a take afresh, the cuts lost)
+    if (c.ui.sheet_open) lay(c);
 }
 
 void soft(Context& c, int key) {
@@ -359,7 +364,6 @@ void soft(Context& c, int key) {
                 unsigned cut = ui.chop_slice + 1u; // the new cut, onto a zero crossing with Zero Snap on
                 ui.slices.move_start(cut, c.zero_cut(ui.slices.start[cut]), frames);
                 ui.chop_hand.pin(ui.slices.start[cut]); // a cut by hand: it stays through a new chop
-                ui.chop_armed = false;
             }
             else c.notice("Split: too short");
         }
@@ -368,12 +372,10 @@ void soft(Context& c, int key) {
             ui.chop_hand.take_out(ui.slices.start[ui.chop_slice]); // a new chop leaves it out
             ui.slices.remove(ui.chop_slice);
             ui.chop_slice = uint8_t(ui.chop_slice - 1);
-            ui.chop_armed = false;
         }
         return;
     }
     if (key == 0) c.back();
-    if (key == 1) c.toggle_zero_snap();
     if (key == 2 && ui.slices.count) { ui.sheet_open = true; ui.sheet_row = uint8_t(ui.settings.slice_play % unsigned(SlicePlay::Count)); } // asks: POLY, MONO or THRU
 }
 } // namespace

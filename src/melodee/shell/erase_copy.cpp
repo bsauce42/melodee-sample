@@ -51,7 +51,6 @@ bool erase_slice(Context& c) {
     ui.chop_hand.take_out(ui.slices.start[ui.chop_slice]);
     ui.slices.remove(ui.chop_slice);
     ui.chop_slice = uint8_t(ui.chop_slice - 1);
-    ui.chop_armed = false;
     return true;
 }
 } // namespace

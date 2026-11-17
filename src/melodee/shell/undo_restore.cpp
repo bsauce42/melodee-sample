@@ -6,6 +6,7 @@
 #include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/undo_scope.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/zoom_view.h"
 #include <cstring>
 
 namespace melodee {
@@ -173,7 +174,8 @@ void Context::restore_chain(unsigned n, const Chain& value) {
 void Context::restore_chop(const ChopState& c) {
     ui.slices = c.slices; ui.chop_hand = c.hand; ui.chop_mode = ChopMode(c.mode); ui.chop_slice = c.slice; ui.chop_amount = c.amount;
     ui.chop_sample = c.sample; ui.chop_from = c.from; ui.chop_to = c.to;
-    ui.chop_armed = false;
+    ui.chop_take_at = 0; ui.chop_more = false;
+    chop_unfollow(ui); ui.chop_view = {}; ui.chop_heard_at = 0; // the view as the restored slices are, not zoomed where it was
 }
 
 PageEdit::PageEdit(Context& context, SurfaceButton button, bool pad) : c(context) {

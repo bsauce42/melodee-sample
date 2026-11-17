@@ -1591,7 +1591,7 @@ the file holds, to the bit.
   K2 plays its slice once when it has been still for 150 ms
   (`Context::chop_tick`): a start from 300 ms before it into the slice, an
   end the slice's last second; Shift + the wheel jumps that cut from hit to hit
-  (`next_hit`, hits as strong as Threshold's amount, marked at the waveform's
+  (`next_hit_within`, inside the cut's room 20 ms clear of its neighbours; hits as strong as Threshold's amount or 25%, `mark_floor`, marked at the waveform's
   foot); bottom left the wheel's job (START / END in its K's colour) and,
   zoomed in, the view's place and factor. Threshold keeps the
   hits at least that strong: a hit is a change in the spectrum (a drum, a hat
@@ -1610,7 +1610,7 @@ the file holds, to the bit.
   30 ms. Which beat is a bar's 1 is the region's start: kicks and snares alone
   did not tell it apart. A sample with no steady pulse cuts at the project's
   tempo.
-  Manual (K3 or Push):
+  Manual with no cut yet (K3 onto it, Erase + pad 1 to start over; `chop_fresh`):
   pad 1 blinks red and plays the region; then the red walks to the pad of
   the slice the next tap makes, and only it cuts, each cut pulled onto the
   strongest hit; after pad 16 the pads turn to bank B with its pad 1 red, up
@@ -1647,7 +1647,8 @@ the file holds, to the bit.
   bold in the track colour (the newest, if several); the slice in hand
   keeps its ground and handles. Manual's take line follows the voice as
   heard. Zoomed in, the view stays put.
-  B2 SNAP (its LED lit while on) is Zero Snap (on by default, kept with the settings):
+  Zero Snap is always on (the B2 SNAP switch is gone; a settings file's
+  zero_snap=0 reads as on):
   every cut (each type's, Manual's taps, K1 / K2, Split, Sample Record's
   pad cuts) lands on the nearest zero crossing of both sides summed,
   looking up to 5 ms back and 1 ms ahead, so a slice starts and stops

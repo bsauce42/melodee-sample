@@ -54,12 +54,11 @@ void Context::chop_tap(unsigned pad, uint8_t velocity) {
         return;
     }
     if (ui.chop_take_at) end_take(); // it has played out: the pads play slices again (no red: it reached the end)
-    if (ui.chop_mode == ChopMode::Manual && ui.chop_armed && pad == 0) { // pad 1, red: the take begins
+    if (chop_armed(ui) && pad == 0) { // pad 1, red: the take begins
         open_take();
         chop_unfollow(ui); ui.chop_focus = 0; ui.chop_heard_at = 0;
         if (sl.count) sl.whole(sl.start[0], sl.stop[sl.count - 1]); // from one slice, the whole region
         ui.chop_hand.clear();                                          // and its cuts are the hand cuts from here
-        ui.chop_armed = false;
         play_on_from(0);
         return;
     }
@@ -130,13 +129,24 @@ void Context::chop_jump(int delta) {
     const uint32_t frames = chop_frames(project, ui);
     if (!delta || !library || !frames || ui.chop_slice >= sl.count) return;
     const auto loaded = library->slot(ui.chop_sample);
-    const uint8_t floor = hit_floor(ui.chop_amount[size_t(ChopMode::Threshold)]);
+    const uint8_t floor = mark_floor(ui.chop_amount[size_t(ChopMode::Threshold)]);
     const unsigned n = ui.chop_slice;
     const bool end = ui.chop_focus;
-    uint32_t at = end ? sl.end(n, frames) : sl.start[n];
-    for (int k = 0; k < std::abs(delta); ++k) at = next_hit(at, delta, loaded.hits, loaded.hit_count, floor);
-    if (at == (end ? sl.end(n, frames) : sl.start[n])) return;
+    // Its room: a start between the cut before and its own end, an end between its start and the cut after, each a
+    // shortest slice (20 ms) clear, so a jump never lands on a neighbour's own hit and leaves a sliver.
+    const uint32_t a = sl.start[n], b = sl.end(n, frames);
+    const uint32_t lo = end ? a + min_slice : (n ? (sl.touches(n - 1, frames) ? sl.start[n - 1] : sl.end(n - 1, frames)) + min_slice : 0);
+    const uint32_t hi = end ? (sl.touches(n, frames) ? sl.end(n + 1, frames) : n + 1 < sl.count ? sl.start[n + 1] : frames) - min_slice
+                            : (b > min_slice ? b - min_slice : 0);
+    uint32_t at = end ? b : a;
+    for (int k = 0; k < std::abs(delta); ++k) {
+        const uint32_t next = next_hit_within(at, delta, loaded.hits, loaded.hit_count, floor, lo, hi);
+        if (next == at) break; // no hit left in its room that way
+        at = next;
+    }
+    if (at == (end ? b : a)) return;
     apply(Binding {end ? Binding::Kind::ChopEnd : Binding::Kind::ChopStart, int32_t(n), 0, int(frames), 0}, int(at));
+    ui.chop_view = {}; // a jump goes further than the view: it closes in round the cut where it landed
 }
 
 // The slices Chop holds as its sample's chop, written into the sample's WAV file when they changed (as the MPC
@@ -188,8 +198,8 @@ bool Context::restore_chop() {
         if (ui.slices.start[n] <= pad_from && pad_from < ui.slices.end(n, frames ? frames : UINT32_MAX)) ui.chop_slice = uint8_t(n);
     ui.chop_mode = kept.mode;
     ui.chop_amount[size_t(kept.mode) % ui.chop_amount.size()] = kept.amount;
-    ui.chop_armed = false;
     ui.chop_take_at = 0; ui.chop_more = false;
+    chop_unfollow(ui);
     return true;
 }
 
@@ -210,13 +220,6 @@ void Context::snap_slices() {
         if (sl.start[n]) sl.move_start(n, zero_cut(sl.start[n]), frames);
     uint32_t last = sl.end(sl.count - 1, frames);
     if (last < frames) sl.move_end(sl.count - 1, zero_cut(last), frames);
-}
-
-void Context::toggle_zero_snap() {
-    ui.settings.zero_snap = !ui.settings.zero_snap;
-    if (store) store->save_settings(ui.settings.text());
-    if (ui.settings.zero_snap) snap_slices(); // what is there now joins in; off leaves the cuts where they are
-    notice(ui.settings.zero_snap ? "Zero snap on" : "Zero snap off");
 }
 
 } // namespace melodee

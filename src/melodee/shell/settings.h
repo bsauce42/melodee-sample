@@ -47,7 +47,7 @@ struct Settings {
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
     bool rec_quantize = true; // recorded notes onto the pattern's Q, as the MPC (Shift + Pad 10, or SEQ's Rec quantize row)
-    bool zero_snap = true;    // Chop's cuts onto zero crossings (Chop's B2; shell/chop.h)
+    bool zero_snap = true;    // Chop's cuts onto zero crossings, always (shell/chop.h; the file's row kept for older builds)
     uint8_t slice_play = 0;   // Chop's TO PADS: the last playback picked, 0 Poly, 1 Mono, 2 Thru (shell/chop.h SlicePlay)
     bool stems_best = true;   // STEMS' B2 BEST: up to 16 kHz in two passes, about three times as long (shell/stems.h)
     bool preview = false;     // the sample browser's B3 PREVIEW: each file plays as the cursor lands on it
@@ -296,7 +296,7 @@ struct Settings {
             else if (key == "place_bar") place_bottom = value != 0;
             else if (key == "count_in") count_in = value != 0;
             else if (key == "rec_quantize") rec_quantize = value != 0;
-            else if (key == "zero_snap") zero_snap = value != 0;
+            else if (key == "zero_snap") zero_snap = true; // always on now (older settings files had it off)
             else if (key == "slice_play") slice_play = uint8_t(std::clamp(value, 0, 2));
             else if (key == "stems_best") stems_best = value != 0;
             else if (key == "preview") preview = value != 0;
