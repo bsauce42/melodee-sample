@@ -162,7 +162,7 @@ void Context::keep_chop() {
         const bool same = kept.from == now.from && kept.to == now.to && kept.mode == now.mode && kept.amount == now.amount
                        && kept.slices.same(now.slices);
         if (!same || !kept.hand.same(now.hand)) {
-            now.unwritten = kept.unwritten || !same; // the hand cuts alone are not in the file: nothing to write
+            now.unwritten = true; // the slices, or the type, amount or hand cuts (Melodee's own chunk of the WAV)
             project.chops.edit(ui.chop_sample) = now;
         }
     }
@@ -194,11 +194,11 @@ bool Context::restore_chop() {
     ui.chop_from = kept.from; ui.chop_to = kept.to;
     ui.slices = kept.slices;
     ui.chop_hand = kept.hand;
-    if (ui.chop_hand.empty() && kept.mode == ChopMode::Manual) pin_manual_cuts(ui.chop_hand, ui.slices); // from the WAV: all by hand
+    ui.chop_mode = kept.mode; // the type the hand cuts are told from
+    ui.chop_amount[size_t(kept.mode) % ui.chop_amount.size()] = kept.amount;
+    if (ui.chop_hand.empty()) infer_hand(ui.chop_hand, ui.slices, type_chop(), frames); // from the WAV: which cuts were by hand
     for (unsigned n = 0; n < ui.slices.count; ++n) // the slice the pad plays, selected
         if (ui.slices.start[n] <= pad_from && pad_from < ui.slices.end(n, frames ? frames : UINT32_MAX)) ui.chop_slice = uint8_t(n);
-    ui.chop_mode = kept.mode;
-    ui.chop_amount[size_t(kept.mode) % ui.chop_amount.size()] = kept.amount;
     ui.chop_take_at = 0; ui.chop_more = false;
     chop_unfollow(ui);
     return true;

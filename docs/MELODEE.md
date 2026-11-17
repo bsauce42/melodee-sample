@@ -1627,7 +1627,13 @@ the file holds, to the bit.
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's
   end; the last pick kept with the settings) and lays the slices on pads, B1 CANCEL drops
   the chop. As on the MPC, slices belong to the sample and live in its WAV
-  file (the `atem` and `slic` chunks, `shell/mpc_wav_slices.cpp`): read
+  file (the `atem` and `slic` chunks, `shell/mpc_wav_slices.cpp`; beside
+  them Melodee's own `mlch` chunk, JSON, which other software passes over:
+  the chop's Type and Amount, the hand cuts (Hand) and the cuts taken out by
+  hand (Out), at the file's rate; a file without it reads as Manual and its
+  hand cuts are told from what its type cuts now, `infer_hand`; an automatic
+  cut within a quarter of its own spacing of a hand cut gives way to it,
+  `give_way_reach`): read
   when the sample loads (a project opened or imported, a file from
   Samples), written back on a worker thread when Chop changes them
   (`Context::keep_chop`: before Chop's region changes, and at a save). The

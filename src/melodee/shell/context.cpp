@@ -1660,16 +1660,21 @@ int Context::sample_slot(const std::string& path, const std::string& name) {
 // Chop's slices of the region it holds, by its type. Manual starts as one
 // slice, the whole region, armed: pad 1 plays it and the pads tapped
 // meanwhile cut it (chop_tap()).
-void Context::rechop() {
-    end_take(); ui.chop_more = false; ui.chop_take_from = 0; // a take in progress is kept as it was; no red left over
-    if (!library || ui.chop_sample >= sample_slots) { ui.slices = {}; return; }
+// What Chop's type and amount cut of the region now, without the hand's cuts.
+Slices Context::type_chop(bool* capped) const {
+    if (!library || ui.chop_sample >= sample_slots) return {};
     auto loaded = library->slot(ui.chop_sample);
     int amount = ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()];
     if (ui.chop_mode == ChopMode::Beats) amount = int(division_sixteenths(unsigned(std::max(amount, 0)), project.bar_ticks() / sixteenth_ticks)); // in 16ths
+    return chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo, &loaded.beats, capped);
+}
+
+void Context::rechop() {
+    end_take(); ui.chop_more = false; ui.chop_take_from = 0; // a take in progress is kept as it was; no red left over
+    if (!library || ui.chop_sample >= sample_slots) { ui.slices = {}; return; }
     bool capped = false, full = false;
-    ui.slices = with_hand(chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo,
-                               &loaded.beats, &capped),
-                          ui.chop_hand, loaded.frames, &full); // the cuts made by hand stay
+    const uint32_t frames = chop_frames(project, ui);
+    ui.slices = with_hand(type_chop(&capped), ui.chop_hand, frames, &full); // the cuts made by hand stay
     if (capped || full) notice("64 slices, the most: the last runs to the end");
     snap_slices();
     ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count ? ui.slices.count - 1 : 0));

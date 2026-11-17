@@ -303,8 +303,10 @@ take at once.
 **SHIFT** + **B2** Split, or Manual's taps) stays when you change the chop
 type, threshold, division or number of regions. It shows in the track's
 colour with a tab on top. A cut you take out (**ERASE** + pad, **SHIFT** +
-**B3** Merge) stays out. Hand cuts are kept while the project is open. A new
-Manual take (pad 1) starts over.
+**B3** Merge) stays out. Hand cuts are saved in the sample's file with its
+slices, so they are kept after a restart too. Where an automatic cut would
+land just next to a hand cut (a beat line a little before your tap), the hand
+cut wins and no sliver is left. A new Manual take (pad 1) starts over.
 
 **TO PADS** asks how the slices play, as Simpler's Playback. Turn the
 encoder to choose and push it to put the slices on pads. It starts on your

@@ -3994,16 +3994,24 @@ void beat_grid() {
             for (unsigned n = 1; n < s.count; ++n) if (s.start[n] == frame) return true;
             return false;
         };
-        // Eight regions now (22050 apart): the hand cuts in, the moved and the taken-out ones out, the rest as cut.
+        // Eight regions now (22050 apart): the hand cuts in, the moved and the taken-out ones out, the rest as cut; the
+        // line at 22050, a quarter of its spacing from the hand cut at 20000, gives way to it (no 46 ms sliver).
         auto eighths = with_hand(chop(ChopMode::Regions, 8, 0, 0, frames, none, 0, 1200), hand, frames);
-        CHECK(eighths.count == 8 && eighths.start[1] == 20000 && eighths.start[2] == 22050 && has(eighths, 100000) && has(eighths, 110250));
-        CHECK(!has(eighths, 88200) && !has(eighths, 132300) && has(eighths, 154350) && eighths.stop[7] == frames);
+        CHECK(eighths.count == 7 && eighths.start[1] == 20000 && eighths.start[2] == 44100 && has(eighths, 100000) && has(eighths, 110250));
+        CHECK(!has(eighths, 88200) && !has(eighths, 132300) && has(eighths, 154350) && eighths.stop[eighths.count - 1] == frames);
         hand.move(100000, 101000); // a hand cut moved again: no second automatic cut dropped
         CHECK(hand.pinned(101000) && !hand.pinned(100000) && hand.drop_count == 2 && hand.pin_count == 2);
         HandCuts near;
         near.pin(44500); // an automatic cut within 20 ms of a hand cut gives way to it
         auto kept = with_hand(quarters, near, frames);
         CHECK(kept.count == 4 && has(kept, 44500) && !has(kept, 44100));
+        // A hand cut a little after a beat line (within a quarter of the spacing there): the line gives way, no sliver.
+        HandCuts late; late.pin(50000);
+        auto no_sliver = with_hand(quarters, late, frames);
+        CHECK(no_sliver.count == 4 && has(no_sliver, 50000) && !has(no_sliver, 44100) && has(no_sliver, 88200));
+        HandCuts between; between.pin(66000); // well between two lines: both stay
+        auto both = with_hand(quarters, between, frames);
+        CHECK(both.count == 5 && has(both, 44100) && has(both, 66000) && has(both, 88200));
         bool full = false; // 64 regions and a hand cut between two of them: one too many, the hand cut kept
         HandCuts early;
         early.pin(1000);
@@ -4011,13 +4019,20 @@ void beat_grid() {
         CHECK(full && most.count == max_slices && most.start[1] == 1000);
         HandCuts other = hand;
         CHECK(other.same(hand) && !other.same(near));
-        // A Manual chop read back from its WAV (no pins kept there): its cuts pinned again, so a new type keeps them.
+        // A chop read back from its WAV (no pins kept there): told against what its type cuts now. Manual cuts nothing,
+        // so every cut is by hand; a Regions chop with one cut moved by hand and one taken out: just those two.
         Slices manual_back; manual_back.whole(0, frames);
         for (uint32_t at : {20000u, 50000u, 90000u}) manual_back.add(at, frames);
         HandCuts again;
-        pin_manual_cuts(again, manual_back);
+        infer_hand(again, manual_back, chop(ChopMode::Manual, 0, 0, 0, frames, none, 0, 1200), frames);
         auto kept_back = with_hand(quarters, again, frames);
-        CHECK(again.pin_count == 3 && has(kept_back, 20000) && has(kept_back, 50000) && has(kept_back, 90000));
+        CHECK(again.pin_count == 3 && again.drop_count == 0 && has(kept_back, 20000) && has(kept_back, 50000) && has(kept_back, 90000));
+        Slices regions_back; regions_back.whole(0, frames); // quarters with 88200 moved to 100000 and 132300 taken out
+        for (uint32_t at : {44100u, 100000u}) regions_back.add(at, frames);
+        HandCuts told;
+        infer_hand(told, regions_back, quarters, frames);
+        CHECK(told.pin_count == 1 && told.pinned(100000) && told.dropped(88200) && told.dropped(132300) && !told.pinned(44100));
+        CHECK(with_hand(quarters, told, frames).same(regions_back)); // a new chop by the same type gives it back as it was
         other.clear();
         CHECK(other.empty());
     }

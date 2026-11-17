@@ -515,6 +515,7 @@ public:
     void send_pad(unsigned track, unsigned pad);
     int sample_slot(const std::string& path, const std::string& name); // the project's slot for a file, asking for it to load
     void rechop();                                                     // Chop's slices from its type and amount
+    Slices type_chop(bool* capped = nullptr) const;                    // what the type and amount cut now (no hand cuts)
     void chop_tap(unsigned pad, uint8_t velocity);                     // Chop: a pad (audition, or Manual's taps)
     void chop_tick(uint32_t ms);                                       // Chop: a take played out ends; a moved cut heard once
     void chop_jump(int delta);                                         // Chop: SHIFT + wheel, the cut onto the next hit
