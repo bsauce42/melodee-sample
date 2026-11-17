@@ -1421,14 +1421,15 @@ void Context::send_trims(unsigned t, unsigned kit) {
 void Context::delete_pad(unsigned kit) {
     kit %= sampler_pads;
     auto& t = track();
-    if (!t.pads[kit].used()) { close_pad_gap(kit); return; } // an empty pad: the pads after it in its bank move down one
+    if (!t.pads[kit].used()) { close_pad_gap(kit); return; } // an empty pad: the pads after it move down one (shell/pad_gap.h)
     Edit edit;
     edit.what = pad_text("Delete", kit); edit.track = ui.track; edit.pad = int16_t(kit);
     edit.pad_before = pad_state(t, kit);
     edit.pad_after = PadState {};
     edit.pad_after.chain.size = pad_slots;
     restore_pad(ui.track, kit, edit.pad_after);
-    notice(edit.what);
+    // Pads after it to move down: say that Erase + this pad again does it (31 bytes at most, the notice's room).
+    notice(gap_closes(t, kit) ? pad_text("Deleted", kit) + " \xc2\xb7 again closes gap" : edit.what);
     edits.push(std::move(edit));
 }
 
@@ -1436,7 +1437,11 @@ void Context::delete_pad(unsigned kit) {
 void Context::close_pad_gap(unsigned kit) {
     kit %= sampler_pads;
     if (!gap_closes(track(), kit)) { notice(pad_text("Empty", kit)); return; }
-    std::string what = pad_text("Closed gap", kit);
+    unsigned last = kit + 1; // the last pad with a sample that moves
+    for (unsigned n = kit + 1; n < gap_end(kit); ++n) if (track().pads[n].used()) last = n;
+    char first_label[4], last_label[4];
+    pad_label(kit + 1, first_label); pad_label(last, last_label);
+    std::string what = last == kit + 1 ? std::string(first_label) + " moved down one" : std::string(first_label) + "-" + last_label + " moved down one";
     Edit edit = begin_edit(what.c_str(), ui.track, -1, false);
     edit.track_before = std::make_unique<TrackState>(track_state(*this, ui.track));
     edit.master_before = std::make_unique<MasterState>(master_of(project));

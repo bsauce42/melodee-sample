@@ -6147,40 +6147,53 @@ void projects_and_polish() {
     in = import_kit_bank(*from, 6, 1, 0, same, [&](const SampleRef&) { return 70; }); // an empty bank of the kit
     CHECK(in.pads == 0 && in.replaced == 0 && same.pads[0].sample == 53);
 
-    // Erase + an empty pad: the pads after it in its bank move down one, with their notes; other banks stay.
+    // Erase + an empty pad: the pads after it move down one through its bank and the next; the bank after stays.
     {
         Track g {};
         g.engine = EngineKind::Sampler;
-        for (unsigned n = 0; n < 17; ++n) g.pads[n].sample = uint16_t(n + 1);
+        for (unsigned n = 0; n < 18; ++n) g.pads[n].sample = uint16_t(n + 1); // A01-A16, B01, B02
+        g.pads[32].sample = 99;                                    // C01
         g.pads[4] = PadSound {};                                  // A05 deleted
         g.pad_fx.at[6].slots[0].kind = uint8_t(EffectKind::Drive); // A07's chain
         g.set_pad_muted(9, true);                                 // A10 muted
         g.last_pad = 15; g.levels_pad = 2;
         g.zone_trims[0].pad = 6; g.zone_trims[0].slot = 7; g.zone_trims[0].tune = 3;
-        CHECK(gap_closed(4, 4) == -1 && gap_closed(5, 4) == 4 && gap_closed(15, 4) == 14 && gap_closed(16, 4) == 16 && gap_closed(3, 4) == 3);
-        CHECK(!gap_closes(g, 5) && gap_closes(g, 4) && !gap_closes(g, 20));
+        CHECK(gap_end(4) == 32 && gap_end(20) == 48 && gap_end(100) == 128 && gap_end(120) == 128);
+        CHECK(gap_closed(4, 4) == -1 && gap_closed(5, 4) == 4 && gap_closed(16, 4) == 15 && gap_closed(31, 4) == 30);
+        CHECK(gap_closed(32, 4) == 32 && gap_closed(3, 4) == 3 && gap_closed(0, 120) == 0 && gap_closed(127, 120) == 126);
+        CHECK(!gap_closes(g, 5) && gap_closes(g, 4) && gap_closes(g, 20) && !gap_closes(g, 40) && !gap_closes(g, 120)); // B05 takes C01; C05 has nothing after it in C and D
         std::array<Pattern, pattern_count> ps {};
         auto note = [](uint32_t tick, unsigned pad) { Event e; e.tick = tick; e.key = uint8_t(sampler_first_note + pad); return e; };
-        ps[0].events = {note(0, 4), note(0, 5), note(96, 15), note(96, 16), note(192, 3)}; // A05's left-over note goes
+        ps[0].events = {note(0, 4), note(0, 5), note(96, 15), note(96, 16), note(96, 32), note(192, 3)}; // A05's left-over note goes
         MotionPoint m; m.tick = 48; m.param = uint8_t(motion_pad_param(PadParam(0))); m.pad = 6; ps[0].motion.push_back(m);
         MotionPoint track_lane; track_lane.tick = 48; track_lane.param = 1; track_lane.pad = 4; ps[0].motion.push_back(track_lane); // not a pad lane
         ps[3].lanes = {LaneLength {uint8_t(sampler_first_note + 4), 96}, LaneLength {uint8_t(sampler_first_note + 8), 192}};
         close_pad_gap(g, ps, 4);
-        CHECK(g.pads[4].sample == 6 && g.pads[14].sample == 16 && !g.pads[15].used() && g.pads[16].sample == 17 && g.pads[3].sample == 4);
+        CHECK(g.pads[4].sample == 6 && g.pads[14].sample == 16 && g.pads[15].sample == 17 && g.pads[16].sample == 18 && g.pads[3].sample == 4);
+        CHECK(!g.pads[17].used() && !g.pads[31].used() && g.pads[32].sample == 99); // B shifted too; C stays
         CHECK(g.pad_fx.at[5].slots[0].kind == uint8_t(EffectKind::Drive) && !g.pad_fx.at[6].count() && g.pad_muted(8) && !g.pad_muted(9));
         CHECK(g.last_pad == 14 && g.levels_pad == 2 && g.zone_trims[0].pad == 5 && g.zone_trims[0].tune == 3);
-        CHECK(ps[0].events.size() == 4 && ps[0].events[0].key == sampler_first_note + 4 && ps[0].events[1].key == sampler_first_note + 14);
-        CHECK(ps[0].events[2].key == sampler_first_note + 16 && ps[0].events[3].key == sampler_first_note + 3);
+        CHECK(ps[0].events.size() == 5 && ps[0].events[0].key == sampler_first_note + 4 && ps[0].events[1].key == sampler_first_note + 14);
+        CHECK(ps[0].events[2].key == sampler_first_note + 15 && ps[0].events[3].key == sampler_first_note + 32 && ps[0].events[4].key == sampler_first_note + 3);
         CHECK(ps[0].motion.size() == 2 && ps[0].motion[0].param == 1 && ps[0].motion[0].pad == 4 && ps[0].motion[1].pad == 5);
         CHECK(ps[3].lanes.size() == 1 && ps[3].lanes[0].key == sampler_first_note + 7 && ps[3].lanes[0].length == 192);
+        // Bank H's gap stays in H: A is never pulled round.
+        Track h {};
+        h.engine = EngineKind::Sampler;
+        h.pads[0].sample = 1; h.pads[121].sample = 2; h.pads[127].sample = 3;
+        std::array<Pattern, pattern_count> none {};
+        CHECK(gap_closes(h, 120));
+        close_pad_gap(h, none, 120);
+        CHECK(h.pads[120].sample == 2 && h.pads[126].sample == 3 && !h.pads[127].used() && h.pads[0].sample == 1);
         auto proj = std::make_unique<Project>();
-        proj->knob_fx.set_pad(2, 5, true); proj->knob_fx.set_pad(2, 15, true); proj->knob_fx.set_pad(2, 16, true); proj->knob_fx.set_pad(3, 5, true);
+        proj->knob_fx.set_pad(2, 5, true); proj->knob_fx.set_pad(2, 15, true); proj->knob_fx.set_pad(2, 16, true);
+        proj->knob_fx.set_pad(2, 32, true); proj->knob_fx.set_pad(3, 5, true);
         proj->compressor.key = 2; proj->compressor.key_pad = 4;
         proj->modulators[0].targets[0].track = 2; proj->modulators[0].targets[0].param = uint8_t(motion_pad_param(PadParam(0)));
         proj->modulators[0].targets[0].pad = 9;
         close_pad_gap_names(*proj, 2, 4);
-        CHECK(proj->knob_fx.pad_on(2, 4) && !proj->knob_fx.pad_on(2, 5) && proj->knob_fx.pad_on(2, 14) && !proj->knob_fx.pad_on(2, 15));
-        CHECK(proj->knob_fx.pad_on(2, 16) && proj->knob_fx.pad_on(3, 5)); // other banks, other tracks
+        CHECK(proj->knob_fx.pad_on(2, 4) && !proj->knob_fx.pad_on(2, 5) && proj->knob_fx.pad_on(2, 14) && proj->knob_fx.pad_on(2, 15));
+        CHECK(!proj->knob_fx.pad_on(2, 16) && proj->knob_fx.pad_on(2, 32) && proj->knob_fx.pad_on(3, 5)); // C, other tracks
         CHECK(proj->compressor.key_pad == MasterComp::whole_kit && proj->modulators[0].targets[0].pad == 8);
     }
 }
