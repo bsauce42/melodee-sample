@@ -186,7 +186,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         if (change.back && ui_.page == PageId::CardAccess) { context_.open(PageId::Project); context_.notice("Card ejected"); }
     }
     update_tick();
-    context_.chop_hold_tick(now); // Chop's hold to fix: its start, and the attack again and again
+    context_.chop_hold_tick(now); // Chop's hold to fix: the moved start heard once; the hold's end
     autosave_tick(now);
     // Power was pressed: the Exit sheet opens (the service thread only counts presses).
     // The library found files or finished a sample: the lengths go into the project.

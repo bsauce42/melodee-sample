@@ -253,8 +253,13 @@ Press **CHOP** to slice the last pad's sample. The pads play the slices.
 | **SHIFT** + **B1** | Extract the slice to a new file on the next empty pad. |
 | **SHIFT** + **B2** / **B3** | Split / merge slices. |
 | **ERASE** + pad | Remove a slice. |
-| Hold a slice's pad | Fix its cut: turn the encoder; the new start plays when you stop. |
+| Hold a slice's pad, turn the encoder | Fix its cut; the new start plays when you stop turning. |
 | **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). |
+
+The bottom left shows what the encoder does: **SLICE** (select a slice), or
+**START** / **END** in the colour of **K1** / **K2**. Zoomed in, a strip
+beside it shows which part of the region is on the screen, and how many
+times closer. Every zoom moves smoothly.
 
 With more than 16 slices, the pads show the bank of the selected slice, and
 the bank lights and **BANK** at the top of the screen show which. Selecting
@@ -277,15 +282,17 @@ a division needs more, the last slice runs to the end, and Melodee says so.
 
 **Pad slicing** (as on Ableton Push): push the encoder to turn it on or off.
 Setting **K3** to Manual turns it on. **PAD SLICE** shows at the top left
-while it is on. Tap a slice's pad: it plays from there to the end of the
-region. Tap an empty pad while it plays to cut there. The slices you have
-stay, up to 64. Empty pads light white; brighter while you can cut.
+while it is on. Hold a slice's pad: it plays from there to the end of the
+region. Tap an empty pad while it plays to cut there. Let go: the sound
+stops at the end of the slice it has reached, so a tap plays one slice. The
+slices you have stay, up to 64. Empty pads light white; brighter while you
+can cut.
 
-**Fix a cut**: hold a slice's pad. Playing stops and the screen closes in
-on the slice's start (**FIX CUT** at the top left). Turn the encoder to move
-the cut. When you stop turning, the first quarter second from the new start
-plays once. Let go when it sounds right. The zoom goes back to where it
-was.
+**Fix a cut**: hold a slice's pad and turn the encoder. Playing stops and
+the screen zooms in on the slice's start (**FIX CUT** at the top left).
+Keep turning to move the cut. When you stop turning, the first quarter
+second from the new start plays once. Let go when it sounds right. The zoom,
+and what the encoder moves, go back to how they were.
 
 **Hand cuts**: a cut you make or move by hand (**K1**, **K2**, the encoder,
 **SHIFT** + **B2** Split, or pad slicing) stays when you change the chop
