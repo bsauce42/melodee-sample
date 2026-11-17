@@ -12,8 +12,9 @@ Press **SHIFT** + **Pad 16**.
   stays as it was.
 - **B2** (**OPEN**): the list of projects.
 - **B3** (**NEW**): start a new project (asks first). On the question,
-  **B3** (**NEW**) starts it with one of the MPC's factory kits on track 1, so
-  the pads play at once. **B2** (**EMPTY**) starts it with an empty kit.
+  **B3** (**NEW**) starts it with no tracks and opens the track types on
+  track 1. **B2** (**KIT**) starts it with one of the MPC's factory kits on
+  track 1, so the pads play at once.
 
 Or turn the encoder to pick one and push it.
 

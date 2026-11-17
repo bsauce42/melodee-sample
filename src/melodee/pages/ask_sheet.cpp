@@ -31,7 +31,7 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
     const auto& t = s.track();
     unsigned track = s.ui.track % track_count, playing = t.pattern % pattern_count;
     ConfirmSheet sheet;
-    juce::String verb = "ERASE", cancel = "CANCEL", middle; // middle: B2, a second way to do it (New project's EMPTY)
+    juce::String verb = "ERASE", cancel = "CANCEL", middle; // middle: B2, a second way to do it (New project's KIT)
     Icon verb_glyph = Icon::Trash;
     juce::Colour accent = colour::rec; // the verb's: red for a loss
     const juce::String undo_line = "Undo brings them back.";
@@ -111,7 +111,7 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
         else if (s.ui.ask_target == 2) sheet.lines = {"This project was never saved.", "Its changes are lost."};
         else sheet.lines = {name + " has nothing unsaved.", ""};
         verb = "NEW"; verb_glyph = Icon::Check;
-        middle = "EMPTY"; // B3: with the MPC's factory kit on track 1; B2: an empty kit
+        middle = "KIT"; // B3: no tracks, the track types on track 1; B2: the MPC's factory kit on track 1
         break;
     }
     case Ask::TakeCardBack:

@@ -10,6 +10,7 @@
 #include "melodee/shell/step_edit.h"
 #include "melodee/shell/step_lane.h"
 #include "melodee/engine/engine_host.h"
+#include "melodee/engine/engine_info.h"
 #include "melodee/engine/midi_engine.h"
 #include "melodee/engine/sampler.h"
 #include <cmath>
@@ -115,10 +116,11 @@ bool Context::autosave() {
     return true;
 }
 
-void Context::new_project() {
+void Context::new_project(bool kit) {
     auto fresh = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
     starting_project(*fresh, *bank);
+    if (kit) melodee::load_sound(fresh->tracks[0], EngineKind::Sampler, 0); // an empty kit on track 1, for a kit on its way
     switch_to(*fresh, *bank, {});
 }
 

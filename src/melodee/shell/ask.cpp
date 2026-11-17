@@ -46,9 +46,9 @@ bool ask_button(Context& c, SurfaceButton button) {
         ui.ask = UiState::Ask::None;
         return true;
     }
-    if (button == B::TopMiddle && ui.ask == UiState::Ask::NewProject) { // EMPTY: a new project without the factory kit
+    if (button == B::TopMiddle && ui.ask == UiState::Ask::NewProject) { // KIT: a new project with the factory kit on track 1
         ui.ask = UiState::Ask::None;
-        c.start_new_project(false);
+        c.start_new_project(true);
         return true;
     }
     if (button != B::TopRight) return true;                                  // the rest wait

@@ -292,10 +292,6 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         store_->view(v);
         if (v.settings_read) {
             ui_.settings.read(v.settings); settings_loaded = true; context_.send_click(); context_.send_repeat_velocity();
-            // A first install (no settings file, so no project to resume): the first project starts with the MPC's
-            // factory kit on track 1, as NEW gives (shell/lesson.h), so the pads play at once.
-            if (v.settings.empty() && context_.project_path.empty() && !context_.dirty && std::filesystem::exists(factory_kit_path))
-                context_.load_kit_file(factory_kit_path, factory_kit_name);
         }
     }
     // The backlight stays as the stock app left it until Screen asks for less (and then follows it).

@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/lesson_jobs.h"
 #include "melodee/engine/engine_host.h"
+#include "melodee/engine/engine_info.h"
 #include "melodee/shell/context.h"
 #include "melodee/shell/menu.h"
 #include "melodee/shell/project_kits.h"
@@ -46,6 +47,7 @@ void lesson_start(Context& c, unsigned lesson) {
     auto fresh = std::make_unique<Project>();
     auto bank = std::make_unique<PatternBank>();
     starting_project(*fresh, *bank);
+    load_sound(fresh->tracks[0], EngineKind::Sampler, 0); // an empty kit until the factory kit lands on it
     std::snprintf(fresh->name, sizeof(fresh->name), "Lesson");
     lesson_patterns(lesson % lesson_count, *bank);
     c.switch_to(*fresh, *bank, {});

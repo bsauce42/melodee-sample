@@ -375,8 +375,9 @@ beat; the meters show the mix.
     turns PLUGIN only once one is picked) are made at once. Drum: Card
     (Samples), Empty, Input (Sample Record). MIDI: Out jack / USB-C (first) /
     All USB. Making one is one undo step. No knob cards. Until the track is
-    made the other buttons wait (Play, Stop, Tap Tempo and Pad Bank + pad
-    still work); B1 CANCEL on the types selects the nearest used track.
+    made the other buttons wait (Play, Stop, Tap Tempo, Pad Bank + pad and
+    the MENU still work); B1 CANCEL on the types selects the nearest used
+    track (none in a new project).
     Picked with a pad (Tracks, Pad Bank held, Song's lanes), the track goes
     back to that page once made.
 - **Tracks** (Pad FX + Knob FX together, the MIX hub's B1): the sixteen tracks as the
@@ -1982,7 +1983,9 @@ while following.
 - **Project** (Shift + Pad 16): the open project's three jobs as tiles under
   the keys: **B1 SAVE** (to its file in one press, or with no file yet the
   Name sheet first; Push too), **B2 OPEN** (the list), **B3 NEW** (asks
-  first: B3 NEW, B1 CANCEL, saying whether it is saved first). A save frees
+  first: B3 NEW, B2 KIT, B1 CANCEL, saying whether it is saved first; NEW has
+  no tracks and opens the track types on track 1, KIT puts the MPC's factory
+  kit on track 1). A save frees
   the sample slots nothing uses any more (roadmap P3): a slot no pad's layer
   plays, no undo or redo could bring back, no file being made holds and
   Chop is not on is emptied, its chop with it, so the file keeps only what

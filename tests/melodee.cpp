@@ -5956,12 +5956,12 @@ void projects_and_polish() {
     h.push(Edit {});
     CHECK(h.pushes == before + 1 && h.size() == 1 && h.last());
 
-    // A new project: one empty kit on track 1, C Chromatic, no notes; every pad its own semitone.
+    // A new project: no tracks (the track types open on track 1), C Chromatic, no notes; every pad its own semitone.
     {
         auto p = std::make_unique<Project>();
         auto bank = std::make_unique<PatternBank>();
         starting_project(*p, *bank);
-        CHECK(p->used_tracks() == 1 && p->tracks[0].engine == EngineKind::Sampler && kit_track(*p) == -1);
+        CHECK(p->used_tracks() == 0 && !p->tracks[0].used() && kit_track(*p) == -1);
         CHECK(p->root == 0 && std::string(scales()[p->scale].name) == "Chromatic");
         unsigned notes = 0;
         for (unsigned t = 0; t < track_count; ++t) for (unsigned q = 0; q < pattern_count; ++q) notes += unsigned(bank->at[t][q].events.size());
@@ -5987,6 +5987,7 @@ void projects_and_polish() {
         auto p = std::make_unique<Project>();
         auto bank = std::make_unique<PatternBank>();
         starting_project(*p, *bank);
+        load_sound(p->tracks[0], EngineKind::Sampler, 0); // a new project's track 1 made a kit
         UiState ui;
         Pattern pattern;
         using K = Binding::Kind;

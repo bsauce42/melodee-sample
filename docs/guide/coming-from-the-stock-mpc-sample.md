@@ -52,7 +52,7 @@ stock app's pages plus tracks, plug-ins, the mixer and Song (see
 
 | On the stock app | In Melodee |
 | --- | --- |
-| A project is one kit. | A project has 16 tracks. Track 1 starts as a kit, with one of the MPC's factory kits on it. The other tracks can be kits, keygroups, plug-in instruments, MIDI tracks or audio tracks. |
+| A project is one kit. | A project has 16 tracks. A new project has none: it opens on track 1 with the track types. Each track can be a kit, a keygroup, a plug-in instrument, a MIDI track or an audio track. |
 | **PAD BANK** held + Pads 1–8 jumps to bank A–H. | **PAD BANK** held + pad selects track 1–16. To jump banks, hold **PAD BANK** and turn the encoder or press **−** / **+**. |
 | **SAMPLE** opens Sample mode. | **SAMPLE** opens **Stage**, the selected track's sound pages, from any page. On a kit, Stage has the Sample mode pages. On Stage, **SAMPLE** goes back to **B1**'s first page. Hold **SAMPLE** to see the track's pads: **Pads** on a kit, **Keys** on an instrument. |
 | In Sequence mode the pads select sequences. | The same: **SEQ** opens **Sequences**, and the pads launch a sequence on every track. You can also hold **SEQ** and press a pad on any page. **B2** and **B3** open **Roll** and **Motion**. |

@@ -28,6 +28,7 @@ bool new_track_lock(Context& c, SurfaceButton button, bool pressed) {
     }
     if (!new_track_locked(c)) return false;
     if (ui.ask != UiState::Ask::None) return false; // a question on screen (Erase on the picker): its keys answer it
+    if (ui.menu && (button == B::TopMiddle || button == B::TopRight)) return false; // the MENU's HERE and GO: its places with every track empty
     bool carousel = ui.page == PageId::Stage;
     switch (button) {
     case B::Play: case B::Stop: case B::TapTempo: case B::TopLeft: return false;

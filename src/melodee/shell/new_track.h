@@ -73,7 +73,8 @@ inline void new_pick_turn(UiState& ui, int delta, uint32_t now) {
 
 // An empty track in hand on its carousel (or the plug-in picker it opened): the track is made, or another
 // picked (Pad Bank + pad, or B1 CANCEL), before anything else. The other buttons wait; Play, Stop and Tap
-// Tempo still work, and on the carousel Pad Bank (+ pad) too.
+// Tempo still work, on the carousel Pad Bank (+ pad) too, and the MENU (the encoder held) with its B1-B3 and
+// GO's pads, the way to Project and Settings in a new project, whose tracks are all empty.
 bool new_track_locked(const Context& c);
 // A button pressed or let go while locked: true when the lock took it (a taken press's release goes too).
 bool new_track_lock(Context& c, SurfaceButton button, bool pressed);

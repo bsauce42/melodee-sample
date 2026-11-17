@@ -8,6 +8,7 @@
 #include "melodee/shell/card_access.h"
 #include "melodee/shell/context.h"
 #include "melodee/shell/lesson.h"
+#include "melodee/shell/new_track.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/project_store.h"
 #include "melodee/shell/sample_library.h"
@@ -23,12 +24,13 @@ void Context::ask_new_project() {
 
 void Context::start_new_project(bool kit) {
     if (dirty && !project_path.empty()) save_project();
-    new_project();
-    open(PageId::Stage);
+    // KIT: the MPC's factory kit on track 1 (shell/lesson.h), onto an empty kit while it loads. Not there (another
+    // firmware): no tracks, as NEW.
+    const bool factory = kit && store && std::filesystem::exists(factory_kit_path);
+    new_project(factory);
     notice("New project");
-    // The pads play at once: the MPC's factory kit on track 1 (shell/lesson.h). Not there (another firmware): the
-    // track stays an empty kit, as EMPTY leaves it.
-    if (kit && store && std::filesystem::exists(factory_kit_path)) load_kit_file(factory_kit_path, factory_kit_name);
+    if (factory) { open(PageId::Stage); load_kit_file(factory_kit_path, factory_kit_name); return; }
+    offer_new_track(*this); // no tracks: the track types on track 1 at once
 }
 
 void Context::load_kit_file(const std::string& path, const std::string& name) {

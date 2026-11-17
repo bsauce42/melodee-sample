@@ -462,10 +462,10 @@ public:
     void save_project_to(const std::string& path);
     bool autosave(); // background save (shell/autosave.h): false with no card
     void save_project();              // to its file, or a new one
-    void new_project();
+    void new_project(bool kit = false); // every track empty (kit: track 1 an empty kit)
     // Parity phase 10 (shell/project_jobs.cpp): New project asks first (B3 / B1); Load Kit.
     void ask_new_project();                   // the question, with what happens to unsaved changes
-    void start_new_project(bool kit = true);  // its B3: saved first if it has a file, then a new one with the factory kit (B2 EMPTY: without), Stage
+    void start_new_project(bool kit = false); // its B3: saved first if it has a file, then a new one with no tracks and the track types on track 1 (B2 KIT: the factory kit on track 1, Stage)
     std::string lesson_return;                // a lesson runs (shell/lesson_jobs.h): the file of the project open before it, "" none
     void load_kit_file(const std::string& path, const std::string& name); // a project's kit onto the selected track, once loaded
     void load_kit(const Project& from, const std::string& name);          // that kit onto the selected track, one undo

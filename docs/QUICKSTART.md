@@ -90,9 +90,9 @@ Melodee has 16 tracks, one for each pad. Pad 1 (bottom left) is track 1.
 To select a track, hold **PAD BANK** and press a pad. This works on any
 page.
 
-A new project has one of the MPC's factory kits on track 1, so the pads
-play at once. The other tracks are empty until you choose what they are (see
-[step 7](#7-add-a-plug-in-instrument)).
+A new project has no tracks. It opens on track 1 with the track types, so
+you choose what it is first (see [step 7](#7-add-a-plug-in-instrument)). The
+other tracks stay empty until you choose what they are.
 
 To see all tracks as a mixer, press **PAD FX** and **KNOB FX** together to
 open **Tracks**.
