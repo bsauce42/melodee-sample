@@ -39,6 +39,7 @@ MasterState master_of(const Project& p) {
     m.compressor = p.compressor; m.pad_fx = p.pad_fx_params; m.flex = p.flex;
     m.punch_depth = p.punch_depth; m.punch_snap = p.punch_snap; m.punch_tail = p.punch_tail; m.punch_quantize = p.punch_quantize;
     m.modulators = p.modulators; m.macros = p.macros; // roadmap P4
+    m.knob_pads = p.knob_fx.pads;
     return m;
 }
 ChopState chop_of(const UiState& ui) {

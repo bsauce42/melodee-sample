@@ -137,6 +137,10 @@ creating a project clears the undo history.
 ## Erase and copy
 
 - **ERASE** + pad on a kit, stopped: empty the pad.
+- **ERASE** + an empty pad on a kit, stopped: close the gap. The pads after
+  it in the same bank move down one, with their notes, and the bank's last
+  pad is left empty. Other banks stay. To take a pad out and close the gap,
+  press **ERASE** + that pad twice.
 - **ERASE** + pad on a kit, playing: hold both to erase that pad's notes as
   the playhead passes them. Notes outside the hold stay. One undo.
 - **ERASE** + pad on a synth, plug-in or MIDI track: erase that key's notes

@@ -27,6 +27,7 @@
 #include "melodee/shell/shell.h"
 #include "melodee/shell/sound_list.h"
 #include "melodee/shell/stage_map.h"
+#include "melodee/shell/pad_gap.h"
 #include "melodee/shell/track_copy.h"
 #include "melodee/shell/zoom_view.h"
 #include "melodee/shell/name_suggest.h"
@@ -1420,7 +1421,7 @@ void Context::send_trims(unsigned t, unsigned kit) {
 void Context::delete_pad(unsigned kit) {
     kit %= sampler_pads;
     auto& t = track();
-    if (!t.pads[kit].used()) { notice(pad_text("Empty", kit)); return; }
+    if (!t.pads[kit].used()) { close_pad_gap(kit); return; } // an empty pad: the pads after it in its bank move down one
     Edit edit;
     edit.what = pad_text("Delete", kit); edit.track = ui.track; edit.pad = int16_t(kit);
     edit.pad_before = pad_state(t, kit);
@@ -1429,6 +1430,27 @@ void Context::delete_pad(unsigned kit) {
     restore_pad(ui.track, kit, edit.pad_after);
     notice(edit.what);
     edits.push(std::move(edit));
+}
+
+// Erase + an empty kit pad, stopped (shell/pad_gap.h): the gap closed, as one undo.
+void Context::close_pad_gap(unsigned kit) {
+    kit %= sampler_pads;
+    if (!gap_closes(track(), kit)) { notice(pad_text("Empty", kit)); return; }
+    std::string what = pad_text("Closed gap", kit);
+    Edit edit = begin_edit(what.c_str(), ui.track, -1, false);
+    edit.track_before = std::make_unique<TrackState>(track_state(*this, ui.track));
+    edit.master_before = std::make_unique<MasterState>(master_of(project));
+    auto next = std::make_unique<TrackState>(*edit.track_before);
+    melodee::close_pad_gap(next->track, next->patterns, kit);
+    restore_track(*this, ui.track, *next);
+    close_pad_gap_names(project, ui.track, kit);
+    edit.master_after = std::make_unique<MasterState>(master_of(project));
+    if (*edit.master_after == *edit.master_before) { edit.master_before.reset(); edit.master_after.reset(); }
+    else restore_master(*edit.master_after);
+    edit.track_after = std::move(next);
+    edits.push(std::move(edit));
+    dirty = true;
+    notice(what);
 }
 
 void Context::erase_pad_notes(unsigned kit) {

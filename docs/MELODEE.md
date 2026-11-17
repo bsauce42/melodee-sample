@@ -2194,7 +2194,11 @@ while following.
 - **Mute mode** (Mute): the pads mute kit pads (bank in view) where they
   play a kit, tracks elsewhere; Shift + pad solos. Muted pads red, soloed
   white. Shift + Mute unmutes everything. Kit pad mutes are saved.
-- **Erase**: + pad on a kit, stopped, empties the pad; playing or recording,
+- **Erase**: + pad on a kit, stopped, empties the pad; + an empty pad closes
+  the gap: the pads after it in its bank move down one, with their chains,
+  mutes, trims, notes, motion and lanes in every pattern, the modulators' and
+  macros' pad lanes, Knob FX's pads and the compressor's key pad; notes left
+  on the empty pad go; other banks stay (shell/pad_gap.h, one undo). Playing or recording,
   erases that pad's notes (one undo). + pad where the pads play a synth's,
   plug-in's or MIDI track's keys asks, then erases that key's notes. With
   Seq held + pad asks, then clears that pattern; on Step Edit and Roll asks.

@@ -151,6 +151,7 @@ void Context::restore_master(const MasterState& m) {
         send({Type::KnobFx, 0, uint8_t(q), 1, k.params[q]});
     }
     if (k.bypass != m.knob_bypass) { k.bypass = m.knob_bypass; send_knob_state(); }
+    if (k.pads != m.knob_pads) { k.pads = m.knob_pads; send_knob_targets(); }
     const auto& c = m.compressor;
     set_compressor(0, c.on); set_compressor(1, c.color); set_compressor(2, c.attack); set_compressor(3, c.release);
     set_compressor(4, c.amount); set_compressor(5, c.boost); set_compressor(6, c.sidechain); set_compressor(7, c.key);

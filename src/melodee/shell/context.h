@@ -238,6 +238,7 @@ public:
     void restore_chop(const ChopState& value);
     void notice(const std::string& text);                    // a word over the header for a moment
     void delete_pad(unsigned kit);                           // Erase + pad on a kit, stopped: the pad empty
+    void close_pad_gap(unsigned kit);                        // Erase + an empty pad, stopped: the pads after it in its bank down one
     void erase_pad_notes(unsigned kit);                      // recording, stopped: its notes out of the pattern, one edit
     // Erase + pad on a kit while playing, as on the MPC: the pad's notes go as the playhead passes them, only while
     // both are held (shell/erase_copy.cpp). Every pad held at once, and the whole hold, is one undo (or part of a take).

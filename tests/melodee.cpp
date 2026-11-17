@@ -103,6 +103,7 @@
 #include "melodee/shell/sequences.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
+#include "melodee/shell/pad_gap.h"
 #include "melodee/shell/mix_hub.h"
 #include "melodee/shell/sample_mode.h"
 #include "melodee/shell/sampler_map.h"
@@ -6145,6 +6146,43 @@ void projects_and_polish() {
     Track same = mine;
     in = import_kit_bank(*from, 6, 1, 0, same, [&](const SampleRef&) { return 70; }); // an empty bank of the kit
     CHECK(in.pads == 0 && in.replaced == 0 && same.pads[0].sample == 53);
+
+    // Erase + an empty pad: the pads after it in its bank move down one, with their notes; other banks stay.
+    {
+        Track g {};
+        g.engine = EngineKind::Sampler;
+        for (unsigned n = 0; n < 17; ++n) g.pads[n].sample = uint16_t(n + 1);
+        g.pads[4] = PadSound {};                                  // A05 deleted
+        g.pad_fx.at[6].slots[0].kind = uint8_t(EffectKind::Drive); // A07's chain
+        g.set_pad_muted(9, true);                                 // A10 muted
+        g.last_pad = 15; g.levels_pad = 2;
+        g.zone_trims[0].pad = 6; g.zone_trims[0].slot = 7; g.zone_trims[0].tune = 3;
+        CHECK(gap_closed(4, 4) == -1 && gap_closed(5, 4) == 4 && gap_closed(15, 4) == 14 && gap_closed(16, 4) == 16 && gap_closed(3, 4) == 3);
+        CHECK(!gap_closes(g, 5) && gap_closes(g, 4) && !gap_closes(g, 20));
+        std::array<Pattern, pattern_count> ps {};
+        auto note = [](uint32_t tick, unsigned pad) { Event e; e.tick = tick; e.key = uint8_t(sampler_first_note + pad); return e; };
+        ps[0].events = {note(0, 4), note(0, 5), note(96, 15), note(96, 16), note(192, 3)}; // A05's left-over note goes
+        MotionPoint m; m.tick = 48; m.param = uint8_t(motion_pad_param(PadParam(0))); m.pad = 6; ps[0].motion.push_back(m);
+        MotionPoint track_lane; track_lane.tick = 48; track_lane.param = 1; track_lane.pad = 4; ps[0].motion.push_back(track_lane); // not a pad lane
+        ps[3].lanes = {LaneLength {uint8_t(sampler_first_note + 4), 96}, LaneLength {uint8_t(sampler_first_note + 8), 192}};
+        close_pad_gap(g, ps, 4);
+        CHECK(g.pads[4].sample == 6 && g.pads[14].sample == 16 && !g.pads[15].used() && g.pads[16].sample == 17 && g.pads[3].sample == 4);
+        CHECK(g.pad_fx.at[5].slots[0].kind == uint8_t(EffectKind::Drive) && !g.pad_fx.at[6].count() && g.pad_muted(8) && !g.pad_muted(9));
+        CHECK(g.last_pad == 14 && g.levels_pad == 2 && g.zone_trims[0].pad == 5 && g.zone_trims[0].tune == 3);
+        CHECK(ps[0].events.size() == 4 && ps[0].events[0].key == sampler_first_note + 4 && ps[0].events[1].key == sampler_first_note + 14);
+        CHECK(ps[0].events[2].key == sampler_first_note + 16 && ps[0].events[3].key == sampler_first_note + 3);
+        CHECK(ps[0].motion.size() == 2 && ps[0].motion[0].param == 1 && ps[0].motion[0].pad == 4 && ps[0].motion[1].pad == 5);
+        CHECK(ps[3].lanes.size() == 1 && ps[3].lanes[0].key == sampler_first_note + 7 && ps[3].lanes[0].length == 192);
+        auto proj = std::make_unique<Project>();
+        proj->knob_fx.set_pad(2, 5, true); proj->knob_fx.set_pad(2, 15, true); proj->knob_fx.set_pad(2, 16, true); proj->knob_fx.set_pad(3, 5, true);
+        proj->compressor.key = 2; proj->compressor.key_pad = 4;
+        proj->modulators[0].targets[0].track = 2; proj->modulators[0].targets[0].param = uint8_t(motion_pad_param(PadParam(0)));
+        proj->modulators[0].targets[0].pad = 9;
+        close_pad_gap_names(*proj, 2, 4);
+        CHECK(proj->knob_fx.pad_on(2, 4) && !proj->knob_fx.pad_on(2, 5) && proj->knob_fx.pad_on(2, 14) && !proj->knob_fx.pad_on(2, 15));
+        CHECK(proj->knob_fx.pad_on(2, 16) && proj->knob_fx.pad_on(3, 5)); // other banks, other tracks
+        CHECK(proj->compressor.key_pad == MasterComp::whole_kit && proj->modulators[0].targets[0].pad == 8);
+    }
 }
 
 // Settings' sample rate (44.1 / 48 / 96 kHz): the engine follows the device's rate, so a project plays at the same

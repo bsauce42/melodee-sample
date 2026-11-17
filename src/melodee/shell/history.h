@@ -94,6 +94,7 @@ struct MasterState {
     bool punch_quantize = true;
     std::array<Modulator, modulator_count> modulators {}; // roadmap P4: the MOD page's
     std::array<Macro, macro_count> macros {};
+    std::array<std::array<uint64_t, 2>, track_count> knob_pads {}; // Knob FX's kit pads, per track
     bool operator==(const MasterState& o) const { // field by field: padding is never compared
         const auto& c = compressor; const auto& d = o.compressor;
         return knob_choice == o.knob_choice && knob_kind == o.knob_kind && knob_bypass == o.knob_bypass && knob_params == o.knob_params
@@ -102,7 +103,7 @@ struct MasterState {
             && c.sidechain == d.sidechain && c.key == d.key && c.key_pad == d.key_pad
             && pad_fx == o.pad_fx && flex.mode == o.flex.mode && flex.mix == o.flex.mix && flex.quantize == o.flex.quantize
             && punch_depth == o.punch_depth && punch_snap == o.punch_snap && punch_tail == o.punch_tail && punch_quantize == o.punch_quantize
-            && modulators == o.modulators && macros == o.macros;
+            && modulators == o.modulators && macros == o.macros && knob_pads == o.knob_pads;
     }
 };
 // The tempo: the project's, each pattern's own and whether patterns keep their own (BPM per pattern).
