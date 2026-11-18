@@ -170,12 +170,13 @@ To chop a sample into slices, press **CHOP**. See [Chop](guide/kits-and-sampling
    the project.
 3. To change to another sequence, press its pad. Pad 1 is sequence 1. Every
    track goes to that number, and a track with no notes there is silent. On
-   other pages, hold **SEQ** and press a pad.
+   other pages, hold **SEQ** and press **SHIFT** + a pad.
 
    ![Sequences](images/screens/scenes.png)
 
    To put one track on a pattern of its own, press **B1** again for
-   **Patterns**. Its pads are the selected track's patterns.
+   **Patterns**. Its pads are the selected track's patterns. On any page,
+   hold **SEQ** and press a pad for the same.
 
 4. Press **SEQ RECORD**. The button flashes and the screen shows that
    recording is armed.

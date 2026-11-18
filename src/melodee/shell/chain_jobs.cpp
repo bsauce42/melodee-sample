@@ -7,10 +7,10 @@
 // tap after it in the same hold adds a pattern. The chain is queued a
 // pattern at a time: in the last bar of the one playing the next is launched
 // for the bar line, where it begins as this one ends. A pattern launched by
-// hand, a single tap, ends it; the song playing leaves it be. Off the Patterns
-// page the pads tapped are sequences (shell/sequences.h): the chain is still
-// the selected track's, and as each of its patterns comes up the sequence of
-// that number is launched on every track (chain_lead).
+// hand, a single tap, ends it; the song playing leaves it be. Shift + pads
+// tapped are sequences (shell/sequences.h): the chain is still the selected
+// track's, and as each of its patterns comes up the sequence of that number is
+// launched on every track (chain_lead).
 #include "melodee/shell/context.h"
 #include "melodee/engine/engine_host.h"
 #include <string>

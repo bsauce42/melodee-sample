@@ -637,8 +637,9 @@ hold to steer, Shift + Seq to zoom in**.
     pattern plays once through and the next starts at its end, round
     again, a song for one track without Song (kept in the project, CHAN). A
     single tap, or a pattern launched any other way, ends it. Shift + pad
-    launches that column on every track holding notes there (and on the
-    selected one): its **sequence**, with the sequence's tempo. Hold a pad
+    launches that **sequence** on every used track, with the sequence's
+    tempo; while Shift is held the pads and the sheet show the sequences,
+    and Shift + pads after the first chain the sequences. Hold a pad
     and tap another to copy. Erase + pad asks,
     then clears that pattern, its notes and its Motion (one undo). Shift + Erase starts a pattern
     copy: the pattern, then where (on this or another track; the pads stay
@@ -650,10 +651,10 @@ hold to steer, Shift + Seq to zoom in**.
   - −/+ the previous / next pattern, across the banks; the wheel the tempo (Push: whole BPM
     or tenths); K1–K3 the pattern's length, Q and swing (Shift: any bar
     count, time signature, metronome level), over Knob FX's.
-  - B1–B3 open Patterns, Roll and Motion (the sheet stays away until Seq is
+  - B1–B3 open Sequences, Roll and Motion (the sheet stays away until Seq is
     let go); Seq Record starts a new take in the next empty pattern, armed
     (playing: recording at once). Other buttons keep their jobs.
-- **Patterns** (Seq's home, B1 PATTERNS; Seq held + B1): the selected
+- **Patterns** (B1 again on Sequences, Seq's home): the selected
   track's sixteen patterns of the bank in view, drawn as the pads sit (pad
   1 bottom left, pad 13 top left), so a cell is the pad that launches it.
   Each cell: the pattern number, ▶ while it plays, NEXT (a blinking ring)

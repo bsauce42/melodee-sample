@@ -107,7 +107,7 @@ finished lesson keeps a check.
 | Lesson | What it covers |
 | --- | --- |
 | First beat | Play two pads and record them into a pattern. |
-| Sequences | Launch sequences from the Sequences page, and with **SEQ** held. |
+| Sequences | Launch sequences from the Sequences page, then a track's pattern with **SEQ** held. |
 | Mix a track | Open the mixer, set a track's level and pan, open its effects. |
 | Shape a pad | Set a pad's end on Trim, then its tune. |
 

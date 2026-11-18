@@ -68,7 +68,7 @@ inline const Lesson& lesson_at(unsigned n) {
         {"PRESS SEQ RECORD", K::Button, b(B::SeqRecord)},
         {"PRESS STOP", K::Button, b(B::Stop)},
     };
-    // Sequences: two sequences launched from their page, then with Seq held from another page.
+    // Sequences: two sequences launched from their page, then the track's pattern 2 with Seq held from another page.
     static const LessonStep sequences[] {
         {"LOADING KIT", K::Wait},
         {"PRESS PLAY", K::Button, b(B::Play)},

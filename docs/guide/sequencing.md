@@ -91,45 +91,42 @@ track's place in its pattern, also on a track at another speed.
 
 ## Hold SEQ
 
-Hold **SEQ** on any page. The pads become the sequences, as on the stock
-app:
+Hold **SEQ** on any page. The pads become the selected track's patterns, as
+on Patterns:
 
-- The playing sequence is bright, a queued sequence blinks, sequences with
+- The playing pattern is bright, a queued pattern blinks, patterns with
   notes are dim.
-- Press a pad to launch that sequence at the next bar (at once when
-  stopped). Every track goes to that number. A track with no notes there is
-  silent; its empty pattern gets the sequence's length.
-- Press more pads in the same hold to make a **chain** of sequences (up to
-  eight). Each plays once, then the next. The selected track's pattern
-  sets when the next one starts.
-- **−** / **+** launch the previous / next sequence.
-- **K1**–**K3** set the length, grid and swing of the selected track's
-  pattern. The encoder sets the tempo. Push it to switch between whole BPM
-  and tenths.
-- **B1**–**B3** open Sequences, Roll and Motion.
-- **PAD BANK** steps the bank A–H (**SHIFT**: back).
-
-Some jobs with **SEQ** held work on the selected track's pattern:
-
+- Press a pad to launch that pattern on the selected track at the next bar
+  (at once when stopped). The other tracks play on. An empty pattern starts
+  as long as the one playing.
+- Press more pads in the same hold to make a **chain** of patterns (up to
+  eight). Each plays once, then the next.
+- **SHIFT** + pad launches that **sequence** on every track, as on
+  Sequences. While **SHIFT** is held, the pads and the sheet show the
+  sequences. **SHIFT** + more pads in the same hold make a chain of
+  sequences; the selected track's pattern sets when the next one starts.
 - Hold a pad and press another to copy the pattern. Hold a pad, step the
   bank and press a pad to copy across banks.
 - **ERASE** + pad clears the pattern's notes and Motion (asks first).
   **SHIFT** + **ERASE** copies a pattern: press the pattern, then where it
   goes.
+- **−** / **+** launch the previous / next pattern.
+- **K1**–**K3** set the length, grid and swing of the selected track's
+  pattern. The encoder sets the tempo. Push it to switch between whole BPM
+  and tenths.
+- **B1**–**B3** open Sequences, Roll and Motion.
+- **PAD BANK** steps the bank A–H (**SHIFT**: back).
 - **SEQ RECORD** starts a new take in the track's next empty pattern.
 - **SAMPLE RECORD** freezes or thaws patterns. See
   [Freeze a track](tracks.md#freeze-a-track).
 
-After 0.3 seconds the sheet shows the sequences: what plays now (**NOW**),
-what plays next (**NEXT**) and the tempo. **OWN** shows a track that is on a
-pattern of its own. With a chain, **AFTER** shows what follows, and a small
-number on a pad shows its place in the chain.
+After 0.3 seconds the sheet shows the selected track's patterns: what plays
+now (**NOW**), what plays next (**NEXT**) and the tempo. With a chain,
+**AFTER** shows what follows, and a small number on a pad shows its place in
+the chain. With **SHIFT** held the sheet shows the sequences, and **OWN**
+shows a track that is on a pattern of its own.
 
 ![SEQ held: the sheet](../images/screens/seqchain.png)
-
-On the Patterns page, **SEQ** held keeps the pads on the selected track's
-patterns: a pad launches that track only, and a chain is that track's.
-**SHIFT** + pad launches the whole sequence.
 
 ## Record
 

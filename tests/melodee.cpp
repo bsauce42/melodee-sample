@@ -2586,25 +2586,30 @@ void button_remap() {
         j.page = PageId::Tracks; CHECK(job() == "TRACKS");
         j.page = PageId::Scenes; CHECK(job() == "SEQUENCES");
         j.page = PageId::StepEdit; CHECK(job().empty()); j.step_pads = true; CHECK(job() == "STEPS"); j.step_pads = false;
-        j.page = PageId::Roll; j.seq_held = true; CHECK(job() == "SEQUENCES"); // Seq held: the sequences, every track
-        j.erase = true; CHECK(job() == "PATTERNS"); j.erase = false;            // Erase + pad clears the track's pattern
-        j.seq_print = true; CHECK(job() == "PATTERNS"); j.seq_print = false;    // freezing: the track's patterns
-        j.page = PageId::Patterns; CHECK(job() == "PATTERNS");                  // on Patterns the pads stay the track's
+        j.page = PageId::Roll; j.seq_held = true; CHECK(job() == "PATTERNS"); // Seq held: the track's patterns
+        j.shift = true; CHECK(job() == "SEQUENCES");                          // + Shift: the sequences, every track
+        j.erase = true; CHECK(job() == "PATTERNS"); j.erase = false;          // Erase + pad clears the track's pattern
+        j.seq_print = true; CHECK(job() == "PATTERNS"); j.seq_print = false;  // freezing: the track's patterns
+        j.page = PageId::Patterns; CHECK(job() == "SEQUENCES"); j.shift = false; // on Patterns too
+        CHECK(job() == "PATTERNS");
         j.page = PageId::Roll;
         j.pad_bank = true; CHECK(job() == "TRACKS"); // Pad Bank held wins
         j.menu = menu_go_view; CHECK(job().empty()); // a sheet draws its own pads
         j.menu = menu_closed; j.copying = UiState::Copying::Tracks; CHECK(job().empty()); // a move's prompt has the header
     }
-    // Sequences first (shell/sequences.h): Seq held's pads are sequences off the Patterns page; a launch takes every
-    // used track; an empty pattern takes the sequence's length; a track on another number has a pattern of its own.
+    // Sequences first (shell/sequences.h): Seq held's pads are the track's patterns, the sequences with Shift held;
+    // a launch takes every used track; an empty pattern takes the sequence's length; a track on another number has
+    // a pattern of its own.
     {
         UiState q; q.track = 0; q.page = PageId::Stage;
         CHECK(!sequences_on_pads(q));
-        q.seq_held = true; CHECK(sequences_on_pads(q) && sequences_lit(q));
+        q.seq_held = true; CHECK(!sequences_on_pads(q) && !sequences_lit(q));
+        q.shift = true; CHECK(sequences_on_pads(q) && sequences_lit(q));
         q.erase = true; CHECK(sequences_on_pads(q) && !sequences_lit(q)); q.erase = false;
         q.seq_print = true; CHECK(!sequences_on_pads(q)); q.seq_print = false;
         q.copying = UiState::Copying::Patterns; CHECK(!sequences_on_pads(q)); q.copying = UiState::Copying::Off;
-        q.page = PageId::Patterns; CHECK(!sequences_on_pads(q)); q.page = PageId::Stage;
+        q.page = PageId::Patterns; CHECK(sequences_on_pads(q)); q.page = PageId::Stage;
+        q.seq_held = false; CHECK(!sequences_on_pads(q)); q.shift = false; // Shift alone: its printed jobs
         auto p = std::make_unique<Project>();
         auto b = std::make_unique<PatternBank>();
         Track used = project->tracks[0]; // a track with a sound
@@ -12336,8 +12341,8 @@ void pad_lights() {
     put(p, 0, uint8_t(sampler_first_note + 1), 127);
     put(p, 2, uint8_t(sampler_first_note), 100);
     put(bank->at[1][2], 0, uint8_t(sampler_first_note), 100);
-    ui.page = PageId::Stage; ui.seq_held = true; light(plays);
-    CHECK(is(0, Hue::White, 4) && is(2, Hue::White, 1) && is(5, Hue::None, 0));
+    ui.page = PageId::Stage; ui.seq_held = true; light(plays); // Seq held: the track's patterns, as on Patterns
+    CHECK(is(0, Hue::Track, 4) && is(2, Hue::Track, 2) && is(5, Hue::None, 0));
     ui.page = PageId::Patterns; light(plays);
     CHECK(is(0, Hue::Track, 4) && is(2, Hue::Track, 2) && is(5, Hue::None, 0));
     ui.page = PageId::Stage;

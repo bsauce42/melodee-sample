@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 // The Sequence sheet (Seq held a moment, shell/seq_layer.h): over any page,
-// the sequences of the bank in view (shell/sequences.h; on the Patterns page, with Erase held and while patterns
-// freeze: the selected track's patterns), Pad Bank steps the bank, the
+// the selected track's patterns of the bank in view (with Shift held: the sequences, shell/sequences.h), Pad Bank
+// steps the bank, the
 // header names it, laid out as the pads are (pad 1 bottom left), the one playing filled, the one waiting for the bar
 // blinking, those with notes tinted; beside them NOW and NEXT, then a track on a pattern of its own (OWN) or the chain (round 2,
 // seq-sheet2 B): what plays now, over what comes next, over what follows

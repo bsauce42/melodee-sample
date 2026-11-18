@@ -785,7 +785,7 @@ void pad_looks(const PadScene& s, std::array<Look, 16>& out) {
         case PadContext::LoopHeld:
         case PadContext::LoopNow: look = loop_look(s, pad, false); break;
         case PadContext::PatternCopy: look = seq_look(s, pad); break;
-        case PadContext::SeqLayer: look = sequences_lit(ui) && ui.pattern_held < 0 ? scenes_look(s, pad) : seq_look(s, pad); break; // Seq held off Patterns: the sequences
+        case PadContext::SeqLayer: look = sequences_lit(ui) && ui.pattern_held < 0 ? scenes_look(s, pad) : seq_look(s, pad); break; // Seq held: the track's patterns; + Shift the sequences
         case PadContext::RecordKeys: look = record_keys_look(s, pad); break;
         case PadContext::Mute:
             if (ui.page == PageId::Looper) { look = loop_look(s, pad, true); break; }
