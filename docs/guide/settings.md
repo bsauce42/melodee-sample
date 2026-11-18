@@ -46,6 +46,7 @@ choices made outside Settings are kept there too:
 - **PREVIEW** in the sample browser, on or off
 - **BEST** (**B2**) on a sample's stems
 - How Chop's **TO PADS** plays the slices: **POLY**, **MONO**, **THRU** or **KIT**
+- The Chop type picked last (**K3** on Chop)
 
 ## Basic and Full
 
@@ -71,6 +72,18 @@ These still work in Basic by their own keys: every track type, Step Edit's
 **TRIG** and **EUCLID** cards, freeze (**SAMPLE RECORD** on a plug-in
 track), the auto sampler, a sample's stems (**SHIFT** + **B3** on
 **TRIM**), stems and MPC export on Song, the buses' effect chains.
+
+## Usage log
+
+On the first Settings page, **K2** (**USAGE LOG**) turns the usage log on
+or off. It is off until you turn it on.
+
+With it on, Melodee writes what your hands do to a file in
+`Melodee/Usage` on the card: the pages you open, presses and turns that
+did nothing on a page, undo, MENU picks and lesson steps. It writes no
+project, sample, plug-in or file names. A new file starts each time
+Melodee starts. Send the files to the developer to show where Melodee is
+hard to use. `tools/usage_report.py` in the source lists what they hold.
 
 ## Palette and Font
 

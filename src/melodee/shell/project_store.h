@@ -75,6 +75,7 @@ public:
     void save_settings(const std::string& text); // Melodee's settings (shell/settings.h), kept with the start project
     void rename(const std::string& path, const std::string& name); // a project, in its folder
     void save_sound(const std::string& name, std::vector<uint8_t> bytes); // Melodee/Sounds/<name>.mlds
+    void append_usage(const std::string& file, const std::string& text); // Melodee/Usage/<file> (shell/usage_log.h)
     void move(const std::string& path, const std::string& folder); // a project into a folder ("" the top), its name kept (" 2" on a clash)
     // The project (`bytes` as save_project() makes them, its file `path` for its prints, "" unsaved) as an MPC 3
     // project, Melodee/MPC 3/<name>.xpj on the card (" 2" on a clash; shell/mpc3_export.h), on a thread of its own:
@@ -120,7 +121,7 @@ public:
 
 private:
     struct Request {
-        enum class Kind : uint8_t { List, Save, Load, Duplicate, Remove, NewFolder, OpenAtStart, Opened, Settings, Rename, SaveSound, Move, ExportMpc3 } kind;
+        enum class Kind : uint8_t { List, Save, Load, Duplicate, Remove, NewFolder, OpenAtStart, Opened, Settings, Rename, SaveSound, Move, ExportMpc3, Usage } kind;
         std::string path;
         std::vector<uint8_t> bytes;
         std::string from = {}; // Save: the project's file before (Save As), whose prints come along; ExportMpc3: its file

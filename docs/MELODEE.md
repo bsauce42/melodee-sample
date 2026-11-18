@@ -2557,6 +2557,14 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
 - `Melodee/settings`: Melodee's settings, MIDI Config, Input Config, the
   favourites, the project to open at start (`start=`) and the one last
   opened or saved (`last=`), opened at start when none is set.
+- `Melodee/Usage/usage-<unix time>.txt`: the usage log, only while
+  Settings' K2 USAGE LOG (on the doors) is on, a file each start
+  (`shell/usage_log.h`; `usage_log=` in the settings). Lines for pages
+  opened, presses, knobs and wheel turns that changed nothing on a page
+  (the UI state compared byte for byte, with the edits kept and commands
+  sent, from a button's press to its release), undo and redo with the time
+  since the last edit, MENU picks and lesson steps; no names. Written by the
+  project store's thread every 10 s; `tools/usage_report.py` ranks them.
 - `Melodee/Samples/`: loaded from anywhere under it; Melodee writes
   `Recorded/`, `Edits/` and saved samples there, bank files in `Banks/`,
   committed loops in `Looper/`, expansions in `Expansions/`, auto sampled

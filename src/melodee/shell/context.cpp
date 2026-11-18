@@ -36,6 +36,8 @@
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/pad_colour.h"
 #include "melodee/shell/mpc_wav_slices.h"
+#include "melodee/shell/update.h"
+#include <ctime>
 #include <filesystem>
 #include <chrono>
 #include <cstdio>
@@ -49,6 +51,7 @@ namespace melodee {
 using Type = Command::Type;
 
 void Context::send(const Command& command) {
+    ++sent;
     // Anything but playing changes the project (the metronome is Melodee's setting, not the project's).
     switch (command.type) {
     case Type::NoteOn: case Type::NoteOff: case Type::AllNotesOff: case Type::Wheel: case Type::Bend: case Type::Pressure:
@@ -880,6 +883,14 @@ void Context::apply(const Binding& b, int value) {
         notice(value ? "Full: every page" : "Basic: the stock app's pages");
         settings_save_at = std::max<uint32_t>(now, 1) + 1000;
         break;
+    case Kind::UsageLog: // Settings' K2 on the doors: the usage log on or off (shell/usage_log.h)
+        if (ui.settings.usage_log == (value != 0)) break;
+        ui.settings.usage_log = value != 0;
+        if (value) usage.start(now, (long long)std::time(nullptr), melodee_version(), ui.settings.full_features);
+        else { flush_usage(); usage.stop(); }
+        notice(value ? "Usage log on: Melodee/Usage" : "Usage log off");
+        settings_save_at = std::max<uint32_t>(now, 1) + 1000;
+        break;
     case Kind::SettingRow: set_setting(unsigned(b.id), unsigned(value)); break;
     case Kind::MidiRow: set_midi(unsigned(b.id), unsigned(value)); break;
     case Kind::ClickLevel:
@@ -1600,6 +1611,12 @@ void Context::apply_edit(const Edit& e, bool after) {
     take_track = -1;
 }
 
+void Context::flush_usage() {
+    if (!store || !usage.on()) return;
+    auto text = usage.take(now);
+    if (!text.empty()) store->append_usage(usage.file(), text);
+}
+
 void Context::undo() {
     end_take();                             // a Chop take is the step undone, whole
     close_gesture();                        // a pot's turns just made are the step undone
@@ -1612,6 +1629,7 @@ void Context::undo() {
     if (!e) { notice("Nothing to undo"); return; }
     apply_edit(*e, false);
     swap_plugin(*e, false);
+    usage.undo(now, false, e->what, ui.page);
     notice("Undo " + e->what);
 }
 
@@ -1626,6 +1644,7 @@ void Context::redo() {
     if (!e) { notice("Nothing to redo"); return; }
     apply_edit(*e, true);
     swap_plugin(*e, true);
+    usage.undo(now, true, e->what, ui.page);
     notice("Redo " + e->what);
 }
 

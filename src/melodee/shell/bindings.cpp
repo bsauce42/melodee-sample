@@ -1092,7 +1092,8 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader
     // page keeps the favourites (fader C): a pot turned there is what the fader learns.
     case PageId::SettingsPage: { // on the doors K1 is FEATURES, Basic or Full (shell/features.h); behind a door the row under the cursor
-        if (!ui.settings_in) return {Binding {Kind::Features, 0, 0, 1, int(ui.settings.full_features)}, Binding {}, Binding {}};
+        if (!ui.settings_in)
+            return {Binding {Kind::Features, 0, 0, 1, int(ui.settings.full_features)}, Binding {Kind::UsageLog, 0, 0, 1, int(ui.settings.usage_log)}, Binding {}};
         if (ui.settings_look) return {}; // Palette or Font's cards: the wheel
         unsigned row = ui.settings_cursor, at = ui.settings_wait_row == int(row) ? ui.settings_wait_value : ui.settings.choice(row);
         return {Binding {Kind::SettingRow, int16_t(row), 0, int(ui.settings.choices(row)) - 1, int(at)}, Binding {}, Binding {}};

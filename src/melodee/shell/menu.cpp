@@ -150,11 +150,12 @@ bool menu_button(Context& c, SurfaceButton b) {
     case B::TopMiddle: if (here_count(c)) ui.menu = menu_here_view; return true;       // HERE, when the page lists something
     case B::TopRight: ui.menu = menu_go_view; return true;                             // GO
     case B::WheelPush:
-        if (ui.menu == menu_go_view) { go(c, ui.menu_tile); return true; }
+        if (ui.menu == menu_go_view) { c.usage.menu_go(c.now, ui.menu_tile); go(c, ui.menu_tile); return true; }
         {
             std::array<MenuItem, menu_here_max> items {};
             unsigned n = menu_here(c.project, ui, items);
-            if (n) run(c, items[ui.menu_row % n].job); else ui.menu = menu_closed;
+            if (n) { c.usage.menu_here(c.now, items[ui.menu_row % n].name); run(c, items[ui.menu_row % n].job); }
+            else ui.menu = menu_closed;
         }
         return true;
     case B::Play: case B::Stop: case B::Shift: return false; // the transport and Shift, with the MENU left open
@@ -171,7 +172,7 @@ void menu_wheel(Context& c, int delta) {
 }
 
 void menu_pad(Context& c, unsigned pad) {
-    if (c.ui.menu == menu_go_view) go(c, pad % 16); // HERE: the pads wait
+    if (c.ui.menu == menu_go_view) { c.usage.menu_go(c.now, pad); go(c, pad % 16); } // HERE: the pads wait
 }
 
 } // namespace melodee

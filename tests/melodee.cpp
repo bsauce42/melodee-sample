@@ -29,6 +29,7 @@
 #include "melodee/shell/sample_cache.h"
 #include "melodee/engine/take_recorder.h"
 #include "melodee/shell/chop.h"
+#include "melodee/shell/usage_log.h"
 #include "melodee/shell/light_show.h"
 #include "melodee/shell/xpm_write.h"
 #include "melodee/engine/auto_probe.h"
@@ -2676,11 +2677,12 @@ void button_remap() {
         stage_press(st, kit, 2, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::FiltEnv);
         stage_press(st, kit, 2, skip); CHECK(stage_page_now(st, kit, skip).kind == StageKind::PadMix); // KIT FILT too
         stage_go(st, 1, 3); CHECK(stage_page_now(st, kit, none).kind == StageKind::Cloud && stage_page_now(st, kit, skip).kind == StageKind::Play); // left on CLOUD in Full: PLAY in Basic
-        // The cards: Settings' K1 FEATURES on the doors; Sequences has the pattern's length, Q and swing.
+        // The cards: Settings' K1 FEATURES and K2 USAGE LOG on the doors; Sequences has the pattern's length, Q and swing.
         Pattern pat;
         UiState b = f; b.page = PageId::SettingsPage;
         auto cards = base_bindings(*project, b, pat);
-        CHECK(cards[0].kind == Binding::Kind::Features && cards[0].value == 0 && !cards[1].bound());
+        CHECK(cards[0].kind == Binding::Kind::Features && cards[0].value == 0);
+        CHECK(cards[1].kind == Binding::Kind::UsageLog && cards[1].value == 0 && cards[1].max == 1 && !cards[2].bound());
         // Behind a door K1 is the row under the cursor, its values as a list; Palette's cards take the wheel instead.
         b.settings_in = true; b.settings_cursor = Settings::PadLights; b.settings.pad_lights = 1;
         cards = base_bindings(*project, b, pat);
@@ -18217,7 +18219,65 @@ void sample_roots() {
     CHECK(back->samples[1].root == root_none && back->samples[4].root == root_none && std::string(back->samples[1].path) == "/card/Bass A.wav");
 }
 
+// The usage log (shell/usage_log.h): off until started; page changes with the time on the page left, one nojob for
+// a knob's run of steps, undo with the time since the last edit and only its first word, lesson steps, MENU picks,
+// and the lines handed over every 10 s or at 4 KB. The setting is kept with the others.
+void usage_log() {
+    UsageLog log;
+    log.line(5, "nothing");
+    log.page(5, PageId::Stage);
+    CHECK(!log.on() && !log.due(100000) && log.take(0).empty());
+    log.start(1000, 1763400000, "1.2.3", true);
+    CHECK(log.on() && log.file() == "usage-1763400000.txt");
+    log.page(1000, PageId::Stage);          // the first page: no line yet, the clock starts
+    log.page(3500, PageId::Chop);           // 2.5 s on Stage
+    log.page(3600, PageId::Chop);           // the same page: nothing
+    log.nojob(4000, "K2", PageId::Chop);
+    log.nojob(4500, "K2", PageId::Chop);    // the same knob turning on: one line
+    log.nojob(6400, "K2", PageId::Chop);    // still turning (each step within 2 s of the last)
+    log.nojob(9500, "B2", PageId::Chop);
+    log.edited(10000);
+    log.undo(10850, false, "Clear pattern 2", PageId::Patterns);
+    log.undo(11000, true, "Replace Surge XT", PageId::Stage); // its first word only
+    log.undo(11100, false, "+3 dB", PageId::Stage);          // no word: Edit
+    log.menu_go(12000, 3);
+    log.menu_here(12100, "CAPTURE");
+    log.lesson(13000, 1, 0);
+    log.lesson(17200, 1, 1);
+    log.lesson(17300, 0, 0); // left
+    CHECK(log.due(11000 + UsageLog::flush_ms));
+    std::string text = log.take(18000);
+    const char* want =
+        "0.000 start 1.2.3 Full\n"
+        "2.500 page Chop Stage 2500\n"
+        "3.000 nojob K2 Chop\n"
+        "8.500 nojob B2 Chop\n"
+        "9.850 undo 850 Clear Patterns\n"
+        "10.000 redo 1000 Replace Stage\n"
+        "10.100 undo 1100 Edit Stage\n"
+        "11.000 menu GO 4\n"
+        "11.100 menu HERE CAPTURE\n"
+        "16.200 lesson 1 1 4200\n";
+    if (text != want) std::printf("%s", text.c_str());
+    CHECK(text == want);
+    CHECK(!log.due(18001) && log.take(18001).empty());
+    log.nojob(19000, "Wheel", PageId::Stage);
+    CHECK(!log.due(20000) && log.due(18001 + UsageLog::flush_ms));
+    log.stop();
+    log.nojob(30000, "Wheel", PageId::Roll);
+    CHECK(!log.on() && log.take(30000) == "18.000 nojob Wheel Stage\n");
+    CHECK(std::string(usage_page_name(PageId::Stems)) == "Stems" && std::string(usage_page_name(PageId::Count)) == "None");
+
+    Settings fresh;
+    CHECK(!fresh.usage_log);
+    Settings on; on.usage_log = true;
+    Settings back; back.read(on.text());
+    CHECK(back.usage_log);
+    std::puts("usage log ok");
+}
+
 int main() {
+    usage_log();
     free_length();
     spare_steps();
     progressions();

@@ -40,6 +40,7 @@
 #include "melodee/model/card_folders.h"
 #include <algorithm>
 #include <cstdio>
+#include <ctime>
 
 namespace melodee {
 
@@ -188,6 +189,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     }
     update_tick();
     autosave_tick(now);
+    usage_tick(now);
     context_.chop_tick(now); // Chop: a moved cut heard once, gone still
     // Power was pressed: the Exit sheet opens (the service thread only counts presses).
     // The library found files or finished a sample: the lengths go into the project.
@@ -294,6 +296,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
         store_->view(v);
         if (v.settings_read) {
             ui_.settings.read(v.settings); settings_loaded = true; context_.send_click(); context_.send_repeat_velocity();
+            if (ui_.settings.usage_log) context_.usage.start(now, (long long)std::time(nullptr), melodee_version(), ui_.settings.full_features);
         }
     }
     // The backlight stays as the stock app left it until Screen asks for less (and then follows it).

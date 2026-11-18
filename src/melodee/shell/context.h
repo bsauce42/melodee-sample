@@ -16,6 +16,7 @@
 #include "melodee/shell/page_stack.h"
 #include "melodee/shell/undo_scope.h"
 #include "melodee/shell/ui_state.h"
+#include "melodee/shell/usage_log.h"
 #include <array>
 #include <atomic>
 #include <bitset>
@@ -456,6 +457,8 @@ public:
     std::vector<std::string> prog_paths; // the card's .progression files, as the Prog layout's wheel walks them (listed when first wanted)
     // Projects on the card
     ProjectStore* store = nullptr;
+    UsageLog usage;           // Settings' doors K2 (shell/usage_log.h): off until turned on
+    void flush_usage();       // its lines to the card now (the project store's thread writes them)
     CardLink* card = nullptr;          // SD card access (shell/card_access.h): set by the shell
     UpdateLink* updates = nullptr;     // updates from the card (shell/update.h), set by the shell
     void card_access();                // Project's SD card access row: lend the card, open its page
@@ -471,6 +474,7 @@ public:
     unsigned removals_seen = 0;       // the library's deletions the plug-in picker has listed again for
     bool project_list_opened = false; // the list has been opened since start
     bool dirty = false;               // changed since it was saved or loaded
+    uint32_t sent = 0;                // commands sent to the audio thread so far (the usage log: did a press do anything)
     bool import_unsaved = false;      // an MPC project just opened, with no file of its own: saved by hand (SAVE AS), never in the background
     void save_project_to(const std::string& path);
     bool autosave(); // background save (shell/autosave.h): false with no card

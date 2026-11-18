@@ -172,6 +172,15 @@ private:
     // Background save (shell/autosave.h): when a control or a note last came in, and the last save that found no card.
     uint32_t last_input_ = 0, autosave_try_ = 0;
     bool autosave_failed_ = false;
+    // The usage log (shell/usage_log.h, on in Settings): the state as a button went down, held until its release
+    // to tell whether the press (or anything while it was down) changed something; one for the wheel's turns.
+    struct UsageMark { UiState ui; uint32_t pushes = 0, sent = 0; bool dirty = false; };
+    std::array<std::unique_ptr<UsageMark>, size_t(SurfaceButton::Count)> usage_marks;
+    std::unique_ptr<UsageMark> wheel_mark;
+    uint32_t usage_pushes_ = 0;
+    void usage_mark(UsageMark& mark) const;
+    bool usage_changed(const UsageMark& mark) const;
+    void usage_tick(uint32_t now); // MIDI thread, from lights(): the page, the lesson, edits kept, the lines to the card
     void autosave_tick(uint32_t now); // MIDI thread, from lights()
     ProjectStore* store_ = nullptr;
     InputRoute* input_ = nullptr;

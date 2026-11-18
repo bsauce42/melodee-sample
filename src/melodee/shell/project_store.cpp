@@ -153,6 +153,9 @@ void ProjectStore::move(const std::string& path, const std::string& folder) {
     push(new Request {Request::Kind::Move, path, std::vector<uint8_t>(folder.begin(), folder.end())});
 }
 void ProjectStore::save_sound(const std::string& name, std::vector<uint8_t> bytes) { push(new Request {Request::Kind::SaveSound, name, std::move(bytes)}); }
+void ProjectStore::append_usage(const std::string& file, const std::string& text) {
+    push(new Request {Request::Kind::Usage, file, std::vector<uint8_t>(text.begin(), text.end())});
+}
 
 std::string ProjectStore::named_path(const std::string& name) const {
     std::string dir;
@@ -468,6 +471,14 @@ void ProjectStore::run(Request& r) {
         if (last == r.path) remember(target.string());
         std::lock_guard<std::mutex> guard(lock);
         known.moved_from = r.path; known.moved_to = target.string();
+        break;
+    }
+    case Request::Kind::Usage: { // the usage log's lines, added to its file (no card: they go)
+        if (root.empty()) break;
+        auto dir = fs::path(root).parent_path() / "Usage";
+        fs::create_directories(dir, error);
+        std::ofstream file(dir / r.path, std::ios::binary | std::ios::app);
+        file.write(reinterpret_cast<const char*>(r.bytes.data()), std::streamsize(r.bytes.size()));
         break;
     }
     case Request::Kind::SaveSound: {

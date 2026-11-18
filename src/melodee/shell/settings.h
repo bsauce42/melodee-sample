@@ -43,6 +43,7 @@ struct Settings {
     // (from before it, or never saved with a setting changed), start on Full (read()).
     bool full_features = true;
     uint8_t lessons_done = 0; // a bit a lesson finished (shell/lesson.h): its check on LEARN
+    bool usage_log = false;   // Settings' doors, K2 USAGE LOG: what the hands do, kept in Melodee/Usage (shell/usage_log.h)
     uint8_t pad_response = 1; // 0 soft, 1 medium, 2 hard, 3 full level (127, Shift + Pad 1)
     uint8_t response_before = 1; // what Shift + Pad 1 goes back to
     bool count_in = false;    // a bar before Seq Record records (phase 2)
@@ -112,16 +113,18 @@ struct Settings {
     bool favourite(unsigned engine, unsigned sound) const { return engine < engines && sound < sounds && favourites[engine][sound]; }
     void toggle_favourite(unsigned engine, unsigned sound) { if (engine < engines && sound < sounds) favourites[engine].flip(sound); }
 
-    // MIDI Config's Reset Factory Settings: every setting back to how Melodee comes, the starred sounds and
-    // FEATURES kept.
+    // MIDI Config's Reset Factory Settings: every setting back to how Melodee comes, the starred sounds,
+    // FEATURES and USAGE LOG kept.
     void reset_factory() {
         auto kept = favourites;
         bool full = full_features;
         uint8_t lessons = lessons_done;
+        bool usage = usage_log;
         *this = Settings {};
         favourites = kept;
         full_features = full;
         lessons_done = lessons;
+        usage_log = usage;
     }
 
     static const char* row_name(unsigned row) {
@@ -334,7 +337,7 @@ struct Settings {
     std::string text() const {
         std::ostringstream out;
         // pickup= stays for the builds before parity phase 8, which know only that.
-        out << "features=" << int(full_features) << "\nlessons=" << int(lessons_done) << "\npad_response=" << int(pad_response) << "\npad_lights=" << int(pad_lights) << "\npad_fade=" << int(pad_fade) << "\ntap_light=" << int(tap_light)
+        out << "features=" << int(full_features) << "\nlessons=" << int(lessons_done) << "\nusage_log=" << int(usage_log) << "\npad_response=" << int(pad_response) << "\npad_lights=" << int(pad_lights) << "\npad_fade=" << int(pad_fade) << "\ntap_light=" << int(tap_light)
             << "\npickup=" << int(knob_takeover != Takeover::Instant) << "\nknob_takeover=" << int(knob_takeover)
             << "\nknob_fx_takeover=" << int(knob_fx_takeover) << "\nfader_takeover=" << int(fader_takeover)
             << "\nscreen=" << int(screen) << "\npalette=" << int(palette) << "\nfont=" << int(font) << "\nplace_bar=" << int(place_bottom) << "\ncount_in=" << int(count_in) << "\nrec_quantize=" << int(rec_quantize)
@@ -374,6 +377,7 @@ struct Settings {
             int value = std::atoi(line.c_str() + eq + 1);
             if (key == "features") { full_features = value != 0; features = true; }
             else if (key == "lessons") lessons_done = uint8_t(std::clamp(value, 0, 255));
+            else if (key == "usage_log") usage_log = value != 0;
             else if (key == "pad_response") pad_response = uint8_t(std::clamp(value, 0, 3));
             else if (key == "pad_lights") pad_lights = uint8_t(std::clamp(value, 0, 2));
             else if (key == "pad_fade") pad_fade = uint8_t(std::clamp(value, 0, int(fades.size()) - 1));

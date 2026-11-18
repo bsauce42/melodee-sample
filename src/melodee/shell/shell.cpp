@@ -41,6 +41,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace melodee {
 namespace {
@@ -183,7 +184,16 @@ void Shell::surface(const SurfaceEvent& event, uint32_t now) {
         // A lesson: only the step's button, the one held with it and the encoder act (held, the MENU: the way out).
         if (ui_.lesson && input.pressed && !lesson_takes_button(ui_, Button(input.index))) { eaten = true; return; }
         const bool in_lesson = ui_.lesson && !ui_.menu;
+        auto& mark = usage_marks[input.index % usage_marks.size()]; // the usage log: did this press do anything?
+        if (input.pressed && context_.usage.on() && Button(input.index) != Button::Shift) {
+            if (!mark) mark = std::make_unique<UsageMark>();
+            usage_mark(*mark);
+        }
         button(Button(input.index), input.pressed);
+        if (!input.pressed && mark && context_.usage.on()) {
+            if (!usage_changed(*mark) && input.index < surface_buttons.size()) context_.usage.nojob(now, surface_buttons[input.index].name, ui_.page);
+            mark.reset();
+        }
         if (in_lesson && ui_.lesson) lesson_button(ui_, Button(input.index), input.pressed, now);
         return;
     }
@@ -224,9 +234,37 @@ void Shell::surface(const SurfaceEvent& event, uint32_t now) {
     case SurfaceControl::K2: pot(1, input.value, event.syncing); break;
     case SurfaceControl::K3: pot(2, input.value, event.syncing); break;
     case SurfaceControl::Fader: fader_move(context_, input.value, event.syncing); break; // shell/fader.cpp: mod wheel, or the page's own job
-    case SurfaceControl::Wheel: if (input.delta) wheel(input.delta); break;
+    case SurfaceControl::Wheel:
+        if (!input.delta) break;
+        if (context_.usage.on()) { // the usage log: a turn that changed nothing
+            if (!wheel_mark) wheel_mark = std::make_unique<UsageMark>();
+            usage_mark(*wheel_mark);
+            wheel(input.delta);
+            if (!usage_changed(*wheel_mark)) context_.usage.nojob(now, "Wheel", ui_.page);
+            break;
+        }
+        wheel(input.delta);
+        break;
     default: break;
     }
+}
+
+void Shell::usage_mark(UsageMark& mark) const {
+    std::memcpy(static_cast<void*>(&mark.ui), &ui_, sizeof(UiState)); // every byte, so an unchanged state compares equal
+    mark.pushes = context_.edits.pushes; mark.sent = context_.sent; mark.dirty = context_.dirty;
+}
+bool Shell::usage_changed(const UsageMark& mark) const {
+    return context_.edits.pushes != mark.pushes || context_.sent != mark.sent || context_.dirty != mark.dirty
+        || std::memcmp(&mark.ui, &ui_, sizeof(UiState)) != 0;
+}
+
+void Shell::usage_tick(uint32_t now) {
+    auto& log = context_.usage;
+    if (!log.on()) { usage_pushes_ = context_.edits.pushes; return; }
+    if (context_.edits.pushes != usage_pushes_) { usage_pushes_ = context_.edits.pushes; log.edited(now); }
+    log.page(now, ui_.page);
+    log.lesson(now, ui_.lesson, ui_.lesson_step);
+    if (log.due(now)) context_.flush_usage();
 }
 
 // Each press on a page is one undo step of what the page edits, unless it kept
@@ -553,7 +591,11 @@ void Shell::pot(unsigned n, int position, bool syncing) {
     if (ui_.erase) ui_.erase_used = true; // Erase + pot: its release deletes nothing
     if (ui_.levels_held) ui_.levels_used = true; // 16 Levels + pot: its setting; the release toggles nothing
     if (ui_.sheet_open && ui_.page == PageId::Roll) ui_.sheet_open = false; // a pot leaves Roll's sheet and does its job
-    if (!b.bound()) return;
+    if (!b.bound()) { // the usage log: a knob with no card here
+        static const char* const knobs[] {"K1", "K2", "K3"};
+        context_.usage.nojob(context_.now, knobs[n % 3], ui_.page);
+        return;
+    }
     check_pickup(n, b);
     ui_.turning = int8_t(n); ui_.turned_at = context_.now; ui_.last_pot = int8_t(n); ui_.last_pot_shift = ui_.shift;
     if (ui_.shift) ui_.shift_used = true;
