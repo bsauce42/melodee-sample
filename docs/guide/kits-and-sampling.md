@@ -343,6 +343,8 @@ What it found shows at the top right:
 
 - **DRUMS**: a steady beat led by drums. A cut on each drum hit. Ghost notes
   and flams stay in the slice of the hit before them. The tempo shows too.
+- **MUSIC**: a steady beat led by notes or chords. A cut where the chord or
+  note changes, then on the strongest hits. The tempo shows too.
 - **SHOTS**: single sounds with silence between them. One slice for each
   sound. Each slice ends where its sound ends, and the silence is left out.
 - **HITS**: anything else. A cut on the strongest hits, spread over the

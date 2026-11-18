@@ -224,6 +224,55 @@ Known make_row(std::mt19937& rng, const std::vector<const std::vector<Shot>*>& k
     return k;
 }
 
+// A single sound played `semitones` higher (read faster), as a sampler does.
+std::vector<float> shifted(const std::vector<float>& x, double semitones) {
+    const double rate = std::pow(2.0, semitones / 12);
+    std::vector<float> out(size_t(double(x.size()) / rate));
+    for (size_t n = 0; n < out.size(); ++n) {
+        const double at = double(n) * rate;
+        const auto i = size_t(at);
+        const float t = float(at - double(i));
+        out[n] = i + 1 < x.size() ? x[i] * (1 - t) + x[i + 1] * t : x[std::min(i, x.size() - 1)];
+    }
+    return out;
+}
+
+// A loop of four chords, two beats each (I, IV, V, vi or another of a few), the chord played in eighths or held,
+// a bass note at each change; the cuts belong where the chord changes.
+Known make_chords(std::mt19937& rng, const std::vector<Shot>& chords, const std::vector<Shot>& basses, bool held) {
+    std::uniform_real_distribution<double> u(0, 1);
+    static const int progressions[][4] {{0, 5, 7, -3}, {0, -3, 5, 7}, {-3, 5, 0, 7}, {0, 3, 5, -2}, {2, 7, 0, 5}};
+    const auto& prog = progressions[size_t(u(rng) * std::size(progressions)) % std::size(progressions)];
+    const Shot& chord = chords[size_t(u(rng) * double(chords.size())) % chords.size()];
+    const Shot& bass = basses[size_t(u(rng) * double(basses.size())) % basses.size()];
+    Known k;
+    k.kind = SoundKind::Music;
+    k.bpm = 80 + u(rng) * 50;
+    const double beat = 44100 * 60 / k.bpm;
+    std::vector<float> m(size_t(8 * beat), 0.0f);
+    for (int c = 0; c < 4; ++c) {
+        const auto up = shifted(chord.x, prog[c]), low = shifted(bass.x, prog[c] - 12);
+        const double at = c * 2 * beat;
+        for (int e = 0; e < (held ? 1 : 4); ++e) {
+            const double t = at + e * beat / 2;
+            const size_t until = size_t(held ? 2 * beat : beat / 2);
+            for (size_t n = 0; n < std::min(until, up.size() - std::min(up.size(), size_t(chord.onset))); ++n) {
+                const size_t i = size_t(t) + n;
+                if (i < m.size()) m[i] += up[chord.onset + n] * (e ? 0.5f : 0.6f) * float(std::min<size_t>(1, until - n > 220 ? 1 : 0) + (until - n <= 220 ? (until - n) / 220.0 : 0));
+            }
+        }
+        for (size_t n = 0; n < std::min(size_t(2 * beat), low.size() - std::min(low.size(), size_t(bass.onset))); ++n)
+            if (size_t(at) + n < m.size()) m[size_t(at) + n] += low[bass.onset + n] * 0.5f;
+        if (c) k.cuts.push_back(uint32_t(at));
+    }
+    k.mono.resize(m.size());
+    for (size_t n = 0; n < m.size(); ++n) k.mono[n] = 2 * m[n];
+    char what[64];
+    std::snprintf(what, sizeof(what), "chords %.0f BPM%s", k.bpm, held ? " held" : "");
+    k.what = what;
+    return k;
+}
+
 // How many of `got` lie within `reach` of one of `want` (each matched once).
 unsigned matched(const std::vector<uint32_t>& got, const std::vector<uint32_t>& want, uint32_t reach = 882) {
     std::vector<bool> used(want.size(), false);
@@ -301,7 +350,7 @@ int main(int argc, char** argv) {
     // Synthetic breaks: cuts against the hits placed.
     for (int set = 0; set < 3; ++set) {
         const bool bed = set == 1, edges = set == 2;
-        Score autos, autos16, th0, th25, th50, beats16, raw;
+        Score autos, autos16, th0, th25, th50, beats16, raw, as_read;
         std::map<char, std::pair<int, int>> missed;
         std::map<size_t, int> kit_sizes;
         unsigned kick_first = 0;
@@ -317,6 +366,7 @@ int main(int argc, char** argv) {
             as_drums.kind = SoundKind::Drums; // the cuts, whatever the kind read
             const Slices a = auto_slices(as_drums, unsigned(k.cuts.size() + 1), 0, frames, frames, r.hits, r.count, r.beats);
             autos.add(cuts_of(a), k.cuts);
+            as_read.add(cuts_of(auto_slices(r.autos, unsigned(k.cuts.size() + 1), 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
             for (size_t c = 0; c < k.cuts.size(); ++c) {
                 const auto got = cuts_of(a);
                 bool found = false;
@@ -350,10 +400,39 @@ int main(int argc, char** argv) {
         std::printf("  KIT of SLICES 16 (one kick, snare, hat and open hat sample each): kick first %u/%u, sounds:", kick_first, n);
         for (const auto& [size, c] : kit_sizes) std::printf(" %zu x%d", size, c);
         std::printf("\n");
+        std::printf("  Auto as read, SLICES = hits: %s\n", as_read.text().c_str());
         std::printf("  Auto missed:");
         for (const auto& [c, m] : missed) std::printf(" %c %d/%d", c, m.first, m.second);
         std::printf("\n");
         if (edges) std::printf("  region on the two whole bars (Auto keeps the whole region for now): %u/%u\n", region_right, n);
+    }
+
+    // Chord loops: where the chords change.
+    {
+        std::vector<Shot> chords, basses;
+        for (const char* kind : {"Keys", "Piano", "EP", "Pad", "Strings", "Synth", "Pluck", "Guitar"})
+            for (auto& sh : shots_in(root / "Melodic", kind)) if (sh.name.rfind(kind, 0) == 0) chords.push_back(std::move(sh));
+        for (auto& sh : shots_in(root / "Melodic", "Bass-")) basses.push_back(std::move(sh));
+        for (int held = 0; held < 2 && !chords.empty() && !basses.empty(); ++held) {
+            unsigned n = 0, kind_right = 0;
+            Score music, hits_way;
+            std::map<std::string, int> kinds;
+            for (int i = 0; i < 40; ++i, ++n) {
+                const Known k = make_chords(rng, chords, basses, held);
+                const Read r = read_of(k.mono);
+                kinds[sound_kind_name(r.autos.found)]++;
+                kind_right += r.autos.found == SoundKind::Music;
+                const auto frames = uint32_t(k.mono.size());
+                AutoRead as = r.autos;
+                as.kind = SoundKind::Music;
+                music.add(cuts_of(auto_slices(as, 4, 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
+                as.kind = SoundKind::Hits;
+                hits_way.add(cuts_of(auto_slices(as, 4, 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
+            }
+            std::printf("\nchord loops%s (%u): kind MUSIC %u/%u (", held ? ", chords held" : ", chords in eighths", n, kind_right, n);
+            for (const auto& [name, c] : kinds) std::printf(" %s %d", name[0] ? name.c_str() : "-", c);
+            std::printf(" )\n  4 slices on the chord changes: as MUSIC %s, as HITS %s\n", music.text().c_str(), hits_way.text().c_str());
+        }
     }
 
     // Rows of single sounds.
@@ -414,6 +493,7 @@ int main(int argc, char** argv) {
     };
     for (const char* folder : {"Break", "Loops", "Phrases"}) {
         std::map<std::string, std::map<std::string, int>> by_prefix;
+        std::map<std::string, std::array<double, 6>> features;
         unsigned right = 0, n = 0, tempo_right = 0, tempo_n = 0;
         if (!fs::is_directory(root / folder)) continue;
         for (const auto& e : fs::directory_iterator(root / folder)) {
@@ -433,6 +513,10 @@ int main(int argc, char** argv) {
                 const double t = r.beats.tempo / 10.0;
                 tempo_right += std::fabs(t / bpm - 1) < 0.03 || std::fabs(t / bpm - 2) < 0.06 || std::fabs(t / bpm - 0.5) < 0.015;
             }
+            if (folder != std::string("Break")) {
+                auto& f = features[name.substr(0, name.find('-'))];
+                f[0] += r.autos.percussive; f[1] += r.autos.voice; f[2] += r.autos.slide; f[3] += r.beats.found(); f[4] += double(r.autos.phrases.size()); f[5] += 1;
+            }
             if (argc > 2 && std::strcmp(argv[2], "-v") == 0)
                 std::printf("  %-40s %-6s want %-12s hits %.2f voice %.2f spans %zu phrases %zu tempo %.1f\n", name.c_str(), got.c_str(), want.c_str(),
                             r.autos.percussive, r.autos.voice, r.autos.spans.size(), r.autos.phrases.size(), r.beats.tempo / 10.0);
@@ -441,6 +525,10 @@ int main(int argc, char** argv) {
         for (const auto& [prefix, kinds] : by_prefix) {
             std::printf("  %-10s", prefix.c_str());
             for (const auto& [kind, c] : kinds) std::printf(" %s %d", kind.c_str(), c);
+            if (features.count(prefix)) {
+                const auto& f = features[prefix];
+                std::printf("   | hits %.2f voice %.2f slide %.2f beat %.2f phrases %.1f", f[0] / f[5], f[1] / f[5], f[2] / f[5], f[3] / f[5], f[4] / f[5]);
+            }
             std::printf("\n");
         }
     }

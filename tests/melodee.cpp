@@ -3909,7 +3909,7 @@ void onset_hits() {
     CHECK(flam.size() == 3 && near(flam[2], 0.5, 3));
 }
 
-// Chop's Auto type (engine/auto_chop.cpp): a groove of drums reads as DRUMS, its 16 slices on kicks, snares and
+// Chop's Auto type (engine/auto_chop.cpp): a chord loop reads as MUSIC and is cut where its chords change; a groove of drums reads as DRUMS, its 16 slices on kicks, snares and
 // hats (not its ghost notes), and with every hit wanted each kick and snare is cut; a row of single sounds with silence between reads as SHOTS, one slice a sound,
 // each ending where its sound does, and hand cuts keep those gaps; KIT lays one pad a sound; SLICES on Shift + K3.
 void auto_chop_kinds() {
@@ -3989,6 +3989,27 @@ void auto_chop_kinds() {
     const Slices kept = with_hand(s, hand, shots.frames);
     CHECK(kept.count == s.count + 1 && !kept.touches(1, shots.frames) && kept.touches(2, shots.frames) && !kept.touches(3, shots.frames)
           && kept.end(3, shots.frames) == s.end(2, shots.frames));
+
+    // Four chords, two beats each at 110 BPM, played in eighths: MUSIC, and its four slices start where they change.
+    {
+        const double b = 60 / 110.0;
+        std::vector<float> keys(size_t(8 * b * 44100), 0.0f);
+        const double roots[] {261.63, 349.23, 392.0, 220.0}; // C, F, G, A: major, major, major, minor
+        for (int c = 0; c < 4; ++c)
+            for (int e = 0; e < 4; ++e) {
+                const double at = (2 * c + 0.5 * e) * b;
+                for (double ratio : {1.0, c == 3 ? 1.1892 : 1.2599, 1.4983})
+                    for (uint32_t n = uint32_t(at * 44100), end = std::min<uint32_t>(uint32_t(keys.size()), n + uint32_t(b / 2 * 44100)); n < end; ++n) {
+                        const double u = (n - at * 44100) / 44100;
+                        keys[n] += float((e ? 0.12 : 0.18) * std::sin(2 * M_PI * roots[c] * ratio * u) * std::exp(-u / 0.25) * std::min(1.0, u / 0.003));
+                    }
+            }
+        auto chords = analysed(keys);
+        CHECK(chords.autos.found == SoundKind::Music && chords.autos.kind == SoundKind::Music);
+        const Slices four = auto_slices(chords.autos, 4, 0, chords.frames, chords.frames, chords.hits, chords.count, chords.grid);
+        CHECK(four.count == 4);
+        for (unsigned n = 1; n < four.count; ++n) CHECK(std::fabs(double(four.start[n]) - 2 * n * b * 44100) <= 882);
+    }
 
     // KIT: the three kicks are one sound, kicks first; the three bursts of noise another. Each pad takes the longest.
     const auto kit = kit_sounds(s, shots.frames, shots.hits, shots.count, shots.autos);
