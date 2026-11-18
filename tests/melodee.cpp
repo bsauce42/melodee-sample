@@ -8364,6 +8364,47 @@ void card_folders() {
           && !melodee_own_folder("/media/card/Melodee/Projects/Crashes"));
 }
 
+// The auto sampler's files and the sheet's TIME: a sound the same on both sides (within a 24-bit step) goes into a
+// mono WAV, read back onto both sides; the time is each note's hold, its fall to silence (TAIL at most) and a pause,
+// at the speed the check played it.
+void auto_sample_mono_time() {
+    std::vector<float> both(2000);
+    for (size_t f = 0; f < 1000; ++f) both[2 * f] = both[2 * f + 1] = 0.5f * std::sin(0.03f * float(f));
+    CHECK(sides_alike(both.data(), 1000));
+    both[701] += 1.0f / 16777216.0f; // half a 24-bit step apart: still one sound
+    CHECK(sides_alike(both.data(), 1000));
+    both[701] += 1.0f / 8388608.0f;  // a step and a half: two
+    CHECK(!sides_alike(both.data(), 1000));
+    both[701] = std::nanf("");
+    CHECK(!sides_alike(both.data(), 1000));
+    const auto path = (std::filesystem::temp_directory_path() / ("melodee-mono-" + std::to_string(getpid()) + ".wav")).string();
+    std::vector<float> one(1000);
+    for (size_t f = 0; f < one.size(); ++f) one[f] = 0.5f * std::sin(0.03f * float(f));
+    WavStream wav;
+    CHECK(wav.open(path, 48000, 24, 0, 1) && wav.add(one.data(), unsigned(one.size())) && wav.close());
+    CHECK(std::filesystem::file_size(path) == 44 + 3 * one.size());
+    SampleData read;
+    WavInfo info;
+    CHECK(read_wav(path, read, 60, &info).empty() && info.channels == 1 && read.frames == one.size());
+    for (size_t f = 0; f < one.size(); ++f) CHECK(read.left[f] == read.right[f] && std::fabs(read.left[f] - one[f]) < 2.0f / 8388608.0f);
+    std::filesystem::remove(path);
+
+    AutoSampleSettings set;
+    set.low = 60; set.high = 66; set.step = 3; // C4, D#4, F#4
+    set.hold_auto = false; set.hold = 2.0f; set.tail = 8.0f;
+    CHECK(set.seconds_expected() == 0); // nothing heard yet
+    set.found.heard = true; set.found.speed = 2.0f;
+    set.found.release = 0.26f; // 26 dB in 0.26 s: silent (60 dB) after 0.6 s
+    CHECK(std::fabs(set.seconds_expected() - 3 * (2.0f + 0.6f + 0.2f + 0.1f) / 2.0f) < 1e-3f);
+    set.tail = 0.5f; // the tail cut at TAIL
+    CHECK(std::fabs(set.seconds_expected() - 3 * (2.0f + 0.5f + 0.1f) / 2.0f) < 1e-3f);
+    set.tail = 8.0f;
+    set.found.release_slow = 2.6f; set.found.release_share = 0.1f; // a second stage from -20 dB: 40 dB more in 4 s
+    CHECK(std::fabs(set.seconds_expected() - 3 * (2.0f + 4.0f + 0.2f + 0.1f) / 2.0f) < 1e-3f);
+    set.layers = 2; // each key twice
+    CHECK(std::fabs(set.seconds_expected() - 6 * (2.0f + 4.0f + 0.2f + 0.1f) / 2.0f) < 1e-3f);
+}
+
 // The auto sampler's release (engine/release_fit.h): a note's fall against its level as its key was let go, never
 // rising, and the envelope fitted to it: one stage, or two where it drops and then rings on.
 void release_fitting() {
@@ -17970,6 +18011,7 @@ int main() {
     auto_probe();
     external_notes();
     release_fitting();
+    auto_sample_mono_time();
     card_folders();
     exs_reader();
     kit_levels_octave();

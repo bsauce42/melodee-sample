@@ -384,7 +384,7 @@ void PrintEngine::run() {
                                                       + (made.release_slow > 0 ? "+" + std::to_string(int(std::lround(made.release_slow * 1000))) + "@"
                                                                                      + std::to_string(int(std::lround(20 * std::log10(made.release_share)))) + "dB"
                                                                                : std::string())
-                                                      + " centred=" + std::to_string(made.centred) + " " + made.release_note
+                                                      + " centred=" + std::to_string(made.centred) + " mono=" + std::to_string(made.mono) + " " + made.release_note
                                                 : "error=" + made.error) +
                             " seconds=" + std::to_string(int(std::lround(made.seconds))));
             while (lines.size() > kept_lines) lines.pop_front();
@@ -807,10 +807,14 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
     auto settle = [&] { source->settle(1.0f, 0.05f); };
     auto at = [&](double seconds) { return uint64_t(seconds * rate); };
     bool stopped = false;
+    double played = 0, playing = 0; // seconds of notes and the time they took, for the sampling's time on the sheet
     auto play = [&](std::vector<ProbeNote> notes, double seconds) {
         if (stopped || cancelled.load()) { stopped = true; return std::vector<float> {}; }
         settle();
+        const auto p0 = Clock::now();
         auto x = source->notes(std::move(notes), at(seconds));
+        playing += since(p0);
+        played += double(x.size()) / rate;
         if (x.empty()) stopped = true;
         return x;
     };
@@ -1057,9 +1061,10 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
         }
     }
     if (auto why = source->trouble(); !why.empty()) { r.error = why; return r; } // an input that clips: nothing good can be sampled
+    found.speed = playing > 0 ? float(played / playing) : 1.0f;
     {
         char text[200];
-        std::snprintf(text, sizeof(text), " | velocity=%.2f", double(found.velocity));
+        std::snprintf(text, sizeof(text), " | velocity=%.2f speed=%.1f", double(found.velocity), double(found.speed));
         r.heard += text;
         if (found.split) {
             const auto& u = found.upper;
@@ -1358,12 +1363,18 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             part.read(reinterpret_cast<char*>(interleaved.data()), std::streamsize(interleaved.size() * sizeof(float)));
             if (!part) return fail("cannot read " + l.sample);
             for (auto& x : interleaved) x *= gain;
+            // Both sides the same (a mono plug-in or input): one channel, half the card and memory, the same sound.
+            const unsigned channels = sides_alike(interleaved.data(), l.frames) ? 1 : 2;
+            if (channels == 1) {
+                for (size_t f = 0; f < l.frames; ++f) interleaved[f] = interleaved[2 * f];
+                ++r.mono;
+            }
             const fs::path path = files / (l.sample + ".wav");
             WavStream wav;
-            bool written = wav.open(path.string(), whole_rate, 24, 0, 2);
+            bool written = wav.open(path.string(), whole_rate, 24, 0, channels);
             for (size_t at = 0; written && at < l.frames; at += EngineHost::block) {
                 unsigned n = unsigned(std::min<size_t>(EngineHost::block, l.frames - at));
-                written = wav.add(interleaved.data() + 2 * at, n);
+                written = wav.add(interleaved.data() + channels * at, n);
             }
             written = wav.close() && written;
             if (!written) return fail("cannot write " + path.filename().string());

@@ -124,11 +124,15 @@ almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 
 | Row | K1 | K2 | K3 |
 | --- | --- | --- | --- |
-| **KEYS** | **LOW**: lowest note | **HIGH**: highest note | **STEP**: semitones between notes |
-| **NOTE** | **LAYERS**: velocity layers, 1–4 | **HOLD**: how long each key is held, or Auto | **TAIL**: longest release measured |
+| **KEYS** | **LOW**: lowest note | **HIGH**: highest note | **STEP**: semitones between notes, 1–24 |
+| **NOTE** | **LAYERS**: velocity layers, 1–4 | **HOLD**: how long each key is held (up to 20 s), or Auto | **TAIL**: longest release measured |
 | **SOUND** | **TAP**: Pre FX or Post FX | **LOOP**: Auto, On or Off | **LEVEL**: as played, or loudest at −1 dB |
 
 ![The AUTO SAMPLE sheet](../images/screens/autosample.png)
+
+Under the keys the sheet shows how many samples it makes, the keys, about
+how long sampling takes (**TIME**, once the check has played the plug-in)
+and the most it takes on the card (**CARD**).
 
 The pads play the plug-in so you can try the sound first; **−** / **+** move
 their octave. While it samples, the marks over the keys light as each note is
@@ -187,6 +191,8 @@ again.
 - The program follows velocity as far as the plug-in did. A plug-in that
   plays every note at one level gives a program that does the same.
 - A key where the plug-in makes no sound is left out.
+- A sample that is the same on both sides (a mono synth) is saved as a mono
+  WAV. It takes half the room on the card and in memory and sounds the same.
 
 Some things samples cannot hold, so the program does not have them:
 

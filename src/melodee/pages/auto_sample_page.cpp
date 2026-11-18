@@ -3,7 +3,8 @@
 // AUTO SAMPLE (shell/auto_sample.h): Resample (Shift + Pad 11) on a plug-in
 // track. The keys from C-1 to G9 as a strip, the range sampled in the
 // track's colour, each root a mark over it. Beside: how many samples, the
-// keys, what they take on the card at most. K1-K3 a row of three, B2 the
+// keys, about how long sampling takes (once the check has played it) and what
+// they take on the card at most. K1-K3 a row of three, B2 the
 // next: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL), SOUND (TAP, LOOP,
 // LEVEL). B3 or Push SAMPLE: the roots light up as they are done, the one
 // playing blinks; under the keys its note and velocity, the note drawn as it
@@ -28,7 +29,7 @@ const char* const rows[] {"KEYS", "NOTE", "SOUND"};
 void block(Paint& p, float x, float y, float w, const juce::String& caps, const juce::String& value, const juce::String& unit,
            juce::Colour value_colour) {
     p.text(caps, x, y, w, 12, caps_text(colour::mid));
-    float vw = p.text(value, x, y + 13, w, 24, plain(value_colour, type::value, Weight::SemiBold));
+    float vw = p.text(value, x, y + 13, w, 24, p.fit(value, plain(value_colour, type::value, Weight::SemiBold), w, type::list));
     if (unit.isNotEmpty()) p.text(unit, x + vw + 5, y + 21, w - vw - 5, 14, p.fit(unit, plain(colour::sec, type::body), w - vw - 5, type::floor));
 }
 
@@ -106,7 +107,7 @@ void draw(Paint& p, const Snapshot& s) {
         p.text(juce::String(note_name(int(k))), x0 + (k - first) * kw, ky + kh + 3, 34, 12, plain(colour::mid, type::small));
 
     // Under them: what it makes, or how it goes.
-    const float y = ky + kh + 20, w = (zone::width - 2.0f * zone::pad) / 3;
+    const float y = ky + kh + 20;
     if (checking) {
         // The check's findings, a row each, ticked as each is heard; dots while it listens.
         const bool live = job.busy && job.checking && job.track == t;
@@ -198,13 +199,22 @@ void draw(Paint& p, const Snapshot& s) {
             }
         }
     } else {
+        // Four across, each as wide as its longest (Rubik, measured): SAMPLES "512 128 x 4", KEYS "C-1-G9", TIME
+        // "12:30", CARD "<= 120 MB".
+        const float sw = 84, kw4 = 78, tw = 64, cw = zone::width - 2.0f * zone::pad - sw - kw4 - tw;
         const unsigned per = layers * takes;
-        block(p, x0, y, w, drums ? "SOUNDS" : "SAMPLES", juce::String(drums ? unsigned(roots.size()) : samples),
+        block(p, x0, y, sw, drums ? "SOUNDS" : "SAMPLES", juce::String(drums ? unsigned(roots.size()) : samples),
               drums || per < 2 ? juce::String() : juce::String(roots.size()) + juce::String::fromUTF8(" \xc3\x97 ") + juce::String(per), colour::text);
-        block(p, x0 + w, y, w, "KEYS", juce::String(note_name(a.low)) + juce::String::fromUTF8("\xe2\x80\x93") + juce::String(note_name(a.high)), "", colour::text);
-        // At most: each note its hold and its whole tail, 24-bit stereo at the device's rate.
+        block(p, x0 + sw, y, kw4, "KEYS", juce::String(note_name(a.low)) + juce::String::fromUTF8("\xe2\x80\x93") + juce::String(note_name(a.high)), "", colour::text);
+        // About how long it takes, at the speed the check played it; a dash until the check has heard it.
+        const float expected = a.seconds_expected();
+        block(p, x0 + sw + kw4, y, tw, "TIME", expected > 0 ? clock(expected) : juce::String::fromUTF8("\xe2\x80\x94"), "", colour::text);
+        // At most: each note its hold and its whole tail, 24-bit stereo at the device's rate (a mono sound takes half).
+        // From 1000 MB on, in GB.
         const double mb = double(samples) * (a.hold_most() + a.tail) * std::max(1u, s.audio_rate) * 6.0 / (1024.0 * 1024.0);
-        block(p, x0 + 2 * w, y, w, "CARD", juce::String::fromUTF8("\xe2\x89\xa4 ") + (mb >= 10 ? juce::String(int(std::lround(mb))) : juce::String(mb, 1)), "MB", colour::text);
+        const double room = mb >= 1000 ? mb / 1024.0 : mb;
+        block(p, x0 + sw + kw4 + tw, y, cw, "CARD", juce::String::fromUTF8("\xe2\x89\xa4 ") + (room >= 10 ? juce::String(int(std::lround(room))) : juce::String(room, 1)),
+              mb >= 1000 ? "GB" : "MB", colour::text);
         // What the check heard, under them: the glide, the layers split at the accent, the takes.
         const AutoZone side = a.found.kind == AutoKind::Mono || !a.found.split ? a.found.zone(0) : a.found.upper; // a split's mono side
         const bool mono = side.kind == AutoKind::Mono, loops = a.loops_any();
