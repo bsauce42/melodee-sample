@@ -7,7 +7,8 @@
 // next: KEYS (LOW, HIGH, STEP), NOTE (LAYERS, HOLD, TAIL), SOUND (TAP, LOOP,
 // LEVEL). B3 or Push SAMPLE: the roots light up as they are done, the one
 // playing blinks; under the keys its note and velocity, the note drawn as it
-// records (hold, then release), the speed, the time left and the job's bar
+// records (hold, then release), the speed (not for an instrument outside,
+// which plays in real time), the time left and the job's bar
 // with a light running along it; B1 calls it off and its files go. The pads
 // play the plug-in to try it; Minus / Plus their octave. Shift + Pad 11 again
 // closes it. Done, it goes back and the new KEYGROUP track is in hand.
@@ -172,11 +173,14 @@ void draw(Paint& p, const Snapshot& s) {
             p.fill(ix + b * step, cy - a, std::max(1.0f, step - 0.6f), 2 * a, bar, 0);
         }
         if (live) p.fill(std::min(ix + count * step, ix + iw - 1), by + 4, 1.5f, bh - 8, colour::text);
-        // Speed and time left on one line, then the job's bar with a light running along what is done.
+        // Speed and time left on one line, then the job's bar with a light running along what is done. An
+        // instrument outside plays in real time, so it has no speed.
         const float fy = by + bh + 6;
-        float vw = p.text(ours && job.times_real > 0 ? juce::String::fromUTF8("\xc3\x97") + juce::String(job.times_real, 1) : dash,
-                          x0, fy, 70, 16, plain(colour::ice, type::list, Weight::SemiBold));
-        p.text("SPEED", x0 + vw + 6, fy, 60, 16, caps_text(colour::mid));
+        if (!outside) {
+            float vw = p.text(ours && job.times_real > 0 ? juce::String::fromUTF8("\xc3\x97") + juce::String(job.times_real, 1) : dash,
+                              x0, fy, 70, 16, plain(colour::ice, type::list, Weight::SemiBold));
+            p.text("SPEED", x0 + vw + 6, fy, 60, 16, caps_text(colour::mid));
+        }
         const juce::String left = ours && job.through ? clock(job.seconds_left) : dash;
         const float lw = p.width("LEFT", caps_text(colour::mid));
         p.text("LEFT", zone::width - zone::pad - lw, fy, lw, 16, caps_text(colour::mid));
