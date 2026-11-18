@@ -8525,6 +8525,92 @@ void auto_sample_mono_time() {
     CHECK(std::fabs(set.seconds_expected() - 6 * (2.0f + 4.0f + 0.2f + 0.1f) / 2.0f) < 1e-3f);
 }
 
+// Velocity layers (engine/auto_probe.h probe_layers): the check's sixteen hits of one key split where the tone
+// changes, an accent starting a layer; an .xpm keeps four of eight (xpm_layers); the sheet's LAYERS at Auto and 1-8.
+void auto_sample_layers() {
+    std::vector<uint8_t> v;
+    for (int x = 8; x <= 127; x = x == 120 ? 127 : x + 8) v.push_back(uint8_t(x));
+    std::vector<float> follows, same(v.size(), 800.0f), ramp, jump, jump_db;
+    for (size_t i = 0; i < v.size(); ++i) {
+        follows.push_back(20.0f * std::log10(v[i] / 127.0f)); // level as Velocity 1 plays it
+        ramp.push_back(400.0f * std::pow(2.0f, 3.0f * v[i] / 127.0f)); // three octaves brighter, soft to hard
+        jump.push_back(v[i] >= 104 ? 2400.0f : 800.0f);         // an accent at 101: brighter, louder
+        jump_db.push_back(follows.back() + (v[i] >= 104 ? 6.0f : 0.0f));
+    }
+    // Level only, as Velocity plays it: one layer.
+    CHECK(probe_layers(v, follows, same, 1.0f, 0, 0) == std::vector<uint8_t> {127});
+    // The tone opens soft to hard: layers, rising, the last 127, no hit further than 1.5 dB from its layer's sample.
+    const auto heard = probe_layers(v, follows, ramp, 1.0f, 0, 0);
+    CHECK(heard.size() >= 3 && heard.size() <= 8 && heard.back() == 127 && std::is_sorted(heard.begin(), heard.end()));
+    const auto eight = probe_layers(v, follows, ramp, 1.0f, 0, 8);
+    CHECK(eight.size() == 8 && eight.back() == 127 && std::adjacent_find(eight.begin(), eight.end(), std::greater_equal<uint8_t>()) == eight.end());
+    CHECK(probe_layers(v, follows, ramp, 1.0f, 0, 1) == std::vector<uint8_t> {127});
+    // An accent starts a layer (the layer under it ends a velocity before), unless there is one layer only.
+    CHECK(probe_layers(v, jump_db, jump, 1.0f, 101, 2) == (std::vector<uint8_t> {100, 127}));
+    CHECK(probe_layers(v, jump_db, jump, 1.0f, 101, 0) == (std::vector<uint8_t> {100, 127}));
+    CHECK(probe_layers(v, jump_db, jump, 1.0f, 101, 1) == std::vector<uint8_t> {127});
+    const auto three = probe_layers(v, jump_db, jump, 1.0f, 101, 3);
+    CHECK(three.size() == 3 && std::find(three.begin(), three.end(), 100) != three.end() && three.back() == 127);
+    // Nothing heard: evenly. Fewer hits than layers asked: a layer a hit.
+    CHECK(probe_layers({}, {}, {}, 1.0f, 0, 3) == (std::vector<uint8_t> {42, 84, 127}));
+    CHECK(probe_layers({40, 80, 127}, {-10, -5, 0}, {400, 800, 1600}, 1.0f, 0, 8) == (std::vector<uint8_t> {40, 80, 127}));
+
+    // An .xpm holds four: eight layers as four runs of two, each its top layer over the run's velocities.
+    XpmKeygroup group;
+    const uint8_t tops[] {16, 32, 48, 64, 80, 96, 112, 127};
+    for (unsigned l = 0; l < 8; ++l) {
+        XpmLayer layer;
+        layer.sample = "Key-V" + std::to_string(tops[l]);
+        layer.low_velocity = uint8_t(l ? tops[l - 1] + 1 : 0);
+        layer.high_velocity = tops[l];
+        group.layers.push_back(layer);
+    }
+    auto four = xpm_layers(group);
+    CHECK(four.size() == 4 && four[0].sample == "Key-V32" && four[1].sample == "Key-V64" && four[2].sample == "Key-V96" && four[3].sample == "Key-V127");
+    CHECK(four[0].low_velocity == 0 && four[1].low_velocity == 33 && four[2].low_velocity == 65 && four[3].low_velocity == 97 && four[3].high_velocity == 127);
+    group.layers.resize(5); // five: the softest two share a run
+    four = xpm_layers(group);
+    CHECK(four.size() == 4 && four[0].sample == "Key-V32" && four[0].low_velocity == 0 && four[1].sample == "Key-V48" && four[3].sample == "Key-V80");
+    group.layers.resize(3);
+    CHECK(xpm_layers(group).size() == 3);
+    XpmProgram program;
+    program.name = "Key";
+    group.layers.clear();
+    for (unsigned l = 0; l < 8; ++l) group.layers.push_back({"Key-V" + std::to_string(tops[l]), 60, uint8_t(l ? tops[l - 1] + 1 : 0), tops[l], 44100});
+    program.keygroups.push_back(group);
+    auto count = [](const std::string& text, const std::string& what) {
+        size_t n = 0;
+        for (size_t at = text.find(what); at != std::string::npos; at = text.find(what, at + 1)) ++n;
+        return n;
+    };
+    const std::string mpc2 = xpm_text(program), all = xpm_text(program, 8);
+    CHECK(count(mpc2, "<Layer number=") == 128 * 4 && count(all, "<Layer number=") == 128 * 8);
+    CHECK(mpc2.find("Key-V16") == std::string::npos && mpc2.find("<SampleName>Key-V32</SampleName>") != std::string::npos
+          && all.find("<SampleName>Key-V16</SampleName>") != std::string::npos);
+
+    // LAYERS at Auto: as many as the check heard, where it heard them; set by hand, as many as asked, the accent
+    // kept only from two up. Not heard yet: one at Auto, evenly by hand.
+    AutoSampleSettings set;
+    CHECK(set.layers == 0 && set.layer_count() == 1 && set.velocity(0) == 127);
+    set.found.heard = true;
+    set.found.accent = 101;
+    set.found.layers = 3;
+    for (unsigned k = 1; k <= 8; ++k) {
+        const auto made = probe_layers(v, jump_db, jump, 1.0f, 101, k);
+        for (size_t l = 0; l < made.size(); ++l) set.found.layer_tops[k - 1][l] = made[l];
+    }
+    CHECK(set.layer_count() == 3 && set.velocity(2) == 127 && set.velocity(0) < set.velocity(1) && (set.velocity(0) == 100 || set.velocity(1) == 100));
+    set.layers = 1;
+    CHECK(set.layer_count() == 1 && set.velocity(0) == 127);
+    set.layers = 2;
+    CHECK(set.layer_count() == 2 && set.velocity(0) == 100 && set.velocity(1) == 127);
+    set.found.takes = 3;
+    CHECK(set.take_count() == 1); // takes with one layer only
+    set.found = {};
+    set.layers = 4;
+    CHECK(set.velocity(0) == 31 && set.velocity(3) == 127);
+}
+
 // The auto sampler's release (engine/release_fit.h): a note's fall against its level as its key was let go, never
 // rising, and the envelope fitted to it: one stage, or two where it drops and then rings on.
 void release_fitting() {
@@ -18132,6 +18218,7 @@ int main() {
     external_notes();
     release_fitting();
     auto_sample_mono_time();
+    auto_sample_layers();
     card_folders();
     exs_reader();
     kit_levels_octave();

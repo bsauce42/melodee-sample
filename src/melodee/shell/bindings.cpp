@@ -951,7 +951,7 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         case 0: // drums: every key that sounds, no STEP
             if (a.found.kind == AutoKind::Drums) return {Binding {Kind::AutoLow, 0, 0, 127, a.low}, Binding {Kind::AutoHigh, 0, 0, 127, a.high}, Binding {}};
             return {Binding {Kind::AutoLow, 0, 0, 127, a.low}, Binding {Kind::AutoHigh, 0, 0, 127, a.high}, Binding {Kind::AutoStep, 0, 1, 24, a.step}};
-        case 1: return {Binding {Kind::AutoLayers, 0, 1, 4, a.layers}, Binding {Kind::AutoHold, 0, 0, 200, a.hold_auto ? 0 : int(std::lround(a.hold * 10))},
+        case 1: return {Binding {Kind::AutoLayers, 0, 0, 8, a.layers}, Binding {Kind::AutoHold, 0, 0, 200, a.hold_auto ? 0 : int(std::lround(a.hold * 10))},
                         Binding {Kind::AutoTail, 0, 0, 200, int(std::lround(a.tail * 10))}};
         default: { // a MIDI track: its INPUT (the Audio page's) where a plug-in's TAP is
             const auto& from = project.tracks[sheet.track % track_count];

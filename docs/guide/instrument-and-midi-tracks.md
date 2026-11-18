@@ -125,7 +125,7 @@ almost no CPU and opens on MPC One, Live, Key, X, Force and MPC Beats.
 | Row | K1 | K2 | K3 |
 | --- | --- | --- | --- |
 | **KEYS** | **LOW**: lowest note | **HIGH**: highest note | **STEP**: semitones between notes, 1–24 |
-| **NOTE** | **LAYERS**: velocity layers, 1–4 | **HOLD**: how long each key is held (up to 20 s), or Auto | **TAIL**: longest release measured |
+| **NOTE** | **LAYERS**: velocity layers, Auto or 1–8 | **HOLD**: how long each key is held (up to 20 s), or Auto | **TAIL**: longest release measured |
 | **SOUND** | **TAP**: Pre FX or Post FX | **LOOP**: Auto, On or Off | **LEVEL**: as played, or loudest at −1 dB |
 
 ![The AUTO SAMPLE sheet](../images/screens/autosample.png)
@@ -146,6 +146,9 @@ When it is done, the program is in **Melodee/Samples/Keygroups/<name>/**:
 - **<name>_[TrackData]**: the samples, and **<name>.xpm**, the program for
   an MPC on version 2 and MPC Beats. To use it there, copy the whole
   **<name>** folder and load the .xpm from inside **<name>_[TrackData]**.
+  An .xpm holds 4 velocity layers a keygroup. With more, each of its 4 plays
+  the velocities of two (8 layers: layers 2, 4, 6 and 8). The .xty and the
+  keygroup track in Melodee have all of them.
 
 The first empty track becomes a keygroup track with the plug-in track's
 patterns, Song clips, mix and pitch bend. With **TAP** at Pre FX it also
@@ -161,7 +164,7 @@ The check sets these for you; the sheet's chip shows the type:
 | **MONO** | The program plays one note at a time and glides like the plug-in (**GLIDE** shows the time). **Mono, legato**: a key pressed while another is held carries the note on. **Mono, retrigger**: it starts the note again. |
 | **SPLIT** | The plug-in has two sounds side by side on the keyboard (a bass under a lead). A line on the keys shows where the upper one starts. Each side is checked on its own and gets its own mono or poly playing, hold, loops, release and velocity response. |
 | **DRUMS** | Samples each key that makes a sound, one sample per key. **STEP** is not used. Each drum plays whole however short the tap. |
-| **ACCENT** | The velocity layers split where the sound jumps (two layers at least). |
+| **VELOCITY** | How many velocity layers the sound needs: **Tone, 5 layers** where its tone changes with velocity, **Accent at 101** where it jumps (a layer starts there), **Level only** where only its level changes (one layer: the keygroup's Velocity follows it). **LAYERS** at Auto takes that many, up to 8. |
 | **TAKES ×3** | Each key is recorded three times and the program plays them in turn. |
 | **LOOPS** | The sound keeps sounding while a key is held, so each note loops and plays on for as long as you hold the pad. With **LOOP** at Auto this follows the check; set it to On or Off to choose yourself. |
 | **HOLD Auto** | A steady sound is held 2 s. A sound that moves while held (a slow LFO, detuned oscillators) is held 8 s and gets a long loop, so its movement carries on. A sound that fades is held until it has died away. |
@@ -185,6 +188,9 @@ again.
   reverb), and sets the program's release to match. A sound that rings on
   plays as two keygroups over the same keys, one with the short release and
   one with the long.
+- **VEL**, in the row over the cards, shows the check's 16 hits of one key,
+  soft to hard, each bar as tall as its tone. The layers alternate full and
+  faint; an accent's are amber. Each layer is recorded at its top velocity.
 - **LEVEL** starts as played: the keygroup track is as loud as the plug-in
   track at the same settings. At −1 dB every sample is raised by the same
   amount (the loudest to −1 dB), so velocity layers keep their balance.
@@ -203,7 +209,8 @@ Some things samples cannot hold, so the program does not have them:
   side gets two.
 - On an MPC, the mono side of a split cuts its last note but does not glide,
   and a program plays as mono or poly as a whole. In Melodee each side plays
-  as the plug-in did.
+  as the plug-in did, unless the program has more than 4 velocity layers: the
+  track then plays the .xty, where the mono side does not glide either.
 
 ### Auto sample an external instrument
 

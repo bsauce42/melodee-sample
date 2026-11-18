@@ -293,7 +293,13 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::AutoLow: c.label = "LOW"; c.value = juce::String(note_name(b.value)); break; // the AUTO SAMPLE sheet
     case Kind::AutoHigh: c.label = "HIGH"; c.value = juce::String(note_name(b.value)); break;
     case Kind::AutoStep: c.label = "STEP"; c.value = juce::String(b.value); c.unit = b.value == 1 ? "semitone" : "semitones"; break;
-    case Kind::AutoLayers: c.label = "LAYERS"; c.value = juce::String(b.value); c.unit = "velocity"; break;
+    case Kind::AutoLayers: { // Auto: as many as the check heard the tone needs, shown beside it once heard
+        const auto& a = s.ui.auto_sheet.settings;
+        c.label = "LAYERS";
+        c.value = b.value ? juce::String(b.value) : juce::String("Auto");
+        if (!b.value && a.found.heard) c.unit = juce::String(a.layer_count());
+        break;
+    }
     case Kind::AutoHold: // Auto: as long as the check found the sound needs, shown beside it once heard
         c.label = "HOLD";
         if (b.value > 0) { c.value = juce::String(b.value / 10.0, 1); c.unit = "s"; }

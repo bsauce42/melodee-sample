@@ -384,7 +384,7 @@ void PrintEngine::run() {
                                                       + (made.release_slow > 0 ? "+" + std::to_string(int(std::lround(made.release_slow * 1000))) + "@"
                                                                                      + std::to_string(int(std::lround(20 * std::log10(made.release_share)))) + "dB"
                                                                                : std::string())
-                                                      + " centred=" + std::to_string(made.centred) + " mono=" + std::to_string(made.mono) + " " + made.release_note
+                                                      + " centred=" + std::to_string(made.centred) + " mono=" + std::to_string(made.mono) + " layers=" + std::to_string(made.layers) + " " + made.release_note
                                                 : "error=" + made.error) +
                             " seconds=" + std::to_string(int(std::lround(made.seconds))));
             while (lines.size() > kept_lines) lines.pop_front();
@@ -1062,10 +1062,30 @@ AutoProbeResult PrintEngine::probe_track(const PrintJob& job, const std::array<c
     }
     if (auto why = source->trouble(); !why.empty()) { r.error = why; return r; } // an input that clips: nothing good can be sampled
     found.speed = playing > 0 ? float(played / playing) : 1.0f;
+    // Velocity layers from the sixteen hits: where the tone changes (an accent starts a layer), for 1 to 8 layers,
+    // and at Auto as many as the tone needs. One where the hits differ from hit to hit: takes then (an MPC plays a
+    // keygroup's layers in turn or by velocity, not both). Drums: the accent's two, else one, as their Velocity is
+    // not heard (engine/auto_probe.h probe_layers()).
+    {
+        const bool drum_kit = found.kind == AutoKind::Drums;
+        const float amount = drum_kit ? 0.0f : found.split && loud_key >= found.split ? found.upper.velocity : found.velocity;
+        found.sweep_count = uint8_t(std::min(velocities.size(), found.sweep_velocity.size()));
+        for (size_t i = 0; i < found.sweep_count; ++i) { found.sweep_velocity[i] = velocities[i]; found.sweep_bright[i] = bright[i]; }
+        for (unsigned k = 1; k <= found.layer_tops.size(); ++k) {
+            const auto tops = probe_layers(velocities, db, bright, amount, found.accent, k);
+            for (size_t l = 0; l < tops.size() && l < found.layer_tops[k - 1].size(); ++l) found.layer_tops[k - 1][l] = tops[l];
+        }
+        const size_t heard_layers = probe_layers(velocities, db, bright, amount, found.accent, 0).size();
+        found.layers = uint8_t(found.takes > 1 ? 1 : drum_kit ? (found.accent ? 2 : 1) : std::clamp<size_t>(heard_layers, 1, 8));
+    }
     {
         char text[200];
-        std::snprintf(text, sizeof(text), " | velocity=%.2f speed=%.1f", double(found.velocity), double(found.speed));
+        std::snprintf(text, sizeof(text), " | velocity=%.2f speed=%.1f layers=%u", double(found.velocity), double(found.speed), unsigned(found.layers));
         r.heard += text;
+        for (unsigned l = 0; l < found.layers; ++l) {
+            std::snprintf(text, sizeof(text), "%s%u", l ? "," : " tops=", unsigned(found.layer_tops[found.layers - 1][l]));
+            r.heard += text;
+        }
         if (found.split) {
             const auto& u = found.upper;
             std::snprintf(text, sizeof(text), " from %s: kind=%s glide_ms=%d legato=%d tied=%d sustains=%d moves=%d hold_s=%.1f release_ms=%d velocity=%.2f",
@@ -1380,13 +1400,25 @@ AutoSampleResult PrintEngine::sample_track(const PrintJob& job, const std::array
             if (!written) return fail("cannot write " + path.filename().string());
         }
     fs::remove_all(parts, e);
-    const fs::path xpm = files / (job.sample_name + ".xpm");
+    const fs::path xpm = files / (job.sample_name + ".xpm"), xty = folder / (job.sample_name + ".xty");
+    size_t most = 0;
+    for (const auto& k : program.keygroups) most = std::max(most, k.layers.size());
+    // MPC 3's track file: it has what an .xpm has no tag for (Mono Retrig) and up to eight layers a keygroup, made
+    // from a copy of the program with all of them (removed after). The .xpm keeps four, as MPC 2 and MPC Beats read
+    // it (xpm_layers()). The program stands without the track file, so a failure is only told.
+    std::string xty_failed;
+    if (most > 4) {
+        const fs::path whole = files / (job.sample_name + ".all.xpm");
+        xty_failed = write_xpm(whole.string(), program, 8);
+        if (xty_failed.empty()) xty_failed = write_mpc3_track(whole.string(), xty.string());
+        fs::remove(whole, e);
+    }
     if (auto why = write_xpm(xpm.string(), program); !why.empty()) return fail(why);
-    r.program = xpm.string();
-    // MPC 3's track file of the same program: it has what an .xpm has no tag for (Mono Retrig). The program stands
-    // without it, so a failure is only told.
-    if (auto why = write_mpc3_track(xpm.string(), (folder / (job.sample_name + ".xty")).string()); !why.empty())
-        r.release_note += " xty=" + why;
+    if (most <= 4) xty_failed = write_mpc3_track(xpm.string(), xty.string());
+    if (!xty_failed.empty()) r.release_note += " xty=" + xty_failed;
+    // The keygroup track plays every layer: from the track file where the .xpm holds fewer.
+    r.program = most > 4 && xty_failed.empty() ? xty.string() : xpm.string();
+    r.layers = unsigned(most);
     r.seconds = since(t0);
     return r;
 }

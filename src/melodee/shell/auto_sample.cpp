@@ -339,7 +339,7 @@ void Context::auto_sheet_set(Binding::Kind kind, int value) {
     case Kind::AutoLow: a.low = uint8_t(std::clamp(value, 0, 127)); if (a.high < a.low) a.high = a.low; break; // HIGH moves along
     case Kind::AutoHigh: a.high = uint8_t(std::clamp(value, 0, 127)); if (a.low > a.high) a.low = a.high; break;
     case Kind::AutoStep: a.step = uint8_t(std::clamp(value, 1, 24)); break;
-    case Kind::AutoLayers: a.layers = uint8_t(std::clamp(value, 1, 4)); break;
+    case Kind::AutoLayers: a.layers = uint8_t(std::clamp(value, 0, 8)); break; // 0: Auto
     case Kind::AutoHold: a.hold_auto = value <= 0; if (value > 0) a.hold = std::clamp(value, 1, 200) / 10.0f; break; // 0: Auto
     case Kind::AutoTail: a.tail = std::clamp(value, 0, 200) / 10.0f; break;
     case Kind::AutoTap: a.post_fx = value != 0; break;

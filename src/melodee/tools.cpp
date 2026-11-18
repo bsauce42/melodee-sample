@@ -14,6 +14,7 @@
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/sample_library.h"
 #include "melodee/shell/seq_layer.h"
+#include "melodee/engine/auto_probe.h"
 #include "melodee/engine/engine_host.h"
 #include "melodee/engine/effect_info.h"
 #include "melodee/engine/midi_engine.h"
@@ -564,6 +565,27 @@ void on_stage(Snapshot& s, unsigned track, unsigned group, unsigned sub) {
 }
 // Freeze plan F2c's previews: track 3 (a plug-in) with patterns P1-P4, P9 and P10, P2 playing; on the PRINT sheet all
 // but P10 lit. frozen_scene(): P1-P3 frozen, Post FX, Loop, its print of P2 playing.
+// What the auto sampler's check hears of an electric piano: its tone opens with velocity and jumps at 104 (an
+// accent), the sixteen hits as the check keeps them and the layers it places (engine/auto_probe.h).
+void piano_found(AutoFindings& f, bool accent) {
+    static const float tone[] {0.16f, 0.17f, 0.19f, 0.23f, 0.29f, 0.32f, 0.36f, 0.44f, 0.49f, 0.53f, 0.60f, 0.64f, 0.86f, 0.90f, 0.95f, 0.97f};
+    std::vector<uint8_t> v;
+    std::vector<float> db, bright;
+    for (int x = 8; x <= 127; x = x == 120 ? 127 : x + 8) v.push_back(uint8_t(x));
+    for (size_t i = 0; i < v.size(); ++i) {
+        db.push_back(20.0f * std::log10(0.4f + 0.6f * v[i] / 127.0f) + (accent && v[i] >= 104 ? 4.0f : 0.0f));
+        bright.push_back(500.0f * std::pow(2.0f, 2.5f * tone[i]));
+        f.sweep_velocity[i] = v[i]; f.sweep_bright[i] = bright[i];
+    }
+    f.sweep_count = uint8_t(v.size());
+    f.heard = true; f.velocity = 0.6f; f.speed = 2.4f; f.accent = accent ? 104 : 0;
+    for (unsigned k = 1; k <= 8; ++k) {
+        const auto tops = probe_layers(v, db, bright, f.velocity, f.accent, k);
+        for (size_t l = 0; l < tops.size(); ++l) f.layer_tops[k - 1][l] = tops[l];
+    }
+    f.layers = uint8_t(std::min<size_t>(8, probe_layers(v, db, bright, f.velocity, f.accent, 0).size()));
+}
+
 void print_scene(Snapshot& s) {
     s.ui.page = PageId::Print; s.ui.track = 2; s.playing = true;
     for (unsigned n : {0u, 1u, 2u, 3u, 8u, 9u}) { s.sketches[2][n].notes = true; s.sketches[2][n].length = 16 * ticks_per_quarter; }
@@ -1201,7 +1223,38 @@ const Preview previews[] {
          s.ui.auto_sheet = UiState::AutoSheet {};
          s.ui.auto_sheet.track = 2;
          auto& f = s.ui.auto_sheet.settings.found;
-         f.heard = true; f.kind = AutoKind::Mono; f.glide = 0.06f; f.accent = 100; f.hold = 2.4f;
+         piano_found(f, true);
+         f.kind = AutoKind::Mono; f.glide = 0.06f; f.hold = 2.4f;
+     }},
+    // Velocity layers: LAYERS at Auto on an electric piano whose tone opens with velocity (the NOTE row), then 8 by
+    // hand; and the check's VELOCITY row.
+    {"autosamplelayers", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 1;
+         auto& f = s.ui.auto_sheet.settings.found;
+         piano_found(f, true);
+         f.hold = 4.0f; f.release = 0.5f;
+     }},
+    {"autosamplelayers8", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.row = 1; s.ui.auto_sheet.settings.layers = 8;
+         auto& f = s.ui.auto_sheet.settings.found;
+         piano_found(f, true);
+         f.hold = 4.0f; f.release = 0.5f;
+     }},
+    {"autosamplelayerscheck", [](Shell&, Snapshot& s) {
+         print_scene(s);
+         s.ui.page = PageId::AutoSample;
+         s.ui.auto_sheet = UiState::AutoSheet {};
+         s.ui.auto_sheet.track = 2; s.ui.auto_sheet.checking = true;
+         auto& job = s.print;
+         job.busy = true; job.autosample = true; job.checking = true; job.opened = true; job.track = 2; job.check_step = 4;
+         piano_found(job.found, false);
+         job.found.heard = false; job.found.hold = 4.0f;
      }},
     {"autosampledrums", [](Shell&, Snapshot& s) {
          print_scene(s);

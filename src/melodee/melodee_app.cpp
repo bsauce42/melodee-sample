@@ -265,10 +265,10 @@ std::string MelodeeApp::command(const std::string& action, const std::string& ar
         for (unsigned t = 0; t < melodee::track_count; ++t) s += (t ? "," : "") + std::to_string(int(std::lround(host.track_load(t) * 1000)));
         return s + " | " + printer.status();
     }
-    if (action == "melodee-autosample") { // the auto sampler: melodee-autosample TRACK [LOW-HIGH] [step N] [layers N] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check|auto]
+    if (action == "melodee-autosample") { // the auto sampler: melodee-autosample TRACK [LOW-HIGH] [step N] [layers auto|N] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check|auto]
         std::istringstream words(argument);
         int track = 0;
-        const std::string usage = "ERR melodee-autosample TRACK [LOW-HIGH] [step N] [layers 1-4] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check|auto]";
+        const std::string usage = "ERR melodee-autosample TRACK [LOW-HIGH] [step N] [layers auto|1-8] [hold S] [tail S] [pre|post] [loop|noloop] [raw] [check|auto]";
         if (!(words >> track) || track < 1 || track > int(melodee::track_count)) return usage;
         melodee::Context::PrintAsk ask;
         ask.track = uint8_t(track - 1);
@@ -286,7 +286,7 @@ std::string MelodeeApp::command(const std::string& action, const std::string& ar
             std::string value;
             if (!(words >> value)) return usage;
             if (word == "step") set.step = uint8_t(std::clamp(std::atoi(value.c_str()), 1, 24));
-            else if (word == "layers") set.layers = uint8_t(std::clamp(std::atoi(value.c_str()), 1, 4));
+            else if (word == "layers") set.layers = value == "auto" ? 0 : uint8_t(std::clamp(std::atoi(value.c_str()), 1, 8));
             else if (word == "hold") { set.hold_auto = false; set.hold = std::clamp(float(std::atof(value.c_str())), 0.05f, 30.0f); } // else Auto
             else if (word == "tail") set.tail = std::clamp(float(std::atof(value.c_str())), 0.0f, 30.0f);
             else return usage;
