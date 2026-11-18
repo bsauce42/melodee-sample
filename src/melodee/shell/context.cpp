@@ -814,7 +814,7 @@ void Context::apply(const Binding& b, int value) {
         if (ChopMode(value) == ui.chop_mode) break;
         ui.chop_mode = ChopMode(value); rechop();
         ui.settings.chop_mode = uint8_t(value); // the next sample with no chop of its own opens on it
-        if (store) store->save_settings(ui.settings.text());
+        settings_save_at = std::max<uint32_t>(now, 1) + 1000; // K3 turns in steps: the card gets the last
         break;
     case Kind::ChopAmount:
         if (ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] == value) break;
