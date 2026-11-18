@@ -31,9 +31,9 @@ bool erase_step(Context& c) {
     auto& ui = c.ui;
     if (ui.sheet_open) return false;
     auto& p = c.pattern();
-    unsigned st = unsigned(std::max<int>(ui.step_cursor, 0)) % p.steps();
+    unsigned st = edit_caret(ui, p); // a spare step (shell/spare_bar.h) is empty
     int lane = steps_lane(c.track());
-    if (!step_has_notes(p, st, lane)) { c.notice(step_name(st) + " is empty"); return true; }
+    if (in_spare(ui, p) || !step_has_notes(p, st, lane)) { c.notice(step_name(st) + " is empty"); return true; }
     std::string what = "Erase " + step_name(st);
     c.edit_pattern(ui.track, c.track().pattern, what.c_str(), [&] {
         if (lane < 0) c.set_step(ui.track, st, Step {});

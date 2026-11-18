@@ -2476,6 +2476,19 @@ const Preview previews[] {
          step_edit_kit(shell, s);
          s.ui.turning = 1; s.ui.turned_at = s.now;
      }},
+    {"stepeditgrow", [](Shell& shell, Snapshot& s) { // the caret on the last bar: + and an arrow at the right edge, it can grow
+         step_edit_kit(shell, s);
+         s.ui.step_cursor = 27;
+     }},
+    {"stepeditspare", [](Shell& shell, Snapshot& s) { // past the last step: the next bar's steps as outlines, NEW, the mark amber
+         step_edit_kit(shell, s);
+         s.ui.step_cursor = 31; s.ui.spare_step = 36; s.ui.steps_bar = 2;
+     }},
+    {"stepeditsparesteps", [](Shell& shell, Snapshot& s) { // STEPS past the last step: the new bar's pads, NEW BAR
+         step_edit_kit(shell, s);
+         s.ui.step_pads = true; s.project.tracks[3].last_pad = 2;
+         s.ui.step_cursor = 31; s.ui.spare_step = 32; s.ui.steps_bar = 2;
+     }},
     {"stepentrychord", [](Shell& shell, Snapshot& s) { // a chord going in at the caret: A01 and A03 held, a fixed velocity
          step_edit_kit(shell, s);
          s.ui.step_cursor = 6; s.ui.entry_velocity = 100; s.ui.entry_length = 2;

@@ -162,6 +162,7 @@ struct UiState {
     uint8_t recent_count = 0;
     uint8_t steps_bar = 0;
     int16_t step_cursor = 0, held_step = -1;
+    int16_t spare_step = -1; // Step Edit: the caret past the last step, where a step makes the pattern longer (shell/spare_bar.h)
     // Settings > SEQ > Follow (shell/step_edit.cpp seq_follow): the bar (Page) or step (Step) the caret last went to; -1 none.
     int16_t follow_step = -1;
     uint8_t step_event = 0;                   // Step Edit: which of the cursor step's events (shell/step_edit.h)

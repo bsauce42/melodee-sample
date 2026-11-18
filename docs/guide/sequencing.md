@@ -349,6 +349,24 @@ In both modes:
 
 ![SHIFT held on Step Edit](../images/screens/stepeditshift.png)
 
+**Make the pattern longer**: when the caret is on the last bar, a **+** and
+an arrow show at the right edge. The pattern can grow.
+
+1. Turn the encoder past the last step, or press **REST**, or keep writing.
+   The caret goes on into a new bar. Its steps are outlines and the header
+   shows **NEW BAR**.
+2. Write a step there: a pad in PLAY mode, a pad in STEPS mode, or a key
+   on a MIDI keyboard. The pattern grows to the end of that bar. The step
+   and the new length are one undo.
+
+- Leave the new bar empty and the pattern stays as it was. Turn on past it
+  and the caret goes back to step 1.
+- In STEPS mode, the pads past the pattern's end light faint, as empty
+  steps do. Press one to grow the pattern.
+- A pattern grows to 128 bars at most.
+
+![A new bar on Step Edit](../images/screens/stepeditspare.png)
+
 ![The TRIG cards](../images/screens/stepsratchet.png)
 
 ![The EUCLID cards](../images/screens/stepseuclid.png)

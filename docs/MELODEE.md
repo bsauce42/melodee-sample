@@ -231,7 +231,7 @@ grammar (`shell/pad_light.h`):
 | PRINT sheet | Patterns lit for printing Full, others with notes Faint; printing: done white, the one printing blinking white, waiting Dim |
 | A deep-frozen track | Its own pads dark: they play nothing |
 | Patterns | As the Seq held pads: the selected track's patterns of the bank in view as the cells show them |
-| Step Edit, STEPS mode | The bar's steps by velocity (accent Full, 90 and up Mid, softer Dim, empty Faint), past the pattern's end dark, the playhead white (red while recording); on a kit the last pad's lane |
+| Step Edit, STEPS mode | The bar's steps by velocity (accent Full, 90 and up Mid, softer Dim, empty Faint), past the pattern's end Faint while a step there would make it longer (else dark), the playhead white (red while recording); on a kit the last pad's lane |
 | Step Edit, PLAY mode | The step's events by velocity, the chosen one white |
 | Roll | The note in focus white, the cursor's step Full, notes elsewhere Dim, none Faint |
 | Time Correct | Whose notes move Full, with notes Dim |
@@ -771,6 +771,17 @@ hold to steer, Shift + Seq to zoom in**.
   notes fall off the end). Otherwise Shift + K1 the pattern's length,
   Shift + K2 Q, Shift + K3 the time signature; −/+ the octave (a kit's
   bank). Push, Seq or Shift + Seq go back to the page under it.
+  Spare steps (shell/spare_bar.h): past the last step the caret walks on
+  into the rest of the last 16-step page, or the next page when that one is
+  full (UiState::spare_step; step_cursor stays on the last step, so every
+  reader of it sees a real step). They draw as outlines, the header says
+  NEW BAR, and a + over an arrow at the right edge (amber in them) shows
+  while the caret is on the last page and the pattern can grow. A step
+  written there (a pad in either mode, MIDI in) makes the pattern long
+  enough to hold it, to the end of its bar (128 bars at most), in the same
+  undo; Free ends. Empty, nothing changes; past them the caret goes to step
+  1. There the selection, TIE, INSERT, Erase and the step's cards see no
+  step.
 - **Roll** (B2): the pattern's notes, each at its own tick for its own length, over bar
   lines, any number to a step. The cursor is a step of Q and a pitch: the
   wheel goes through a step's notes one by one, then on to the next step

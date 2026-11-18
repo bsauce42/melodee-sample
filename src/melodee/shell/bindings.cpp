@@ -907,9 +907,11 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         unsigned at = unsigned(std::max<int>(ui.step_cursor, 0)) % pattern.steps();
         if (ui.held_step >= 0) return lock_cards(project, ui, pattern, unsigned(ui.held_step) % pattern.steps() * pattern.q()); // STEPS, held: locks
         int lane = steps_lane(track);
+        bool spare = in_spare(ui, pattern); // past the end (shell/spare_bar.h): no step's cards, only what a pad writes
         switch (ui.step_cards % (lane >= 0 ? 4 : 3)) {
-        case 1: return lock_cards(project, ui, pattern, at * pattern.q()); // LOCK: the Motion lanes locked on the caret's step
+        case 1: if (spare) return {}; return lock_cards(project, ui, pattern, at * pattern.q()); // LOCK: the Motion lanes locked on the caret's step
         case 2: { // TRIG: its ratchet, ramp and condition
+            if (spare) return {};
             int n = lane_event(pattern, at, lane);
             if (n < 0) return {};
             return trig_cards(pattern.events[size_t(n)], true);
@@ -924,6 +926,7 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         default: break;
         }
         if (ui.step_pads) { // NOTE with the pads on the steps: the caret's step, as the pads show it
+            if (spare) return {};
             int n = lane_event(pattern, at, lane);
             if (n < 0) return {};
             const auto& e = pattern.events[size_t(n)];

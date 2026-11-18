@@ -450,6 +450,7 @@ Look steps_look(const PadScene& s, unsigned pad) {
     unsigned step = unsigned(ui.steps_bar) * bar_steps + pad;
     int lane = steps_lane(selected(s));
     uint32_t loop = lane >= 0 ? p.lane_length(unsigned(lane)) : p.length; // a kit lane of its own length (roadmap P1)
+    if (step >= p.steps() && step < spare_end(s.project, p)) return track(selected_index(s), faint); // a spare step: set, it makes the pattern longer
     if (step >= p.steps() || step * p.q() >= loop) return {}; // past the pattern's (or the lane's) end
     if (int(step) == ui.held_step) return white(full);
     int position = s.host.position_of(selected_index(s));
@@ -467,7 +468,7 @@ Look step_edit_look(const PadScene& s, const Heard& snd, unsigned pad) {
     if (key < 0) return {};
     Look base;
     int chosen = selected_event(p, s.ui);
-    unsigned velocity = step_velocity(p, unsigned(std::max<int>(s.ui.step_cursor, 0)) % p.steps(), key);
+    unsigned velocity = step_velocity(p, edit_caret(s.ui, p), key); // a spare step holds nothing
     if (chosen >= 0 && p.events[size_t(chosen)].key == key) base = white(full);
     else if (velocity) base = velocity_look(selected_index(s), velocity);
     else if (t.engine != EngineKind::Sampler || t.pads[unsigned(key - int(sampler_first_note)) % sampler_pads].used()) base = track(selected_index(s), faint);

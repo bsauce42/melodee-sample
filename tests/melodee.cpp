@@ -11952,11 +11952,17 @@ void pad_lights() {
     ui.shift = false; ui.copying = UiState::Copying::Patterns; ui.copy_from = 0; ui.copy_track = 1; light(plays);
     CHECK(is(0, Hue::White, 4) && is(2, Hue::Red, 1) && is(3, Hue::Track, 1));
     ui.copying = UiState::Copying::Off; ui.copy_from = -1; ui.seq_held = false;
-    // Step Edit's pads on the steps, on a kit: the last pad's lane only, by velocity; past the pattern's end dark.
+    // Step Edit's pads on the steps, on a kit: the last pad's lane only, by velocity; past the pattern's end faint as
+    // an empty step while a step there would make it longer (shell/spare_bar.h), dark at 128 bars.
     ui.page = PageId::StepEdit; ui.step_pads = true; light(plays);
     CHECK(is(0, Hue::Track, 4) && is(2, Hue::Track, 1) && is(1, Hue::Track, 1));
     p.length = 12 * sixteenth_ticks; light(plays);
-    CHECK(is(12, Hue::None, 0) && is(11, Hue::Track, 1));
+    CHECK(is(12, Hue::Track, 1) && is(11, Hue::Track, 1));
+    p.length = project->max_length() - 4 * sixteenth_ticks; ui.steps_bar = uint8_t(p.steps() / bar_steps); light(plays);
+    CHECK(is(12, Hue::Track, 1) && is(11, Hue::Track, 1)); // it can still grow, to 128 bars
+    p.length = project->max_length(); ui.steps_bar = uint8_t(p.steps() / bar_steps); light(plays);
+    CHECK(is(0, Hue::None, 0) && is(12, Hue::None, 0)); // past 128 bars: nothing
+    ui.steps_bar = 0;
     p.length = 16 * sixteenth_ticks;
     CHECK(steps_lane(kit) == 37 && steps_lane(project->tracks[0]) == -1);
     CHECK(step_velocity(p, 0, 37) == 127 && step_velocity(p, 2, 37) == 0 && step_velocity(p, 2, -1) == 100);
@@ -17652,6 +17658,53 @@ void free_length() {
     }
 }
 
+// Step Edit's spare steps (shell/spare_bar.h): past the last step the caret walks into the rest of the last page, or
+// the next page; a step there makes the pattern grow to the end of its bar; nothing past 128 bars; the cards and
+// the selection see no step there.
+void spare_steps() {
+    Project project; // 4/4: a bar is 384 ticks
+    Pattern p;
+    p.free = false; // a bar of sixteenths: 16 steps, a full page
+    CHECK(p.steps() == 16 && spare_page_end(p) == 32 && spare_end(project, p) == 32);
+    CHECK(spare_length(project, p, 15) == 0 && spare_length(project, p, 16) == 768 && spare_length(project, p, 31) == 768);
+    Pattern eighths = p;
+    eighths.division = Division::Eighth; // 8 steps: the rest of the page is spare, a step there makes two bars
+    CHECK(eighths.steps() == 8 && spare_end(project, eighths) == 16 && spare_length(project, eighths, 8) == 768);
+    Pattern full = p;
+    full.length = project.max_length(); // 128 bars: nothing to grow into
+    CHECK(spare_length(project, full, full.steps()) == 0 && spare_end(project, full) == full.steps());
+    Pattern almost = p;
+    almost.length = project.max_length() - 384;
+    CHECK(spare_length(project, almost, almost.steps()) == project.max_length());
+    // The caret: a spare step while step_cursor marks the last step on Step Edit.
+    UiState ui;
+    ui.page = PageId::StepEdit; ui.step_cursor = 15; ui.spare_step = 16;
+    CHECK(in_spare(ui, p) && edit_caret(ui, p) == 16 && spare_mark(project, ui, p));
+    ui.step_cursor = 14; CHECK(!in_spare(ui, p) && edit_caret(ui, p) == 14); // moved by anything else: no longer spare
+    ui.step_cursor = 15; ui.page = PageId::Roll; CHECK(!in_spare(ui, p));
+    ui.page = PageId::StepEdit; ui.spare_step = 32; CHECK(!in_spare(ui, p)); // past the spare page
+    ui.spare_step = -1; CHECK(spare_mark(project, ui, p)); // on the last page
+    Pattern two = p;
+    two.length = 768;
+    ui.step_cursor = 3; CHECK(!spare_mark(project, ui, two)); // the first of two pages
+    ui.step_cursor = 17; CHECK(spare_mark(project, ui, two) && !spare_mark(project, ui, full));
+    // A step in the spare steps holds nothing: no selection, no step cards (only what a pad writes).
+    Event e; e.tick = 15 * 24; e.key = 60;
+    p.add(e);
+    ui.step_cursor = 15; ui.spare_step = -1;
+    CHECK(selected_event(p, ui) == 0);
+    ui.spare_step = 20;
+    CHECK(selected_event(p, ui) == -1);
+    ui.step_pads = true;
+    auto cards = page_bindings(project, ui, p, false);
+    CHECK(cards[0].kind == Binding::Kind::None && cards[1].kind == Binding::Kind::None);
+    ui.step_pads = false;
+    cards = page_bindings(project, ui, p, false);
+    CHECK(cards[0].kind == Binding::Kind::EntryLength);
+    ui.step_cards = 1; cards = page_bindings(project, ui, p, false); // LOCK
+    CHECK(cards[0].kind == Binding::Kind::None);
+}
+
 // A PLUGIN track's performance knobs (engine/macros.h): the filter cuts, the echo rings on after its knob is turned
 // back, and the sends' delay memory goes back to the pool once they fall silent (or the track stops being a plug-in's).
 void plugin_macros() {
@@ -17836,6 +17889,7 @@ void sample_roots() {
 
 int main() {
     free_length();
+    spare_steps();
     progressions();
     pad_sends();
     pad_cloud();
