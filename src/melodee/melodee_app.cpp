@@ -133,7 +133,9 @@ static_assert(usb_stem_count == melodee::track_count && usb_stem_frames == melod
               "one USB-C stem a track, a block at a time");
 
 void MelodeeApp::render(const AudioBlock& input, AudioBlock& output) {
-    host.render(output.data(), audio_frames, shell.volume(), input.data(), &stem_block.track[0][0], input_route.usb_block(audio_frames));
+    usb_full = shell.usb_full_volume();
+    host.render(output.data(), audio_frames, shell.volume(), input.data(), &stem_block.track[0][0], input_route.usb_block(audio_frames),
+                usb_full ? usb_block.data() : nullptr);
 }
 
 void MelodeeApp::surface(const SurfaceEvent& event) {

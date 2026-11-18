@@ -34,6 +34,7 @@ public:
     void audio_opened(const AudioFormat& format) override;              // audio thread
     ScreenMirrorMode screen_mirror() const override { return shell.screen_mirror(); } // any thread: Settings' Screen Mirror
     const UsbStems* stems() const override { return &stem_block; }    // audio thread
+    const AudioBlock* usb_mix() const override { return usb_full ? &usb_block : nullptr; } // audio thread: Settings' USB volume
     void surface(const SurfaceEvent& event) override;                   // MIDI thread
     void lights(SurfaceLights& lights, Clock::time_point now) override; // MIDI thread
     void midi(const MidiPortInfo& port, const MidiPacket& packet) override; // MIDI thread: external MIDI in (parity phase 9)
@@ -54,6 +55,8 @@ private:
     Clock::time_point started = Clock::now();
     melodee::EngineHost host;
     UsbStems stem_block {}; // audio thread: each track's mono stem for USB-C
+    AudioBlock usb_block {}; // audio thread: the main mix for USB-C at full main volume
+    bool usb_full = false;   // audio thread: usb_block written this block
     melodee::Shell shell;
     melodee::SampleLibrary library; // service thread: files on the card
     melodee::ProjectStore store;    // service thread: projects on the card

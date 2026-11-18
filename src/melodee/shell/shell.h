@@ -54,6 +54,8 @@ public:
     void midi_panic(uint32_t now_ms); // `melodee-midi panic`, as MIDI Config's row
     void looper_ask(const LooperAsk& ask, uint32_t now_ms); // `melodee-looper` (shell/looper_jobs.h)
     float volume() const { return main_volume.load(std::memory_order_relaxed); }
+    // Any thread: Settings' USB volume, Full: USB-C's main mix at full main volume, the knob left out.
+    bool usb_full_volume() const { return usb_full.load(std::memory_order_relaxed); }
     unsigned screen() const { return screen_wanted.load(std::memory_order_relaxed); } // brightness %, 0: leave it
     // Any thread: Settings' sample rate and buffer (periods): the card's from start_settings(), else the default.
     unsigned audio_rate() const { return audio_wanted.load(std::memory_order_relaxed) & 0xfffff; }
@@ -152,10 +154,12 @@ private:
     std::atomic<unsigned> screen_wanted {0}; // 0 until the settings say; then 20..100 %
     std::atomic<uint32_t> audio_wanted {44100u | 3u << 20}; // rate | periods << 20
     std::atomic<uint32_t> mirror_wanted {3u << 1}; // on | size << 1 | 60 fps << 4: off, 1280 x 960, 30 fps
+    std::atomic<bool> usb_full {true};
     void want_audio_format() {
         audio_wanted.store(ui_.settings.audio_rate | uint32_t(ui_.settings.audio_periods) << 20, std::memory_order_relaxed);
         mirror_wanted.store(uint32_t(ui_.settings.mirror) | uint32_t(ui_.settings.mirror_size & 7) << 1 | uint32_t(ui_.settings.mirror_fps == 60) << 4,
                             std::memory_order_relaxed);
+        usb_full.store(ui_.settings.usb_full, std::memory_order_relaxed);
     }
     std::atomic<unsigned> power {0};
     unsigned power_seen = 0;

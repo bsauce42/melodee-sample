@@ -12,7 +12,8 @@
 //   under the rows, while it is on, how it goes: ready, live, paused while
 //   the card is shared), AUDIO (the
 //   sample rate and the buffer: longer rides out a slow moment without a
-//   crackle, shorter is heard sooner), SAMPLING (how Audio Recall cuts the
+//   crackle, shorter is heard sooner; USB volume: what a computer records
+//   over USB-C at full main volume, or following the knob), SAMPLING (how Audio Recall cuts the
 //   ring and when a Free take ends on its own), MIDI (MIDI Config's page)
 //   and ABOUT. The wheel picks a door, Push or B3 opens it, B1 goes back.
 //   Behind a door its rows, scrolling past six (a bar and arrows at the right edge): the wheel moves the cursor,
@@ -53,7 +54,7 @@ const std::array<Door, 8> doors {{
     {Icon::Knob, "KNOBS", ROWS(Settings::KnobTakeover, Settings::KnobFxTakeover, Settings::FaderTakeover)},
     {Icon::Screen, "SCREEN", ROWS(Settings::Palette, Settings::Font, Settings::Screen, Settings::PlaceBarRow, Settings::Mirror, Settings::MirrorSize,
                                   Settings::MirrorRate)},
-    {Icon::Speaker, "AUDIO", ROWS(Settings::SampleRate, Settings::AudioBuffer)},
+    {Icon::Speaker, "AUDIO", ROWS(Settings::SampleRate, Settings::AudioBuffer, Settings::UsbVolume)},
     {Icon::Mic, "SAMPLING", ROWS(Settings::RecallGrabRow, Settings::RecallGap, Settings::RecallTrimEnd, Settings::TakeAutoEnd, Settings::AutoEndAfter,
                                  Settings::SilenceBelow)},
     {Icon::Din, "MIDI", {none}},  // MIDI Config's own page

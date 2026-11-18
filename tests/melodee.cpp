@@ -18365,7 +18365,45 @@ void controls_audit() {
     std::puts("controls audit ok");
 }
 
+// Settings' USB volume: Full (the default) gives USB-C the mix at full main volume beside the jacks' block at the
+// knob's level; Knob leaves USB-C on the jacks' block. Kept in the settings file.
+void usb_volume() {
+    auto project = std::make_unique<Project>();
+    auto bank = std::make_unique<PatternBank>();
+    for (auto& t : project->tracks) t.engine = EngineKind::None;
+    auto host = std::make_unique<EngineHost>();
+    host->load(*project, *bank);
+    std::vector<int32_t> input(256), out(256), fixed(256);
+    for (unsigned f = 0; f < 128; ++f) { input[2 * f] = int32_t(0.5 * 2147483647.0); input[2 * f + 1] = int32_t(0.25 * 2147483647.0); }
+    host->send({Command::Type::RecordSource, uint8_t(InputSource::Rear)});
+    host->send({Command::Type::Monitor, 0, 0, 0, 1});
+    for (unsigned n = 0; n < 8; ++n) host->render(out.data(), 128, 0.25f, input.data(), nullptr, nullptr, fixed.data());
+    const float centre = std::cos(dsp::pi / 4);
+    auto at = [](const std::vector<int32_t>& v, unsigned i) { return v[i] / 2147483647.0f; };
+    CHECK(std::fabs(at(out, 254) - 0.5f * centre * 0.25f) < 1e-3f && std::fabs(at(out, 255) - 0.25f * centre * 0.25f) < 1e-3f);
+    CHECK(std::fabs(at(fixed, 254) - 0.5f * centre) < 1e-3f && std::fabs(at(fixed, 255) - 0.25f * centre) < 1e-3f);
+    for (unsigned n = 0; n < 8; ++n) host->render(out.data(), 128, 0, input.data(), nullptr, nullptr, fixed.data());
+    CHECK(out[254] == 0 && std::fabs(at(fixed, 254) - 0.5f * centre) < 1e-3f); // the knob down: USB-C still hears it
+
+    Settings fresh;
+    CHECK(fresh.usb_full && fresh.value_text(Settings::UsbVolume) == "Full" && std::string(Settings::row_name(Settings::UsbVolume)) == "USB volume");
+    CHECK(fresh.choices(Settings::UsbVolume) == 2 && fresh.choice(Settings::UsbVolume) == 1);
+    Settings knob = fresh;
+    knob.step(Settings::UsbVolume, 1);
+    CHECK(!knob.usb_full && knob.value_text(Settings::UsbVolume) == "Knob" && knob.choice(Settings::UsbVolume) == 0);
+    Settings back;
+    back.read(knob.text());
+    CHECK(!back.usb_full);
+    back.set_choice(Settings::UsbVolume, 1);
+    CHECK(back.usb_full);
+    Settings old; old.read("rec_quantize=0\n"); // a file from before the row: Full
+    CHECK(old.usb_full);
+    knob.reset_factory();
+    CHECK(knob.usb_full);
+}
+
 int main() {
+    usb_volume();
     controls_audit();
     usage_log();
     free_length();

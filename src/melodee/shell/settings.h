@@ -18,7 +18,7 @@
 // Melodee's own settings, not the project's: how the pads respond and
 // light, whether their pressure is used, how the knobs, Knob FX and the fader take over a value, the screen and where its
 // place bar sits, the audio
-// device's rate and buffer, and the MPC's recording toggles
+// device's rate and buffer, whether USB-C's main mix follows the main volume knob, and the MPC's recording toggles
 // (Shift + Pad 4 Count-In, Shift + Pad 10 Rec Quantize), what Double Seq puts in the new half and Input Config (Shift + Sample), and Screen Mirror
 // (the screen as a USB webcam, drivers/screen_mirror.h, and its size). Kept as key=value lines in the
 // `settings` file next to the projects (with the project to open at start).
@@ -37,7 +37,7 @@ inline const char* takeover_name(Takeover t) {
 struct Settings {
     enum Row : uint8_t { Palette, PadResponse, PadPressure, PadLights, KnobTakeover, KnobFxTakeover, FaderTakeover, DoubleSeq, CaptureBars, CaptureQuantize,
                          Screen, PlaceBarRow, SampleRate,
-                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, RecQuantize, Rows };
+                         AudioBuffer, RecallGrabRow, RecallGap, RecallTrimEnd, TakeAutoEnd, AutoEndAfter, SilenceBelow, Mirror, MirrorSize, MirrorRate, PadFade, TapLight, RepeatVelocity, SeqFollow, Font, RecQuantize, UsbVolume, Rows };
     // FEATURES (shell/features.h; Settings' K1): Full shows every page, Basic the stock app's pages plus tracks,
     // plug-ins, the mixer and Song. Full unless the file says Basic: a first install, and a file without the row
     // (from before it, or never saved with a setting changed), start on Full (read()).
@@ -94,6 +94,9 @@ struct Settings {
     static constexpr std::array<uint8_t, 5> buffers {{2, 3, 4, 6, 8}}; // periods: 256, 384, 512, 768, 1024 frames
     uint32_t audio_rate = 44100;
     uint8_t audio_periods = 3;
+    // USB volume: what a computer records over USB-C (channels 1 and 2) at full main volume, the knob left out
+    // (Full), or as the jacks play it (Knob).
+    bool usb_full = true;
     // Screen Mirror: the screen offered to a computer over USB-C as a webcam, at one of ScreenMirror's sizes, the
     // screen times a whole number (0 320 x 240, 1 640 x 480, 2 1280 x 720, 3 1280 x 960), 30 or 60 fps. Off until
     // asked for: on or off, another size or rate rebinds the USB gadget (about a second without USB audio and MIDI).
@@ -131,7 +134,7 @@ struct Settings {
         static const char* names[] {"Palette", "Pad response", "Pad pressure", "Pad lights", "Knob takeover", "Knob FX takeover",
                                     "Fader takeover", "Double Seq", "Capture bars", "Capture quantize", "Brightness", "Place bar", "Sample rate", "Audio buffer", "Recall grab", "Recall gap",
                                     "Recall trim end", "Take auto end", "Auto end after", "Silence below", "Screen mirror", "Resolution", "Frame rate",
-                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow", "Font", "Rec quantize"};
+                                    "Pad fade", "Tap Tempo light", "Repeat velocity", "Follow", "Font", "Rec quantize", "USB volume"};
         return names[row % Rows];
     }
     std::string value_text(unsigned row) const {
@@ -174,6 +177,7 @@ struct Settings {
         case RepeatVelocity: return repeat_pressure ? "Pressure" : "Strike";
         case SeqFollow: return seq_follow == 1 ? "Page" : seq_follow == 2 ? "Step" : "Off";
         case RecQuantize: return rec_quantize ? "On" : "Off";
+        case UsbVolume: return usb_full ? "Full" : "Knob";
         default: return std::to_string(screen) + " %";
         }
     }
@@ -209,6 +213,7 @@ struct Settings {
         case RepeatVelocity: repeat_pressure = !repeat_pressure; break;
         case SeqFollow: seq_follow = uint8_t(step_in(seq_follow % 3, 3, way)); break;
         case RecQuantize: rec_quantize = !rec_quantize; break;
+        case UsbVolume: usb_full = !usb_full; break;
         default: break;
         }
     }
@@ -266,6 +271,7 @@ struct Settings {
         case RepeatVelocity: return repeat_pressure;
         case SeqFollow: return seq_follow % 3u;
         case RecQuantize: return rec_quantize;
+        case UsbVolume: return usb_full;
         default: return 0;
         }
     }
@@ -301,6 +307,7 @@ struct Settings {
         case RepeatVelocity: repeat_pressure = n; break;
         case SeqFollow: seq_follow = uint8_t(n); break;
         case RecQuantize: rec_quantize = n; break;
+        case UsbVolume: usb_full = n; break;
         default: break;
         }
     }
@@ -350,7 +357,7 @@ struct Settings {
             << "\nrecall_grab=" << int(sampling.grab) << "\nrecall_gap=" << int(sampling.gap) << "\nrecall_trim=" << int(sampling.trim_end)
             << "\nauto_end=" << int(sampling.auto_end) << "\nauto_end_after=" << int(sampling.end_after)
             << "\nsilence_db=" << sampling.silence_db()
-            << "\naudio_rate=" << audio_rate << "\naudio_periods=" << int(audio_periods)
+            << "\naudio_rate=" << audio_rate << "\naudio_periods=" << int(audio_periods) << "\nusb_volume=" << int(usb_full)
             << "\nscreen_mirror=" << int(mirror) << "\nmirror_size=" << int(mirror_size) << "\nmirror_fps=" << int(mirror_fps) << '\n';
         write_midi_config(out, midi);
         for (unsigned e = 0; e < engines; ++e) {
@@ -422,6 +429,7 @@ struct Settings {
             else if (key == "auto_end_after") sampling.end_after = uint8_t(std::clamp(value, 0, int(SamplingPrefs::end_count) - 1));
             else if (key == "silence_db") sampling.silence = SamplingPrefs::silence_index(value);
             else if (key == "audio_rate") { if (std::find(rates.begin(), rates.end(), unsigned(value)) != rates.end()) audio_rate = uint32_t(value); }
+            else if (key == "usb_volume") usb_full = value != 0;
             else if (key == "audio_periods") { audio_periods = uint8_t(std::clamp(value, 2, 8)); audio_periods = buffers[size_t(buffer_index())]; }
             else if (key == "screen_mirror") mirror = value != 0;
             else if (key == "mirror_size") mirror_size = uint8_t(std::clamp(value, 0, int(ScreenMirror::size_count) - 1)); // 1920 x 1440 and up: 1280 x 960
