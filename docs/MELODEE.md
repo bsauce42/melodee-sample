@@ -2521,6 +2521,10 @@ it is moved, or from the old folder while it is still there (`card_plugin_path()
   32 entries) and keeps what each saves of itself (its state) in the file.
   A path not starting at `/` is the card's (`Melodee/Plugins/...` from its top): it
   opens from whichever card is in, and tries again when a card comes.
+- A plug-in picked over one in use asks first ("Replace <name>?") and is one
+  undo step: the old plug-in loads again with its state as it was, and a redo
+  brings the new one back as it was when undone (`PluginSwap` in
+  `shell/history.h`, `PluginRack::restore`).
 - **Not yet.** Plug-in parameters take no Motion and no undo; Knob FX and
   a kit pad's chain take no plug-ins; editors are never shown.
 - `tools/vst_probe/` is a command-line host on the same code, for trying a

@@ -571,6 +571,23 @@ void PluginRack::reload(unsigned entry) {
     e.reload = true;
 }
 
+std::vector<uint8_t> PluginRack::state(unsigned entry) const {
+    if (entry >= max_plugins) return {};
+    std::lock_guard<std::mutex> held(lock);
+    const auto& e = entries[entry];
+    if (!e.live || e.status != PluginStatus::Ready) return e.state;
+    juce::MemoryBlock block;
+    e.live->instance->getStateInformation(block);
+    return {static_cast<const uint8_t*>(block.getData()), static_cast<const uint8_t*>(block.getData()) + block.getSize()};
+}
+
+void PluginRack::restore(unsigned entry, std::vector<uint8_t> state) {
+    if (entry >= max_plugins) return;
+    std::lock_guard<std::mutex> held(lock);
+    entries[entry].state = std::move(state);
+    entries[entry].reload = true; // plan_plugin keeps this state for whichever plug-in loads
+}
+
 PluginStatus PluginRack::status(unsigned entry) const {
     if (entry >= max_plugins) return PluginStatus::None;
     std::lock_guard<std::mutex> held(lock);

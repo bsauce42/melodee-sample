@@ -130,7 +130,7 @@ std::string ask_detail(const Project& project, const UiState& ui, const Pattern&
     if (ui.ask == UiState::Ask::InstallUpdate) return "The project is saved first, then Melodee restarts.";
     if (ui.ask == UiState::Ask::Unfreeze) return "Its sound plays live again; prints stay until what made them changes.";
     if (ui.ask == UiState::Ask::DeleteFile) return "It goes from the card. Undo can't bring it back.";
-    if (ui.ask == UiState::Ask::ReplacePlugin) return "Its sound and settings go. Undo can't bring them back.";
+    if (ui.ask == UiState::Ask::ReplacePlugin) return "Its sound and settings go. Undo brings them back.";
     if (ui.ask == UiState::Ask::NewProject)
         return ui.ask_target == 1 ? "Changes are saved first." : ui.ask_target == 2 ? "Unsaved changes are lost." : "The open project closes.";
     return {};

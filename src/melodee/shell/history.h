@@ -127,6 +127,15 @@ struct ChopState {
     }
 };
 
+// A plug-in picked over one in use (shell/plugin_jobs.cpp): the entry's plug-in on either side and its state. The
+// side an undo or redo leaves takes the plug-in's state as it is then (Context::swap_plugin), so each comes back as
+// it was last heard.
+struct PluginSwap {
+    uint8_t entry = 0;
+    PluginRef before, after;
+    std::vector<uint8_t> state_before, state_after;
+};
+
 struct Edit {
     std::string what;             // shown on undo and redo: "Delete A01"
     uint8_t track = 0;
@@ -155,6 +164,7 @@ struct Edit {
     std::unique_ptr<MasterState> master_before, master_after;
     std::unique_ptr<ChopState> chop_before, chop_after;
     std::unique_ptr<TempoState> tempo_before, tempo_after; // the wheel, K1, B1 / B3, Minus / Plus and Tap Tempo
+    std::unique_ptr<PluginSwap> plugin; // a plug-in replaced (its track's name and pads in track_before / after)
 };
 
 class History {

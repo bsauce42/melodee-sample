@@ -220,6 +220,7 @@ public:
     Edit begin_edit(const char* what, unsigned t, int p, bool song); // what may change, as it is now
     void commit_edit(Edit&& edit);                                    // as it is after; kept if anything changed
     void apply_edit(const Edit& edit, bool after);
+    void swap_plugin(Edit& edit, bool after); // a plug-in replaced, undone or done again (shell/plugin_jobs.cpp)
     void restore_song(const Song& value);
     void restore_motion(const TrackMotion& value); // a track's patterns' motion as it was (an effect moved or removed)
     TrackMotion track_motion(unsigned track) const;

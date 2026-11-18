@@ -72,6 +72,11 @@ public:
     // The same plug-in opened again at the next sync() (picked again after it failed or stopped working), with the
     // state it last had.
     void reload(unsigned entry);
+    // One entry's state as it is now, as states() gives it.
+    std::vector<uint8_t> state(unsigned entry) const;
+    // Undo or redo of a plug-in replaced (shell/plugin_jobs.cpp): the entry opened again at the next sync() with
+    // `state`, whichever plug-in the project names for it then.
+    void restore(unsigned entry, std::vector<uint8_t> state);
 
     // MIDI thread: the panel for `entry` with row `row` of its parameters on
     // K1-K3; a parameter by its place among the shown ones, 0..plugin_param_max.

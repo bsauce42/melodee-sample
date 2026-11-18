@@ -17406,6 +17406,24 @@ void deep_freeze_f2d() {
     // The track's plug-in taken off while asleep: let go entirely.
     back->tracks[1].fx.slots[0] = {};
     CHECK(step(1, deep, 96000, false) == PluginStep::Unload && !plan[1].asleep && plan[1].state.empty());
+
+    // A plug-in replaced, then undone and done again (Context::swap_plugin, PluginRack::restore): another plug-in in
+    // a loaded entry starts from its own defaults; a restore's reload keeps the state handed back, whichever loads.
+    {
+        PluginPlan p;
+        p.path = "Old.vst3"; p.status = PluginStatus::Ready; p.rate = 48000; p.state = {1, 2};
+        CHECK(plan_plugin(p, "New.vst3", 0, false, 48000, true) == PluginStep::Load && p.state.empty() && p.path == "New.vst3");
+        p.status = PluginStatus::Ready;
+        p.state = {1, 2}; p.reload = true; // undo: the old plug-in's state, kept in the edit
+        CHECK(plan_plugin(p, "Old.vst3", 0, false, 48000, true) == PluginStep::Load && p.state == std::vector<uint8_t>({1, 2}));
+        p.status = PluginStatus::Ready;
+        p.state = {7}; p.reload = true; // redo: the new one's, as it was when undone
+        CHECK(plan_plugin(p, "New.vst3", 0, false, 48000, true) == PluginStep::Load && p.state == std::vector<uint8_t>({7}));
+        Edit replaced;
+        replaced.plugin = std::make_unique<PluginSwap>();
+        std::snprintf(replaced.plugin->before.name, sizeof(PluginRef::name), "Surge XT");
+        CHECK(replaced.plugin->before.used() == false && std::string(replaced.plugin->before.name) == "Surge XT");
+    }
     std::puts("deep freeze ok");
 }
 

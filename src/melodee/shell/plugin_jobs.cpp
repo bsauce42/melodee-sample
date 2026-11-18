@@ -108,7 +108,7 @@ void Context::choose_plugin(const PluginFile& file) {
     ui.plugin_replace = false;
     if (entry >= 0 && project.plugins[size_t(entry)].used() && !replace_asked
         && !(file.path == project.plugins[size_t(entry)].path && file.id == project.plugins[size_t(entry)].id)) {
-        // Another plug-in over one in use: its sound and settings would go, and undo can't keep them; ask first
+        // Another plug-in over one in use: its sound and settings go (undo brings them back); ask first
         std::snprintf(ui.ask_name.data(), ui.ask_name.size(), "%s", project.plugins[size_t(entry)].name);
         ask(*this, UiState::Ask::ReplacePlugin, int(ui.plugins_cursor));
         return;
@@ -126,6 +126,17 @@ void Context::choose_plugin(const PluginFile& file) {
     }
     auto& ref = project.plugins[size_t(entry)];
     bool same = file.path == ref.path && file.id == ref.id;
+    // Another plug-in over one in use: one undo step, the old plug-in back with its state (swap_plugin); on a
+    // track, its name and pads too.
+    if (!made && !same && ref.used()) {
+        made = std::make_unique<Edit>(begin_edit((std::string("Replace ") + ref.name).c_str(), ui.track, -1, false));
+        made->motion_before.reset();
+        made->plugin = std::make_unique<PluginSwap>();
+        made->plugin->entry = uint8_t(entry);
+        made->plugin->before = ref;
+        made->plugin->state_before = plugins->state(unsigned(entry));
+        if (instrument) made->track_before = std::make_unique<TrackState>(track_state(*this, ui.track));
+    }
     std::snprintf(ref.path, plugin_path_length, "%s", file.path.c_str());
     std::snprintf(ref.name, sizeof(ref.name), "%s", file.name.c_str());
     ref.id = file.id;
@@ -143,9 +154,8 @@ void Context::choose_plugin(const PluginFile& file) {
         std::transform(name.begin(), name.end(), name.begin(), [](unsigned char ch) { return char(std::toupper(ch)); });
         tr.set_name(name.c_str());
         if (made) {
-            stage_go(ui, 0, 0); // B1: its PRESETS (or its face), as a new kit's TRIM
+            if (!made->plugin) stage_go(ui, 0, 0); // a new track: B1, its PRESETS (or its face), as a new kit's TRIM
             made->track_after = std::make_unique<TrackState>(track_state(*this, t));
-            edits.push(std::move(*made));
         }
     } else {
         unsigned count = project.chain(n).count();
@@ -155,11 +165,28 @@ void Context::choose_plugin(const PluginFile& file) {
         ui.fx_cursor[UiState::cursor_of(n)] = uint8_t(k);
         ui.fx_row[UiState::cursor_of(n)] = 0;
     }
+    if (made) {
+        if (made->plugin) made->plugin->after = ref;
+        edits.push(std::move(*made));
+    }
     ui.plugin_row[size_t(entry)] = 0;
     dirty = true;
     plugins->sync(project, plugins_asleep());
     notice("Loading " + file.name);
     open(ui.plugin_back);
+}
+
+void Context::swap_plugin(Edit& e, bool after) {
+    if (!e.plugin) return;
+    auto& swap = *e.plugin;
+    const unsigned entry = swap.entry % max_plugins;
+    if (plugins) (after ? swap.state_before : swap.state_after) = plugins->state(entry); // the side left, as heard now
+    project.plugins[entry] = after ? swap.after : swap.before;
+    ui.plugin_row[entry] = 0;
+    dirty = true;
+    if (!plugins) return;
+    plugins->restore(entry, after ? swap.state_after : swap.state_before);
+    plugins->sync(project, plugins_asleep());
 }
 
 void Context::set_plugin_param(int32_t id, int value) {

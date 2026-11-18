@@ -1611,6 +1611,7 @@ void Context::undo() {
     Edit* e = edits.undo();
     if (!e) { notice("Nothing to undo"); return; }
     apply_edit(*e, false);
+    swap_plugin(*e, false);
     notice("Undo " + e->what);
 }
 
@@ -1624,6 +1625,7 @@ void Context::redo() {
     Edit* e = edits.redo();
     if (!e) { notice("Nothing to redo"); return; }
     apply_edit(*e, true);
+    swap_plugin(*e, true);
     notice("Redo " + e->what);
 }
 

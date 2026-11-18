@@ -176,7 +176,8 @@ void draw_ask_sheet(Paint& p, const Snapshot& s) {
     case Ask::ReplacePlugin: { // a picked plug-in over one in use (shell/plugin_jobs.cpp)
         sheet.icon = Icon::Plug;
         sheet.title = "Replace " + juce::String::fromUTF8(s.ui.ask_name.data()) + "?";
-        sheet.lines = {"Its sound and settings go.", "Undo can't bring them back."};
+        sheet.lines = {"Its sound and settings go.", undo_line};
+        sheet.undo = true;
         bool instrument = s.ui.plugin_target == UiState::PluginTarget::Instrument;
         sheet.chip = instrument ? "TRACK " + juce::String(track + 1) : juce::String("EFFECT");
         sheet.chip_colour = colour_of(s);
