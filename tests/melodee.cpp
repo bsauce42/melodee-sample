@@ -4036,6 +4036,10 @@ void auto_chop_kinds() {
     for (const auto& k : kit)
         for (unsigned n = k.slice % 2; n < s.count; n += 2) CHECK(s.end(n, shots.frames) - s.start[n] <= s.end(k.slice, shots.frames) - s.start[k.slice]);
     CHECK(std::string(slice_play_name(SlicePlay::Kit)) == "KIT" && unsigned(SlicePlay::Count) == 4);
+    std::array<int, max_slices> sound_of; // each slice to its sound, for TO PADS' pattern
+    kit_sounds(s, shots.frames, shots.hits, shots.count, shots.autos, &sound_of);
+    for (unsigned n = 0; n < s.count; ++n) CHECK(sound_of[n] == (n % 2 == kit[0].slice % 2 ? 0 : 1));
+    CHECK(sound_of[s.count] == -1);
 
     // SLICES: 8, 16, 32, 64 on Shift + K3 (16 to start); Auto is the fifth type.
     CHECK(auto_slice_count(0) == 8 && auto_slice_count(int(auto_default_count)) == 16 && auto_slice_count(3) == 64 && auto_slice_count(9) == 64);
@@ -8263,6 +8267,50 @@ void zero_snap() {
         Settings picked; picked.slice_play = 2;
         back.read(picked.text());
         CHECK(back.slice_play == 2);
+    }
+    // TO PADS' pattern (Live's Slice to New MIDI Track): the slices' notes where they fall, as the pads play them.
+    {
+        PadSound plain;
+        auto ticks = [](double per_frame, uint32_t frames) { return std::lround(per_frame * frames); };
+        CHECK(ticks(slice_ticks_per_frame(plain, false, 88200, 1200), 44100) == 192);  // as recorded: a second at 120 BPM, 2 beats
+        CHECK(ticks(slice_ticks_per_frame(plain, false, 88200, 900), 44100) == 144);   // the same second at 90 BPM
+        PadSound follows = plain; follows.own_tempo = 900;
+        CHECK(ticks(slice_ticks_per_frame(follows, true, 88200, 1200), 44100) == 144); // Follow: at its own 90, whatever the pattern's
+        CHECK(ticks(slice_ticks_per_frame(follows, false, 88200, 1200), 44100) == 192); // Follow off: as recorded
+        PadSound seq = plain; seq.warp = warp_seq; seq.beats = 8;                       // 8 beats in 4 s: 120 BPM of its own
+        CHECK(ticks(slice_ticks_per_frame(seq, false, 176400, 900), 44100) == 192);
+        PadSound twice = plain; twice.warp = 200;                                       // 200 %: twice as long
+        CHECK(ticks(slice_ticks_per_frame(twice, false, 88200, 1200), 44100) == 384);
+        // Four slices of a bar at 120 BPM (2 s) on pads A01-A03 and A05: a bar with a note on each beat, as long as its slice.
+        Slices sl;
+        sl.whole(0, 88200); sl.add(22050, 88200); sl.add(44100, 88200); sl.add(66150, 88200);
+        std::array<int, max_slices> keys;
+        keys.fill(-1);
+        keys[0] = 36; keys[1] = 37; keys[2] = 38; keys[3] = 40;
+        const double per = slice_ticks_per_frame(plain, false, 88200, 1200);
+        Pattern made = slice_pattern(sl, 88200, keys, per, 384, 384 * 64);
+        CHECK(made.length == 384 && made.events.size() == 4 && !made.free);
+        CHECK(made.events[0].tick == 0 && made.events[1].tick == 96 && made.events[3].tick == 288 && made.events[3].key == 40);
+        CHECK(made.events[2].length == 96 && made.events[2].velocity == 127);
+        keys[1] = -1; // a slice with no pad: no note
+        CHECK(slice_pattern(sl, 88200, keys, per, 384, 384 * 64).events.size() == 3);
+        keys[1] = 36; // KIT: two slices of one sound, one pad
+        made = slice_pattern(sl, 88200, keys, per, 384, 384 * 64);
+        CHECK(made.events.size() == 4 && made.events[0].key == 36 && made.events[1].key == 36);
+        // Near a bar's end it is that bar; past an eighth more, the next whole one; never past `most`.
+        Slices near;
+        near.whole(0, 86900);
+        CHECK(slice_pattern(near, 86900, keys, per, 384, 384 * 64).length == 384);
+        Slices longer;
+        longer.whole(0, 132300); // a bar and a half
+        CHECK(slice_pattern(longer, 132300, keys, per, 384, 384 * 64).length == 768);
+        CHECK(slice_pattern(longer, 132300, keys, per, 384, 384).length == 384);
+        // PATTERN on at first, off kept.
+        Settings none; none.slice_pattern = false;
+        back.read(none.text());
+        CHECK(fresh.slice_pattern && !back.slice_pattern);
+        back.read(fresh.text());
+        CHECK(back.slice_pattern);
     }
     // Chop's K3: the type picked last is kept with the settings, Threshold at first; a sample with no chop opens on it.
     {

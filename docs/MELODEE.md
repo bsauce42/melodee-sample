@@ -1675,7 +1675,12 @@ the file holds, to the bit.
   takes a slice out (into the one before; slice 1 into the one after, the
   pads after it moving down one; `Context::chop_erase`), Erase + Chop every cut. B3 TO PADS asks how they play, as Simpler's Playback
   (cards POLY, MONO: one mute group, THRU: that and each on to the region's
-  end; the last pick kept with the settings) and lays the slices on pads, B1 CANCEL drops
+  end; the last pick kept with the settings; PATTERN on, as Live's Slice to
+  New MIDI Track, a note for each slice where it falls, at the pad's speed
+  (Warp's Seq or Follow: the region's own tempo; 50-200 %; else as
+  recorded), KIT's on its sound's pad, into the track's pattern when empty,
+  else the first empty one, which then plays; one undo step with the pads)
+  and lays the slices on pads, B1 CANCEL drops
   the chop. As on the MPC, slices belong to the sample and live in its WAV
   file (the `atem` and `slic` chunks, `shell/mpc_wav_slices.cpp`; beside
   them Melodee's own `mlch` chunk, JSON, which other software passes over:

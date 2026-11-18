@@ -287,7 +287,7 @@ a pad to play its slice and select it. Press **CHOP** again to go back to
 | **SHIFT** + **K1** / **K2** | Zoom in at the slice's start / end. |
 | **PAD BANK** | The next 16 slices on the pads (A: 1–16, B: 17–32, up to D). **SHIFT** + **PAD BANK**: the 16 before. |
 | **B1** (**CANCEL**) | Leave without changing the pads. |
-| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono or Thru. |
+| **B3** (**TO PADS**) | Put the slices on pads, as Poly, Mono, Thru or Kit, with a pattern of them. |
 | **SHIFT** + **B1** (**EXTRACT**) | Save the slice as a new file in `Melodee/Samples/Edits` and put it on the next empty pad. **SHIFT** + **ERASE** does the same. |
 | **SHIFT** + **B2** (**SPLIT**) | Split the slice in two. |
 | **SHIFT** + **B3** (**MERGE**) | Join the slice to the one before. |
@@ -419,6 +419,15 @@ land just next to a hand cut, the hand cut wins and no sliver is left.
 **B1** (**BACK**) closes the sheet. MONO, THRU and KIT's hats use the chopped
 pad's mute group, or the first free one. Slices put on pads keep the chopped pad's
 tune, Warp, mute group and other settings.
+
+The **PATTERN** card turns the pattern on or off (push the encoder on it).
+When it is on, TO PADS also writes a pattern with a note for each slice where
+it falls, so **PLAY** gives you the loop back, now on pads you can change.
+With KIT, each slice's note plays the pad of its sound. The pattern goes into
+the track's pattern if that is empty, else into the first empty one, which
+then plays. The notes follow how the pads play: with Warp or Follow at the
+loop's own tempo, else as it was recorded. Undo takes back the pads, the
+pattern and which pattern plays in one step.
 
 ### Slices in the WAV file
 

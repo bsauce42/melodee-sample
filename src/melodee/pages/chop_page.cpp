@@ -32,11 +32,13 @@
 // Shift + B1 Extract (the slice as a file, onto the next empty pad), Shift +
 // B2 Split (the slice in two), Shift + B3 Merge (with the slice before);
 // Erase + pad takes a slice out (it joins the one before; slice 1 the one after). B3 TO PADS asks
-// how they play, as Simpler's Playback (cards POLY, MONO, THRU, starting on
+// how they play, as Simpler's Playback (cards POLY, MONO, THRU, KIT, starting on
 // the last pick, kept with the settings; the wheel moves, Push lays them, B1
 // BACK), then lays every slice onto pads from the first free one as regions
 // of the same file (MONO: one mute group; THRU: that, each on to the
-// region's end); B1
+// region's end). The PATTERN card (Push turns it on or off, the cards stay)
+// writes a pattern of the slices too, as Live's Slice to New MIDI Track
+// (Context::chop_to_pads; one undo step with the pads); B1
 // drops the chop; B2 is free: Zero Snap is always on (every cut onto a zero
 // crossing, shell/chop.h). Erase + Chop takes every cut out (one slice
 // again; on Manual pad 1 red for a new take); Push only lays TO PADS' cards.
@@ -60,6 +62,8 @@
 namespace melodee {
 namespace {
 using namespace ui;
+
+constexpr unsigned to_pads_pattern = unsigned(SlicePlay::Count), to_pads_rows = to_pads_pattern + 1; // TO PADS' cards: the four, PATTERN
 
 // Every change of view eases there over view_ease_ms (the wheel closing in on a cut and the next pad opening out
 // again, Shift + K): about the point at the same place across the screen in both views, the width by the same
@@ -309,7 +313,9 @@ void draw(Paint& p, const Snapshot& s) {
         m.items[2] = card_item(Icon::ArrowRight, slice_play_name(SlicePlay::Thru), "on to the end");
         const size_t sounds = kit_sounds(slices, frames, s.sample.hits, s.sample.hit_count, s.sample.autos).size();
         m.items[3] = card_item(Icon::Pads, slice_play_name(SlicePlay::Kit), juce::String(sounds) + (sounds == 1 ? " sound" : " sounds"));
-        m.count = unsigned(SlicePlay::Count); m.current = s.ui.sheet_row % m.count;
+        const bool pattern = s.ui.settings.slice_pattern; // Push turns it on or off; the cards stay
+        m.items[to_pads_pattern] = card_item(Icon::Pattern, "PATTERN", pattern ? "ON" : "OFF", pattern);
+        m.count = to_pads_rows; m.current = s.ui.sheet_row % m.count;
         card_sheet(p, m);
     }
 }
@@ -336,7 +342,7 @@ void pick(Context& c, int delta) {
 
 void wheel(Context& c, int delta) {
     auto& ui = c.ui;
-    if (ui.sheet_open) { ui.sheet_row = uint8_t(std::clamp<int>(ui.sheet_row + delta, 0, int(SlicePlay::Count) - 1)); return; }
+    if (ui.sheet_open) { ui.sheet_row = uint8_t(std::clamp<int>(ui.sheet_row + delta, 0, int(to_pads_rows) - 1)); return; }
     const auto& sl = ui.slices;
     const uint32_t frames = chop_frames(c.project, ui);
     if (!sl.count || !frames) return;
@@ -355,13 +361,19 @@ void wheel(Context& c, int delta) {
     ui.turning = int8_t(k); ui.turned_at = c.now;
 }
 
-// TO PADS' card picked: the slices laid that way, the choice kept for next time, and their sound opened.
+// TO PADS' card picked: POLY, MONO, THRU or KIT lays the slices that way (and their pattern, PATTERN on), the choice
+// kept for next time, and their sound opened; PATTERN turns the pattern on or off, the cards staying.
 void lay(Context& c) {
     auto& ui = c.ui;
+    if (ui.sheet_row % to_pads_rows == to_pads_pattern) {
+        ui.settings.slice_pattern = !ui.settings.slice_pattern;
+        if (c.store) c.store->save_settings(ui.settings.text());
+        return;
+    }
     ui.sheet_open = false;
     ui.settings.slice_play = uint8_t(ui.sheet_row % unsigned(SlicePlay::Count));
     if (c.store) c.store->save_settings(ui.settings.text());
-    c.chop_to_pads(SlicePlay(ui.settings.slice_play));
+    c.chop_to_pads(SlicePlay(ui.settings.slice_play), ui.settings.slice_pattern);
     c.open(PageId::Stage); // the slices' sound (Sample held shows their pads)
 }
 

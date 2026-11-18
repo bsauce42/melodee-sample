@@ -557,7 +557,7 @@ public:
     void trim_moved(const FrameView& was); // a Trim or Chop handle moved: the view zoomed in keeps it in sight
     void chop_moved(const FrameView& was);
     bool exact_cut = false;                // the wheel's cut is where it goes (not pulled back by zero_cut)
-    void chop_to_pads(SlicePlay play);                                 // the slices onto pads, from the first free one, as `play` lays them
+    void chop_to_pads(SlicePlay play, bool pattern);                   // the slices onto pads, from the first free one, as `play` lays them; `pattern`: a pattern of them too
     void follow_tempos(); // Follow on: each pad's own tempo, from its length as whole bars
     bool host_recording() const;                                       // a take is armed, cued or running
     // Input Config and Sample Record (parity phase 6, shell/sample_record.cpp).
