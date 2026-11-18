@@ -1989,8 +1989,8 @@ shows it, the header says what and how much.
 
 ### MIDI and sync
 
-**MIDI Config** (Settings' MIDI door, Shift + Pad 8; wheel, Push opens a value, −/+ change it, B1
-back): port (External jacks or USB), In channel (All, 1–16: plays the
+**MIDI Config** (Settings' MIDI door, Shift + Pad 8; the wheel picks a row, K1 sets it (its card), −/+ step
+it, Push does MIDI Panic and Reset, B1 back): port (External jacks or USB), In channel (All, 1–16: plays the
 selected track), Out channel, Track Channel (a track's own: plays it
 whichever is selected, and its notes go out there), Pad MIDI In / Out
 (Never, Always, Empty), Sync In / Out (Off, MIDI Clock, MTC), Thru, Program
@@ -2119,8 +2119,10 @@ while following.
   `shell/card_access.*`.
 - **Settings** (Shift + Pad 8; Melodee's, the same for every project, as is
   the metronome): eight doors, four by two (the wheel picks, Push or B3
-  opens, B1 back), each a short list (Push opens a value, the wheel changes
-  it, −/+ at once, B1 back to the doors). **PADS**: pad response (soft,
+  opens, B1 back), each a short list (the wheel picks a row, K1 sets it
+  through its values (its card), −/+ step it, B1 back to the doors; Sample
+  rate, Audio buffer and Screen Mirror's rows wait until K1 has rested half a
+  second, shown in amber till then, so the device reopens once). **PADS**: pad response (soft,
   medium, hard, full level), pad pressure on / off, Double Seq. **LIGHTS**:
   Pad lights, Pad fade (60, 100, 150, 250 ms; 100 by default: how fast a
   pad's flare fades after its sound stops or it is let go), Tap Tempo light

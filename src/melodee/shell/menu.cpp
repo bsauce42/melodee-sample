@@ -69,7 +69,7 @@ void go(Context& c, unsigned tile) {
         break;
     case 14: // Settings, as Shift + Pad 8
         if (ui.page == PageId::SettingsPage) break;
-        ui.midi_editing = false; ui.settings_editing = false; ui.settings_in = false; ui.settings_look = false;
+        ui.settings_in = false; ui.settings_look = false;
         c.open(PageId::SettingsPage);
         break;
     default: break; // LEARN, above

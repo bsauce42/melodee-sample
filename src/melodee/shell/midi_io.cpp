@@ -79,6 +79,13 @@ void Context::change_midi(unsigned row, int way) {
     if (store) store->save_settings(ui.settings.text());
 }
 
+void Context::set_midi(unsigned row, unsigned value) {
+    if (row >= PanicRow || midi_row_choice(ui.settings, track(), row) == value) return;
+    midi_row_set(ui.settings, track(), row, value);
+    if (row == TrackChannelRow || row == TrackInRow) dirty = true; // the project keeps them
+    settings_save_at = std::max<uint32_t>(now, 1) + 1000; // pots move in many steps: the card gets the last
+}
+
 void Context::midi_panic() {
     midi_release_all();
     send({Type::AllNotesOff, 255}); // the engines, and the notes the engine host still owes an off

@@ -30,6 +30,7 @@ struct Binding {
         ProjectJump, ProjectSort,          // Project
         Tempo, ClickLevel,                 // Tempo (Swing as on Length)
         Features,                          // Settings' K1: 0 Basic, 1 Full (shell/features.h)
+        SettingRow, MidiRow,               // Settings' and MIDI Config's K1: the row under the cursor (id), its value as a list
         ArpMode, ArpRate, ArpOctaves,      // Arp
         ChordType, ChordVoicing, ChordInvert, // Chord
         PadFine, PadPlayMode, PadGroup, PadReverse, PadAttack, PadDecay, PadRelease, PadSustain, // sampler pages

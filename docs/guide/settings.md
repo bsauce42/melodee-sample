@@ -5,9 +5,11 @@ Previous: [Projects and files](projects-and-files.md) · [Contents](../GUIDE.md)
 Press **SHIFT** + **Pad 8**. Turn the encoder to a page and push it (or
 press **B3**, **OPEN**) to open it. **B1** goes back.
 
-On a page, turn the encoder to a row and push to open it. Turn the encoder
-to change it and push again to keep it. **−** / **+** change the row under
-the cursor at once. A page with more rows than the screen holds scrolls: a
+On a page, turn the encoder to a row. **K1** sets it: its card shows the
+row's name and value. **−** / **+** step it one value at a time. **Sample
+rate**, **Audio buffer** and the three Screen Mirror rows change once **K1**
+stops turning; until then the new value shows in amber. A page with more
+rows than the screen holds scrolls: a
 bar at the right edge shows where you are, with an arrow at the top or
 bottom while more rows are that way. On the first page and on **AUDIO**,
 the header shows the sample rate and the buffer (in ms) the audio runs at,

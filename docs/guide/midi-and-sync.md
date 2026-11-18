@@ -2,10 +2,11 @@
 
 Previous: [Mixer and effects](mixer-and-effects.md) · [Contents](../GUIDE.md) · Next: [Projects and files](projects-and-files.md)
 
-Press **SHIFT** + **Pad 8**, then open **MIDI**. Turn the encoder to a row
-and push to open it. Turn the encoder to change it and push again to keep
-it. **−** / **+** change the row under the cursor at once. **B1** goes
-back. The header lights **IN** and **OUT** as MIDI passes.
+Press **SHIFT** + **Pad 8**, then open **MIDI**. Turn the encoder to a row.
+**K1** sets it: its card shows the row's name and value. **−** / **+** step
+it one value at a time. **MIDI panic** and **Reset factory settings** are
+done with **Push**. **B1** goes back. The header lights **IN** and **OUT**
+as MIDI passes.
 
 ![MIDI Config](../images/screens/midiconfig.png)
 

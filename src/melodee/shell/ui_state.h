@@ -182,7 +182,6 @@ struct UiState {
     Pot fader;
     uint32_t fader_moved_at = 0;
     uint8_t midi_cursor = 0;                  // MIDI Config: the row under the cursor (shell/midi_config_rows.h)
-    bool midi_editing = false;                // and its value open (the wheel changes it)
     uint32_t midi_in_at = 0, midi_out_at = 0; // ms: MIDI last came in, went out (the page's lights)
     std::array<uint32_t, track_count> track_out_at {}; // ms: a MIDI track last sent on its own port (Edit's DEVICE picture)
     // midi-track A (round 2): the last notes MIDI tracks sent, for their DEVICE picture: the track, key and velocity,
@@ -391,7 +390,10 @@ struct UiState {
     uint16_t move_cursor = 0;
     uint16_t user_sound_count = 0;            // sounds of one's own for the track's engine, copied in by the shell
     uint8_t settings_cursor = 1;              // the row (Settings::Row) in hand behind a door
-    bool settings_editing = false;            // Push opened the value under the cursor
+    // K1 on a row that reopens the audio device or the USB camera (Settings::reopens): the value it waits to set
+    // until the knob rests (Context::settings_tick); -1 none.
+    int8_t settings_wait_row = -1;
+    uint8_t settings_wait_value = 0;
     uint8_t settings_door = 0;                // Settings: the door in hand (pages/settings_page.cpp)
     bool settings_in = false;                 // and behind it: its rows
     bool settings_look = false;               // SCREEN's Palette or Font row: its cards over the rows, the look turned live

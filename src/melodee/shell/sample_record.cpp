@@ -258,6 +258,15 @@ void Context::record_tick(uint32_t at) {
         for (unsigned pad = 0; pad < 16; ++pad)
             if (record_key_held(pad)) record_key(pad, 0, false);
     if (gain_sent != in.gain) { send({Type::RecordGain, 0, 0, 0, int16_t(in.gain)}); gain_sent = in.gain; }
+    // K1 on a row that reopens the audio device or the camera: set once the knob has rested half a second.
+    if (ui.settings_wait_row >= 0 && at - settings_wait_at >= 500) {
+        unsigned row = unsigned(ui.settings_wait_row);
+        ui.settings_wait_row = -1;
+        if (ui.settings.choice(row) != ui.settings_wait_value) {
+            ui.settings.set_choice(row, ui.settings_wait_value);
+            if (store) store->save_settings(ui.settings.text());
+        }
+    }
     if (settings_save_at && at >= settings_save_at) {
         settings_save_at = 0;
         if (store) store->save_settings(ui.settings.text());

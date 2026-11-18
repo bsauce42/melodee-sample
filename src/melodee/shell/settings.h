@@ -208,6 +208,100 @@ struct Settings {
         default: break;
         }
     }
+    // A row's values as a list, for K1 (pages/settings_page.cpp): how many, which one it is at, and set to one.
+    // On / Off rows are Off first; Brightness goes 20 to 100 % in tens.
+    unsigned choices(unsigned row) const {
+        switch (row) {
+        case Palette: return unsigned(ui::palettes.size());
+        case Font: return ui::face_choices;
+        case PadResponse: return 4;
+        case PadLights: case CaptureQuantize: case SeqFollow: return 3;
+        case KnobTakeover: case KnobFxTakeover: case FaderTakeover: return unsigned(Takeover::Count);
+        case CaptureBars: return unsigned(capture_lengths.size());
+        case Screen: return 9;
+        case SampleRate: return unsigned(rates.size());
+        case AudioBuffer: return unsigned(buffers.size());
+        case RecallGrabRow: return unsigned(RecallGrab::Count);
+        case RecallGap: return SamplingPrefs::gap_count;
+        case TakeAutoEnd: return unsigned(AutoEnd::Count);
+        case AutoEndAfter: return SamplingPrefs::end_count;
+        case SilenceBelow: return SamplingPrefs::silence_count;
+        case MirrorSize: return ScreenMirror::size_count;
+        case PadFade: return unsigned(fades.size());
+        default: return row < Rows ? 2 : 1; // On / Off, and the two-way rows
+        }
+    }
+    unsigned choice(unsigned row) const {
+        switch (row) {
+        case Palette: return palette % ui::palettes.size();
+        case Font: return font % ui::face_choices;
+        case PadResponse: return pad_response % 4u;
+        case PadPressure: return pressure;
+        case PadLights: return pad_lights % 3u;
+        case KnobTakeover: return unsigned(knob_takeover);
+        case KnobFxTakeover: return unsigned(knob_fx_takeover);
+        case FaderTakeover: return unsigned(fader_takeover);
+        case DoubleSeq: return double_copies;
+        case CaptureBars: return capture_index();
+        case CaptureQuantize: return capture_quantise % 3u;
+        case Screen: return unsigned(std::clamp((int(screen) - 20 + 5) / 10, 0, 8));
+        case PlaceBarRow: return place_bottom;
+        case SampleRate: return unsigned(rate_index());
+        case AudioBuffer: return unsigned(buffer_index());
+        case RecallGrabRow: return unsigned(sampling.grab);
+        case RecallGap: return sampling.gap;
+        case RecallTrimEnd: return sampling.trim_end;
+        case TakeAutoEnd: return unsigned(sampling.auto_end);
+        case AutoEndAfter: return sampling.end_after;
+        case SilenceBelow: return sampling.silence;
+        case Mirror: return mirror;
+        case MirrorSize: return mirror_size % ScreenMirror::size_count;
+        case MirrorRate: return mirror_fps == 60;
+        case PadFade: return pad_fade % fades.size();
+        case TapLight: return tap_light;
+        case RepeatVelocity: return repeat_pressure;
+        case SeqFollow: return seq_follow % 3u;
+        case RecQuantize: return rec_quantize;
+        default: return 0;
+        }
+    }
+    void set_choice(unsigned row, unsigned n) {
+        n = std::min(n, choices(row) - 1);
+        switch (row) {
+        case Palette: palette = uint8_t(n); break;
+        case Font: font = uint8_t(n); break;
+        case PadResponse: pad_response = uint8_t(n); break;
+        case PadPressure: pressure = n; break;
+        case PadLights: pad_lights = uint8_t(n); break;
+        case KnobTakeover: knob_takeover = Takeover(n); break;
+        case KnobFxTakeover: knob_fx_takeover = Takeover(n); break;
+        case FaderTakeover: fader_takeover = Takeover(n); break;
+        case DoubleSeq: double_copies = n; break;
+        case CaptureBars: capture_bars = capture_lengths[n]; break;
+        case CaptureQuantize: capture_quantise = uint8_t(n); break;
+        case Screen: screen = uint8_t(20 + 10 * n); break;
+        case PlaceBarRow: place_bottom = n; break;
+        case SampleRate: audio_rate = rates[n]; break;
+        case AudioBuffer: audio_periods = buffers[n]; break;
+        case RecallGrabRow: sampling.grab = RecallGrab(n); break;
+        case RecallGap: sampling.gap = uint8_t(n); break;
+        case RecallTrimEnd: sampling.trim_end = n; break;
+        case TakeAutoEnd: sampling.auto_end = AutoEnd(n); break;
+        case AutoEndAfter: sampling.end_after = uint8_t(n); break;
+        case SilenceBelow: sampling.silence = uint8_t(n); break;
+        case Mirror: mirror = n; break;
+        case MirrorSize: mirror_size = uint8_t(n); break;
+        case MirrorRate: mirror_fps = n ? 60 : 30; break;
+        case PadFade: pad_fade = uint8_t(n); break;
+        case TapLight: tap_light = n; break;
+        case RepeatVelocity: repeat_pressure = n; break;
+        case SeqFollow: seq_follow = uint8_t(n); break;
+        case RecQuantize: rec_quantize = n; break;
+        default: break;
+        }
+    }
+    // The rows that reopen the audio device or the USB camera when they change: K1 sets them once it rests.
+    static bool reopens(unsigned row) { return row == SampleRate || row == AudioBuffer || row == Mirror || row == MirrorSize || row == MirrorRate; }
     unsigned capture_index() const {
         for (unsigned n = 0; n < capture_lengths.size(); ++n) if (capture_lengths[n] == capture_bars) return n;
         return 0;

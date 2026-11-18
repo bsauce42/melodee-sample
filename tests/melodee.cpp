@@ -2681,7 +2681,22 @@ void button_remap() {
         UiState b = f; b.page = PageId::SettingsPage;
         auto cards = base_bindings(*project, b, pat);
         CHECK(cards[0].kind == Binding::Kind::Features && cards[0].value == 0 && !cards[1].bound());
-        b.settings_in = true; CHECK(!base_bindings(*project, b, pat)[0].bound());
+        // Behind a door K1 is the row under the cursor, its values as a list; Palette's cards take the wheel instead.
+        b.settings_in = true; b.settings_cursor = Settings::PadLights; b.settings.pad_lights = 1;
+        cards = base_bindings(*project, b, pat);
+        CHECK(cards[0].kind == Binding::Kind::SettingRow && cards[0].id == Settings::PadLights && cards[0].max == 2 && cards[0].value == 1 && !cards[1].bound());
+        b.settings_wait_row = int8_t(Settings::SampleRate); b.settings_wait_value = 2; b.settings_cursor = Settings::SampleRate;
+        CHECK(base_bindings(*project, b, pat)[0].value == 2); // a value waiting for K1 to rest
+        b.settings_wait_row = -1;
+        b.settings_cursor = Settings::Palette; b.settings_look = true; CHECK(!base_bindings(*project, b, pat)[0].bound());
+        b.settings_look = false; b.settings_in = false;
+        // MIDI Config: K1 the row; MIDI Panic and Reset have none.
+        b.page = PageId::MidiConfig; b.midi_cursor = OutChannelRow; b.settings.midi.out_channel = 10;
+        cards = base_bindings(*project, b, pat);
+        CHECK(cards[0].kind == Binding::Kind::MidiRow && cards[0].max == 15 && cards[0].value == 9);
+        b.midi_cursor = PanicRow; CHECK(!base_bindings(*project, b, pat)[0].bound());
+        b.midi_cursor = ResetRow; CHECK(!base_bindings(*project, b, pat)[0].bound());
+        b.page = PageId::SettingsPage;
         b.settings_in = false; b.page = PageId::Scenes;
         CHECK(base_bindings(*project, b, pat)[0].kind == Binding::Kind::PatternLength);
         b.settings.full_features = true;
@@ -6882,6 +6897,35 @@ void midi_tracks() {
               !dest_is(MidiDest::AllUsb, MidiPort::External, "SerialMIDI", false));
         CHECK(dest_is(MidiDest::Config, MidiPort::External, "SerialMIDI", false) && !dest_is(MidiDest::Config, MidiPort::External, "MIDI Gadget", false));
         CHECK(!dest_is(MidiDest::AllUsb, MidiPort::Usb, "MIDI Gadget", true)); // never the surface
+    }
+    // Settings' and MIDI Config's rows as lists for K1: every value of every row is reached, read back and named.
+    {
+        Settings set;
+        for (unsigned row = 0; row < Settings::Rows; ++row) {
+            CHECK(set.choices(row) >= 2);
+            for (unsigned n = 0; n < set.choices(row); ++n) {
+                set.set_choice(row, n);
+                CHECK(set.choice(row) == n && !set.value_text(row).empty());
+            }
+            set.set_choice(row, 99); CHECK(set.choice(row) == set.choices(row) - 1); // past the end: the last
+        }
+        Settings fresh;
+        CHECK(fresh.choice(Settings::Screen) == 8 && fresh.choice(Settings::SampleRate) == 0); // 100 %, 44.1 kHz
+        fresh.set_choice(Settings::Screen, 0); CHECK(fresh.screen == 20);
+        CHECK(Settings::reopens(Settings::SampleRate) && Settings::reopens(Settings::Mirror) && !Settings::reopens(Settings::Palette));
+        Track track;
+        for (unsigned row = 0; row < MidiRows; ++row) {
+            unsigned count = midi_row_choices(row);
+            CHECK((count == 0) == (row == PanicRow || row == ResetRow));
+            for (unsigned n = 0; n < count; ++n) {
+                midi_row_set(set, track, row, n);
+                CHECK(midi_row_choice(set, track, row) == n && !midi_row_value(set, track, row).empty());
+            }
+        }
+        Settings m; Track t;
+        midi_row_set(m, t, CvBaseRow, 0); midi_row_set(m, t, CvDivisionRow, 23); midi_row_set(m, t, TrackChannelRow, 5);
+        CHECK(m.midi.cv_base == 1 && m.midi.cv_division == 24 && t.midi_channel == 5);
+        midi_row_set(m, t, FaderTakeoverRow, 2); CHECK(m.fader_takeover == Takeover::Instant); // the takeover rows are Settings' own
     }
     // MIDI Config's MIDI Panic: a row that changes nothing when stepped.
     {

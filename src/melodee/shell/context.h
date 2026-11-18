@@ -136,6 +136,8 @@ public:
     void set_flex(unsigned what, int value);                // as Command::FlexBeat's index: 1 mode, 2 mix, 3 quantize
     void change_setting(unsigned row, int way);             // one step along a Settings row, kept on the card
     void set_look(unsigned row, unsigned value);            // Settings' Palette or Font row to one value, kept on the card
+    void set_setting(unsigned row, unsigned value);         // K1 on a Settings row: its value as a list (a row that reopens the audio
+                                                            // device or the camera waits for the knob to rest, record_tick)
     void toggle_favourite();                                // the sound under the Sounds cursor, else the loaded one
     // The Name sheet: what is named, its first text and how long it may be.
     void open_name(NameTarget target, const std::string& initial, unsigned limit, bool capitals);
@@ -572,6 +574,7 @@ public:
     void audio_recall();                                  // Shift + Sample Record: the ring's last 25 s onto the next empty pad
     void record_tick(uint32_t at);                        // often (ms): monitor and route wishes, settings kept, renders followed
     uint32_t settings_save_at = 0;                        // ms; 0 nothing waiting
+    uint32_t settings_wait_at = 0;                        // ms: K1 last moved ui.settings_wait_row's value
     uint32_t rec_armed_at = 0;                            // ms
     bool monitor_sent = false, monitor_known = false;
     int loop_monitor_sent = -1;
@@ -723,6 +726,7 @@ public:
     bool from_midi = false;                                 // note() is playing what came in: not echoed out
     uint16_t midi_echo = 0;                                 // roadmap P4 (M3): but echoed on these MIDI tracks' own ports
     void change_midi(unsigned row, int way);                // one step along a MIDI Config row (shell/midi_config_rows.h)
+    void set_midi(unsigned row, unsigned value);            // K1 on a MIDI Config row: its value as a list
     void reset_settings();                                  // MIDI Config's Reset Factory Settings, after B3
     // MIDI Panic (MIDI Config's row, `melodee-midi panic`): every note here ends, and MIDI out sends All Sound Off,
     // All Notes Off and pitch bend centre on every channel of every port (shell/midi_io.cpp, counting these).

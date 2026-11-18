@@ -10,6 +10,7 @@
 #include "melodee/shell/free_length.h"
 #include "melodee/shell/undo_scope.h"
 #include "melodee/shell/midi_ports.h"
+#include "melodee/shell/midi_config_rows.h"
 #include "melodee/engine/punch.h"
 #include "melodee/engine/arp.h"
 #include "melodee/engine/effect_info.h"
@@ -636,6 +637,23 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::PunchTail: c.label = "TAIL"; c.value = punch_tails[b.value % 3]; break;
     case Kind::ClickLevel: c.label = "CLICK"; c.value = juce::String(b.value); c.unit = "%"; break;
     case Kind::Features: c.label = "FEATURES"; c.value = b.value ? "Full" : "Basic"; break;
+    case Kind::SettingRow: { // Settings: the row under the cursor, at the card's value (one that waits for K1 to rest too)
+        Settings shown = s.ui.settings;
+        shown.set_choice(unsigned(b.id), unsigned(b.value));
+        c.label = juce::String(Settings::row_name(unsigned(b.id))).toUpperCase(); c.label_mixed = Settings::row_name(unsigned(b.id));
+        c.value = shown.value_text(unsigned(b.id));
+        break;
+    }
+    case Kind::MidiRow: { // MIDI Config: the same; the track's own two rows read off the card's value (no copy of the track)
+        unsigned row = unsigned(b.id);
+        c.label = juce::String(midi_row_name(row)).toUpperCase(); c.label_mixed = midi_row_name(row);
+        if (row == TrackChannelRow) { c.value = midi_channel_text(uint8_t(b.value), "Off"); break; }
+        if (row == TrackInRow) { c.value = track_midi_in_name(TrackMidiIn(b.value)); break; }
+        Settings shown = s.ui.settings;
+        midi_row_set(shown, row, unsigned(b.value));
+        c.value = midi_row_value(shown, track, row);
+        break;
+    }
     case Kind::ArpMode: c.label = "MODE"; c.value = arp_mode_name(ArpMode(b.value)); break;
     case Kind::ArpRate: c.label = "RATE"; c.value = arp_rate_name(unsigned(b.value)); break;
     case Kind::ArpOctaves: c.label = "OCTAVES"; c.value = juce::String(b.value); break;

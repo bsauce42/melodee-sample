@@ -7,6 +7,7 @@
 #include "melodee/shell/mix_hub.h"
 #include "melodee/model/note_edits.h"
 #include "melodee/shell/midi_ports.h"
+#include "melodee/shell/midi_config_rows.h"
 #include "melodee/shell/input_choices.h"
 #include "melodee/shell/loop_sheet.h"
 #include "melodee/shell/pad_colour.h"
@@ -1090,10 +1091,18 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
     case PageId::Stage: return stage_bindings(project, ui, pattern, false);
     // System pages: their rows take the wheel; no pots, so no cards (never the synth's favourites there). The Fader
     // page keeps the favourites (fader C): a pot turned there is what the fader learns.
-    case PageId::SettingsPage: // on the doors K1 is FEATURES, Basic or Full (shell/features.h); behind a door the rows take the wheel
+    case PageId::SettingsPage: { // on the doors K1 is FEATURES, Basic or Full (shell/features.h); behind a door the row under the cursor
         if (!ui.settings_in) return {Binding {Kind::Features, 0, 0, 1, int(ui.settings.full_features)}, Binding {}, Binding {}};
-        return {};
-    case PageId::About: case PageId::MidiConfig: return {};
+        if (ui.settings_look) return {}; // Palette or Font's cards: the wheel
+        unsigned row = ui.settings_cursor, at = ui.settings_wait_row == int(row) ? ui.settings_wait_value : ui.settings.choice(row);
+        return {Binding {Kind::SettingRow, int16_t(row), 0, int(ui.settings.choices(row)) - 1, int(at)}, Binding {}, Binding {}};
+    }
+    case PageId::MidiConfig: { // K1 the row under the cursor; MIDI Panic and Reset have none (Push)
+        unsigned row = ui.midi_cursor, count = midi_row_choices(row);
+        if (!count) return {};
+        return {Binding {Kind::MidiRow, int16_t(row), 0, int(count) - 1, int(midi_row_choice(ui.settings, track, row))}, Binding {}, Binding {}};
+    }
+    case PageId::About: return {};
     case PageId::Tracks: // the strip in hand, as Stage's MIX: K1 its level, K2 its pan, K3 its send into bus A (pads and the wheel pick the track)
         return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
                 Binding {Kind::Send, 0, 0, 100, track.mix.sends[0]}};
