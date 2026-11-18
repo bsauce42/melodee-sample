@@ -3909,6 +3909,98 @@ void onset_hits() {
     CHECK(flam.size() == 3 && near(flam[2], 0.5, 3));
 }
 
+// Chop's Auto type (engine/auto_chop.cpp): a groove of drums reads as DRUMS, its 16 slices on kicks, snares and
+// hats (not its ghost notes), and with every hit wanted each kick and snare is cut; a row of single sounds with silence between reads as SHOTS, one slice a sound,
+// each ending where its sound does, and hand cuts keep those gaps; SLICES on Shift + K3.
+void auto_chop_kinds() {
+    struct Made { std::array<Hit, max_hits> hits {}; unsigned count = 0; BeatGrid grid; AutoRead autos; uint32_t frames = 0; };
+    auto analysed = [](const std::vector<float>& wave) {
+        Made m;
+        m.frames = uint32_t(wave.size());
+        std::vector<float> mono(wave.size());
+        for (size_t n = 0; n < wave.size(); ++n) mono[n] = 2 * wave[n];
+        m.count = find_hits_in(mono, m.hits, m.grid, &m.autos);
+        return m;
+    };
+    uint32_t noise = 11;
+    auto add_kick = [](std::vector<float>& w, double at, double level = 0.8) {
+        for (uint32_t n = uint32_t(at * 44100), end = std::min<uint32_t>(uint32_t(w.size()), n + 13230); n < end; ++n) {
+            double u = (n - at * 44100) / 44100;
+            w[n] += float(level * std::sin(2 * M_PI * (55 + 150 * std::exp(-u / 0.015)) * u) * std::exp(-u / 0.06));
+        }
+    };
+    auto add_noise = [&](std::vector<float>& w, double at, double level, double decay) {
+        for (uint32_t n = uint32_t(at * 44100), end = std::min<uint32_t>(uint32_t(w.size()), n + uint32_t(decay * 6 * 44100)); n < end; ++n) {
+            noise = noise * 1664525u + 1013904223u;
+            w[n] += float(level * ((noise >> 8) / 8388608.0 - 1) * std::exp(-(n - at * 44100) / 44100 / decay));
+        }
+    };
+    auto near_one = [](uint32_t cut, const std::vector<double>& at) {
+        for (double t : at) if (std::fabs(double(cut) - t * 44100) <= 882) return true;
+        return false;
+    };
+
+    // Four bars at 100 BPM: kicks on 1 and 3, a snare on 2 and 4, hats on the eighths, ghost notes on the last
+    // sixteenth of each beat.
+    const double beat = 0.6;
+    std::vector<float> wave(size_t(16 * beat * 44100), 0.0f);
+    std::vector<double> hits_at, ghosts_at, strong_at; // strong: the kicks and snares
+    for (unsigned b = 0; b < 16; ++b) {
+        if (b % 2 == 0) add_kick(wave, b * beat); else add_noise(wave, b * beat, 0.5, 0.05);
+        add_noise(wave, b * beat, 0.15, 0.008);
+        add_noise(wave, (b + 0.5) * beat, 0.15, 0.008);
+        add_noise(wave, (b + 0.75) * beat, 0.03, 0.02);
+        if (b) { hits_at.push_back(b * beat); strong_at.push_back(b * beat); }
+        hits_at.push_back((b + 0.5) * beat);
+        ghosts_at.push_back((b + 0.75) * beat);
+    }
+    auto groove = analysed(wave);
+    CHECK(groove.autos.kind == SoundKind::Drums && groove.autos.sounds.size() == groove.count);
+    CHECK(groove.grid.found() && std::abs(int(groove.grid.tempo) - 1000) <= 10);
+    Slices s = auto_slices(groove.autos, 16, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid);
+    CHECK(s.count == 16);
+    for (unsigned n = 1; n < s.count; ++n) CHECK(near_one(s.start[n], hits_at) && !near_one(s.start[n], ghosts_at));
+    // Every hit wanted: each kick and snare cut.
+    s = auto_slices(groove.autos, 64, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid);
+    CHECK(s.count >= 32);
+    for (double t : strong_at) {
+        bool cut = false;
+        for (unsigned n = 1; n < s.count; ++n) cut |= std::fabs(double(s.start[n]) - t * 44100) <= 882;
+        CHECK(cut);
+    }
+
+    // A row of single sounds, silence between, at no steady spacing.
+    std::vector<float> row(size_t(3.2 * 44100), 0.0f);
+    const std::vector<double> starts {0.05, 0.42, 0.95, 1.31, 1.9, 2.55};
+    for (size_t k = 0; k < starts.size(); ++k) {
+        if (k % 2 == 0) add_kick(row, starts[k], 0.5 + 0.1 * double(k)); else add_noise(row, starts[k], 0.4, 0.03);
+    }
+    auto shots = analysed(row);
+    CHECK(shots.autos.kind == SoundKind::Shots && shots.autos.spans.size() == starts.size());
+    s = auto_slices(shots.autos, 8, 0, shots.frames, shots.frames, shots.hits, shots.count, shots.grid);
+    CHECK(s.count == starts.size());
+    for (unsigned n = 0; n < s.count; ++n) {
+        CHECK(std::fabs(double(s.start[n]) - starts[n] * 44100) <= 441);
+        if (n + 1 < s.count) CHECK(!s.touches(n, shots.frames) && s.end(n, shots.frames) < s.start[n + 1]); // the silence left out
+    }
+    // A hand cut inside the third sound: it splits that sound in two, and the gaps stay round it.
+    HandCuts hand;
+    hand.pin(uint32_t(1.12 * 44100));
+    const Slices kept = with_hand(s, hand, shots.frames);
+    CHECK(kept.count == s.count + 1 && !kept.touches(1, shots.frames) && kept.touches(2, shots.frames) && !kept.touches(3, shots.frames)
+          && kept.end(3, shots.frames) == s.end(2, shots.frames));
+
+    // SLICES: 8, 16, 32, 64 on Shift + K3 (16 to start); Auto is the fifth type.
+    CHECK(auto_slice_count(0) == 8 && auto_slice_count(int(auto_default_count)) == 16 && auto_slice_count(3) == 64 && auto_slice_count(9) == 64);
+    CHECK(std::string(chop_mode_name(ChopMode::Auto)) == "Auto" && std::string(sound_kind_name(SoundKind::Shots)) == "SHOTS");
+    Project project;
+    UiState ui;
+    Pattern pattern;
+    ui.page = PageId::Chop; ui.chop_mode = ChopMode::Auto;
+    const auto cards = shift_bindings(project, ui, pattern);
+    CHECK(cards[2].kind == Binding::Kind::ChopAmount && cards[2].min == 0 && cards[2].max == 3 && cards[2].value == 1);
+}
+
 // A sample's own beats (engine/onsets.cpp) and Chop's Beats on them (shell/chop.h): a loop's tempo exact from its
 // length, its beats found past a lead-in, slices from the beat nearest the region's start, a free intro and outro one
 // slice each, cuts that follow a performance that speeds up; none for a one shot.
@@ -4183,7 +4275,7 @@ void chop_and_browser() {
     // In frames, a slice no shorter than min_slice.
     CHECK(cards[0].kind == Binding::Kind::ChopStart && cards[0].value == 110250 && cards[0].min == 882 && cards[0].max == 220500 - 882);
     CHECK(cards[1].kind == Binding::Kind::ChopEnd && cards[1].value == 220500 && cards[1].min == 110250 + 882 && cards[1].max == 330750 - 882);
-    CHECK(cards[2].kind == Binding::Kind::ChopMode && cards[2].max == 3);
+    CHECK(cards[2].kind == Binding::Kind::ChopMode && cards[2].max == 4); // Threshold, Regions, Beats, Manual, Auto
     ui.chop_zoom = 50; // half way: sqrt(441000 * 256) frames round the slice's start; the pot turns across exactly that
     FrameView view = chop_view(project, ui);
     CHECK(view.width() == 10625 && view.from == 110250 - 5312);
@@ -18060,6 +18152,7 @@ int main() {
     onset_hits();
     sample_roots();
     beat_grid();
+    auto_chop_kinds();
     chop_and_browser();
     zoom_and_fine_edit();
     sample_mode();

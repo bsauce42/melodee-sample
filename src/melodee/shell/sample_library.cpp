@@ -35,7 +35,7 @@ int8_t found_root(const std::vector<float>& mono) {
 // A sample in memory: its hits and beats, and its note (unless the slot keeps one), from its sides summed at 44.1 kHz.
 void analyse_sample(const SampleData& data, LoadedSample& loaded, bool find_note = true) {
     const auto mono = model_mono(data);
-    loaded.hit_count = find_hits_in(mono, loaded.hits, loaded.beats);
+    loaded.hit_count = find_hits_in(mono, loaded.hits, loaded.beats, &loaded.autos);
     if (find_note) loaded.root = found_root(mono);
 }
 } // namespace
@@ -1167,7 +1167,7 @@ void SampleLibrary::stream_shape(const std::string& path, ShapeRead& out, bool f
         out.sides[1][c] = byte(right_peak[c]);
     }
     if (!mono.empty()) {
-        out.hit_count = find_hits_in(mono, out.hits, out.beats);
+        out.hit_count = find_hits_in(mono, out.hits, out.beats, &out.autos);
         if (find_note) out.root = found_root(mono);
     }
 }
@@ -1246,7 +1246,7 @@ void SampleLibrary::take_loaded() {
         auto& shown = show(s.slot).sample;
         if (!shown.streamed) continue;
         shown.overview = s.overview; shown.sides = s.sides; shown.stereo = s.stereo;
-        shown.hits = s.hits; shown.hit_count = s.hit_count; shown.beats = s.beats; shown.root = s.root;
+        shown.hits = s.hits; shown.hit_count = s.hit_count; shown.beats = s.beats; shown.autos = s.autos; shown.root = s.root;
         shown.shaped = true;
         show(s.slot).peaks = std::move(s.peaks);
         changes.fetch_add(1, std::memory_order_release);

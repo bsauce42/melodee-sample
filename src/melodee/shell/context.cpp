@@ -1796,6 +1796,8 @@ Slices Context::type_chop(bool* capped) const {
     auto loaded = library->slot(ui.chop_sample);
     int amount = ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()];
     if (ui.chop_mode == ChopMode::Beats) amount = int(division_sixteenths(unsigned(std::max(amount, 0)), project.bar_ticks() / sixteenth_ticks)); // in 16ths
+    if (ui.chop_mode == ChopMode::Auto) // engine/auto_chop.h: by what the sample is
+        return auto_slices(loaded.autos, auto_slice_count(amount), ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, loaded.beats, capped);
     return chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo, &loaded.beats, capped);
 }
 

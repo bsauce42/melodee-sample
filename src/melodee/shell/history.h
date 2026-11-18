@@ -118,7 +118,7 @@ struct ChopState {
     Slices slices {};
     HandCuts hand {};
     uint8_t mode = 0, slice = 0;
-    std::array<int, 4> amount {};
+    std::array<int, 5> amount {};
     uint16_t sample = 0;
     uint32_t from = 0, to = 0;
     bool operator==(const ChopState& o) const {

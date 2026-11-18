@@ -279,8 +279,8 @@ a pad to play its slice and select it. Press **CHOP** again to go back to
 | Control | Action |
 | --- | --- |
 | **K1** / **K2** | Start / end of the selected slice. |
-| **K3** | Chop type: Threshold, Regions, Beats or Manual. |
-| **SHIFT** + **K3** | The amount for that type: threshold, number of slices or division. |
+| **K3** | Chop type: Threshold, Regions, Beats, Manual or Auto. |
+| **SHIFT** + **K3** | The amount for that type: threshold, number of slices or division. On Auto: **SLICES**. |
 | Encoder | Move the selected slice's start in fine steps (its end after **K2**). |
 | **SHIFT** + encoder | Move that cut to the next or previous hit. |
 | **−** / **+** | The slice before / after. |
@@ -337,6 +337,19 @@ ending with no steady beat stays one slice. The tempo shows at the top
 right. Each cut lands on the hit at that place, if there is one. To cut on
 the bar, set the region's start near the bar's first beat. A sample with no
 steady beat uses the project's tempo.
+
+**Auto chop**: Melodee works out what the sample is and cuts it to suit.
+What it found shows at the top right:
+
+- **DRUMS**: a steady beat led by drums. A cut on each drum hit. Ghost notes
+  and flams stay in the slice of the hit before them. The tempo shows too.
+- **SHOTS**: single sounds with silence between them. One slice for each
+  sound. Each slice ends where its sound ends, and the silence is left out.
+- **HITS**: anything else. A cut on the strongest hits, spread over the
+  region.
+
+**SHIFT** + **K3** sets **SLICES**: 8, 16 (to start), 32 or 64. Fewer slices
+keep the strongest hits. SHOTS always makes one slice for each sound.
 
 A chop holds at most 64 slices: if a type needs more, the last slice runs to
 the end, and Melodee says so.

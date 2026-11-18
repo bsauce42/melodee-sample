@@ -723,10 +723,11 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
         return {kind, Binding {Kind::ModShape, 0, 0, int(LfoShape::Count) - 1, int(m.shape)}, Binding {Kind::ModSync, 0, 0, 1, int(m.sync)}};
     }
     case PageId::Chop: { // Shift + K1 / K2 zoom at the slice's start or end; Shift + K3 the type's amount (Threshold as on the MPC; Beats' division)
-        static const int lows[] {0, 2, 0}, highs[] {100, int(max_slices), int(beat_divisions) - 1};
+        static const int lows[] {0, 2, 0, 0, 0}, highs[] {100, int(max_slices), int(beat_divisions) - 1, 0, int(auto_counts) - 1};
         unsigned mode = unsigned(ui.chop_mode);
         Binding amount {};
-        if (mode < 3) amount = {Kind::ChopAmount, int32_t(mode), lows[mode], highs[mode], ui.chop_amount[mode]};
+        if (mode < unsigned(ChopMode::Count) && ChopMode(mode) != ChopMode::Manual)
+            amount = {Kind::ChopAmount, int32_t(mode), lows[mode], highs[mode], ui.chop_amount[mode]};
         return {Binding {Kind::ChopZoom, 0, 0, zoom_top, ui.chop_zoom}, Binding {Kind::ChopZoom, 1, 0, zoom_top, ui.chop_zoom}, amount};
     }
     case PageId::Rack: case PageId::Bus: case PageId::Master: case PageId::PadFx: { // Shift + K: the device's other row (as Knob FX's Shift + K on the MPC)

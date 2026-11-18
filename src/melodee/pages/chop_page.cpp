@@ -130,11 +130,21 @@ void draw(Paint& p, const Snapshot& s) {
     // The file's length at the top right: drawn after the slice's chip, and left out where the chip covers it.
     juce::String length;
     const auto length_style = plain(colour::dim, type::small, Weight::SemiBold);
+    // Auto: what it found the sample to be, in the track's colour, before the tempo and length.
+    const SoundKind kind = s.ui.chop_mode == ChopMode::Auto ? s.sample.autos.kind : SoundKind::None;
+    const juce::String kind_word = sound_kind_name(kind);
+    const auto kind_style = caps_text(c);
+    auto top_right = [&] {
+        p.text(length, x, zone::picture_y + 2, w, 14, length_style, juce::Justification::centredRight);
+        if (kind_word.isNotEmpty())
+            p.text(kind_word, x, zone::picture_y + 2, w - p.width(length, length_style) - 6, 14, kind_style, juce::Justification::centredRight);
+    };
+    auto top_right_width = [&] { return p.width(length, length_style) + (kind_word.isEmpty() ? 0 : p.width(kind_word, kind_style) + 6); };
     if (frames) {
         length = seconds(frames);
-        if (s.ui.chop_mode == ChopMode::Beats && s.sample.beats.found())
-            length = juce::String(s.sample.beats.tempo / 10.0, 1) + " BPM  " + length; // the tempo Beats cuts at, the sample's own
-        if (!slices.count) p.text(length, x, zone::picture_y + 2, w, 14, length_style, juce::Justification::centredRight);
+        const bool tempo = (s.ui.chop_mode == ChopMode::Beats || kind == SoundKind::Drums || kind == SoundKind::Music) && s.sample.beats.found();
+        if (tempo) length = juce::String(s.sample.beats.tempo / 10.0, 1) + " BPM  " + length; // the tempo it cuts at, the sample's own
+        if (!slices.count) top_right();
     }
     if (!frames || !slices.count) {
         icon(p, s.sample.error.empty() ? Icon::Clock : Icon::Warn, zone::width / 2.0f - 14, zone::picture_y + 44, 28, colour::dim, 1.4f);
@@ -253,8 +263,7 @@ void draw(Paint& p, const Snapshot& s) {
         icon(p, taking ? Icon::Scissors : Icon::Pads, cx + 4, cy + 2.5f, 10, colour::bg, 1.6f);
         if (lands.isNotEmpty()) p.text(lands, cx + 17, cy, cw - 17, 15, chip_style);
     }
-    if (!chip_shown || cx + cw + 6 < x + w - p.width(length, length_style))
-        p.text(length, x, zone::picture_y + 2, w, 14, length_style, juce::Justification::centredRight);
+    if (!chip_shown || cx + cw + 6 < x + w - top_right_width()) top_right();
     char text[24];
     std::snprintf(text, sizeof(text), "%.3f s", (slices.end(selected, frames) - slices.start[selected]) / 44100.0);
     p.text(text, x, y + wh + 13, w, 16, plain(colour::text, type::body, Weight::SemiBold), juce::Justification::centredRight);

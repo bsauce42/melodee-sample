@@ -304,7 +304,7 @@ struct UiState {
     uint8_t warp_stretch = 0;   // Shift + Pad 15: the Follow how (Beats or Tones) Time stretch goes back to
     // Chop (parity phase 5): the last pad's region cut into slices.
     ChopMode chop_mode = ChopMode::Threshold;
-    std::array<int, 4> chop_amount {{50, 8, int(quarter_division), 0}}; // per mode: threshold, slice count, Beats' division (shell/chop.h; Manual: none)
+    std::array<int, 5> chop_amount {{50, 8, int(quarter_division), 0, int(auto_default_count)}}; // per mode: threshold, slice count, Beats' division (shell/chop.h; Manual: none), Auto's SLICES (8 << it)
     Slices slices;              // Chop's slices of the sample in hand
     HandCuts chop_hand;         // its cuts made or moved by hand: a new chop keeps them (model/chop_slices.h)
     uint16_t chop_sample = no_sample;

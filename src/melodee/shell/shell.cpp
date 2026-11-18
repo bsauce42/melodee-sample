@@ -1086,7 +1086,7 @@ std::string Shell::sample_summary() const {
     { std::lock_guard<std::mutex> guard(text_lock); name = pad_name_text; folder = folder_text; }
     for (auto& ch : name) if (ch == ' ') ch = '_';
     for (auto& ch : folder) if (ch == ' ') ch = '_';
-    return " melodee_chop_type=" + std::string(chop_mode_name(ChopMode(c & 3))) + " melodee_chop_slices=" + std::to_string((c >> 8) & 0xff) +
+    return " melodee_chop_type=" + std::string(chop_mode_name(ChopMode((c & 3) | (c >> 4 & 1) << 2))) + " melodee_chop_slices=" + std::to_string((c >> 8) & 0xff) +
            " melodee_chop_slice=" + std::to_string(((c >> 16) & 0xff) + 1) + " melodee_chop_armed=" + std::to_string((c >> 2) & 1) +
            " melodee_chop_taking=" + std::to_string((c >> 3) & 1) + " melodee_pad_slots=" + std::to_string(c >> 24) +
            " melodee_pad_start=" + std::to_string(pad_start_now.load()) + " melodee_pad_end=" + std::to_string(pad_end_now.load()) +

@@ -582,8 +582,8 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::ChopMode: c.label = "CHOP TYPE"; c.value = chop_mode_name(ChopMode(b.value)); break;
     case Kind::ChopAmount: {
         auto mode = ChopMode(b.id);
-        c.label = mode == ChopMode::Threshold ? "THRESHOLD" : mode == ChopMode::Regions ? "SLICES" : "DIVISION";
-        c.value = juce::String(b.value); c.unit = mode == ChopMode::Threshold ? "%" : "";
+        c.label = mode == ChopMode::Threshold ? "THRESHOLD" : mode == ChopMode::Regions || mode == ChopMode::Auto ? "SLICES" : "DIVISION";
+        c.value = juce::String(mode == ChopMode::Auto ? int(auto_slice_count(b.value)) : b.value); c.unit = mode == ChopMode::Threshold ? "%" : "";
         if (mode == ChopMode::Beats) { c.value = division_value(unsigned(b.value)); c.unit = division_unit(unsigned(b.value)); } // 1/16 ... 4 bars
         break;
     }
