@@ -311,7 +311,7 @@ class Mpc3Export(unittest.TestCase):
                            f"<SampleName>{name}</SampleName><SliceStart>0</SliceStart><SliceEnd>40000</SliceEnd></Layer>")
             (data / "Keys.all.xpm").write_text(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?><MPCVObject><Program type=\"Keygroup\"><ProgramName>Keys</ProgramName>"
-                "<KeygroupNumKeygroups>1</KeygroupNumKeygroups><Instruments><Instrument number=\"1\"><LowNote>0</LowNote>"
+                "<Mono>False</Mono><MonoRetrigger>False</MonoRetrigger><KeygroupNumKeygroups>1</KeygroupNumKeygroups><Instruments><Instrument number=\"1\"><LowNote>0</LowNote>"
                 "<HighNote>127</HighNote><TriggerMode>2</TriggerMode><VelocitySensitivity>0.5</VelocitySensitivity><Layers>"
                 + layers + "</Layers></Instrument></Instruments></Program></MPCVObject>")
             track_file = Path(folder) / "Keys.xty"

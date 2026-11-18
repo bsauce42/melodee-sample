@@ -1087,7 +1087,10 @@ first).
 **Auto sample.** The print host also samples a plug-in track's
 instrument into an MPC keygroup program (`shell/auto_sample.h`): one
 root every few semitones (MIDI 36–96, every 3, by default), each in up
-to four velocity layers, the key held for a set time (2 s) and let go,
+to eight velocity layers (LAYERS at Auto: as many as the check's sixteen
+hits of one key need, split where their tone changes, an accent starting
+a layer; `probe_layers()`, `engine/auto_probe.h`), the key held for a set
+time (2 s) and let go,
 its release kept until it falls below -70 dB (8 s at most). The sound is
 taken before the track's chain (Pre FX) or after it (Post FX). With
 LOOP each sample gets a loop in its held part (`engine/loop_find.h`):
@@ -1096,7 +1099,8 @@ start the crossing 0.1–1 s earlier whose 20 ms before it best match the
 20 ms before the end, never in the hold's first quarter, crossfaded over
 up to 50 ms; no loop under a match of 0.6. Samples are kept as 32-bit
 float in `.parts/` until all are made, then written as 24-bit WAVs at
-the device's rate, `<name>-C4-V127.wav`, with one gain for the whole
+the device's rate (one channel where both sides are the same),
+`<name>-C4-V127.wav`, with one gain for the whole
 program when LEVEL is −1 dB (its loudest sample at -1 dB, 24 dB at
 most), and the program `<name>.xpm` beside them: the MPC 2
 XML with the MPC's own layout (128 instruments, four layers each, the
@@ -1107,7 +1111,9 @@ program as MPC 3's track file (`write_mpc3_track()`, `shell/mpc3_export.h`:
 the MPC 3 export's Keygroup track on its own, gzip under a
 SerialisableTrackData header). MPC 3 looks for a track file's samples in
 `<name>_[TrackData]` and an .xpm's beside it, so one copy of the files
-serves both; the .xty holds what MPC 2's .xpm cannot (Mono Retrig).
+serves both; the .xty holds what MPC 2's .xpm cannot (Mono Retrig, more
+than four layers a keygroup: the .xpm then keeps four, each playing a run
+of them, `xpm_layers()`, and the keygroup track plays the .xty).
 Melodee's browser shows the .xty (the folder is the file's own and is
 hidden); the new track plays the .xpm. A take per key more than one
 (ZonePlay Cycle) is in the .xpm only. `--mpc-track PROGRAM.xpm FILE.xty`
