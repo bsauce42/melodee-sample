@@ -143,7 +143,7 @@ cards.
 | Push | Opens or confirms | Back along the page stack (16 deep; on Song a marker, on Project up a folder) |
 | − / + | Lists move as the wheel does; on play pages the octave (16 Levels held: its octave or Zones' page; on Roll the pitch: the chord in the step, then a semitone); Settings and Tempo the value; Song markers; Patterns the track; sampler pages and Punch the bank | Undo / redo, on every page |
 | Sample Record | Record on a kit (there it ends the take and opens Stage's TRIM on the pad; B3 PRINT the PRINT sheet); the PRINT sheet on a PLUGIN or MIDI track (Print and freeze, below); with Seq held, the pattern pads freeze or thaw | Audio Recall: the last 25 s onto the next empty pad |
-| Seq Record | Stopped: arms (flashing), Play starts; playing: records at once; recording: stops recording, playback goes on | Recall (Capture): what every track played last into its next empty pattern, no page |
+| Seq Record | Stopped: arms (flashing), Play starts; playing: records at once; recording: stops recording, playback goes on | Recall (Capture): what every track played last into the pattern it plays when empty, else its next empty pattern, no page |
 | Stop | Stop (on Record, ends the take) | All notes off |
 | Play | Play from the start (on Song from the cursor); held while playing, Fill (FILL trig conditions play) | Continue from where it stopped or the wheel put it |
 | B1–B3 | The page's soft keys, named above them; with Note Repeat on, its rate (on Stage only while Note Repeat is held; not on Song or the Looper) | Page jobs (Stage's TRIM on a kit, Chop) |
@@ -913,9 +913,9 @@ hold to steer, Shift + Seq to zoom in**.
   while the transport runs a note keeps the tick it was heard on, as Seq
   Record places it; played stopped, its time. Recall lays the last phrase
   (back to where no track played for two bars, up to 64 bars) into
-  patterns: every track that played in it, each into its next empty
-  pattern, which then plays, the same bars for all so they line up; one
-  undo for all. Played while running, the bars are the transport's, from
+  patterns: every track that played in it, each into the pattern it plays
+  when that is empty, else its next empty pattern (capture_into()), which
+  then plays, the same bars for all so they line up; one undo for all. Played while running, the bars are the transport's, from
   the bar the phrase began in to the bar after its last note; played
   stopped, its first note is the downbeat, at the tempo now. The page
   stays, and the header shows for a few seconds what landed (✓ P3 for the

@@ -185,8 +185,9 @@ A new pattern is **Free**: you do not set its length before you record. The
 
 **Recall** (**SHIFT** + **SEQ RECORD**): Melodee always keeps the notes you
 play, recording or not. Recall puts the last phrase into patterns: every
-track that played goes into its next empty pattern, and those patterns
-start playing. This is one undo step. In [Settings](settings.md) (**SEQ**),
+track that played goes into the pattern it plays when that one is empty,
+else into its next empty pattern, and those patterns start playing. In a
+new project, a jam lands in P1. This is one undo step. In [Settings](settings.md) (**SEQ**),
 **Capture bars** sets how many bars Recall takes and **Capture quantize**
 how it places the notes.
 

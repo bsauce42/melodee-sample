@@ -16098,6 +16098,17 @@ void capture_p5() {
           bass.events[0].key == 40 && bass.events[0].pitch == 2 && bass.events[0].length == 9 * sixteenth_ticks); // held until now
     Pattern none;
     CHECK(!lay_capture(*ring, 5, w, ask, none));
+    { // Where it goes: the pattern playing when it is empty, else the next empty one, round to the first; none: -1.
+        auto bank = std::make_unique<PatternBank>();
+        auto& own = bank->at[2];
+        CHECK(capture_into(own, 0) == 0 && capture_into(own, 5) == 5);
+        own[5].add(kick.events[0]);
+        CHECK(capture_into(own, 5) == 6);
+        for (unsigned n = 6; n < pattern_count; ++n) own[n].add(kick.events[0]);
+        CHECK(capture_into(own, 5) == 0);
+        for (unsigned n = 0; n < 5; ++n) own[n].add(kick.events[0]);
+        CHECK(capture_into(own, 5) == -1);
+    }
     ask.grid = 1; // as played
     CHECK(lay_capture(*ring, 2, w, ask, kick) && kick.events[1].tick == bar + 8 * sixteenth_ticks - 3 && kick.events[1].length == 23);
     ask.bars = 4; // four bars back from the bar after the last note: bars 3-6, bar 1's note still out
