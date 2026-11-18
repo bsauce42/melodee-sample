@@ -1622,12 +1622,13 @@ the file holds, to the bit.
   Manual, Auto; the type picked last is kept in the settings as
   `chop_mode` and a sample with no chop opens on it), Shift + K3 its amount, Shift + K1 / K2 zoom. Auto
   (`engine/auto_chop.cpp`, read with the hits when a sample loads) cuts by
-  what the sample is, named at the top right: DRUMS (each drum hit; ghost
-  notes, a quiet copy of a strong hit, and flams within 50 ms stay in the
-  hit before), MUSIC (where the notes change most, the 400 ms either side of
-  each hit, then the strongest hits), SHOTS (one slice a sound between
-  silences, the silence left out) or HITS (the strongest hits spread out;
-  VOCAL is read but cut as HITS for now); SLICES 8 to 64 on Shift + K3. B2
+  what the sample is, named at the top right: DRUMS and MUSIC (a steady beat:
+  cut on its tracked beats, every 1, 2, 4, 8 or 16 beats or eighths,
+  whichever comes nearest SLICES; `auto_chop` in `shell/chop.h`), SHOTS (one
+  slice a sound between silences, the silence left out) or HITS (the
+  strongest hits spread out, 150 ms apart; VOCAL is read but cut as HITS for
+  now); SLICES 8 to 64 on Shift + K3. No slice under 80% of an eighth note
+  (150 ms without a beat), and Auto keeps that far from hand cuts. B2
   CLEAN separates the sample's stems once and cuts on its DRUMS stem
   (`Context::chop_cut_slot`). TO PADS' fourth card KIT lays one pad a sound
   (`kit_sounds` in `shell/chop.h`). `tools/auto_chop_score.cpp` scores Auto

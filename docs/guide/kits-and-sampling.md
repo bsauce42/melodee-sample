@@ -341,17 +341,22 @@ steady beat uses the project's tempo.
 **Auto chop**: Melodee works out what the sample is and cuts it to suit.
 What it found shows at the top right:
 
-- **DRUMS**: a steady beat led by drums. A cut on each drum hit. Ghost notes
-  and flams stay in the slice of the hit before them. The tempo shows too.
-- **MUSIC**: a steady beat led by notes or chords. A cut where the chord or
-  note changes, then on the strongest hits. The tempo shows too.
+- **DRUMS**: a steady beat led by drums.
+- **MUSIC**: a steady beat led by notes or chords.
+
+  Both are cut on the beats Melodee finds in the sample, each cut on the hit
+  there: every beat, every 2, 4, 8 or 16 beats, or eighths (each beat, and
+  its strongest hit halfway to the next), whichever comes nearest
+  **SLICES**. The tempo shows too.
 - **SHOTS**: single sounds with silence between them. One slice for each
   sound. Each slice ends where its sound ends, and the silence is left out.
 - **HITS**: anything else. A cut on the strongest hits, spread over the
-  region.
+  region, at least 150 ms apart.
 
-**SHIFT** + **K3** sets **SLICES**: 8, 16 (to start), 32 or 64. Fewer slices
-keep the strongest hits. SHOTS always makes one slice for each sound.
+**SHIFT** + **K3** sets **SLICES**: 8, 16 (to start), 32 or 64, the number of
+slices Auto aims for. SHOTS always makes one slice for each sound. No slice is
+shorter than 80 % of an eighth note (150 ms where there is no beat), and Auto
+keeps its cuts that far from your hand cuts.
 
 **B2** (**CLEAN**) on Auto finds the cuts on the sample's drums alone. The
 first time, Melodee separates the sample as **STEMS** does (with **BEST**

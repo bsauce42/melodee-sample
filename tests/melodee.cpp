@@ -3933,8 +3933,9 @@ void onset_hits() {
     CHECK(flam.size() == 3 && near(flam[2], 0.5, 3));
 }
 
-// Chop's Auto type (engine/auto_chop.cpp): a chord loop reads as MUSIC and is cut where its chords change; a groove of drums reads as DRUMS, its 16 slices on kicks, snares and
-// hats (not its ghost notes), and with every hit wanted each kick and snare is cut; a row of single sounds with silence between reads as SHOTS, one slice a sound,
+// Chop's Auto type (engine/auto_chop.cpp, shell/chop.h auto_chop()): a groove of drums reads as DRUMS and is cut on
+// its beats, every other beat or in eighths by SLICES (never on a ghost note, no slice under 80% of an eighth); HITS
+// keeps 150 ms between cuts; a chord loop reads as MUSIC and is cut on its beats too; a row of single sounds with silence between reads as SHOTS, one slice a sound,
 // each ending where its sound does, and hand cuts keep those gaps; KIT lays one pad a sound; SLICES on Shift + K3.
 void auto_chop_kinds() {
     struct Made { std::array<Hit, max_hits> hits {}; unsigned count = 0; BeatGrid grid; AutoRead autos; uint32_t frames = 0; };
@@ -3981,17 +3982,25 @@ void auto_chop_kinds() {
     auto groove = analysed(wave);
     CHECK(groove.autos.kind == SoundKind::Drums && groove.autos.sounds.size() == groove.count);
     CHECK(groove.grid.found() && std::abs(int(groove.grid.tempo) - 1000) <= 10);
-    Slices s = auto_slices(groove.autos, 16, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid);
+    // SLICES 16 over 16 beats: one slice a beat, each cut on its kick or snare.
+    Slices s = auto_chop(groove.autos, 16, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid);
     CHECK(s.count == 16);
-    for (unsigned n = 1; n < s.count; ++n) CHECK(near_one(s.start[n], hits_at) && !near_one(s.start[n], ghosts_at));
-    // Every hit wanted: each kick and snare cut.
-    s = auto_slices(groove.autos, 64, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid);
-    CHECK(s.count >= 32);
-    for (double t : strong_at) {
-        bool cut = false;
-        for (unsigned n = 1; n < s.count; ++n) cut |= std::fabs(double(s.start[n]) - t * 44100) <= 882;
-        CHECK(cut);
+    for (unsigned n = 1; n < s.count; ++n) CHECK(near_one(s.start[n], strong_at));
+    // SLICES 32: eighths, the hats between the beats; never the ghost notes, and no slice under 80% of an eighth.
+    s = auto_chop(groove.autos, 32, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid);
+    CHECK(s.count == 32);
+    for (unsigned n = 0; n < s.count; ++n) {
+        if (n) CHECK(near_one(s.start[n], hits_at) && !near_one(s.start[n], ghosts_at));
+        CHECK(s.end(n, groove.frames) - s.start[n] >= uint32_t(0.8 * beat / 2 * 44100));
     }
+    // SLICES 8: every other beat; 64 asks for more than eighths give, and gets the eighths.
+    CHECK(auto_chop(groove.autos, 8, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid).count == 8);
+    CHECK(auto_chop(groove.autos, 64, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid).count == 32);
+    // HITS keeps 150 ms between cuts.
+    AutoRead as_hits = groove.autos;
+    as_hits.kind = SoundKind::Hits;
+    s = auto_chop(as_hits, 64, 0, groove.frames, groove.frames, groove.hits, groove.count, groove.grid);
+    for (unsigned n = 0; n < s.count; ++n) CHECK(s.end(n, groove.frames) - s.start[n] >= auto_least);
 
     // A row of single sounds, silence between, at no steady spacing.
     std::vector<float> row(size_t(3.2 * 44100), 0.0f);
@@ -4001,7 +4010,7 @@ void auto_chop_kinds() {
     }
     auto shots = analysed(row);
     CHECK(shots.autos.kind == SoundKind::Shots && shots.autos.spans.size() == starts.size());
-    s = auto_slices(shots.autos, 8, 0, shots.frames, shots.frames, shots.hits, shots.count, shots.grid);
+    s = auto_chop(shots.autos, 8, 0, shots.frames, shots.frames, shots.hits, shots.count, shots.grid);
     CHECK(s.count == starts.size());
     for (unsigned n = 0; n < s.count; ++n) {
         CHECK(std::fabs(double(s.start[n]) - starts[n] * 44100) <= 441);
@@ -4014,7 +4023,8 @@ void auto_chop_kinds() {
     CHECK(kept.count == s.count + 1 && !kept.touches(1, shots.frames) && kept.touches(2, shots.frames) && !kept.touches(3, shots.frames)
           && kept.end(3, shots.frames) == s.end(2, shots.frames));
 
-    // Four chords, two beats each at 110 BPM, played in eighths: MUSIC, and its four slices start where they change.
+    // Four chords, two beats each at 110 BPM, played in eighths over a bass note on each beat: MUSIC, and SLICES 4
+    // cuts every two beats, where they change.
     {
         const double b = 60 / 110.0;
         std::vector<float> keys(size_t(8 * b * 44100), 0.0f);
@@ -4025,13 +4035,18 @@ void auto_chop_kinds() {
                 for (double ratio : {1.0, c == 3 ? 1.1892 : 1.2599, 1.4983})
                     for (uint32_t n = uint32_t(at * 44100), end = std::min<uint32_t>(uint32_t(keys.size()), n + uint32_t(b / 2 * 44100)); n < end; ++n) {
                         const double u = (n - at * 44100) / 44100;
-                        keys[n] += float((e ? 0.12 : 0.18) * std::sin(2 * M_PI * roots[c] * ratio * u) * std::exp(-u / 0.25) * std::min(1.0, u / 0.003));
+                        keys[n] += float((e == 0 ? 0.18 : e == 2 ? 0.14 : 0.08) * std::sin(2 * M_PI * roots[c] * ratio * u) * std::exp(-u / 0.25) * std::min(1.0, u / 0.003));
+                    }
+                if (e % 2 == 0) // a bass note on each beat, the chord's root two octaves down
+                    for (uint32_t n = uint32_t(at * 44100), end = std::min<uint32_t>(uint32_t(keys.size()), n + uint32_t(b * 44100)); n < end; ++n) {
+                        const double u = (n - at * 44100) / 44100;
+                        keys[n] += float(0.3 * std::sin(2 * M_PI * roots[c] / 4 * u) * std::exp(-u / 0.12) * std::min(1.0, u / 0.003));
                     }
             }
         auto chords = analysed(keys);
         CHECK(chords.autos.found == SoundKind::Music && chords.autos.kind == SoundKind::Music);
-        const Slices four = auto_slices(chords.autos, 4, 0, chords.frames, chords.frames, chords.hits, chords.count, chords.grid);
-        CHECK(four.count == 4);
+        const Slices four = auto_chop(chords.autos, 4, 0, chords.frames, chords.frames, chords.hits, chords.count, chords.grid);
+        CHECK(four.count == 4); // every two beats, from the region's start: where the chords change
         for (unsigned n = 1; n < four.count; ++n) CHECK(std::fabs(double(four.start[n]) - 2 * n * b * 44100) <= 882);
     }
 

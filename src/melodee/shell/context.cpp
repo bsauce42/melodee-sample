@@ -1844,7 +1844,7 @@ Slices Context::type_chop(bool* capped) const {
     if (ui.chop_mode == ChopMode::Beats) amount = int(division_sixteenths(unsigned(std::max(amount, 0)), project.bar_ticks() / sixteenth_ticks)); // in 16ths
     if (ui.chop_mode == ChopMode::Auto) { // engine/auto_chop.h: by what the sample is (with CLEAN, its DRUMS stem)
         const auto read = chop_cut_slot() == ui.chop_sample ? loaded : library->slot(chop_cut_slot());
-        return auto_slices(read.autos, auto_slice_count(amount), ui.chop_from, ui.chop_to, loaded.frames, read.hits, read.hit_count, read.beats, capped);
+        return auto_chop(read.autos, auto_slice_count(amount), ui.chop_from, ui.chop_to, loaded.frames, read.hits, read.hit_count, read.beats, capped);
     }
     return chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo, &loaded.beats, capped);
 }
@@ -1854,7 +1854,9 @@ void Context::rechop() {
     if (!library || ui.chop_sample >= sample_slots) { ui.slices = {}; return; }
     bool capped = false, full = false;
     const uint32_t frames = chop_frames(project, ui);
-    ui.slices = with_hand(type_chop(&capped), ui.chop_hand, frames, &full); // the cuts made by hand stay
+    uint32_t clear = 0; // Auto keeps an eighth note (or 150 ms) clear of a hand cut: no sliver beside one
+    if (ui.chop_mode == ChopMode::Auto) { const auto read = library->slot(chop_cut_slot()); clear = auto_keep_clear(read.autos, read.beats); }
+    ui.slices = with_hand(type_chop(&capped), ui.chop_hand, frames, &full, clear); // the cuts made by hand stay
     if (capped || full) notice("64 slices, the most: the last runs to the end");
     snap_slices();
     ui.chop_slice = uint8_t(std::min<unsigned>(ui.chop_slice, ui.slices.count ? ui.slices.count - 1 : 0));

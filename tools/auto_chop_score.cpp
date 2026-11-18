@@ -33,7 +33,7 @@ namespace fs = std::filesystem;
 namespace {
 
 // A WAV as one side (its sides' mean) at 44.1 kHz; empty where it cannot be read.
-std::vector<float> read_wav(const fs::path& path, std::string* atem = nullptr) {
+std::vector<float> read_wav(const fs::path& path, std::string* atem = nullptr, std::string* mlch = nullptr, unsigned* rate_out = nullptr) {
     std::ifstream in(path, std::ios::binary);
     std::vector<char> d((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     if (d.size() < 12 || std::memcmp(d.data(), "RIFF", 4) || std::memcmp(d.data() + 8, "WAVE", 4)) return {};
@@ -48,9 +48,11 @@ std::vector<float> read_wav(const fs::path& path, std::string* atem = nullptr) {
             if (format == 0xFFFE && n >= 26) format = u16(i + 32);
         } else if (!std::memcmp(d.data() + i, "data", 4)) { data = i + 8; bytes = std::min(n, d.size() - data); }
         else if (atem && !std::memcmp(d.data() + i, "atem", 4)) atem->assign(d.data() + i + 8, std::min(n, d.size() - i - 8));
+        else if (mlch && !std::memcmp(d.data() + i, "mlch", 4)) mlch->assign(d.data() + i + 8, std::min(n, d.size() - i - 8));
         i += 8 + n + (n & 1);
     }
     if (!data || !channels || !rate || !bits) return {};
+    if (rate_out) *rate_out = rate;
     const size_t step = channels * bits / 8, count = bytes / step;
     std::vector<float> own(count);
     for (size_t f = 0; f < count; ++f) {
@@ -294,6 +296,25 @@ std::vector<uint32_t> cuts_of(const Slices& s) {
     return c;
 }
 
+// Slices' lengths against a floor: the shortest, and how many fall under 80% of it.
+struct Lengths {
+    double shortest = 1e18;
+    unsigned under = 0, all = 0;
+    void add(const Slices& s, uint32_t frames, uint32_t floor) {
+        for (unsigned n = 0; n < s.count; ++n) {
+            const double len = double(s.end(n, frames) - s.start[n]);
+            shortest = std::min(shortest, len);
+            under += len < 0.8 * floor;
+            ++all;
+        }
+    }
+    std::string text() const {
+        char t[96];
+        std::snprintf(t, sizeof(t), "shortest %.0f ms, %u of %u under 80%% of the floor", all ? shortest / 44.1 : 0.0, under, all);
+        return t;
+    }
+};
+
 struct Score {
     double got = 0, want = 0, hit = 0;
     void add(const std::vector<uint32_t>& g, const std::vector<uint32_t>& w) { got += double(g.size()); want += double(w.size()); hit += matched(g, w); }
@@ -347,14 +368,14 @@ int main(int argc, char** argv) {
         for (const auto& e : fs::directory_iterator(root / "Loops"))
             if (e.path().filename().string().rfind(prefix, 0) == 0) { auto x = read_wav(e.path()); if (!x.empty()) beds.push_back(std::move(x)); }
 
-    // Synthetic breaks: cuts against the hits placed.
+    // Synthetic breaks: Auto at SLICES 16 (two bars: eighths), its cuts against the hits placed (P: the share on a
+    // real hit) and its slices against an eighth note; Threshold 25 % and Beats 1/16 beside it.
     for (int set = 0; set < 3; ++set) {
         const bool bed = set == 1, edges = set == 2;
-        Score autos, autos16, th0, th25, th50, beats16, raw, as_read;
-        std::map<char, std::pair<int, int>> missed;
+        Score autos16, th25, beats16;
+        Lengths l_auto, l_th25, l_b16;
         std::map<size_t, int> kit_sizes;
-        unsigned kick_first = 0;
-        unsigned kind_right = 0, n = 0, region_right = 0;
+        unsigned kick_first = 0, kind_right = 0, n = 0;
         std::map<std::string, int> kinds;
         for (int i = 0; i < 40; ++i, ++n) {
             const Known k = make_break(rng, kicks, snares, hats, opens, beds, bed, edges);
@@ -362,49 +383,27 @@ int main(int argc, char** argv) {
             kinds[sound_kind_name(r.autos.kind)]++;
             kind_right += r.autos.kind == k.kind;
             const auto frames = uint32_t(k.mono.size());
-            AutoRead as_drums = r.autos;
-            as_drums.kind = SoundKind::Drums; // the cuts, whatever the kind read
-            const Slices a = auto_slices(as_drums, unsigned(k.cuts.size() + 1), 0, frames, frames, r.hits, r.count, r.beats);
-            autos.add(cuts_of(a), k.cuts);
-            as_read.add(cuts_of(auto_slices(r.autos, unsigned(k.cuts.size() + 1), 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
-            for (size_t c = 0; c < k.cuts.size(); ++c) {
-                const auto got = cuts_of(a);
-                bool found = false;
-                for (uint32_t g : got) found |= (g > k.cuts[c] ? g - k.cuts[c] : k.cuts[c] - g) <= 882;
-                missed[k.cut_kind[c]].second++;
-                if (!found) missed[k.cut_kind[c]].first++;
-            }
-            std::vector<uint32_t> all;
-            for (unsigned h = 1; h < r.count; ++h) all.push_back(r.hits[h].frame);
-            raw.add(all, k.cuts);
-            const Slices sixteen = auto_slices(as_drums, 16, 0, frames, frames, r.hits, r.count, r.beats);
+            const auto eighth = uint32_t(44100 * 30 / k.bpm);
+            const Slices sixteen = auto_chop(r.autos, 16, 0, frames, frames, r.hits, r.count, r.beats);
             autos16.add(cuts_of(sixteen), k.cuts);
+            l_auto.add(sixteen, frames, eighth);
             const auto kit = kit_sounds(sixteen, frames, r.hits, r.count, r.autos);
             kit_sizes[std::min<size_t>(kit.size(), 9)]++;
             kick_first += !kit.empty() && kit[0].kind == KitKind::Kick;
-            th0.add(cuts_of(chop(ChopMode::Threshold, 0, 0, frames, frames, r.hits, r.count, 920)), k.cuts);
-            th25.add(cuts_of(chop(ChopMode::Threshold, 25, 0, frames, frames, r.hits, r.count, 920)), k.cuts);
-            th50.add(cuts_of(chop(ChopMode::Threshold, 50, 0, frames, frames, r.hits, r.count, 920)), k.cuts);
-            beats16.add(cuts_of(chop(ChopMode::Beats, 1, 0, frames, frames, r.hits, r.count, 920, &r.beats)), k.cuts);
-            if (edges && a.count) {
-                const uint32_t to = a.end(a.count - 1, frames);
-                region_right += (a.start[0] > k.bar_from ? a.start[0] - k.bar_from : k.bar_from - a.start[0]) < 1323
-                             && (to > k.bar_to ? to - k.bar_to : k.bar_to - to) < 1323;
-            }
+            const Slices t25 = chop(ChopMode::Threshold, 25, 0, frames, frames, r.hits, r.count, 920);
+            th25.add(cuts_of(t25), k.cuts);
+            l_th25.add(t25, frames, eighth);
+            const Slices b16 = chop(ChopMode::Beats, 1, 0, frames, frames, r.hits, r.count, 920, &r.beats);
+            beats16.add(cuts_of(b16), k.cuts);
+            l_b16.add(b16, frames, eighth);
         }
         std::printf("\nbreaks%s (%u): kind DRUMS %u/%u (", bed ? " with music" : edges ? " with lead-in and cut-off bar" : "", n, kind_right, n);
         for (const auto& [name, c] : kinds) std::printf(" %s %d", name[0] ? name.c_str() : "-", c);
-        std::printf(" )\n  Auto, SLICES = hits: %s\n  Auto, SLICES 16:     %s\n  Threshold 0 %%:       %s\n  Threshold 25 %%:      %s\n"
-                    "  Threshold 50 %%:      %s\n  Beats 1/16:          %s\n  every hit found:     %s\n",
-                    autos.text().c_str(), autos16.text().c_str(), th0.text().c_str(), th25.text().c_str(), th50.text().c_str(), beats16.text().c_str(), raw.text().c_str());
+        std::printf(" )\n  Auto, SLICES 16: %s; %s\n  Threshold 25 %%:  %s; %s\n  Beats 1/16:      %s; %s\n",
+                    autos16.text().c_str(), l_auto.text().c_str(), th25.text().c_str(), l_th25.text().c_str(), beats16.text().c_str(), l_b16.text().c_str());
         std::printf("  KIT of SLICES 16 (one kick, snare, hat and open hat sample each): kick first %u/%u, sounds:", kick_first, n);
         for (const auto& [size, c] : kit_sizes) std::printf(" %zu x%d", size, c);
         std::printf("\n");
-        std::printf("  Auto as read, SLICES = hits: %s\n", as_read.text().c_str());
-        std::printf("  Auto missed:");
-        for (const auto& [c, m] : missed) std::printf(" %c %d/%d", c, m.first, m.second);
-        std::printf("\n");
-        if (edges) std::printf("  region on the two whole bars (Auto keeps the whole region for now): %u/%u\n", region_right, n);
     }
 
     // Chord loops: where the chords change.
@@ -425,9 +424,9 @@ int main(int argc, char** argv) {
                 const auto frames = uint32_t(k.mono.size());
                 AutoRead as = r.autos;
                 as.kind = SoundKind::Music;
-                music.add(cuts_of(auto_slices(as, 4, 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
+                music.add(cuts_of(auto_chop(as, 4, 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
                 as.kind = SoundKind::Hits;
-                hits_way.add(cuts_of(auto_slices(as, 4, 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
+                hits_way.add(cuts_of(auto_slices(as, 4, 0, frames, frames, r.hits, r.count)), k.cuts);
             }
             std::printf("\nchord loops%s (%u): kind MUSIC %u/%u (", held ? ", chords held" : ", chords in eighths", n, kind_right, n);
             for (const auto& [name, c] : kinds) std::printf(" %s %d", name[0] ? name.c_str() : "-", c);
@@ -453,7 +452,7 @@ int main(int argc, char** argv) {
             AutoRead as_shots = r.autos;
             as_shots.kind = SoundKind::Shots;
             const auto frames = uint32_t(k.mono.size());
-            const Slices s = auto_slices(as_shots, 16, 0, frames, frames, r.hits, r.count, r.beats);
+            const Slices s = auto_slices(as_shots, 16, 0, frames, frames, r.hits, r.count);
             count_right += s.count == k.spans.size();
             if (std::getenv("ROWS") && s.count != k.spans.size()) {
                 std::printf("  row %d: %zu sounds, %u slices\n   want:", i, k.spans.size(), s.count);
@@ -515,7 +514,7 @@ int main(int argc, char** argv) {
             }
             if (folder != std::string("Break")) {
                 auto& f = features[name.substr(0, name.find('-'))];
-                f[0] += r.autos.percussive; f[1] += r.autos.voice; f[2] += r.autos.slide; f[3] += r.beats.found(); f[4] += double(r.autos.phrases.size()); f[5] += 1;
+                f[0] += r.autos.percussive; f[1] += r.autos.voice; f[2] += 0; f[3] += r.beats.found(); f[4] += double(r.autos.phrases.size()); f[5] += 1;
             }
             if (argc > 2 && std::strcmp(argv[2], "-v") == 0)
                 std::printf("  %-40s %-6s want %-12s hits %.2f voice %.2f spans %zu phrases %zu tempo %.1f\n", name.c_str(), got.c_str(), want.c_str(),
@@ -527,23 +526,49 @@ int main(int argc, char** argv) {
             for (const auto& [kind, c] : kinds) std::printf(" %s %d", kind.c_str(), c);
             if (features.count(prefix)) {
                 const auto& f = features[prefix];
-                std::printf("   | hits %.2f voice %.2f slide %.2f beat %.2f phrases %.1f", f[0] / f[5], f[1] / f[5], f[2] / f[5], f[3] / f[5], f[4] / f[5]);
+                std::printf("   | hits %.2f voice %.2f beat %.2f phrases %.1f", f[0] / f[5], f[1] / f[5], f[3] / f[5], f[4] / f[5]);
             }
             std::printf("\n");
         }
     }
 
+    // WAVs given: Auto at SLICES 16 as it reads them. Where a file holds Melodee's chop chunk, its hand cuts and
+    // cuts taken out ("Hand", "Out": what was tapped) are the truth.
     for (int i = 2; i < argc; ++i) {
         if (!std::strcmp(argv[i], "-v")) continue;
-        const auto mono1 = read_wav(argv[i]);
+        std::string mlch;
+        unsigned rate = 44100;
+        const auto mono1 = read_wav(argv[i], nullptr, &mlch, &rate);
         if (mono1.empty()) continue;
         std::vector<float> mono(mono1.size());
         for (size_t n = 0; n < mono.size(); ++n) mono[n] = 2 * mono1[n];
         const Read r = read_of(mono);
         const auto frames = uint32_t(mono.size());
-        const Slices s = auto_slices(r.autos, 16, 0, frames, frames, r.hits, r.count, r.beats);
-        std::printf("\n%s: %s (cut as %s), hits %.2f, voice %.2f, tempo %.1f, %u slices, spans %zu, phrases %zu\n", fs::path(argv[i]).filename().c_str(),
-                    sound_kind_name(r.autos.found), sound_kind_name(r.autos.kind), r.autos.percussive, r.autos.voice, r.beats.tempo / 10.0, s.count, r.autos.spans.size(), r.autos.phrases.size());
+        const Slices s = auto_chop(r.autos, 16, 0, frames, frames, r.hits, r.count, r.beats);
+        std::printf("\n%s: %s (cut as %s), hits %.2f, tempo %.1f, %u slices:", fs::path(argv[i]).filename().c_str(), sound_kind_name(r.autos.found),
+                    sound_kind_name(r.autos.kind), r.autos.percussive, r.beats.tempo / 10.0, s.count);
+        for (unsigned n = 0; n < s.count; ++n) std::printf(" %.0f", (s.end(n, frames) - s.start[n]) / 44.1);
+        std::printf(" ms\n");
+        std::vector<uint32_t> truth;
+        for (const char* key : {"\"Hand\"", "\"Out\""}) {
+            const size_t at = mlch.find(key);
+            if (at == std::string::npos) continue;
+            const size_t open = mlch.find('[', at), close = mlch.find(']', at);
+            for (size_t p = open + 1; p < close;) {
+                char* end = nullptr;
+                const double v = std::strtod(mlch.c_str() + p, &end);
+                if (end == mlch.c_str() + p) { ++p; continue; }
+                truth.push_back(uint32_t(v * 44100 / rate));
+                p = size_t(end - mlch.c_str());
+            }
+        }
+        std::sort(truth.begin(), truth.end());
+        if (truth.empty()) continue;
+        Score a, b4, t25;
+        a.add(cuts_of(s), truth);
+        b4.add(cuts_of(chop(ChopMode::Beats, 4, 0, frames, frames, r.hits, r.count, 920, &r.beats)), truth);
+        t25.add(cuts_of(chop(ChopMode::Threshold, 25, 0, frames, frames, r.hits, r.count, 920)), truth);
+        std::printf("  against the %zu cuts tapped: Auto %s, Beats 1/4 %s, Threshold 25 %% %s\n", truth.size(), a.text().c_str(), b4.text().c_str(), t25.text().c_str());
     }
     return 0;
 }
