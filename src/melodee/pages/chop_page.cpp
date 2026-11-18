@@ -296,6 +296,8 @@ void draw(Paint& p, const Snapshot& s) {
         m.items[0] = card_item(Icon::Layers, slice_play_name(SlicePlay::Poly), "overlap");
         m.items[1] = card_item(Icon::OneShot, slice_play_name(SlicePlay::Mono), "one at a time");
         m.items[2] = card_item(Icon::ArrowRight, slice_play_name(SlicePlay::Thru), "on to the end");
+        const size_t sounds = kit_sounds(slices, frames, s.sample.hits, s.sample.hit_count, s.sample.autos).size();
+        m.items[3] = card_item(Icon::Pads, slice_play_name(SlicePlay::Kit), juce::String(sounds) + (sounds == 1 ? " sound" : " sounds"));
         m.count = unsigned(SlicePlay::Count); m.current = s.ui.sheet_row % m.count;
         card_sheet(p, m);
     }
@@ -379,7 +381,7 @@ void soft(Context& c, int key) {
         return;
     }
     if (key == 0) c.back();
-    if (key == 2 && ui.slices.count) { ui.sheet_open = true; ui.sheet_row = uint8_t(ui.settings.slice_play % unsigned(SlicePlay::Count)); } // asks: POLY, MONO or THRU
+    if (key == 2 && ui.slices.count) { ui.sheet_open = true; ui.sheet_row = uint8_t(ui.settings.slice_play % unsigned(SlicePlay::Count)); } // asks: POLY, MONO, THRU or KIT
 }
 } // namespace
 

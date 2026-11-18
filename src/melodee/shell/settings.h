@@ -48,7 +48,7 @@ struct Settings {
     bool count_in = false;    // a bar before Seq Record records (phase 2)
     bool rec_quantize = true; // recorded notes onto the pattern's Q, as the MPC (Shift + Pad 10, or SEQ's Rec quantize row)
     bool zero_snap = true;    // Chop's cuts onto zero crossings, always (shell/chop.h; the file's row kept for older builds)
-    uint8_t slice_play = 0;   // Chop's TO PADS: the last playback picked, 0 Poly, 1 Mono, 2 Thru (shell/chop.h SlicePlay)
+    uint8_t slice_play = 0;   // Chop's TO PADS: the last playback picked, 0 Poly, 1 Mono, 2 Thru, 3 Kit (shell/chop.h SlicePlay)
     bool stems_best = true;   // STEMS' B2 BEST: up to 16 kHz in two passes, about three times as long (shell/stems.h)
     bool preview = false;     // the sample browser's B3 PREVIEW: each file plays as the cursor lands on it
     bool double_copies = true; // Double Seq (Shift + Pad 3): the new half plays the notes again (the MPC's way), or starts empty
@@ -297,7 +297,7 @@ struct Settings {
             else if (key == "count_in") count_in = value != 0;
             else if (key == "rec_quantize") rec_quantize = value != 0;
             else if (key == "zero_snap") zero_snap = true; // always on now (older settings files had it off)
-            else if (key == "slice_play") slice_play = uint8_t(std::clamp(value, 0, 2));
+            else if (key == "slice_play") slice_play = uint8_t(std::clamp(value, 0, 3));
             else if (key == "stems_best") stems_best = value != 0;
             else if (key == "preview") preview = value != 0;
             else if (key == "double_copies") double_copies = value != 0;

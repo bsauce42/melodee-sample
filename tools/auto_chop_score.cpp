@@ -303,6 +303,8 @@ int main(int argc, char** argv) {
         const bool bed = set == 1, edges = set == 2;
         Score autos, autos16, th0, th25, th50, beats16, raw;
         std::map<char, std::pair<int, int>> missed;
+        std::map<size_t, int> kit_sizes;
+        unsigned kick_first = 0;
         unsigned kind_right = 0, n = 0, region_right = 0;
         std::map<std::string, int> kinds;
         for (int i = 0; i < 40; ++i, ++n) {
@@ -325,7 +327,11 @@ int main(int argc, char** argv) {
             std::vector<uint32_t> all;
             for (unsigned h = 1; h < r.count; ++h) all.push_back(r.hits[h].frame);
             raw.add(all, k.cuts);
-            autos16.add(cuts_of(auto_slices(as_drums, 16, 0, frames, frames, r.hits, r.count, r.beats)), k.cuts);
+            const Slices sixteen = auto_slices(as_drums, 16, 0, frames, frames, r.hits, r.count, r.beats);
+            autos16.add(cuts_of(sixteen), k.cuts);
+            const auto kit = kit_sounds(sixteen, frames, r.hits, r.count, r.autos);
+            kit_sizes[std::min<size_t>(kit.size(), 9)]++;
+            kick_first += !kit.empty() && kit[0].kind == KitKind::Kick;
             th0.add(cuts_of(chop(ChopMode::Threshold, 0, 0, frames, frames, r.hits, r.count, 920)), k.cuts);
             th25.add(cuts_of(chop(ChopMode::Threshold, 25, 0, frames, frames, r.hits, r.count, 920)), k.cuts);
             th50.add(cuts_of(chop(ChopMode::Threshold, 50, 0, frames, frames, r.hits, r.count, 920)), k.cuts);
@@ -341,10 +347,13 @@ int main(int argc, char** argv) {
         std::printf(" )\n  Auto, SLICES = hits: %s\n  Auto, SLICES 16:     %s\n  Threshold 0 %%:       %s\n  Threshold 25 %%:      %s\n"
                     "  Threshold 50 %%:      %s\n  Beats 1/16:          %s\n  every hit found:     %s\n",
                     autos.text().c_str(), autos16.text().c_str(), th0.text().c_str(), th25.text().c_str(), th50.text().c_str(), beats16.text().c_str(), raw.text().c_str());
+        std::printf("  KIT of SLICES 16 (one kick, snare, hat and open hat sample each): kick first %u/%u, sounds:", kick_first, n);
+        for (const auto& [size, c] : kit_sizes) std::printf(" %zu x%d", size, c);
+        std::printf("\n");
         std::printf("  Auto missed:");
         for (const auto& [c, m] : missed) std::printf(" %c %d/%d", c, m.first, m.second);
         std::printf("\n");
-        if (edges) std::printf("  region on the two whole bars: %u/%u\n", region_right, n);
+        if (edges) std::printf("  region on the two whole bars (Auto keeps the whole region for now): %u/%u\n", region_right, n);
     }
 
     // Rows of single sounds.

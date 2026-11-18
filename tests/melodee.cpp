@@ -3911,7 +3911,7 @@ void onset_hits() {
 
 // Chop's Auto type (engine/auto_chop.cpp): a groove of drums reads as DRUMS, its 16 slices on kicks, snares and
 // hats (not its ghost notes), and with every hit wanted each kick and snare is cut; a row of single sounds with silence between reads as SHOTS, one slice a sound,
-// each ending where its sound does, and hand cuts keep those gaps; SLICES on Shift + K3.
+// each ending where its sound does, and hand cuts keep those gaps; KIT lays one pad a sound; SLICES on Shift + K3.
 void auto_chop_kinds() {
     struct Made { std::array<Hit, max_hits> hits {}; unsigned count = 0; BeatGrid grid; AutoRead autos; uint32_t frames = 0; };
     auto analysed = [](const std::vector<float>& wave) {
@@ -3989,6 +3989,13 @@ void auto_chop_kinds() {
     const Slices kept = with_hand(s, hand, shots.frames);
     CHECK(kept.count == s.count + 1 && !kept.touches(1, shots.frames) && kept.touches(2, shots.frames) && !kept.touches(3, shots.frames)
           && kept.end(3, shots.frames) == s.end(2, shots.frames));
+
+    // KIT: the three kicks are one sound, kicks first; the three bursts of noise another. Each pad takes the longest.
+    const auto kit = kit_sounds(s, shots.frames, shots.hits, shots.count, shots.autos);
+    CHECK(kit.size() == 2 && kit[0].kind == KitKind::Kick && kit[0].count == 3 && kit[1].count == 3 && kit[1].kind != KitKind::Kick);
+    for (const auto& k : kit)
+        for (unsigned n = k.slice % 2; n < s.count; n += 2) CHECK(s.end(n, shots.frames) - s.start[n] <= s.end(k.slice, shots.frames) - s.start[k.slice]);
+    CHECK(std::string(slice_play_name(SlicePlay::Kit)) == "KIT" && unsigned(SlicePlay::Count) == 4);
 
     // SLICES: 8, 16, 32, 64 on Shift + K3 (16 to start); Auto is the fifth type.
     CHECK(auto_slice_count(0) == 8 && auto_slice_count(int(auto_default_count)) == 16 && auto_slice_count(3) == 64 && auto_slice_count(9) == 64);

@@ -393,16 +393,20 @@ land just next to a hand cut, the hand cut wins and no sliver is left.
 1. Press **B3** (**TO PADS**). The sheet shows the number of slices and the
    first empty pad they go on, such as **from A05**. It starts on your last
    choice.
-2. Turn the encoder to **POLY**, **MONO** or **THRU**:
+2. Turn the encoder to **POLY**, **MONO**, **THRU** or **KIT**:
    - **POLY**: slices play over each other.
    - **MONO**: one slice at a time. The slices share a mute group.
    - **THRU**: one slice at a time, and each plays on to the end of the
      region, so a slice's pad carries the loop on from there.
+   - **KIT**: one pad for each sound. Slices that sound the same (the kicks
+     of a break, say) share one pad, which gets the longest of them. Kicks
+     come first, then snares, hats and the rest. The hats share a mute group.
+     The card shows how many sounds there are.
 3. Push the encoder. The slices go on the empty pads from that pad on, and
    Stage opens.
 
-**B1** (**BACK**) closes the sheet. MONO and THRU use the chopped pad's mute
-group, or the first free one. Slices put on pads keep the chopped pad's
+**B1** (**BACK**) closes the sheet. MONO, THRU and KIT's hats use the chopped
+pad's mute group, or the first free one. Slices put on pads keep the chopped pad's
 tune, Warp, mute group and other settings.
 
 ### Slices in the WAV file

@@ -43,7 +43,7 @@ choices made outside Settings are kept there too:
 - Your starred sounds
 - **PREVIEW** in the sample browser, on or off
 - **BEST** (**B2**) on a sample's stems
-- How Chop's **TO PADS** plays the slices: **POLY**, **MONO** or **THRU**
+- How Chop's **TO PADS** plays the slices: **POLY**, **MONO**, **THRU** or **KIT**
 
 ## Basic and Full
 

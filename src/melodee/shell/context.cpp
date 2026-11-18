@@ -1846,8 +1846,25 @@ void Context::chop_to_pads(SlicePlay play) {
     const auto& last = t.pads[t.last_pad % sampler_pads];
     if (last.used() && last.sample == ui.chop_sample) parent = last;
     else for (const auto& p : t.pads) if (chopped(p)) { parent = p; break; }
-    const uint8_t group = slice_group(parent, t.pads); // MONO and THRU: one at a time
+    const uint8_t group = slice_group(parent, t.pads); // MONO and THRU: one at a time; KIT: the hats
     unsigned pad = 0, laid = 0;
+    if (play == SlicePlay::Kit) { // one pad a sound, kicks first; the hats in one mute group
+        if (!library) return;
+        const auto loaded = library->slot(ui.chop_sample);
+        bool hats = false;
+        for (const auto& sound : kit_sounds(ui.slices, frames, loaded.hits, loaded.hit_count, loaded.autos)) {
+            while (pad < sampler_pads && t.pads[pad].used()) ++pad;
+            if (pad >= sampler_pads) break;
+            const unsigned n = sound.slice;
+            PadSound one = slice_pad(parent, ui.slices, n, frames, SlicePlay::Poly, group);
+            if (sound.kind == KitKind::Hat || sound.kind == KitKind::OpenHat) { one.group = group; hats = true; }
+            t.pads[pad] = one;
+            send_pad(ui.track, pad);
+            ++laid;
+        }
+        if (laid) notice("Kit: " + std::to_string(laid) + (laid == 1 ? " sound" : " sounds") + (hats ? ", hats in mute group " + std::to_string(group) : ""));
+        return;
+    }
     for (unsigned n = 0; n < ui.slices.count; ++n) {
         while (pad < sampler_pads && t.pads[pad].used()) ++pad; // from the first free pad on
         if (pad >= sampler_pads) break;
