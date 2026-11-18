@@ -1796,8 +1796,10 @@ Slices Context::type_chop(bool* capped) const {
     auto loaded = library->slot(ui.chop_sample);
     int amount = ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()];
     if (ui.chop_mode == ChopMode::Beats) amount = int(division_sixteenths(unsigned(std::max(amount, 0)), project.bar_ticks() / sixteenth_ticks)); // in 16ths
-    if (ui.chop_mode == ChopMode::Auto) // engine/auto_chop.h: by what the sample is
-        return auto_slices(loaded.autos, auto_slice_count(amount), ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, loaded.beats, capped);
+    if (ui.chop_mode == ChopMode::Auto) { // engine/auto_chop.h: by what the sample is (with CLEAN, its DRUMS stem)
+        const auto read = chop_cut_slot() == ui.chop_sample ? loaded : library->slot(chop_cut_slot());
+        return auto_slices(read.autos, auto_slice_count(amount), ui.chop_from, ui.chop_to, loaded.frames, read.hits, read.hit_count, read.beats, capped);
+    }
     return chop(ui.chop_mode, amount, ui.chop_from, ui.chop_to, loaded.frames, loaded.hits, loaded.hit_count, project.tempo, &loaded.beats, capped);
 }
 
@@ -1850,13 +1852,15 @@ void Context::chop_to_pads(SlicePlay play) {
     unsigned pad = 0, laid = 0;
     if (play == SlicePlay::Kit) { // one pad a sound, kicks first; the hats in one mute group
         if (!library) return;
-        const auto loaded = library->slot(ui.chop_sample);
+        const unsigned from = chop_cut_slot(); // with CLEAN on: the sounds and the pads from the DRUMS stem
+        const auto loaded = library->slot(from);
         bool hats = false;
         for (const auto& sound : kit_sounds(ui.slices, frames, loaded.hits, loaded.hit_count, loaded.autos)) {
             while (pad < sampler_pads && t.pads[pad].used()) ++pad;
             if (pad >= sampler_pads) break;
             const unsigned n = sound.slice;
             PadSound one = slice_pad(parent, ui.slices, n, frames, SlicePlay::Poly, group);
+            one.sample = uint16_t(from);
             if (sound.kind == KitKind::Hat || sound.kind == KitKind::OpenHat) { one.group = group; hats = true; }
             t.pads[pad] = one;
             send_pad(ui.track, pad);

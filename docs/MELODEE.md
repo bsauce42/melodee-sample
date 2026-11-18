@@ -1612,7 +1612,19 @@ the file holds, to the bit.
   the sample pages' title shows note, loop and reverse icons.
 - **Chop** (Chop): the last pad's region in slices that touch. Pads play and
   pick slices; K1 start, K2 end, K3 type (Threshold, Regions, Beats,
-  Manual), Shift + K3 its amount, Shift + K1 / K2 zoom. The wheel moves the
+  Manual, Auto), Shift + K3 its amount, Shift + K1 / K2 zoom. Auto
+  (`engine/auto_chop.cpp`, read with the hits when a sample loads) cuts by
+  what the sample is, named at the top right: DRUMS (each drum hit; ghost
+  notes, a quiet copy of a strong hit, and flams within 50 ms stay in the
+  hit before), MUSIC (where the notes change most, the 400 ms either side of
+  each hit, then the strongest hits), SHOTS (one slice a sound between
+  silences, the silence left out) or HITS (the strongest hits spread out;
+  VOCAL is read but cut as HITS for now); SLICES 8 to 64 on Shift + K3. B2
+  CLEAN separates the sample's stems once and cuts on its DRUMS stem
+  (`Context::chop_cut_slot`). TO PADS' fourth card KIT lays one pad a sound
+  (`kit_sounds` in `shell/chop.h`). `tools/auto_chop_score.cpp` scores Auto
+  against breaks, chord loops and rows of sounds built from the factory
+  library's single sounds, beside Threshold and Beats. The wheel moves the
   picked slice's start (its end once K2 was touched, until another slice is
   picked; Minus / Plus pick); unless Shift + K set a zoom it closes the view
   in on the cut as it turns (about 120 ms across, `chop_follow`,

@@ -116,14 +116,20 @@ void draw(Paint& p, const Snapshot& s) {
     uint32_t frames = s.sample.frames;
     Header h = header_of(s);
     h.left.push_back(chip("CHOP", c));
-    h.left.push_back(pill(Icon::Scissors, juce::String(slices.count), c));
+    if (s.ui.chop_cleaning) h.left.push_back(pill(Icon::Layers, "SEPARATING", c)); // CLEAN's stems
+    else h.left.push_back(pill(Icon::Scissors, juce::String(slices.count), c));
     if (slices.count > 16) // the sixteen slices on the pads (Pad Bank steps them)
         h.left.push_back(pill(Icon::Pads, "BANK " + juce::String::charToString(juce::juce_wchar('A' + slice_bank(s.ui.chop_slice))), colour::text));
     h.right.push_back(tag_of(s, s.ui.track));
     if (s.ui.sheet_open && slices.count) frame(p, s, {{"BACK", "", ""}, -1, c, {KeyIcon::Back, KeyIcon::None, KeyIcon::None}}, h); // TO PADS' cards
     else if (s.ui.shift) frame(p, s, {{"EXTRACT", "SPLIT", "MERGE"}, -1, c}, h);
     else {
-        SoftKeys keys {{"CANCEL", "", "TO PADS"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
+        const bool clean = s.ui.chop_mode == ChopMode::Auto && !s.ui.chop_cleaning; // B2 CLEAN, its LED lit while on
+        SoftKeys keys {{"CANCEL", clean ? "CLEAN" : "", "TO PADS"}, 2, colour::text, {KeyIcon::Back, KeyIcon::None, KeyIcon::Check}};
+        if (clean) {
+            keys.toggles = 2;
+            keys.lit = s.ui.chop_clean && s.ui.chop_clean_for == s.ui.chop_sample && s.ui.chop_clean_slot >= 0 ? 2 : 0;
+        }
         frame(p, s, keys, h);
     }
     float x = zone::pad, w = zone::width - 2 * zone::pad;
@@ -144,6 +150,11 @@ void draw(Paint& p, const Snapshot& s) {
         length = seconds(frames);
         const bool tempo = (s.ui.chop_mode == ChopMode::Beats || kind == SoundKind::Drums || kind == SoundKind::Music) && s.sample.beats.found();
         if (tempo) length = juce::String(s.sample.beats.tempo / 10.0, 1) + " BPM  " + length; // the tempo it cuts at, the sample's own
+        if (s.ui.chop_cleaning && s.stems.busy) { // CLEAN's stems: the time left
+            char left[24];
+            std::snprintf(left, sizeof(left), "%u:%02u left", s.stems.seconds_left / 60, s.stems.seconds_left % 60);
+            length = left;
+        }
         if (!slices.count) top_right();
     }
     if (!frames || !slices.count) {
@@ -380,7 +391,9 @@ void soft(Context& c, int key) {
         }
         return;
     }
+    if (key == 0 && ui.chop_cleaning) { if (c.library) c.library->stop_stems(); return; } // CANCEL: CLEAN's stems called off
     if (key == 0) c.back();
+    if (key == 1 && ui.chop_mode == ChopMode::Auto) c.chop_clean_key();
     if (key == 2 && ui.slices.count) { ui.sheet_open = true; ui.sheet_row = uint8_t(ui.settings.slice_play % unsigned(SlicePlay::Count)); } // asks: POLY, MONO, THRU or KIT
 }
 } // namespace

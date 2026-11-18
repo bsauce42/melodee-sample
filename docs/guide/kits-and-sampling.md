@@ -353,6 +353,15 @@ What it found shows at the top right:
 **SHIFT** + **K3** sets **SLICES**: 8, 16 (to start), 32 or 64. Fewer slices
 keep the strongest hits. SHOTS always makes one slice for each sound.
 
+**B2** (**CLEAN**) on Auto finds the cuts on the sample's drums alone. The
+first time, Melodee separates the sample as **STEMS** does (with **BEST**
+off: about 15 seconds for 13 seconds of sound); the header shows
+**SEPARATING** and the time left, and **B1** (**CANCEL**) calls it off. Then
+the picture shows the drums stem and the cuts are found on it, so hits under
+chords or a voice count too. The pads still play the sample, and **KIT**
+lays the drums stem. Press **B2** again to cut from the sample. The four
+stems stay in `Melodee/Samples/Stems`.
+
 A chop holds at most 64 slices: if a type needs more, the last slice runs to
 the end, and Melodee says so.
 

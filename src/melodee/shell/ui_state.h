@@ -319,6 +319,11 @@ struct UiState {
     uint32_t chop_take_at = 0;  // ms when the take (or its part from a slice: a lit pad, the red one after) began, 0 none
     uint32_t chop_take_from = 0; // the frame it plays from
     bool chop_more = false;     // a take played out: the red stays on the next slice's pad, and tapped it plays on
+    // Auto's CLEAN (B2): its cuts found on the sample's DRUMS stem (shell/stems.h), separated once for that sample.
+    bool chop_clean = false;     // on, with the stem in
+    bool chop_cleaning = false;  // its stems being separated, or the DRUMS stem being read
+    int16_t chop_clean_slot = -1; // the DRUMS stem's sample slot; -1: none yet
+    uint16_t chop_clean_for = 0;  // the sample (slot) that stem was made from
     int8_t levels_hit = -1;     // Levels: the pad played last, 0..15
     int16_t levels_value = 0;   // and what it played: a velocity or semitones
     // Sample Record (parity phase 6; Input Config itself is in settings.input).

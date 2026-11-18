@@ -812,7 +812,7 @@ void Shell::snapshot(Snapshot& out, uint32_t now) {
     }
     if (library_) {
         const auto& t = project_->tracks[ui_.track];
-        unsigned slot = ui_.page == PageId::Chop ? ui_.chop_sample : t.pads[t.last_pad % sampler_pads].sample;
+        unsigned slot = ui_.page == PageId::Chop ? context_.chop_cut_slot() : t.pads[t.last_pad % sampler_pads].sample; // Chop: CLEAN shows the drums stem
         out.sample = slot < sample_slots ? library_->slot(slot) : LoadedSample {};
         out.zone_file = out.sample.instrument && ui_.page != PageId::Chop ? library_->zone_file(slot, ui_.zone) : std::string();
         // Trim and Chop zoomed in: the view's own peaks, from the audio (the overview's 512 are too few that close).

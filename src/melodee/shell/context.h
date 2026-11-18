@@ -537,6 +537,8 @@ public:
     void chop_jump(int delta);                                         // Chop: SHIFT + wheel, the cut onto the next hit
     void chop_erase(unsigned slice);                                   // Chop: Erase + pad, Erase: the slice joins its neighbour
     void chop_clear();                                                 // Chop: Erase + Chop, every cut out
+    void chop_clean_key();                                             // Chop on Auto: B2 CLEAN on or off (shell/stems_jobs.cpp)
+    unsigned chop_cut_slot() const;                                    // the slot Auto's cuts are found in: CLEAN's stem, else the sample
     std::unique_ptr<Edit> chop_take_edit;                              // Chop's take in progress: one undo step
     void open_take();                                                  // before a take begins (pad 1, the red after one)
     void end_take(uint32_t ms = 0);                                    // the take kept as one step; stopped short, the red stays
