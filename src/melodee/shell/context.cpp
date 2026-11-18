@@ -5,6 +5,7 @@
 #include "melodee/shell/mod_jobs.h"
 #include "melodee/shell/midi_track_jobs.h"
 #include "melodee/shell/context.h"
+#include "melodee/shell/free_length.h"
 #include "melodee/model/pad_params.h"
 #include "melodee/shell/input_choices.h"
 #include "melodee/shell/step_edit.h"
@@ -153,6 +154,7 @@ void Context::switch_to(const Project& next, const PatternBank& bank, const std:
     edits.clear();                            // its edits were made to another project
     chain_lead = -1;                          // and its chain of sequences
     take_edit.reset(); take_track = -1;
+    free_take = {}; // a Free pattern growing in the project before
     for (auto& h : held_notes) h.key = -1;
     ui.lead_pattern = project.tracks[0].pattern; // as the audio thread starts it
     free_retired();
@@ -669,7 +671,10 @@ void Context::apply(const Binding& b, int value) {
         break;
     }
     case Kind::PatternBars: set_length(uint32_t(value) * project.bar_ticks()); break;
-    case Kind::PatternLength: set_length(pattern_lengths[unsigned(value) % pattern_length_count] * project.bar_ticks()); break;
+    case Kind::PatternLength: // below 1 bar: Free (shell/free_length.h)
+        if (value < 0) set_free();
+        else set_length(pattern_lengths[unsigned(value) % pattern_length_count] * project.bar_ticks());
+        break;
     case Kind::TimeSignature: set_signature(unsigned(value)); break;
     case Kind::TcShift: ui.tc_shift = int16_t(value); break;
     case Kind::TcSwing: ui.tc_swing = uint8_t(value); break;
@@ -1605,9 +1610,107 @@ void Context::redo() {
 void Context::set_length(uint32_t ticks) {
     auto& p = pattern();
     ticks = std::clamp<uint32_t>(ticks, 1, project.max_length());
-    if (p.length == ticks) return;
+    stop_growing(ui.track, track().pattern);
+    if (p.length == ticks && !p.free) return;
     p.length = ticks;
+    p.free = false;
     sync_pattern(ui.track, track().pattern);
+}
+
+// K1 turned below 1 bar: an empty pattern with no notes on another track in its sequence is Free again, a bar long
+// until a take sets its length (shell/free_length.h).
+void Context::set_free() {
+    auto& p = pattern();
+    unsigned bar = std::max(project.bar_ticks(), 1u);
+    if (!free_offered(p, column_fit(project, patterns, ui.track, track().pattern).length)) return;
+    if (p.free && p.length == bar) return;
+    p.free = true;
+    p.length = bar;
+    p.fit_lanes();
+    sync_pattern(ui.track, track().pattern);
+}
+
+void Context::stop_growing(unsigned t, unsigned p) {
+    if (free_take.track == int(t % track_count) && free_take.pattern == int(p % pattern_count)) free_take = {};
+}
+
+// Seq Record on an empty Free pattern. With notes on another track in its sequence, it takes the longest of them
+// and counts with that track; else it grows a bar at a time from the bar playing (free_tick()).
+void Context::start_free(unsigned t, unsigned p, bool song) {
+    free_take = {};
+    t %= track_count; p %= pattern_count;
+    auto& pat = patterns.at[t][p];
+    if (!pat.is_free() || song) return;
+    ColumnFit fit = column_fit(project, patterns, t, p);
+    pat.free = false;
+    if (fit.length) {
+        pat.length = fit.length;
+        pat.fit_lanes();
+        sync_pattern(t, p);
+        if (host.playing()) send({Type::Rebase, uint8_t(t), uint8_t(p), uint16_t(fit.track)});
+        return;
+    }
+    pat.length = std::max(project.bar_ticks(), 1u);
+    pat.fit_lanes();
+    sync_pattern(t, p);
+    free_take.track = int(t); free_take.pattern = int(p);
+    free_tick();
+    notice("P" + std::to_string(p + 1) + " Free: Seq Record ends it");
+}
+
+// The take on a Free pattern ends: at the end of the bar playing, or in a bar's first eighth at that bar line,
+// with what was played since moved to the top. Nothing taken: Free again.
+void Context::end_free() {
+    if (free_take.track < 0) return;
+    FreeTake take = free_take;
+    free_take = {};
+    unsigned t = unsigned(take.track) % track_count, p = unsigned(take.pattern) % pattern_count;
+    auto& pat = patterns.at[t][p];
+    unsigned bar = std::max(project.bar_ticks(), 1u);
+    if (pat.empty() && pat.motion.empty()) {
+        pat.free = true;
+        pat.length = bar;
+        sync_pattern(t, p);
+        return;
+    }
+    if (!take.full) {
+        uint32_t position = take.seen;
+        if (take.rebased && host.playing() && !host.count_in() && host.pattern_of(t) % pattern_count == p) {
+            int at = host.position_of(t);
+            if (at >= 0) position = uint32_t(at);
+        }
+        free_close(pat, free_end(position, bar, ticks_per_quarter / 2, project.max_length()));
+        sync_pattern(t, p);
+    }
+    unsigned bars = pattern_bars(project, pat);
+    notice("P" + std::to_string(p + 1) + ": " + std::to_string(bars) + (bars == 1 ? " bar" : " bars"));
+}
+
+// Often (shell/lights.cpp): the growing take keeps the bar playing and the next in its pattern; K1's card learns
+// what the selected pattern's sequence holds.
+void Context::free_tick() {
+    unsigned selected = ui.track % track_count, shown = track().pattern % pattern_count;
+    ui.column_ticks = column_fit(project, patterns, selected, shown).length;
+    ui.free_growing = free_take.track == int(selected) && free_take.pattern == int(shown);
+    if (free_take.track < 0 || free_take.full) return;
+    unsigned t = unsigned(free_take.track) % track_count, p = unsigned(free_take.pattern) % pattern_count;
+    if (!host.playing() || host.count_in() || host.song_playing() || host.pattern_of(t) % pattern_count != p) return;
+    int at = host.position_of(t);
+    if (at < 0) return;
+    auto& pat = patterns.at[t][p];
+    uint32_t bar = std::max(project.bar_ticks(), 1u), most = project.max_length(), position = uint32_t(at);
+    if (!free_take.rebased) { // from the top of the bar playing, then its pattern grows ahead of it
+        send({Type::Rebase, uint8_t(t), uint8_t(p), uint16_t(0xffff)});
+        free_take.rebased = true;
+        position %= bar;
+    }
+    free_take.seen = position;
+    uint32_t want = free_grown(position, bar, most);
+    if (want > pat.length) { pat.length = want; sync_pattern(t, p); }
+    if (pat.length >= most && position + bar >= most) {
+        free_take.full = true;
+        notice("P" + std::to_string(p + 1) + ": " + std::to_string(max_bars) + " bars, the most");
+    }
 }
 
 void Context::set_division(Division division) {
@@ -1972,6 +2075,8 @@ void Context::double_notes() {
     auto& p = pattern();
     bool copy = ui.settings.double_copies;
     if (!double_pattern(p, project.max_length(), copy)) return; // its motion too (Settings' Empty: the new half bare)
+    stop_growing(ui.track, track().pattern);
+    p.free = false; // a length set by hand
     sync_pattern(ui.track, track().pattern);
 }
 
@@ -1980,6 +2085,8 @@ void Context::half_length() {
     uint32_t half = std::max<uint32_t>(p.length / 2, 1);
     if (half == p.length) return;
     edit_pattern(ui.track, track().pattern, "Half Seq", [&] {
+        stop_growing(ui.track, track().pattern);
+        p.free = false; // a length set by hand
         half_pattern(p); // its motion past the half goes with the notes
         sync_pattern(ui.track, track().pattern);
     });
@@ -2034,9 +2141,11 @@ void Context::set_recording(bool on) {
         ui.rec_armed = false;
         take_track = ui.track; take_pattern = track().pattern;
         take_edit = std::make_unique<Edit>(begin_edit("Take", ui.track, track().pattern, true));
+        start_free(ui.track, track().pattern, host.playing() ? host.song_playing() : played_song); // part of the take
         return;
     }
     for (auto& h : held_notes) h.key = -1; // notes held on keep the length they were written with
+    end_free(); // a Free pattern's length, in the take
     song_tick(); // finishes the clips and the punch being written
     if (take_edit) commit_edit(std::move(*take_edit));
     take_edit.reset();

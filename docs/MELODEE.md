@@ -575,6 +575,20 @@ to 128 bars of the project's time signature; its **Q** (1/4 .. 1/64 with
 triplets) is only the grid. Swing (50–75 %) stretches the first sixteenth
 of each eighth.
 
+**Free length** (shell/free_length.h): an empty pattern is Free until a
+take or a length set by hand (K1 or Shift + K1, Half / Double Seq, a launch
+that gives it the playing pattern's length, an MPC or MIDI file import).
+K1 shows Free below 1 bar. A Seq Record take on a Free pattern with no
+notes on another track in its sequence grows it a bar at a time: the bar
+playing and the next are always in it, and the audio thread counts it from
+the bar the take began in (Rebase). The take ends at the end of the bar
+playing; in the first eighth of a bar after the first, at that bar line,
+with what was played since moved to the top. With notes on another track in
+its sequence, the take gets the longest of those lengths and counts with
+that track. Nothing taken: Free again. Not while the song plays; 128 bars
+at most. Files leave out an empty Free pattern of a 4/4 bar, as before, and
+mark any other with FREE after its EVNT; an EVNT without FREE loads fixed.
+
 A **ratchet** plays a note as 1–8 hits spread evenly over its length, each
 on its own frame and held as a note of that length would be; the chance is
 rolled once for all of them, an accent lifts every one. Its **ramp**
@@ -652,8 +666,8 @@ hold to steer, Shift + Seq to zoom in**.
   pattern (next bar; stopped, at once); hold a pad and tap another to
   copy; Erase + pad asks, then clears it; Shift + pad keeps the printed
   Shift jobs. Pad Bank steps the bank A–H (the bank lights show it), as
-  Seq held + Pad Bank. Minus / Plus move the track. K1 length (1, 2, 4 ..
-  128 bars; Shift: any count), K2 Q (Shift: time signature, 1/4 .. 15/16),
+  Seq held + Pad Bank. Minus / Plus move the track. K1 length (Free, 1,
+  2, 4 .. 128 bars; Shift: any count), K2 Q (Shift: time signature, 1/4 .. 15/16),
   K3 swing (Shift: metronome level). The wheel selects the track; the
   selected track's pattern is the sequence in view (cell n is also sequence n),
   and Push launches it.

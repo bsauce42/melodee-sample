@@ -24,14 +24,17 @@ unsigned playing_pattern(Context& c) {
 }
 
 // That pattern of the selected track, at the next bar while playing. An empty one starts as long as
-// the one playing, so a new idea fits what is there.
+// the one playing, so a new idea fits what is there (Free while that one is: shell/free_length.h).
 void launch_one(Context& c, unsigned pattern) {
     unsigned t = c.ui.track % track_count, now = playing_pattern(c);
     pattern %= pattern_count;
     auto& target = c.patterns.at[t][pattern];
-    uint32_t length = c.patterns.at[t][now].length;
-    if (target.empty() && pattern != now && length && target.length != length) {
+    const auto& playing = c.patterns.at[t][now];
+    uint32_t length = playing.length;
+    bool free_now = playing.is_free();
+    if (target.empty() && pattern != now && length && (target.length != length || target.free != free_now)) {
         target.length = length;
+        target.free = free_now;
         c.sync_pattern(t, pattern);
     }
     c.launch(t, pattern);

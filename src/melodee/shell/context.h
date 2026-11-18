@@ -70,6 +70,15 @@ public:
     std::array<Held, 16> held_notes {};
     int take_track = -1, take_pattern = -1;
     bool in_take(unsigned t, unsigned p) const { return take_edit && take_track == int(t) && take_pattern == int(p); } // Seq Record on this pattern
+    // Free length (shell/free_length.h): the take growing its pattern a bar at a time (track -1: none); whether the
+    // audio thread counts it from its own bar yet, where it was last seen, and whether it reached 128 bars.
+    struct FreeTake { int track = -1, pattern = -1; bool rebased = false, full = false; uint32_t seen = 0; };
+    FreeTake free_take;
+    void start_free(unsigned t, unsigned p, bool song); // a take on an empty Free pattern begins
+    void end_free();                                    // and ends: the pattern's length, as played
+    void free_tick();                                   // often: it grows; K1's card
+    void set_free();                                    // K1 below 1 bar: Free again
+    void stop_growing(unsigned t, unsigned p);          // a length set by hand ends the growing
     bool played_song = false; // the last Play was the song's
     EngineHost& host;
     uint32_t now = 0; // ms, set for each control

@@ -65,7 +65,7 @@ light as the cells.
 | Encoder push | Launch the sequence of the selected track's pattern on every track. |
 | **PAD BANK** | Pattern bank A–H. The bank LEDs show it. |
 | **−** / **+** | Select the previous / next track. |
-| **K1** | Pattern length: 1, 2, 4 … 128 bars. **SHIFT**: any number of bars. Notes past a shorter length are kept and play again when the pattern is longer. |
+| **K1** | Pattern length: Free, 1, 2, 4 … 128 bars. **Free** is there for an empty pattern: the first take sets the length (see [Free length](#free-length)). **SHIFT**: any number of bars. Notes past a shorter length are kept and play again when the pattern is longer. |
 | **K2** | Grid (Q): 1/4 to 1/64, with triplets. **SHIFT**: time signature. |
 | **K3** | Swing (50–75 %). **SHIFT**: metronome level. |
 | **SHIFT** + **B1** | **SEQUENCE**: the sequence's tempo and name. |
@@ -155,6 +155,33 @@ step. Turn a knob while recording to record it as Motion.
 - Hold **PLAY** while playing: Fill. Notes with a FILL condition play.
 - **ERASE** + **SEQ RECORD** on a kit: erase all notes of the selected pad
   (asks first).
+
+### Free length
+
+A new pattern is **Free**: you do not set its length before you record. The
+**K1** card shows **Free**.
+
+1. Select an empty pattern. **K1** shows **Free**.
+2. Press **SEQ RECORD** and play. The pattern grows a bar at a time. The
+   card shows **P1 FREE** and the bars so far.
+3. Press **SEQ RECORD** again, or **STOP**. The pattern ends at the end of
+   the bar that is playing, and loops from there.
+
+- Pressed in the first eighth note of a bar, the pattern ends at the bar
+  line just passed. What you played after the line moves to the start.
+- When other tracks have notes in the same sequence, a Free pattern takes
+  the length of the longest of them, and **K1** shows that length. Free is
+  then not offered: the first take sets the length and the other tracks
+  follow it.
+- A pattern you launch on Patterns or with **SEQ** held takes the length of
+  the pattern playing, as before.
+- Turn **K1** to a number of bars, or use Half or Double Seq, to set the
+  length yourself. On an empty pattern, turn **K1** below 1 bar for Free
+  again.
+- A take with nothing recorded leaves the pattern Free. One undo removes
+  the take and makes the pattern Free again.
+- A pattern grows to 128 bars at most. While the song plays, takes do not
+  grow.
 
 **Recall** (**SHIFT** + **SEQ RECORD**): Melodee always keeps the notes you
 play, recording or not. Recall puts the last phrase into patterns: every

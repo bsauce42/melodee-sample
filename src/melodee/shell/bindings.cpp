@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/shell/bindings.h"
+#include "melodee/shell/free_length.h"
 #include "melodee/shell/levels_keys.h"
 #include "melodee/shell/features.h"
 #include "melodee/shell/mix_hub.h"
@@ -569,6 +570,15 @@ std::array<Binding, 3> project_key(const Project& project, Binding third = {}) {
 }
 } // namespace
 
+Binding length_card(const Project& project, const UiState& ui, const Pattern& pattern) {
+    uint32_t shown = free_shown(pattern, ui.column_ticks), bar = std::max(project.bar_ticks(), 1u);
+    int low = free_offered(pattern, ui.column_ticks) ? -1 : 0, top = int(pattern_length_count) - 1;
+    if (!shown) return Binding {Kind::PatternLength, 0, low, top, -1};
+    unsigned bars = std::max(1u, unsigned((shown + bar - 1) / bar)), index = 0;
+    while (index + 1 < pattern_length_count && pattern_lengths[index + 1] <= bars) ++index;
+    return Binding {Kind::PatternLength, 0, low, top, int(index)};
+}
+
 namespace {
 // The TRIG row of Steps (`step`: its step in hand's notes) and Roll (the note in focus), roadmap P1: K1 the ratchet's
 // hits, K2 its velocity ramp, K3 its trig condition (beside the chance, K3 of the main row).
@@ -601,10 +611,8 @@ std::array<Binding, 3> trig_cards(const Event& e, bool step) {
 }
 // Patterns' cards, and Seq held's on any page (shell/seq_layer.h): the selected track's pattern,
 // K1 length by the bar, K2 Q, K3 swing; Shift: any bar count, the time signature, the metronome's level (as on the MPC).
-std::array<Binding, 3> pattern_cards(const Project& project, const Pattern& pattern) {
-    unsigned bars = pattern_bars(project, pattern), index = 0;
-    while (index + 1 < pattern_length_count && pattern_lengths[index + 1] <= bars) ++index;
-    return {Binding {Kind::PatternLength, 0, 0, int(pattern_length_count) - 1, int(index)},
+std::array<Binding, 3> pattern_cards(const Project& project, const UiState& ui, const Pattern& pattern) {
+    return {length_card(project, ui, pattern),
             Binding {Kind::Division, 0, 0, int(Division::Count) - 1, int(pattern.division)},
             Binding {Kind::Swing, 0, 50, 75, project.swing}};
 }
@@ -678,9 +686,7 @@ std::array<Binding, 3> shift_bindings(const Project& project, const UiState& ui,
                 return {Binding {Kind::LaneLength, lane, 1, int(std::max(steps, 2u)), int(own)}, Binding {}, Binding {}};
             }
         }
-        unsigned bars = pattern_bars(project, pattern), index = 0;
-        while (index + 1 < pattern_length_count && pattern_lengths[index + 1] <= bars) ++index;
-        return {Binding {Kind::PatternLength, 0, 0, int(pattern_length_count) - 1, int(index)},
+        return {length_card(project, ui, pattern),
                 Binding {Kind::Division, 0, 0, int(Division::Count) - 1, int(pattern.division)},
                 Binding {Kind::TimeSignature, 0, 0, int(time_signature_count) - 1, project.signature}};
     }
@@ -774,7 +780,7 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
         return {Binding {Kind::NameSuggest, 0, 0, int(std::max(count, 2u)) - 1, std::min<int>(ui.name.suggestion, int(count) - 1)},
                 Binding {Kind::NameChar, 0, 0, int(NameEntry::charset_size()) - 1, int(ui.name.char_at())}, Binding {}};
     }
-    if (ui.seq_held) return pattern_cards(project, pattern); // Seq held: the pattern's, on any page
+    if (ui.seq_held) return pattern_cards(project, ui, pattern); // Seq held: the pattern's, on any page
     if (ui.pad_bank || ui.copying == UiState::Copying::Tracks) { // Pad Bank held, or a track move or copy picking its tracks:
         if (!track.used()) return {};                             // the selected track's strip, as the mixer's Tracks and Stage MIX
         return {Binding {Kind::Level, 0, 0, 127, track.mix.level}, Binding {Kind::Pan, 0, -50, 50, track.mix.pan},
@@ -869,10 +875,10 @@ std::array<Binding, 3> base_bindings(const Project& project, const UiState& ui, 
             return {Binding {Kind::FollowAction, 0, 0, int(FollowAction::Count) - 1, f.action}, Binding {Kind::FollowAfter, 0, 0, 127, follow_after_card(f)},
                     Binding {Kind::FollowChance, 0, 0, 100, f.chance}};
         }
-        return pattern_cards(project, pattern);
+        return pattern_cards(project, ui, pattern);
     }
     case PageId::Scenes: { // roadmap P5: the selected track's pattern's follow action, after how long, on what odds
-        if (!follow_shown(ui)) return pattern_cards(project, pattern); // Basic: the pattern's length, Q and swing, as on Patterns
+        if (!follow_shown(ui)) return pattern_cards(project, ui, pattern); // Basic: the pattern's length, Q and swing, as on Patterns
         if (!track.used()) return {};
         const auto& f = pattern.follow;
         return {Binding {Kind::FollowAction, 0, 0, int(FollowAction::Count) - 1, f.action}, Binding {Kind::FollowAfter, 0, 0, 127, follow_after_card(f)},

@@ -7,6 +7,7 @@
 #include "melodee/shell/pad_bank.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/pages/common.h"
+#include "melodee/shell/free_length.h"
 #include "melodee/shell/undo_scope.h"
 #include "melodee/shell/midi_ports.h"
 #include "melodee/engine/punch.h"
@@ -359,11 +360,19 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
         c.value = (b.value > 0 ? "+" : b.value < 0 ? juce::String::fromUTF8("\xe2\x88\x92") : juce::String()) + juce::String(std::abs(b.value));
         break;
     case Kind::PatternBars: case Kind::PatternLength: { // by the bar; a length that is not whole bars by the step of Q
-        unsigned bar = s.project.bar_ticks();
+        unsigned bar = std::max(s.project.bar_ticks(), 1u);
         juce::String which = "P" + juce::String(s.track().pattern % pattern_count + 1) + " "; // the pattern it belongs to
         c.label = which + "LENGTH"; c.label_mixed = which + "Length"; // mixed case where capitals don't fit (P128)
-        if (s.pattern.length % bar) { c.value = juce::String(s.pattern.steps()); c.unit = "steps"; break; }
-        unsigned bars = s.pattern.length / bar;
+        if (s.ui.free_growing) { // Free length: the bars the take has reached, growing (shell/free_length.h)
+            unsigned bars = s.position / bar + 1;
+            c.label = which + "FREE"; c.label_mixed = which + "Free";
+            c.value = juce::String(bars); c.unit = bars == 1 ? "bar" : "bars";
+            break;
+        }
+        uint32_t length = free_shown(s.pattern, s.ui.column_ticks); // a Free pattern: the take's length (0 Free)
+        if (!length) { c.value = "Free"; break; }
+        if (length % bar) { c.value = juce::String((length + s.pattern.q() - 1) / s.pattern.q()); c.unit = "steps"; break; }
+        unsigned bars = length / bar;
         c.value = juce::String(bars); c.unit = bars == 1 ? "bar" : "bars";
         break;
     }

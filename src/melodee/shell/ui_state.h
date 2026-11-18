@@ -118,6 +118,10 @@ struct UiState {
     uint8_t key_list_key = 0;
     uint32_t key_list_at = 0;
     bool rec_armed = false;        // Seq Record pressed while stopped: Play starts the take (its light flashes)
+    // Free length (shell/free_length.h), for K1's card: the longest pattern with notes on another track in the
+    // selected pattern's sequence (0: none, Free is offered), and a take growing the selected pattern now.
+    uint32_t column_ticks = 0;
+    bool free_growing = false;
     uint8_t lead_pattern = 0;      // the pattern launched last: whose tempo plays with BPM per pattern on
     uint32_t locate = 0;           // Patterns: where Shift + Play carries on from, ticks of the track in view's pattern as written (the wheel moves it)
     bool bpm_tenths = false;       // Seq held + Push: the wheel's tempo by whole BPM or tenths

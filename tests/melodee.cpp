@@ -101,6 +101,7 @@
 #include "melodee/shell/stream_holds.h"
 #include "melodee/engine/stream_pager.h"
 #include "melodee/shell/sequences.h"
+#include "melodee/shell/free_length.h"
 #include "melodee/shell/pad_job.h"
 #include "melodee/shell/project_kits.h"
 #include "melodee/shell/pad_gap.h"
@@ -2535,7 +2536,7 @@ void button_remap() {
     auto project = std::make_unique<Project>();
     project->tracks[0].engine = EngineKind::Plugin;
     project->tracks[1].engine = EngineKind::Sampler;
-    Pattern pattern; pattern.length = 3 * project->bar_ticks();
+    Pattern pattern; pattern.length = 3 * project->bar_ticks(); pattern.free = false; // a length set by hand
     UiState ui; ui.track = 0;
     ui.page = PageId::Patterns;
     auto cards = page_bindings(*project, ui, pattern);
@@ -3377,7 +3378,7 @@ void timing() {
     {
         Project project;
         UiState ui; ui.page = PageId::Patterns;
-        Pattern five; five.length = 5 * 384;
+        Pattern five; five.length = 5 * 384; five.free = false; // a length set by hand (Free: shell/free_length.h)
         auto base = page_bindings(project, ui, five, false);
         CHECK(base[0].kind == Binding::Kind::PatternLength && base[0].max == 7 && pattern_lengths[base[0].value] == 4);
         auto shifted = page_bindings(project, ui, five, true);
@@ -17519,6 +17520,138 @@ void pad_cloud() {
     CHECK(old.params[sampler::Cloud] == 0 && old.params[sampler::Position] == info.params[sampler::Position].initial);
 }
 
+// Free length (shell/free_length.h): an empty pattern's first take sets its length a bar at a time; with notes on
+// another track in its sequence it takes theirs; K1 shows Free below 1 bar; the file keeps it; the audio thread
+// counts a growing take from its own bar (Rebase).
+void free_length() {
+    const uint32_t bar = 384, most = max_bars * bar, grace = ticks_per_quarter / 2;
+    auto note = [](uint32_t tick, unsigned key) { Event e; e.tick = tick; e.key = uint8_t(key); return e; };
+    {   // A new pattern is Free while it is empty; Free counts only then.
+        Pattern p;
+        CHECK(p.free && p.is_free());
+        Pattern q = p;
+        q.free = false;
+        CHECK(!q.is_free() && q != p);
+        p.add(note(0, 60)); q.add(note(0, 60));
+        CHECK(!p.is_free() && p == q); // with notes the flag is not compared
+    }
+    {   // Growing: the bar playing and the next, 128 bars at most.
+        CHECK(free_grown(0, bar, most) == 2 * bar && free_grown(bar - 1, bar, most) == 2 * bar);
+        CHECK(free_grown(bar, bar, most) == 3 * bar && free_grown(5 * bar + 7, bar, most) == 7 * bar);
+        CHECK(free_grown(most - 1, bar, most) == most);
+        // Ending: the end of the bar playing; in the first eighth of a bar after the first, that bar line, wrapped.
+        auto end = free_end(3 * bar + 100, bar, grace, most);
+        CHECK(end.length == 4 * bar && !end.wrap);
+        end = free_end(4 * bar + 20, bar, grace, most);
+        CHECK(end.length == 4 * bar && end.wrap);
+        end = free_end(4 * bar + grace, bar, grace, most);
+        CHECK(end.length == 5 * bar && !end.wrap);
+        end = free_end(20, bar, grace, most); // the first bar: never back to nothing
+        CHECK(end.length == bar && !end.wrap);
+        end = free_end(most - 10, bar, grace, most);
+        CHECK(end.length == most && !end.wrap);
+        // Closing with a wrap: what was played past the line goes to the top, in order.
+        Pattern p;
+        p.free = false; p.length = 5 * bar;
+        p.add(note(0, 60)); p.add(note(2 * bar, 62)); p.add(note(4 * bar + 10, 64));
+        p.write_motion({4 * bar + 12, 3, 0, 50, 0}); p.write_motion({bar, 3, 0, 20, 0});
+        free_close(p, free_end(4 * bar + 20, bar, grace, most));
+        CHECK(p.length == 4 * bar && !p.free && p.events.size() == 3);
+        CHECK(p.events[0].tick == 0 && p.events[1].tick == 10 && p.events[1].key == 64 && p.events[2].tick == 2 * bar);
+        CHECK(p.motion.size() == 2 && p.motion[0].tick == 12 && p.motion[1].tick == bar);
+    }
+    {   // The sequence: the longest pattern with notes on another used track, and that track.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        synth(project->tracks[0], 0); synth(project->tracks[1], 0); synth(project->tracks[2], 0);
+        CHECK(column_fit(*project, *bank, 0, 3).length == 0 && column_fit(*project, *bank, 0, 3).track == -1);
+        bank->at[0][3].add(note(0, 60)); // its own notes do not count
+        CHECK(column_fit(*project, *bank, 0, 3).length == 0);
+        bank->at[1][3].length = 2 * bar; bank->at[1][3].add(note(0, 60));
+        bank->at[2][3].length = 4 * bar; bank->at[2][3].add(note(0, 60));
+        auto fit = column_fit(*project, *bank, 0, 3);
+        CHECK(fit.length == 4 * bar && fit.track == 2);
+        bank->at[5][3].length = 8 * bar; bank->at[5][3].add(note(0, 60)); // an unused track's pattern does not count
+        CHECK(column_fit(*project, *bank, 0, 3).length == 4 * bar);
+        CHECK(column_fit(*project, *bank, 0, 4).length == 0);
+        // K1: Free below 1 bar on an empty pattern of an empty sequence; a Free pattern shows the sequence's length.
+        UiState ui;
+        Pattern empty;
+        auto card = length_card(*project, ui, empty);
+        CHECK(card.kind == Binding::Kind::PatternLength && card.min == -1 && card.value == -1 && free_shown(empty, 0) == 0);
+        ui.column_ticks = 2 * bar;
+        card = length_card(*project, ui, empty);
+        CHECK(card.min == 0 && card.value == 1 && free_shown(empty, ui.column_ticks) == 2 * bar);
+        Pattern fixed;
+        fixed.free = false; fixed.length = 4 * bar;
+        ui.column_ticks = 0;
+        card = length_card(*project, ui, fixed);
+        CHECK(card.min == -1 && card.value == 2 && free_offered(fixed, 0));
+        fixed.add(note(0, 60));
+        card = length_card(*project, ui, fixed);
+        CHECK(card.min == 0 && card.value == 2 && !free_offered(fixed, 0));
+    }
+    {   // The file: an empty Free pattern of a bar is not written and loads Free; an empty fixed one, a Free one
+        // with its own Q, and one with notes keep what they were.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        synth(project->tracks[0], 0);
+        bank->at[0][1].free = false;                                      // empty, a bar, fixed
+        bank->at[0][2].division = Division::Eighth;                       // empty, Free, its own Q
+        bank->at[0][3].free = false; bank->at[0][3].length = 4 * bar;     // empty, 4 bars, fixed
+        bank->at[0][4].add(note(0, 60));                             // notes
+        auto bytes = save_project(*project, *bank);
+        auto back = std::make_unique<Project>();
+        auto back_bank = std::make_unique<PatternBank>();
+        CHECK(load_project(bytes, *back, *back_bank).empty());
+        CHECK(back_bank->at[0][0].is_free() && !back_bank->at[0][1].free && back_bank->at[0][1].length == bar);
+        CHECK(back_bank->at[0][2].is_free() && back_bank->at[0][2].division == Division::Eighth);
+        CHECK(!back_bank->at[0][3].free && back_bank->at[0][3].length == 4 * bar);
+        CHECK(!back_bank->at[0][4].free && back_bank->at[0][4] == bank->at[0][4]);
+        for (unsigned p = 0; p < 5; ++p) CHECK(back_bank->at[0][p] == bank->at[0][p]);
+    }
+    {   // The audio thread: Rebase counts a pattern from the bar playing, so a longer copy goes on from there; with
+        // another track playing the same number it counts with that track.
+        auto project = std::make_unique<Project>();
+        auto bank = std::make_unique<PatternBank>();
+        synth(project->tracks[0], 0); synth(project->tracks[1], 0);
+        project->tempo = 1200;
+        bank->at[1][0].length = 4 * bar; put(bank->at[1][0], 0, 57, 100);
+        EngineHost host;
+        host.load(*project, *bank);
+        tones_for(host, *project);
+        host.send({Command::Type::Play});
+        std::vector<int32_t> block(256);
+        for (unsigned n = 0; n < 1034; ++n) host.render(block.data(), 128, 1); // 1.5 bars: tick 576
+        int before = host.position_of(0);
+        CHECK(before >= 180 && before < 200);
+        host.send({Command::Type::Rebase, 0, 0, 0xffff});
+        Command grown {Command::Type::PatternData, 0, 0};
+        grown.data = new Pattern;
+        grown.data->free = false; grown.data->length = 2 * bar;
+        host.send(grown);
+        host.render(block.data(), 128, 1);
+        int after = host.position_of(0);
+        CHECK(after >= before && after < before + 3); // not 576: from the bar it was in
+        for (unsigned n = 0; n < 689; ++n) host.render(block.data(), 128, 1); // a bar on: into its second bar
+        CHECK(host.position_of(0) >= int(bar) + before && host.position_of(0) < int(bar) + before + 5);
+        CHECK(host.position_of(1) >= 2 * int(bar) + before && host.position_of(1) < 2 * int(bar) + before + 5);
+        // With track 2 (the same number): it counts from where track 2's pattern began.
+        Command four {Command::Type::PatternData, 0, 0};
+        four.data = new Pattern;
+        four.data->free = false; four.data->length = 4 * bar;
+        host.send(four);
+        host.send({Command::Type::Rebase, 0, 0, 1});
+        host.render(block.data(), 128, 1);
+        CHECK(host.position_of(0) == host.position_of(1));
+        // Another number than its own: nothing changes.
+        host.send({Command::Type::Rebase, 0, 5, 0xffff});
+        host.render(block.data(), 128, 1);
+        CHECK(host.position_of(0) == host.position_of(1));
+        CHECK(host.dropped() == 0);
+    }
+}
+
 // A PLUGIN track's performance knobs (engine/macros.h): the filter cuts, the echo rings on after its knob is turned
 // back, and the sends' delay memory goes back to the pool once they fall silent (or the track stops being a plug-in's).
 void plugin_macros() {
@@ -17702,6 +17835,7 @@ void sample_roots() {
 }
 
 int main() {
+    free_length();
     progressions();
     pad_sends();
     pad_cloud();

@@ -267,6 +267,7 @@ void Shell::lights(SurfaceLights& lights, uint32_t now) {
     context_.reload_tick(); // a project parked for: built once the audio thread is still; the Loading sheet till it is in
     if (ui_.exit_saved && now - off_saved_at >= 1000) power_off.store(true); // a second to read that it is saved
     context_.song_tick();
+    context_.free_tick();     // Free length: a take on a Free pattern grows it (shell/free_length.h)
     context_.plugins_tick(now); // the rack follows the project; the plug-in in view's cards
     context_.print_tick();      // prints made (freeze plan F2a) into the project's records
     context_.mpc3_tick();       // an MPC 3 export's plug-in tracks printed, then the export

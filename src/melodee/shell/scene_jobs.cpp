@@ -23,11 +23,16 @@ void Context::launch_scene(unsigned scene, bool quiet) {
     scene %= pattern_count;
     unsigned count = 0, selected = ui.track % track_count;
     unsigned playing = host.playing() ? unsigned(host.pattern_of(selected)) % pattern_count : track().pattern % pattern_count;
-    uint32_t length = sequence_length(project, patterns, selected, scene, patterns.at[selected][playing].length);
+    const auto& fallback = patterns.at[selected][playing];
+    uint32_t length = sequence_length(project, patterns, selected, scene, fallback.length);
+    bool free_now = !sequence_length(project, patterns, selected, scene, 0) && fallback.is_free(); // no notes there, none playing: Free stays
     for (unsigned t = 0; t < track_count; ++t) {
         if (!sequence_takes(project.tracks[t]) && t != selected) continue;
         auto& target = patterns.at[t][scene];
-        if (target.empty() && length && target.length != length) { target.length = length; sync_pattern(t, scene); } // silent, as long as the sequence
+        if (target.empty() && length && (target.length != length || target.free != free_now)) { // silent, as long as the sequence
+            target.length = length; target.free = free_now;
+            sync_pattern(t, scene);
+        }
         launch(t, scene);
         count += !target.empty();
     }

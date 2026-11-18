@@ -188,6 +188,9 @@ constexpr unsigned pattern_length_count = sizeof(pattern_lengths) / sizeof(patte
 inline unsigned pattern_bars(const Project& project, const Pattern& pattern) {
     return std::max(1u, unsigned((pattern.length + project.bar_ticks() - 1) / project.bar_ticks()));
 }
+// K1's pattern length card: 1, 2, 4 .. 128 bars by index, and -1 Free below them on an empty pattern whose sequence
+// has no notes on another track (shell/free_length.h). A Free pattern shows the length a take on it would get.
+Binding length_card(const Project& project, const UiState& ui, const Pattern& pattern);
 // Warp on its card: 0 Off, 1..151 for 50..200 %, 152 Seq; and back.
 constexpr int warp_card_seq = 152;
 inline int warp_card(uint8_t warp) { return warp == warp_seq ? warp_card_seq : warp >= warp_min ? int(warp) - (warp_min - 1) : 0; }
