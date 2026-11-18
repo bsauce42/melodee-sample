@@ -53,6 +53,8 @@ void instrument_picture(ui::Paint& p, const Snapshot& s, StageKind kind);
 // The input source as Record and Input Config name it: "Rear", or a track's "Track 3 Prophet" (with_tap: "Track 3 Post").
 juce::String input_name(const Snapshot& s, bool with_tap);
 juce::String engine_word(EngineKind kind); // "Prophet", "FM6"
+// The mic or the rear inputs while a loop or MIDI track has the ADC on the other one: silent, shown IN USE.
+bool source_in_use(const Snapshot& s, InputSource source);
 // Record: a take of Melodee's own sound runs, so the pads play the instrument (Context::record_keys()).
 bool record_keys_shown(const Snapshot& s);
 

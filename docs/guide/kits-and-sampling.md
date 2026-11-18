@@ -473,6 +473,11 @@ records it **Post FX** (with its effect chain) or **Pre FX**.
 - **B2** (**INPUT FX**): run Knob FX on the input. You hear them while the
   input is monitored, and they are recorded.
 
+The mic and the rear inputs cannot be used at the same time. While a MIDI
+track or a Looper loop uses the rear inputs, the source Mic shows **IN USE**,
+is silent and does not record. While one uses the mic and none uses the rear
+inputs, Rear shows **IN USE** the same way.
+
 ![Input Config](../images/screens/inputconfig.png)
 
 To sample a Melodee track, choose **Track** as the source. During the take

@@ -31,6 +31,7 @@
 #include "melodee/engine/midi_engine.h"
 #include "melodee/shell/stage_map.h"
 #include "melodee/shell/sample_mode.h"
+#include "melodee/shell/input_route.h"
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -675,14 +676,23 @@ void describe_card(const Snapshot& s, const Binding& b, ui::KnobCard& c) {
     case Kind::RecSource: {
         c.label = "SOURCE";
         unsigned code = input_choices(s.project, s.ui.track, s.ui.settings.input).code_at(b.value);
-        if (code < input_track_code) { c.value = input_source_name(InputSource(code)); break; }
+        if (code < input_track_code) {
+            c.value = input_source_name(InputSource(code));
+            if (source_in_use(s, InputSource(code))) c.unit = "IN USE"; // the ADC is on the other input: silent
+            break;
+        }
         unsigned t = code - input_track_code; // the track on the label, its engine as the value
         c.label = "TRACK " + juce::String(t + 1);
         c.value = sounding_track(s.project.tracks[t]) ? engine_word(s.project.tracks[t].engine) : juce::String("Silent");
         break;
     }
     case Kind::RecTap: c.label = "TAP"; c.value = b.value ? "Post FX" : "Pre FX"; break;
-    case Kind::AudioSource: c.label = "SOURCE"; c.value = audio_source_label(audio_sources[unsigned(b.value) % audio_source_count]); break; // freeze plan F3
+    case Kind::AudioSource: { // freeze plan F3
+        const InputSource source = audio_sources[unsigned(b.value) % audio_source_count];
+        c.label = "SOURCE"; c.value = audio_source_label(source);
+        if (source_in_use(s, source)) c.unit = "IN USE";
+        break;
+    }
     case Kind::AudioMonitorMode: c.label = "MONITOR"; c.value = track_monitor_name(TrackMonitor(b.value)); break;
     case Kind::KnobParam: {
         if (unsigned(b.id) == knob_morph) { // the fader on Knob FX (knob fx C): the way from A to B
@@ -1034,6 +1044,8 @@ juce::String engine_word(EngineKind kind) {
     juce::String name = engine_info(kind).name;
     return name.length() > 3 ? name.substring(0, 1) + name.substring(1).toLowerCase() : name;
 }
+
+bool source_in_use(const Snapshot& s, InputSource source) { return InputRoute::adc_taken(source, s.ui.adc_needs); }
 
 juce::String input_name(const Snapshot& s, bool with_tap) {
     const auto& in = s.ui.settings.input;

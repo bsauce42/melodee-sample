@@ -15,8 +15,8 @@ void InputRoute::service(Hardware& hardware, bool plugged) {
     int key = int(source) | int(loops) << 8;
     if (key != routed) {
         bool usb_wanted = from_usb(source) || (loops & need_usb);
-        // A loop on the rear inputs or the mic routes the ADC to it (the loops never ask for both).
-        const char* adc = loops & need_line ? "line" : loops & need_mic ? "mic" : input_route(source);
+        // A loop or MIDI track on the rear inputs or the mic routes the ADC to it (the rear inputs first).
+        const char* adc = adc_route(source, loops);
         // USB-C first off (the audio thread stops taking blocks), then the ADC route, then USB-C on.
         if (!usb_wanted) { usb_live.store(false, std::memory_order_release); usb.stop(); }
         if (hardware.mixer.available() && !hardware.mixer.input(adc)) hardware.mixer.input("off");

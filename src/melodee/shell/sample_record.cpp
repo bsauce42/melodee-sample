@@ -63,6 +63,7 @@ bool arm_take(Context& c, unsigned kit) {
             return false;
         }
     }
+    if (!c.input_free(in.source)) return false;
     kit %= sampler_pads;
     int slot = c.hold_file("TAKE", c.ui.track, int(kit), 2);
     if (slot < 0) { c.notice("Record: samples full"); return false; }
@@ -217,6 +218,12 @@ void Context::audio_recall() {
     notice(pad_text("Audio Recall to", unsigned(kit)));
 }
 
+bool Context::input_free(InputSource source) {
+    if (!InputRoute::adc_taken(source, loop_input_needs(project.looper) | midi_input_needs(project))) return true;
+    notice(source == InputSource::Mic ? "Mic: the rear inputs are in use" : "Rear: the mic is in use");
+    return false;
+}
+
 void Context::record_tick(uint32_t at) {
     InputConfig in = ui.settings.input;
     bool page = ui.page == PageId::Record;
@@ -243,8 +250,13 @@ void Context::record_tick(uint32_t at) {
     // Loops on a hardware input of their own: routed too, heard as Monitor says (the mic quiets the speaker then).
     if (loop_monitor_sent != int(in.monitor)) { send({Type::LoopMonitor, 0, 0, 0, int16_t(in.monitor)}); loop_monitor_sent = int(in.monitor); }
     unsigned loops = loop_input_needs(project.looper), midi_needs = midi_input_needs(project); // roadmap P4 (M5): MIDI tracks' inputs too
+    // The source on the ADC side a loop or MIDI track took: silent and IN USE, not the other input under its name.
+    // Not while the auto sampler has the engine's source (it checks its own INPUT).
+    const bool taken = autosample_source < 0 && InputRoute::adc_taken(in.source, loops | midi_needs);
+    ui.adc_needs = uint8_t(loops | midi_needs);
+    if (taken_sent != int(taken)) { send({Type::InputTaken, 0, 0, 0, int16_t(taken)}); taken_sent = int(taken); }
     bool loop_mic = (loops & InputRoute::need_mic) && in.monitor != Monitor::Off;
-    const bool quiet_speaker = audio_t >= 0 ? in.source == InputSource::Mic && monitoring : in.mutes_speaker(page); // no howl
+    const bool quiet_speaker = !taken && (audio_t >= 0 ? in.source == InputSource::Mic && monitoring : in.mutes_speaker(page)); // no howl
     if (input) input->want(in.source, quiet_speaker || loop_mic, loops | midi_needs);
     midi_audio_tick(*this, loops | midi_needs, in.source == InputSource::Mic);
     // The engine hears the settings as loaded from the card (and after a take, a source changed meanwhile).

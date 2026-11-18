@@ -67,10 +67,12 @@ void draw(Paint& p, const Snapshot& s) {
         }
     }
     float cx = zone::pad + step * (chosen + 0.5f), my = zone::picture_y + 97;
-    juce::String sides = in.source == InputSource::RearL || in.source == InputSource::UsbL ? "L"
+    const bool in_use = source_in_use(s, in.source); // a loop or MIDI track has the ADC on the other input: silent
+    juce::String sides = in_use ? "IN USE"
+                       : in.source == InputSource::RearL || in.source == InputSource::UsbL ? "L"
                        : in.source == InputSource::RearR || in.source == InputSource::UsbR ? "R"
                        : in.source == InputSource::Mic ? "MONO" : "L + R";
-    p.text(sides, cx - 30, gy + 50, 60, 14, plain(colour::sec, type::small, Weight::SemiBold), juce::Justification::centred);
+    p.text(sides, cx - 30, gy + 50, 60, 14, plain(in_use ? colour::amber : colour::sec, type::small, Weight::SemiBold), juce::Justification::centred);
     juce::Path lead; // from the socket down into the meter's middle
     float mx = zone::width / 2.0f;
     lead.startNewSubPath(cx, gy + 66);

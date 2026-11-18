@@ -30,6 +30,17 @@ public:
 
     // What the loops' own hardware inputs need (loop_needs()).
     static constexpr unsigned need_line = 1, need_mic = 2, need_usb = 4;
+    // The ADC's route: the rear inputs when a loop or MIDI track needs them, else the mic when one does, else what
+    // the source needs ("mic", "line" or "off").
+    static const char* adc_route(InputSource source, unsigned needs) {
+        return needs & need_line ? "line" : needs & need_mic ? "mic" : input_route(source);
+    }
+    // Whether the source is on the ADC side the route does not take (the mic while a loop or MIDI track has the rear
+    // inputs, or the other way): it is heard as silence and shown IN USE.
+    static bool adc_taken(InputSource source, unsigned needs) {
+        if (source == InputSource::Mic) return (needs & need_line) != 0;
+        return from_rear(source) && !(needs & need_line) && (needs & need_mic);
+    }
     // MIDI thread: the source, whether monitoring should quiet the speaker, and what the loops need.
     void want(InputSource source, bool mute_speaker, unsigned loops = 0) {
         wanted.store(uint16_t(unsigned(source) | (mute_speaker ? 0x80u : 0u) | (loops & 7u) << 8), std::memory_order_relaxed);

@@ -38,6 +38,10 @@ With the built-in mic as the source, the speaker goes quiet while you hear
 the mic, so it does not feed back. The header then shows **SPEAKER OFF**.
 Plug in headphones to hear yourself.
 
+While a MIDI track or a Looper loop uses the other input (the rear inputs
+for Mic, the mic for Rear), the source shows **IN USE**, is silent and does
+not record.
+
 ## Record
 
 1. Select the pattern to record into. Its length is the length of the take:

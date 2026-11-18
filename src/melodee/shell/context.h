@@ -578,10 +578,12 @@ public:
     void record_button();                                 // Sample Record on Record: a take ends; back to the pad's page
     void audio_recall();                                  // Shift + Sample Record: the ring's last 25 s onto the next empty pad
     void record_tick(uint32_t at);                        // often (ms): monitor and route wishes, settings kept, renders followed
+    bool input_free(InputSource source);                  // false, with a notice, while a loop or MIDI track has its ADC side
     uint32_t settings_save_at = 0;                        // ms; 0 nothing waiting
     uint32_t settings_wait_at = 0;                        // ms: K1 last moved ui.settings_wait_row's value
     uint32_t rec_armed_at = 0;                            // ms
     bool monitor_sent = false, monitor_known = false;
+    int taken_sent = -1;                                  // InputTaken as last sent; -1 not yet
     int loop_monitor_sent = -1;
     int gain_sent = 0;
     uint16_t record_key_pads = 0;                         // pads playing through record_key()

@@ -401,7 +401,8 @@ as any other track's sound does.
 The MPC takes sound from the mic or the rear inputs, not both at once, and
 the rear inputs come first. While another MIDI track or a Looper loop uses
 the rear inputs, a track set to **Mic** shows **IN USE** and is silent. Two
-MIDI tracks can take Rear L and Rear R.
+MIDI tracks can take Rear L and Rear R. Input Config and audio tracks follow
+the same rule.
 
 ---
 

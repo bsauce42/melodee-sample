@@ -201,6 +201,9 @@ struct UiState {
     bool sysex_listed = false;
     std::array<uint8_t, track_count> sysex_percent {};
     uint16_t midi_in_use = 0;
+    // What the loops and MIDI tracks need of the inputs (InputRoute::need_line, need_mic, need_usb): a source on the ADC
+    // side they did not get is IN USE (InputRoute::adc_taken).
+    uint8_t adc_needs = 0;
     // Roadmap P4, Song's Export: what B2 makes, the wheel's pick: a mixdown as 32-bit float, 24-bit or 16-bit (both
     // dithered), the stems, or a MIDI file.
     uint8_t export_kind = 0;

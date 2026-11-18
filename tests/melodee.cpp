@@ -71,6 +71,7 @@
 #include "melodee/shell/record_place.h"
 #include "melodee/engine/voice_tap.h"
 #include "melodee/shell/input_choices.h"
+#include "melodee/shell/input_route.h"
 #include "melodee/shell/comp_trail.h"
 #include "melodee/shell/fader_job.h"
 #include "melodee/shell/midi_route.h"
@@ -4358,6 +4359,49 @@ void chop_and_browser() {
 
     // Trim Sample is a Shift + pad action now.
     CHECK(shift_pad_job(12).kind == ShiftPadJob::Kind::Action && std::string(shift_pad_job(12).name) == "Trim Sample");
+}
+
+// The mic and the rear inputs share the ADC: a loop or MIDI track on the rear inputs takes it, else one on the mic,
+// else Input Config's source. A source on the other side is IN USE, and the engine hears silence for it, not the
+// other input under its name; USB-C and Melodee's own sound are never taken.
+void input_taken() {
+    using R = InputRoute;
+    const auto route = [](InputSource s, unsigned needs) { return std::string(R::adc_route(s, needs)); };
+    CHECK(route(InputSource::Mic, 0) == "mic" && route(InputSource::Mic, R::need_line) == "line" && route(InputSource::Rear, R::need_mic) == "mic"
+          && route(InputSource::RearL, R::need_line | R::need_mic) == "line" && route(InputSource::Usb, 0) == "off"
+          && route(InputSource::Usb, R::need_mic | R::need_usb) == "mic");
+    CHECK(!R::adc_taken(InputSource::Mic, 0) && !R::adc_taken(InputSource::Rear, 0) && !R::adc_taken(InputSource::Mic, R::need_mic | R::need_usb));
+    CHECK(R::adc_taken(InputSource::Mic, R::need_line) && R::adc_taken(InputSource::Mic, R::need_line | R::need_mic));
+    CHECK(R::adc_taken(InputSource::RearL, R::need_mic) && R::adc_taken(InputSource::Rear, R::need_mic | R::need_usb));
+    CHECK(!R::adc_taken(InputSource::RearR, R::need_line | R::need_mic) && !R::adc_taken(InputSource::Rear, R::need_line));
+    for (auto s : {InputSource::Usb, InputSource::UsbL, InputSource::UsbR, InputSource::Resample, InputSource::Track})
+        CHECK(!R::adc_taken(s, R::need_line | R::need_mic | R::need_usb));
+
+    auto project = std::make_unique<Project>();
+    auto bank = std::make_unique<PatternBank>();
+    for (auto& t : project->tracks) t.engine = EngineKind::None;
+    std::vector<int32_t> input(256), out(256);
+    std::vector<float> usb(256, 0.5f);
+    for (unsigned f = 0; f < 128; ++f) { input[2 * f] = int32_t(0.5 * 2147483647.0); input[2 * f + 1] = int32_t(0.25 * 2147483647.0); }
+    // The mic taken: nothing on its meter or heard through Monitor, though the ADC brings the rear inputs' sound.
+    auto host = std::make_unique<EngineHost>();
+    host->load(*project, *bank);
+    host->send({Command::Type::RecordSource, uint8_t(InputSource::Mic)});
+    host->send({Command::Type::Monitor, 0, 0, 0, 1});
+    host->send({Command::Type::InputTaken, 0, 0, 0, 1});
+    for (unsigned n = 0; n < 4; ++n) host->render(out.data(), 128, 1, input.data(), nullptr, usb.data());
+    CHECK(host->input_taken() && host->in_level(0) == 0 && host->in_level(1) == 0 && host->out_level(0) == 0);
+    // Free again: heard at once (the mic is both ADC sides' average).
+    host->send({Command::Type::InputTaken, 0, 0, 0, 0});
+    for (unsigned n = 0; n < 4; ++n) host->render(out.data(), 128, 1, input.data(), nullptr, usb.data());
+    CHECK(!host->input_taken() && std::fabs(host->in_level(0) - 0.375f) < 1e-3f && std::fabs(host->in_level(1) - 0.375f) < 1e-3f);
+    // USB-C does not use the ADC: heard whatever the flag says.
+    host = std::make_unique<EngineHost>();
+    host->load(*project, *bank);
+    host->send({Command::Type::RecordSource, uint8_t(InputSource::Usb)});
+    host->send({Command::Type::InputTaken, 0, 0, 0, 1});
+    for (unsigned n = 0; n < 4; ++n) host->render(out.data(), 128, 1, input.data(), nullptr, usb.data());
+    CHECK(std::fabs(host->in_level(0) - 0.5f) < 1e-3f);
 }
 
 
@@ -18442,6 +18486,7 @@ int main() {
     audio_input_and_rendering();
     light_show_lights();
     meter_lights();
+    input_taken();
     onset_hits();
     sample_roots();
     beat_grid();

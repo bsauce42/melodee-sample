@@ -1162,7 +1162,8 @@ void draw(Paint& p, const Snapshot& s) {
         if (mine && s.ui.audio_rec_running) h.left.push_back(chip(Icon::Pattern, name, colour::rec));
         else if (mine || (s.ui.rec_armed && !s.ui.recording)) h.left.push_back(pill(Icon::Pattern, name, colour::rec));
         else h.left.push_back(pill(Icon::Pattern, name));
-        if (s.speaker_quieted) h.left.push_back(pill(Icon::SpeakerOff, "SPEAKER OFF", colour::amber));
+        if (source_in_use(s, t.audio.source)) h.left.push_back(pill(source_icon(t.audio.source), "IN USE", colour::amber));
+        else if (s.speaker_quieted) h.left.push_back(pill(Icon::SpeakerOff, "SPEAKER OFF", colour::amber));
         else if (page.kind == StageKind::AudioInput) h.left.push_back(pill(source_icon(t.audio.source), juce::String(audio_source_label(t.audio.source)).toUpperCase()));
     } else if (page.kind == StageKind::Arp || page.kind == StageKind::Chord) { // on or off, as the LED on the MPC would say
         bool on = page.kind == StageKind::Arp ? t.arp : t.chord;
