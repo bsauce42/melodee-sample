@@ -99,7 +99,10 @@ void chop_button(Context& c) {
         ui.chop_sample = pad.sample; ui.chop_from = pad.start; ui.chop_to = pad.end;
         ui.chop_slice = 0; ui.chop_zoom = 0; ui.chop_zoom_auto = false; ui.chop_focus = 0; ui.chop_fine = false; ui.chop_view = {}; ui.chop_heard_at = 0;
         ui.chop_hand.clear(); // another region: none of the last one's hand cuts
-        if (!c.restore_chop()) c.rechop(); // as it was left, else cut afresh
+        if (!c.restore_chop()) { // as it was left, else cut afresh by the type picked last
+            ui.chop_mode = ChopMode(ui.settings.chop_mode % unsigned(ChopMode::Count));
+            c.rechop();
+        }
     }
     c.open(PageId::Chop);
 }

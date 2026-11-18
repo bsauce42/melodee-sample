@@ -279,7 +279,7 @@ a pad to play its slice and select it. Press **CHOP** again to go back to
 | Control | Action |
 | --- | --- |
 | **K1** / **K2** | Start / end of the selected slice. |
-| **K3** | Chop type: Threshold, Regions, Beats, Manual or Auto. |
+| **K3** | Chop type: Threshold, Regions, Beats, Manual or Auto. A sample with no slices yet opens on the type you picked last. |
 | **SHIFT** + **K3** | The amount for that type: threshold, number of slices or division. On Auto: **SLICES**. |
 | Encoder | Move the selected slice's start in fine steps (its end after **K2**). |
 | **SHIFT** + encoder | Move that cut to the next or previous hit. |

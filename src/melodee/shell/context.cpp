@@ -812,7 +812,10 @@ void Context::apply(const Binding& b, int value) {
     }
     case Kind::ChopMode: // the same type again (a pot's noise): nothing, the cuts as they are
         if (ChopMode(value) == ui.chop_mode) break;
-        ui.chop_mode = ChopMode(value); rechop(); break;
+        ui.chop_mode = ChopMode(value); rechop();
+        ui.settings.chop_mode = uint8_t(value); // the next sample with no chop of its own opens on it
+        if (store) store->save_settings(ui.settings.text());
+        break;
     case Kind::ChopAmount:
         if (ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] == value) break;
         ui.chop_amount[size_t(ui.chop_mode) % ui.chop_amount.size()] = value; rechop(); break;

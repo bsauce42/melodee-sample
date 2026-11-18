@@ -8217,6 +8217,16 @@ void zero_snap() {
         back.read(picked.text());
         CHECK(back.slice_play == 2);
     }
+    // Chop's K3: the type picked last is kept with the settings, Threshold at first; a sample with no chop opens on it.
+    {
+        Settings fresh_chop;
+        CHECK(fresh_chop.chop_mode == uint8_t(ChopMode::Threshold));
+        Settings picked; picked.chop_mode = uint8_t(ChopMode::Auto);
+        Settings read_back; read_back.read(picked.text());
+        CHECK(read_back.chop_mode == uint8_t(ChopMode::Auto));
+        read_back.read("chop_mode=9\n");
+        CHECK(read_back.chop_mode == uint8_t(ChopMode::Auto)); // out of range: the last type
+    }
 
     // The engine: a level sample, so the fades are all there is to hear.
     SampleData level;

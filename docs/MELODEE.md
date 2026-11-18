@@ -1618,7 +1618,8 @@ the file holds, to the bit.
   the sample pages' title shows note, loop and reverse icons.
 - **Chop** (Chop): the last pad's region in slices that touch. Pads play and
   pick slices; K1 start, K2 end, K3 type (Threshold, Regions, Beats,
-  Manual, Auto), Shift + K3 its amount, Shift + K1 / K2 zoom. Auto
+  Manual, Auto; the type picked last is kept in the settings as
+  `chop_mode` and a sample with no chop opens on it), Shift + K3 its amount, Shift + K1 / K2 zoom. Auto
   (`engine/auto_chop.cpp`, read with the hits when a sample loads) cuts by
   what the sample is, named at the top right: DRUMS (each drum hit; ghost
   notes, a quiet copy of a strong hit, and flams within 50 ms stay in the
