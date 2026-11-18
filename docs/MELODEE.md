@@ -2691,6 +2691,15 @@ there) and
 checks the level. `./build.sh` runs both. The preview also checks text:
 anything asked for under 11 px, wider than its box, or a header whose two
 sides meet prints a `MELODEE_TEXT` line, and any such line fails the run.
+It checks the controls too (`shell/controls_rules.h`): the B1-B3 row and
+K1-K3 cards each preview drew go into `DIR/controls.tsv` (with all pages), and
+a break prints a `MELODEE_CONTROLS` line and fails the run: BACK (or the Back
+icon) anywhere but B1; send cards out of SEND, BUS, RETURN order (Motion's
+lanes aside); a SEQ hub page (Sequences, Patterns, Roll, Motion, Mod) without
+SEQUENCES or PATTERNS / ROLL / MOTION, MOD, MACRO or none; a MIX hub page
+(Tracks, Sends, the chains) without TRACKS / SENDS or none / FX. The hub
+rows count only with nothing over them: Shift, a held key, a sheet, a
+question, a picker, the MENU, Name, Exit, a lesson, or a Looper loop's chain.
 
 ## Installing
 

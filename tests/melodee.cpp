@@ -30,6 +30,7 @@
 #include "melodee/engine/take_recorder.h"
 #include "melodee/shell/chop.h"
 #include "melodee/shell/usage_log.h"
+#include "melodee/shell/controls_rules.h"
 #include "melodee/shell/light_show.h"
 #include "melodee/shell/xpm_write.h"
 #include "melodee/engine/auto_probe.h"
@@ -18276,7 +18277,52 @@ void usage_log() {
     std::puts("usage log ok");
 }
 
+// The preview's controls audit (shell/controls_rules.h): BACK on B1 only, send cards in SEND / BUS / RETURN order
+// (not Motion's lanes), the SEQ and MIX hubs' rows kept unless something is drawn over them.
+void controls_audit() {
+    auto row = [](PageId page, std::array<std::string, 3> keys, std::array<std::string, 3> knobs = {}) {
+        UiState ui; ui.page = page;
+        ControlsRow r = controls_row(ui);
+        r.keys = std::move(keys); r.knobs = std::move(knobs);
+        return r;
+    };
+    CHECK(controls_breaks(row(PageId::SettingsPage, {"BACK", "", "OPEN"})).empty());
+    auto b3 = controls_breaks(row(PageId::SettingsPage, {"", "", "BACK"}));
+    CHECK(b3.size() == 1 && b3[0] == "back: BACK on B3");
+    auto icon = row(PageId::Samples, {"", "OK", ""}); icon.back[1] = true;
+    CHECK(controls_breaks(icon).size() == 1);
+    CHECK(controls_breaks(row(PageId::Looper, {"BACK", "", "CANCEL"})).empty()); // cancel a queued stop: a job, not a way out
+
+    CHECK(controls_breaks(row(PageId::Sends, {"TRACKS", "SENDS", "FX"}, {"SEND A", "BUS", "RETURN"})).empty());
+    CHECK(controls_breaks(row(PageId::Stage, {"TRIM", "TUNE", "SENDS"}, {"KIT SEND A", "BUS", "RETURN"})).empty());
+    auto sends = controls_breaks(row(PageId::Stage, {"", "", ""}, {"BUS", "SEND A", "RETURN"}));
+    CHECK(sends.size() == 1 && sends[0] == "sends: BUS / SEND A / RETURN");
+    CHECK(controls_breaks(row(PageId::Motion, {"SEQUENCES", "ROLL", "MOTION"}, {"RETURN", "SEND A", ""})).empty()); // lanes
+    CHECK(controls_breaks(row(PageId::Stage, {"", "", ""}, {"SENDING", "BUS", ""})).empty()); // SysEx going out, not a send
+
+    CHECK(controls_breaks(row(PageId::Roll, {"SEQUENCES", "ROLL", ""})).empty()); // Basic: no MOTION
+    CHECK(controls_breaks(row(PageId::Patterns, {"PATTERNS", "ROLL", "MOTION"})).empty());
+    CHECK(controls_breaks(row(PageId::ModPage, {"SEQUENCES", "ROLL", "MACRO"})).empty());
+    auto mod = controls_breaks(row(PageId::ModPage, {"MOD", "MACRO", "ADD"}));
+    CHECK(mod.size() == 1 && mod[0] == "seq: MOD / MACRO / ADD");
+    CHECK(controls_breaks(row(PageId::Rack, {"TRACKS", "", "FX"})).empty()); // Basic: no SENDS
+    CHECK(controls_breaks(row(PageId::Bus, {"TRACKS", "FX", "SENDS"})).size() == 1);
+    // Over the row: Shift held, a sheet; a loop's chain; a frame with no key row.
+    UiState ui; ui.page = PageId::ModPage; ui.shift = true;
+    auto shifted = controls_row(ui); shifted.keys = {"", "", "ADD"};
+    CHECK(shifted.overlay && controls_breaks(shifted).empty());
+    ui = UiState {}; ui.page = PageId::Rack; ui.fx_loop = 1;
+    auto loop = controls_row(ui); loop.keys = {"LOOPER", "L2", ""};
+    CHECK(loop.loop_chain && controls_breaks(loop).empty());
+    auto bare = row(PageId::Tracks, {"", "", ""}); bare.keys_drawn = false;
+    CHECK(controls_breaks(bare).empty());
+    ui = UiState {}; ui.page = PageId::Patterns; ui.sheet_open = true;
+    CHECK(controls_overlay(ui));
+    std::puts("controls audit ok");
+}
+
 int main() {
+    controls_audit();
     usage_log();
     free_length();
     spare_steps();

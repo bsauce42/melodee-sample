@@ -2,6 +2,8 @@
 // Copyright (C) 2026 Kerem Kilic (Ellic Studio)
 #include "melodee/tools.h"
 #include "melodee/shell/menu.h"
+#include "melodee/shell/controls_rules.h"
+#include "melodee/shell/usage_log.h"
 #include "melodee/shell/stage_map.h"
 #include "melodee/shell/expansion_install.h"
 #include "melodee/shell/mpc_program.h"
@@ -2728,7 +2730,9 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
     EngineHost host;
     Shell shell(host);
     board_project(shell);
-    unsigned written = 0, text_issues = 0;
+    unsigned written = 0, text_issues = 0, control_breaks = 0;
+    // The controls audit (shell/controls_rules.h): every preview's B1-B3 and K1-K3, as a table beside the PNGs.
+    std::string table = "preview\tpage\tover\tB1\tB2\tB3\tK1\tK2\tK3\tbreaks\n";
     if (names.empty()) { // every page: first the PNGs of pages that are gone, so no removed screen lingers among them
         std::error_code error;
         for (const auto& entry : std::filesystem::directory_iterator(folder, error)) {
@@ -2759,13 +2763,32 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
         for (int scale : scales) {
             juce::Image image(juce::Image::ARGB, screen_width * scale, screen_height * scale, true);
             std::vector<ui::TextIssue> issues;
+            ui::ControlsSeen seen;
             ui::audit_text(scale == 1 ? &issues : nullptr);
+            ui::audit_controls(scale == 1 ? &seen : nullptr);
             {
                 juce::Graphics g(image);
                 g.addTransform(juce::AffineTransform::scale(float(scale)));
                 draw(g, *snapshot);
             }
             ui::audit_text(nullptr);
+            ui::audit_controls(nullptr);
+            if (scale == 1) {
+                auto row = controls_row(snapshot->ui);
+                row.keys_drawn = seen.keys_drawn;
+                for (size_t k = 0; k < 3; ++k) {
+                    row.keys[k] = seen.keys[k].toStdString(); row.knobs[k] = seen.knobs[k].toStdString(); row.back[k] = seen.back[k];
+                }
+                auto breaks = controls_breaks(row);
+                std::string said;
+                for (const auto& b : breaks) {
+                    std::printf("MELODEE_CONTROLS %s %s\n", preview.name, b.c_str());
+                    said += (said.empty() ? "" : "; ") + b;
+                    ++control_breaks;
+                }
+                table += std::string(preview.name) + '\t' + usage_page_name(row.page) + '\t' + (row.overlay ? "yes" : "") + '\t' + row.keys[0]
+                       + '\t' + row.keys[1] + '\t' + row.keys[2] + '\t' + row.knobs[0] + '\t' + row.knobs[1] + '\t' + row.knobs[2] + '\t' + said + '\n';
+            }
             for (const auto& i : issues) {
                 std::printf("MELODEE_TEXT %s \"%s\" size %.1f width %.0f in %.0f\n", preview.name,
                             i.text.toRawUTF8(), double(i.size), double(i.needed), double(i.box));
@@ -2776,9 +2799,13 @@ int preview(const std::string& folder, const std::vector<std::string>& names) {
         ++written;
     }
     require(written > 0, "Unknown Melodee page; use stage stagemix stagemidi stageemptysynth tracks keys sounds edit mix steps roll notesheet motion patterns seqsheet seqbpm seqclear rollkit song songzoom songclip songshift length rack sends bus fxpick pads samples trim chop chopfine levels record project filesheet tempo arp chord capture pad play envelope filter follow cloud padmix padfilter filterenv trimloop trimshift trimzoom ampenv tune levelsfilter levelssynth shift exit exitcard exitoff exitsaved");
-    std::cout << "MELODEE_PREVIEW pages=" << written << " text_issues=" << text_issues << '\n';
-    // Text under the floor or cut by its box fails the build check.
-    return text_issues ? 1 : 0;
+    if (names.empty()) { // every page: the table of their controls
+        std::ofstream out(folder + "/controls.tsv", std::ios::trunc);
+        out << table;
+    }
+    std::cout << "MELODEE_PREVIEW pages=" << written << " text_issues=" << text_issues << " control_breaks=" << control_breaks << '\n';
+    // Text under the floor or cut by its box, and a soft key or card against the controls rules, fail the build check.
+    return text_issues || control_breaks ? 1 : 0;
 }
 
 // The boot animation at 30 frames a second, fading out over the starting
